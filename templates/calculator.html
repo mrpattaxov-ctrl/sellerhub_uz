@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8 col-xl-6">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h1 class="h3 mb-0 fw-semibold">Калькулятор прибыли</h1>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <!-- Inputs -->
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <label class="form-label fw-medium">Поиск категории (авто-комиссия)</label>
+            <div class="position-relative">
+              <input type="text" id="catSearch" class="form-control" placeholder="Например: Одежда, Электроника..." autocomplete="off">
+              <div id="catResults" class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 250px; overflow-y: auto; display: none;"></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-medium">Цена продажи (сум)</label>
+            <input type="number" id="calcPrice" class="form-control form-control-lg" placeholder="0" oninput="calc()">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-medium">Себестоимость (сум)</label>
+            <input type="number" id="calcCost" class="form-control form-control-lg" placeholder="0" oninput="calc()">
+          </div>
+          
+          <div class="col-6">
+            <label class="form-label text-secondary small">Комиссия Uzum (%)</label>
+            <input type="number" id="calcCommPct" class="form-control" value="15" oninput="calc()">
+          </div>
+          <div class="col-6">
+            <label class="form-label text-secondary small">Логистика (сум)</label>
+            <input type="number" id="calcLogistics" class="form-control" value="0" placeholder="0" oninput="calc()">
+          </div>
+          <div class="col-6">
+            <label class="form-label text-secondary small">Налог (%)</label>
+            <input type="number" id="calcTaxPct" class="form-control" value="0" oninput="calc()">
+          </div>
+          <div class="col-6">
+            <label class="form-label text-secondary small">Прочие расходы (сум)</label>
+            <input type="number" id="calcOther" class="form-control" value="0" placeholder="0" oninput="calc()">
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Results -->
+        <div class="row g-3 text-center">
+          <div class="col-6">
+            <div class="text-secondary small mb-1">Чистая прибыль</div>
+            <div class="fs-2 fw-bold" id="resProfit">0</div>
+            <div class="small text-muted">сум</div>
+          </div>
+          <div class="col-6">
+            <div class="text-secondary small mb-1">Маржинальность</div>
+            <div class="fs-2 fw-bold" id="resMargin">0%</div>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-light rounded-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-secondary">Комиссия платформы:</span>
+            <span class="fw-medium" id="resCommAmt">0</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-secondary">Налог:</span>
+            <span class="fw-medium" id="resTaxAmt">0</span>
+          </div>
+          <div class="d-flex justify-content-between border-top pt-2 mt-2">
+            <span class="fw-bold">ROI (Возврат инвестиций):</span>
+            <span class="fw-bold text-success" id="resRoi">0%</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let uzumCommissions = [];
+
+fetch('/static/categories.json')
+  .then(res => res.json())
+  .then(data => { uzumCommissions = data; })
+  .catch(err => console.error('Error loading categories:', err));
+
+const catSearch = document.getElementById('catSearch');
+const catResults = document.getElementById('catResults');
+const commInput = document.getElementById('calcCommPct');
+
+catSearch.addEventListener('input', function() {
+  const val = this.value.toLowerCase().trim();
+  if (!val) {
+    catResults.style.display = 'none';
+    return;
+  }
+  
+ const matches = uzumCommissions.filter(c => (c.category_last || "").toLowerCase().includes(val));
+  
+  
+  if (matches.length > 0) {
+    catResults.innerHTML = matches.slice(0, 50).map(c => {
+      const pct = (c.commission || 0) * 100;
+      const nameSafe = (c.category_last || "").replace(/'/g, "\\'");
+      return `
+      <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onclick="selectCat('${nameSafe}', ${pct})">
+        <span>${c.category_last}</span>
+        <span class="badge bg-primary rounded-pill">${+pct.toFixed(2)}%</span>
+      </button>
+    `}).join('');
+    catResults.style.display = 'block';
+  } else {
+    catResults.style.display = 'none';
+  }
+});
+
+window.selectCat = function(name, pct) {
+  catSearch.value = name;
+  commInput.value = pct;
+  catResults.style.display = 'none';
+  calc(); // Recalculate immediately
+};
+
+document.addEventListener('click', (e) => {
+  if (!catSearch.contains(e.target) && !catResults.contains(e.target)) {
+    catResults.style.display = 'none';
+  }
+});
+
+function calc() {
+  const price = parseFloat(document.getElementById('calcPrice').value) || 0;
+  const cost = parseFloat(document.getElementById('calcCost').value) || 0;
+  const commPct = parseFloat(document.getElementById('calcCommPct').value) || 0;
+  const logistics = parseFloat(document.getElementById('calcLogistics').value) || 0;
+  const taxPct = parseFloat(document.getElementById('calcTaxPct').value) || 0;
+  const other = parseFloat(document.getElementById('calcOther').value) || 0;
+
+  const commAmt = price * (commPct / 100);
+  const taxAmt = price * (taxPct / 100);
+  
+  const totalExpenses = cost + commAmt + logistics + taxAmt + other;
+  const profit = price - totalExpenses;
+  
+  let margin = 0;
+  if (price > 0) margin = (profit / price) * 100;
+
+  let roi = 0;
+  if (cost > 0) roi = (profit / cost) * 100;
+
+  const fmt = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+  const fmtPct = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + '%';
+
+  document.getElementById('resProfit').textContent = fmt(profit);
+  document.getElementById('resProfit').className = 'fs-2 fw-bold ' + (profit >= 0 ? 'text-success' : 'text-danger');
+  document.getElementById('resMargin').textContent = fmtPct(margin);
+  document.getElementById('resRoi').textContent = fmtPct(roi);
+  document.getElementById('resCommAmt').textContent = fmt(commAmt);
+  document.getElementById('resTaxAmt').textContent = fmt(taxAmt);
+}
+</script>
+{% endblock %}

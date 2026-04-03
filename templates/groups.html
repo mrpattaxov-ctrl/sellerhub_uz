@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Search and filters at the top -->
+<style>
+  .search-wrapper {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1.5px solid #D0D5DD; border-radius: 10px;
+    padding: 0 14px; height: 42px; width: 240px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .search-wrapper:focus-within { border-color: #2E90FA; box-shadow: 0 0 0 3px rgba(46,144,250,.15); }
+  .search-wrapper .s-icon { color: #667085; font-size: 14px; flex-shrink: 0; }
+  .search-wrapper input {
+    border: none; outline: none; background: transparent;
+    font-size: 14px; font-weight: 500; color: #101828; width: 100%;
+  }
+  .search-wrapper input::placeholder { color: #98A2B3; }
+  .shop-picker {
+    position: relative; display: inline-block;
+  }
+  .shop-picker-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1.5px solid #D0D5DD; border-radius: 10px;
+    padding: 0 14px; height: 42px; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: #101828;
+    transition: border-color .2s, box-shadow .2s; white-space: nowrap;
+  }
+  .shop-picker-btn:hover { border-color: #667085; }
+  .shop-picker-btn svg { color: #98A2B3; flex-shrink: 0; }
+  .shop-picker-menu {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0;
+    background: #fff; border: 1px solid #EAECF0; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(16,24,40,.12); z-index: 200;
+    min-width: 100%; overflow: hidden;
+  }
+  .shop-picker.open .shop-picker-menu { display: block; }
+  .shop-picker-item {
+    padding: 8px 14px; font-size: 13px; font-weight: 500; color: #344054;
+    cursor: pointer; white-space: nowrap; transition: background .15s;
+  }
+  .shop-picker-item:hover { background: #F2F4F7; }
+  .shop-picker-item.selected { background: #EFF8FF; color: #175CD3; font-weight: 600; }
+  .status-toggle {
+    display: inline-flex; background: #f1f3f5; border-radius: 10px;
+    padding: 3px; gap: 2px;
+  }
+  .status-toggle-opt {
+    padding: 7px 18px; border-radius: 8px; font-size: .85rem;
+    font-weight: 500; color: #64748b; text-decoration: none;
+    transition: all .2s;
+  }
+  .status-toggle-opt:hover { color: #334155; background: #e2e8f0; }
+  .status-toggle-opt.active {
+    background: #fff; color: #0f172a; font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  #productsGrid .card { border-radius: 18px; overflow: hidden; }
+  #productsGrid .card-img-top { border-radius: 18px 18px 0 0; }
+</style>
+<div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+  <div class="search-wrapper">
+    <svg class="s-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="liveSearch" value="{{ q }}" placeholder="Поиск...">
+  </div>
+  {% if shops | length > 1 %}
+  <div class="shop-picker" id="shopPicker">
+    <div class="shop-picker-btn" id="shopPickerBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span id="shopPickerLabel">{{ shops | selectattr('id', 'equalto', current_shop_id|int) | map(attribute='name') | first | default('Все магазины') if current_shop_id else 'Все магазины' }}</span>
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="shop-picker-menu" id="shopPickerMenu">
+      <div class="shop-picker-item {{ 'selected' if not current_shop_id }}" data-shop-id="">Все магазины</div>
+      {% for s in shops %}
+      <div class="shop-picker-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="ms-auto"></div>
+  {% if current_user.is_authenticated and current_user.is_admin %}
+  <button class="btn btn-dark btn-sm" id="btnSyncAll" onclick="syncAllShops(this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Синхр. все магазины
+  </button>
+  {% endif %}
+  <div class="status-toggle">
+    <a href="/groups?status=active{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}" class="status-toggle-opt {{ 'active' if current_status == 'active' }}">Активные</a>
+    <a href="/groups?status=archived{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}" class="status-toggle-opt {{ 'active' if current_status == 'archived' }}">Архив</a>
+  </div>
+</div>
+
+
+<div class="row g-3 mt-2" id="productsGrid">
+  {% for g in groups %}
+  {% set a = agg.get(g.id, {"variants":0,"uzum_qty":0,"wh_qty":0,"sku":""}) %}
+  <div class="col-12 col-sm-6 col-lg-4 col-xxl-3">
+    <a class="card h-100 d-block text-decoration-none {% if current_status == 'archived' %}opacity-75{% endif %}" href="/groups/{{ g.id }}">
+      {% if g.image_url %}
+      <img src="{{ g.image_url }}" class="card-img-top" alt="" style="object-fit:cover; height: 180px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <div class="card-img-top bg-light" style="height: 180px; display: none;"></div>
+      {% else %}
+      <div class="card-img-top bg-light" style="height: 180px;"></div>
+      {% endif %}
+      <div class="card-body">
+        <div class="fw-semibold">{{ g.name }}</div>
+        <div class="text-secondary small">{{ g.category or "" }}</div>
+        {% if a.sku %}
+        <div class="text-muted small text-truncate mt-1">{{ a.sku }}{% if a.variants > 1 %}...{% endif %}</div>
+        {% endif %}
+        <div class="mt-2 d-flex gap-2 flex-wrap">
+          <span class="badge text-bg-light border">SKU: {{ a.variants }}</span>
+          <span class="badge border text-dark" style="background-color: #e6e6fa;">Кол-во Uzum: {{ a.uzum_qty }}</span>
+          <span class="badge border text-dark" style="background-color: #e0ffff;">Кол-во Склад: {{ a.wh_qty }}</span>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+  {% if not groups %}
+    <div class="col-12">
+      {% if current_status == 'archived' %}
+        <div class="alert alert-secondary">В архиве нет товаров.</div>
+      {% else %}
+        <div class="alert alert-secondary">Товаров пока нет. Нажмите <b>Синхронизация Uzum</b> для импорта.</div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+<script>
+document.getElementById('liveSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('#productsGrid > div').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+});
+
+// Shop picker dropdown
+const picker = document.getElementById('shopPicker');
+if (picker) {
+  const btn = document.getElementById('shopPickerBtn');
+  btn.addEventListener('click', e => { e.stopPropagation(); picker.classList.toggle('open'); });
+  document.addEventListener('click', () => picker.classList.remove('open'));
+  document.querySelectorAll('.shop-picker-item').forEach(item => {
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      const params = new URLSearchParams(window.location.search);
+      const sid = item.dataset.shopId;
+      if (sid) params.set('shop_id', sid); else params.delete('shop_id');
+      params.delete('q');
+      window.location.search = params.toString();
+    });
+  });
+}
+
+{% if current_user.is_authenticated and current_user.is_admin %}
+async function syncAllShops(btn) {
+  if (!confirm('Запустить синхронизацию товаров для всех магазинов?')) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Синхронизация...';
+  try {
+    const r = await fetch('/api/uzum/sync-all', {method:'POST'});
+    const d = await r.json();
+    if (d.ok || d.status) {
+      btn.innerHTML = '✓ Запущено';
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Синхр. все магазины'; }, 3000);
+    } else {
+      alert(d.error || 'Ошибка');
+      btn.disabled = false;
+      btn.innerHTML = 'Синхр. все магазины';
+    }
+  } catch(e) {
+    alert('Ошибка: ' + e);
+    btn.disabled = false;
+    btn.innerHTML = 'Синхр. все магазины';
+  }
+}
+{% endif %}
+</script>
+{% endblock %}

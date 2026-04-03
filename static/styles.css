@@ -1,0 +1,51 @@
+:root {
+  --card-radius: 22px;
+}
+
+body {
+  background: #f7f7f9;
+}
+
+.card.product-card {
+  border-radius: var(--card-radius);
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 6px 22px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+
+.product-img {
+  height: 160px;
+  width: 100%;
+  object-fit: cover;
+  background: #fff;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: .9rem;
+}
+
+.badge-soft {
+  background: rgba(13,110,253,.10);
+  color: #0d6efd;
+  border: 1px solid rgba(13,110,253,.20);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
+.skeleton {
+  border-radius: var(--card-radius);
+  background: linear-gradient(90deg, rgba(0,0,0,.05) 25%, rgba(0,0,0,.08) 37%, rgba(0,0,0,.05) 63%);
+  background-size: 400% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+  height: 280px;
+}
+
+@keyframes skeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}

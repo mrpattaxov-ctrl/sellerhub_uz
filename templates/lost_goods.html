@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+  <div class="col">
+    <h4>Потерянные товары</h4>
+    <p class="text-muted small">lost = invoiced - active (В продаже) - defected (Брак) - sold</p>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-auto">
+    <label class="form-label fw-semibold">Магазин</label>
+    <select id="shopSelect" class="form-select">
+      {% for shop in shops %}
+      <option value="{{ shop.uzum_id }}">{{ shop.name or shop.uzum_id }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto d-flex align-items-end">
+    <button id="btnCalc" class="btn btn-dark" onclick="calculate()">Рассчитать</button>
+  </div>
+  <div class="col-auto d-flex align-items-end">
+    <button id="btnExcel" class="btn btn-success" onclick="downloadExcel()" disabled>Скачать Excel</button>
+  </div>
+</div>
+
+<div id="statusBox" class="alert alert-info small" style="display:none"></div>
+<div id="errorBox" class="alert alert-danger small" style="display:none"></div>
+
+<div id="summaryBox" style="display:none" class="row mb-3">
+  <div class="col-auto"><span class="badge bg-secondary" id="sumInvoices"></span></div>
+  <div class="col-auto"><span class="badge bg-primary" id="sumInvoiced"></span></div>
+  <div class="col-auto"><span class="badge bg-success" id="sumActive"></span></div>
+  <div class="col-auto"><span class="badge bg-warning text-dark" id="sumDefected"></span></div>
+  <div class="col-auto"><span class="badge bg-info text-dark" id="sumSold"></span></div>
+  <div class="col-auto"><span class="badge bg-danger" id="sumLost"></span></div>
+</div>
+
+<div class="table-responsive" id="tableBox" style="display:none">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>SKU</th>
+        <th>Invoiced</th>
+        <th>Active (В продаже)</th>
+        <th>Defected (Брак)</th>
+        <th>Sold</th>
+        <th>Lost</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+let lastData = null;
+
+function status(msg) {
+  const el = document.getElementById('statusBox');
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+
+function calculate() {
+  const shopId = document.getElementById('shopSelect').value;
+  if (!shopId) return;
+  const btn = document.getElementById('btnCalc');
+  btn.disabled = true;
+  btn.textContent = 'Загрузка...';
+  document.getElementById('btnExcel').disabled = true;
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('summaryBox').style.display = 'none';
+  document.getElementById('tableBox').style.display = 'none';
+  status('Создание отчёта и сбор данных... Это может занять 1-2 минуты.');
+
+  fetch('/api/lost-goods?shop_id=' + shopId + '&all=true')
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.textContent = 'Рассчитать';
+      status('');
+      lastData = data;
+
+      if (data.error) {
+        document.getElementById('errorBox').textContent = data.error;
+        document.getElementById('errorBox').style.display = '';
+        return;
+      }
+
+      if (data.errors && data.errors.length) {
+        const el = document.getElementById('errorBox');
+        el.textContent = 'Предупреждения: ' + data.errors.map(e => e.error || JSON.stringify(e)).join('; ');
+        el.style.display = '';
+      }
+
+      const t = data.totals || {};
+      document.getElementById('sumInvoices').textContent = 'Накладных: ' + (data.total_invoices || 0);
+      document.getElementById('sumInvoiced').textContent = 'Принято: ' + (t.invoiced || 0);
+      document.getElementById('sumActive').textContent = 'В продаже: ' + (t.active || 0);
+      document.getElementById('sumDefected').textContent = 'Брак: ' + (t.defected || 0);
+      document.getElementById('sumSold').textContent = 'Продано: ' + (t.sold || 0);
+      document.getElementById('sumLost').textContent = 'Потеряно: ' + (t.lost || 0);
+      document.getElementById('summaryBox').style.display = '';
+
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      (data.items || []).forEach((item, i) => {
+        const tr = document.createElement('tr');
+        if (item.lost > 0) tr.classList.add('table-danger');
+        else if (item.lost < 0) tr.classList.add('table-warning');
+        tr.innerHTML = '<td>' + (i+1) + '</td>'
+          + '<td>' + esc(item.sku) + '</td>'
+          + '<td>' + item.invoiced + '</td>'
+          + '<td>' + item.active + '</td>'
+          + '<td>' + item.defected + '</td>'
+          + '<td>' + item.sold + '</td>'
+          + '<td><strong>' + item.lost + '</strong></td>';
+        tbody.appendChild(tr);
+      });
+      document.getElementById('tableBox').style.display = '';
+      document.getElementById('btnExcel').disabled = false;
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.textContent = 'Рассчитать';
+      status('');
+      document.getElementById('errorBox').textContent = 'Ошибка: ' + err;
+      document.getElementById('errorBox').style.display = '';
+    });
+}
+
+function downloadExcel() {
+  if (!lastData) return;
+  const shopId = document.getElementById('shopSelect').value;
+  // POST the data to the excel endpoint
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/lost-goods/export?shop_id=' + shopId;
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'data';
+  input.value = JSON.stringify(lastData);
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+</script>
+{% endblock %}

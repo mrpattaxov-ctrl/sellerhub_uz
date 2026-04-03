@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/pos.css">
+{% endblock %}
+
+{% block content %}
+<div class="pos-shell">
+  <section class="pos-panel">
+    <div class="pos-card pos-results-wrap">
+      <div class="pos-toolbar">
+        <label class="pos-search-bar flex-fill mb-0" for="posSearch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="posSearch" type="text" placeholder="Поиск по названию, SKU или штрихкоду..." autocomplete="off" autofocus>
+        </label>
+        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">Накладные</button>
+      </div>
+
+      <div id="posResults" class="pos-product-grid"></div>
+    </div>
+  </section>
+
+  <aside class="pos-panel">
+    <div class="pos-card pos-cart">
+      <div class="pos-cart-header">
+        <div class="pos-mode-toggle" role="radiogroup" aria-label="Режим POS">
+          <input type="radio" id="modeSale" name="posMode" value="sale" checked>
+          <label for="modeSale">Продажа (-)</label>
+          <input type="radio" id="modeStockIn" name="posMode" value="stock_in">
+          <label for="modeStockIn">Приход (+)</label>
+        </div>
+
+        <div class="pos-cart-title">
+          <h5>Корзина</h5>
+          <span id="cartCount" class="pos-count-badge">0</span>
+        </div>
+      </div>
+
+      <div id="cartContainer" class="pos-cart-list"></div>
+
+      <div class="pos-action-footer">
+        <div class="pos-action-summary">
+          <span>Итого товаров</span>
+          <strong id="totalQty">0</strong>
+        </div>
+        <button id="btnCheckout" class="pos-primary-btn" type="button" disabled>Подтвердить</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pos-modal">
+      <div class="modal-header">
+        <h5 class="modal-title">Загрузка накладной</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="invoiceShopSelect">Магазин</label>
+          <select id="invoiceShopSelect" class="form-select"></select>
+        </div>
+        <div class="mb-0">
+          <label class="form-label" for="invoiceIdInput">ID накладной</label>
+          <input id="invoiceIdInput" class="form-control" placeholder="Введите ID накладной">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">Загрузить</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/pos_shared.js"></script>
+<script>
+new PosEngine({
+  showStock: true,
+  showModeToggle: true,
+  actionBtnId: "btnCheckout",
+  emptyCartTitle: "Корзина пуста",
+  emptyCartText: "Добавьте товары из результата поиска или загрузите накладную.",
+  actionPendingText: "Обработка...",
+  actionShortcut: "ctrl+enter",
+  updateActionBtn: function (button, items, totalQty, mode) {
+    button.className = "pos-primary-btn " + (mode === "sale" ? "pos-primary-btn--danger" : "pos-primary-btn--success");
+    button.textContent = mode === "sale"
+      ? "Продать (" + totalQty + ")"
+      : "Принять на склад (" + totalQty + ")";
+  },
+  onAction: async function (items, mode) {
+    const response = await fetch("/api/pos/transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: mode, items: items })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "Не удалось выполнить транзакцию.");
+    }
+    return {
+      message: mode === "sale" ? "Продажа проведена." : "Приход проведен."
+    };
+  }
+});
+</script>
+{% endblock %}

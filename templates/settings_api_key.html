@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-7">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h1 class="h4 mb-0 fw-semibold">Uzum Токен</h1>
+      <a class="btn btn-outline-secondary btn-sm" href="/groups">Назад</a>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-info">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- AUTO LOGIN SECTION -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h5 class="fw-semibold mb-1">Автоматический вход в Uzum</h5>
+        <p class="text-muted mb-3">
+          Введите телефон и пароль от аккаунта <b>Uzum Seller</b>. Приложение будет само обновлять токен
+          каждые 90 минут — никаких ручных действий не требуется.
+        </p>
+        {% if uzum_phone %}
+          <div class="alert alert-success py-2">
+            Учётные данные сохранены: <b>{{ uzum_phone }}</b> &nbsp;
+            {% if has_password %}<span class="badge bg-success">Пароль ✓</span>{% endif %}
+          </div>
+        {% endif %}
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Телефон или Email</label>
+            <input type="text" name="uzum_phone" class="form-control"
+                   placeholder="+998901234567 или seller@example.com" value="{{ uzum_phone }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium">Пароль</label>
+            <input type="password" name="uzum_password" class="form-control"
+                   placeholder="{{ 'Оставьте пустым, чтобы не менять' if has_password else 'Введите пароль' }}">
+          </div>
+          <button class="btn btn-success" type="submit">Сохранить и войти</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MANUAL TOKEN SECTION -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="fw-semibold mb-1">Ручной токен</h5>
+        <p class="text-muted mb-3">
+          Или вставьте токен вручную (из F12 → Network → Authorization). Используется только если
+          авто-вход не настроен.
+        </p>
+        <form method="POST">
+          <label class="form-label fw-medium">Bearer Token</label>
+          <input type="password" name="api_key" class="form-control font-monospace"
+                 placeholder="Bearer eyJ..." value="{{ api_key }}">
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+            <button class="btn btn-outline-danger" type="submit" name="api_key" value="">Очистить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

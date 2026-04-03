@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+data/
+.env
+.git
+*.db
+*.db-wal
+*.db-shm
+chrome_extension/
+designs/
+*.pdf
+*.xlsx
+*.png
+ring07.html
+Uzum Calculator.html

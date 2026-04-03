@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+data/
+scripts/logs/
+scripts/scheduled_messages/
+data/app.db

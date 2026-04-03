@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/pos.css">
+{% endblock %}
+
+{% block content %}
+<div class="pos-shell">
+  <section class="pos-panel">
+    <div class="pos-card pos-results-wrap">
+      <div class="pos-toolbar">
+        <label class="pos-search-bar flex-fill mb-0" for="posSearch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="posSearch" type="text" placeholder="Поиск товара для печати..." autocomplete="off" autofocus>
+        </label>
+        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">Накладные</button>
+      </div>
+
+      <div id="posResults" class="pos-product-grid"></div>
+    </div>
+  </section>
+
+  <aside class="pos-panel">
+    <div class="pos-card pos-cart">
+      <div class="pos-cart-header">
+        <div class="pos-cart-title">
+          <h5>Очередь печати</h5>
+          <span id="cartCount" class="pos-count-badge">0</span>
+        </div>
+      </div>
+
+      <div id="cartContainer" class="pos-cart-list"></div>
+
+      <div class="pos-action-footer">
+        <div class="pos-action-summary">
+          <span>Всего этикеток</span>
+          <strong id="totalQty">0</strong>
+        </div>
+
+        <div class="pos-size-picker">
+          <label class="pos-size-picker__label" for="labelSize">Размер</label>
+          <div class="pos-size-picker__field">
+            <select id="labelSize" class="pos-size-picker__select">
+              <option value="" selected disabled>Выберите размер</option>
+              <option value="30x20">30 x 20 мм</option>
+              <option value="43x25">43 x 25 мм</option>
+              <option value="40x30">40 x 30 мм</option>
+              <option value="60x60">60 x 60 мм</option>
+              <option value="70x37">70 x 37 мм</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btnPrint" class="pos-primary-btn" type="button" disabled>Печать</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pos-modal">
+      <div class="modal-header">
+        <h5 class="modal-title">Загрузка накладной</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="invoiceShopSelect">Магазин</label>
+          <select id="invoiceShopSelect" class="form-select"></select>
+        </div>
+        <div class="mb-0">
+          <label class="form-label" for="invoiceIdInput">ID накладной</label>
+          <input id="invoiceIdInput" class="form-control" placeholder="Введите ID накладной">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">Загрузить</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/pos_shared.js"></script>
+<script>
+const labelSizeSelect = document.getElementById("labelSize");
+
+function getSelectedLabelSize() {
+  return labelSizeSelect ? String(labelSizeSelect.value || "").trim() : "";
+}
+
+function printQueueLabels(ids) {
+  const frameId = "printQueueFrame";
+  const existingFrame = document.getElementById(frameId);
+  if (existingFrame) {
+    existingFrame.remove();
+  }
+
+  const iframe = document.createElement("iframe");
+  iframe.id = frameId;
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+
+  const cleanup = function () {
+    window.removeEventListener("message", onMessage);
+    window.clearTimeout(fallbackTimer);
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  };
+
+  const onMessage = function (event) {
+    if (event.origin !== window.location.origin) {
+      return;
+    }
+    if (!event.data || event.data.type !== "print-labels-done") {
+      return;
+    }
+    cleanup();
+  };
+
+  const fallbackTimer = window.setTimeout(cleanup, 30000);
+  window.addEventListener("message", onMessage);
+  var labelSize = getSelectedLabelSize();
+  iframe.src = "/print/labels?ids=" + ids.join(",") + "&size=" + labelSize;
+  document.body.appendChild(iframe);
+}
+
+const printQueueEngine = new PosEngine({
+  showStock: false,
+  showModeToggle: false,
+  actionBtnId: "btnPrint",
+  emptyCartTitle: "Список пуст",
+  emptyCartText: "Добавьте товары в очередь печати или загрузите накладную.",
+  actionPendingText: "Подготовка...",
+  actionShortcut: "ctrl+p",
+  clearCartOnAction: false,
+  clearSearchOnAction: false,
+  updateActionBtn: function (button, items, totalQty) {
+    var hasSize = !!getSelectedLabelSize();
+    button.className = "pos-primary-btn";
+    button.disabled = items.length === 0 || !hasSize;
+    if (!hasSize && items.length > 0) {
+      button.textContent = "Выберите размер";
+      return;
+    }
+    button.textContent = totalQty ? "Печать (" + totalQty + ")" : "Печать";
+  },
+  onAction: async function (items) {
+    const ids = [];
+    items.forEach(function (item) {
+      for (let index = 0; index < item.qty; index += 1) {
+        ids.push(item.id);
+      }
+    });
+    if (!ids.length) {
+      throw new Error("Очередь печати пуста.");
+    }
+    if (!getSelectedLabelSize()) {
+      throw new Error("Выберите размер этикетки.");
+    }
+    printQueueLabels(ids);
+    return { message: "Диалог печати открыт." };
+  }
+});
+
+if (labelSizeSelect) {
+  labelSizeSelect.addEventListener("change", function () {
+    printQueueEngine.updateActionButton();
+  });
+}
+</script>
+{% endblock %}

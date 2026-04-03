@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0">Управление пользователями</h4>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
+    + Новый пользователь
+  </button>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Логин</th>
+        <th>Роль</th>
+        <th>Магазины</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody id="users-tbody">
+      {% for u in users %}
+      <tr data-uid="{{ u.id }}">
+        <td class="text-muted">{{ u.id }}</td>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>
+          {% if u.is_admin %}
+          <span class="badge bg-danger">Админ</span>
+          {% else %}
+          <span class="badge bg-secondary">Продавец</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-1 align-items-center" id="shops-{{ u.id }}">
+            {% for s in shops if s.owner_id == u.id %}
+            <span class="badge bg-primary">{{ s.name or s.uzum_id }}</span>
+            {% endfor %}
+            {% if not u.is_admin %}
+            <button class="btn btn-outline-secondary btn-sm py-0"
+                    onclick="openAssignModal({{ u.id }}, '{{ u.username }}')">
+              + магазин
+            </button>
+            {% endif %}
+          </div>
+        </td>
+        <td>
+          {% if not u.is_admin %}
+          <button class="btn btn-outline-danger btn-sm"
+                  onclick="deleteUser({{ u.id }}, '{{ u.username }}')">
+            Удалить
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Создать пользователя</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Логин</label>
+          <input id="newUsername" class="form-control" placeholder="seller_ivanov">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Пароль</label>
+          <input id="newPassword" type="password" class="form-control">
+        </div>
+        <div id="createUserError" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button class="btn btn-primary" onclick="createUser()">Создать</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Shop Modal -->
+<div class="modal fade" id="assignShopModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Назначить магазин — <span id="assignUsername"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Выберите магазин</label>
+        <select id="assignShopSelect" class="form-select">
+          <option value="">— выберите —</option>
+          {% for s in shops %}
+          <option value="{{ s.id }}" data-owner="{{ s.owner_id or '' }}">
+            {{ s.name or s.uzum_id }} (ID: {{ s.uzum_id }})
+            {% if s.owner_id and s.owner_id != 0 %} [занят]{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <div id="assignError" class="alert alert-danger d-none mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button class="btn btn-primary" onclick="assignShop()">Назначить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let assignTargetUid = null;
+
+function openAssignModal(uid, username) {
+  assignTargetUid = uid;
+  document.getElementById('assignUsername').textContent = username;
+  document.getElementById('assignError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('assignShopModal')).show();
+}
+
+async function assignShop() {
+  const shopId = document.getElementById('assignShopSelect').value;
+  if (!shopId) return;
+  const r = await fetch(`/api/shops/${shopId}/assign`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({owner_id: assignTargetUid})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    location.reload();
+  } else {
+    const el = document.getElementById('assignError');
+    el.textContent = d.error || 'Ошибка';
+    el.classList.remove('d-none');
+  }
+}
+
+async function createUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value.trim();
+  const errEl = document.getElementById('createUserError');
+  if (!username || !password) {
+    errEl.textContent = 'Заполните логин и пароль'; errEl.classList.remove('d-none'); return;
+  }
+  const r = await fetch('/api/admin/users', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username, password})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    location.reload();
+  } else {
+    errEl.textContent = d.error || 'Ошибка';
+    errEl.classList.remove('d-none');
+  }
+}
+
+async function deleteUser(uid, username) {
+  if (!confirm(`Удалить пользователя "${username}"? Его магазины станут свободными.`)) return;
+  const r = await fetch(`/api/admin/users/${uid}`, {method: 'DELETE'});
+  const d = await r.json();
+  if (d.ok) {
+    document.querySelector(`tr[data-uid="${uid}"]`)?.remove();
+  } else {
+    alert(d.error || 'Ошибка');
+  }
+}
+</script>
+{% endblock %}

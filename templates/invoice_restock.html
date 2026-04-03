@@ -1,0 +1,677 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<style>
+  .sortable-tbody { min-height: 60px; }
+  .sortable-tbody tr { transition: box-shadow 0.18s ease, background-color 0.18s ease; }
+  .sortable-tbody tr.sortable-selected td { background-color: #eef6ff !important; }
+  .sortable-tbody tr.sortable-selected { box-shadow: inset 0 0 0 1px #60a5fa; }
+  .sortable-ghost { opacity: 0.45; background-color: #eff6ff; }
+  .sortable-chosen td { background-color: #dbeafe !important; }
+  .selection-cell { min-width: 78px; }
+  .selection-stack {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .selection-toggle,
+  .drag-handle {
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+  .selection-toggle {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .selection-toggle::after {
+    content: "";
+    width: 7px;
+    height: 12px;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: translateY(-1px) rotate(45deg) scale(0);
+    transition: transform 0.16s ease;
+  }
+  .selection-toggle:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.12);
+    transform: translateY(-1px);
+  }
+  .selection-toggle.is-selected,
+  .selection-toggle.is-indeterminate {
+    border-color: #2563eb;
+    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  }
+  .selection-toggle.is-selected::after {
+    transform: translateY(-1px) rotate(45deg) scale(1);
+  }
+  .selection-toggle.is-indeterminate::after {
+    width: 10px;
+    height: 2px;
+    border: 0;
+    background: #fff;
+    border-radius: 999px;
+    transform: scale(1);
+  }
+  .drag-handle {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.7);
+    transition: color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    cursor: grab;
+  }
+  .drag-handle:hover {
+    color: #0f172a;
+    box-shadow: inset 0 0 0 1px #94a3b8, 0 8px 18px rgba(15, 23, 42, 0.08);
+  }
+  .drag-handle:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+  }
+  .selection-toggle:focus-visible,
+  .drag-handle:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+  }
+  .action-btn {
+    border: 0;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  }
+  .action-btn:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.2);
+    filter: saturate(1.05);
+  }
+  .action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.16);
+  }
+  .action-btn:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 3px;
+  }
+  .action-btn[disabled] {
+    opacity: 0.7;
+    transform: none;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+  }
+  .action-btn__icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    flex: 0 0 auto;
+  }
+  .action-btn__icon svg {
+    width: 13px;
+    height: 13px;
+  }
+  .action-btn--uzum {
+    background: linear-gradient(135deg, #b8a7e8 0%, #a38bd9 52%, #8f74cb 100%);
+  }
+  .action-btn--excel {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  }
+  /* Footer Summary Styles */
+  .footer-summary { font-size: 1.5rem; font-weight: bold; }
+  .footer-summary td { border-top: 0.5px solid #cccccc !important; }
+  .footer-cell { text-align: center; vertical-align: middle; font-size: 1.1rem; }
+</style>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3>Формирование накладных</h3>
+    <div class="text-secondary small">Товары отсортированы по SKU. Вы можете кликнуть по строке (или галочке), чтобы выделить несколько товаров, и перетащить их все сразу. Максимум 35 товаров в одной накладной.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <form class="d-flex gap-2" method="get">
+      <select name="shop_id" id="shop_filter" class="form-select" onchange="this.form.submit()">
+        <option value="">Все магазины</option>
+        {% for s in shops %}
+        <option value="{{ s.id }}" {% if current_shop == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+{% for chunk in chunks %}
+<div class="card mb-4 invoice-card shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Накладная <span class="invoice-number">{{ loop.index }}</span> <span class="badge bg-secondary item-count">{{ chunk|length }} шт</span></h5>
+    <div>
+      <button class="action-btn action-btn--uzum me-2" onclick="uploadChunk(this)">
+        <span class="action-btn__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 16V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 9l4-4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span>Отправить в Uzum</span>
+      </button>
+      <button class="action-btn action-btn--excel" onclick="downloadChunk(this)">
+        <span class="action-btn__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 12l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span>Скачать Excel</span>
+      </button>
+    </div>
+  </div>
+  <div class="table-responsive mb-0">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 78px;" class="text-center">
+            <button type="button" class="selection-toggle select-all-toggle" role="checkbox" aria-checked="false" title="Выделить все строки">
+              <span class="visually-hidden">Выделить все строки</span>
+            </button>
+          </th>
+          <th>Фото</th>
+          <th>Товар / SKU</th>
+          <th class="text-center">Штрихкод</th>
+          <th class="text-center">Продажи (30д)</th>
+          <th class="text-center" style="background-color: #e6e6fa;">Остаток Uzum</th>
+          <th class="text-center" style="background-color: #e0ffff;">Остаток Склад</th>
+          <th class="text-center table-warning" style="width: 120px; background-color: #fff3cd;">К отправке</th>
+          <th class="text-center">Себест. (шт)</th>
+          <th class="text-center">Общая сумма</th>
+        </tr>
+      </thead>
+      <tbody class="sortable-tbody">
+        {% for item in chunk %}
+        <tr data-barcode="{{ item.barcode or '' }}" data-price="{{ item.price }}" data-sku="{{ item.sku or '' }}">
+          <td class="text-center text-nowrap selection-cell">
+            <div class="selection-stack">
+              <button type="button" class="selection-toggle row-select-toggle" role="checkbox" aria-checked="false" title="Выделить товар">
+                <span class="visually-hidden">Выделить товар</span>
+              </button>
+              <button type="button" class="drag-handle" title="Перетащить выбранные товары" aria-label="Перетащить выбранные товары">
+                <span aria-hidden="true">⋮⋮</span>
+              </button>
+            </div>
+          </td>
+          <td style="width: 50px;">
+            {% if item.image_url %}
+            <img src="{{ item.image_url }}" class="table-img" style="width: 40px; height: 53px; object-fit: cover; border-radius: 4px;">
+            {% else %}
+            <div class="bg-light text-center small text-secondary" style="width: 40px; height: 53px; line-height: 53px;">-</div>
+            {% endif %}
+          </td>
+          <td>
+            <div class="fw-semibold">{{ item.name }}</div>
+            <div class="small text-secondary">{{ item.sku }}</div>
+          </td>
+          <td class="mono small text-center">{{ item.barcode or "-" }}</td>
+          <td class="text-center">{{ item.sales_30d }}</td>
+          <td class="text-center" style="background-color: #e6e6fa;">{{ item.uzum_qty }}</td>
+          <td class="text-center" style="background-color: #e0ffff;">{{ item.wh_qty }}</td>
+          <td class="text-center table-warning">
+            <input type="number" class="form-control form-control-sm text-center qty-input fw-bold" 
+                   value="{{ item.restock_qty }}" min="0" max="{{ item.wh_qty }}" style="width: 80px; margin: 0 auto;"
+                   onchange="updateRowTotal(this)">
+          </td>
+          <td class="text-center">
+            <input type="number" class="form-control form-control-sm text-center price-input" 
+                   value="{{ item.price or 0 }}" min="0" style="width: 100px; margin: 0 auto;"
+                   onchange="updateRowTotal(this)">
+          </td>
+          <td class="text-center fw-bold row-total">{{ item.total_price }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="footer-summary">
+        <tr>
+          <td colspan="4" class="pe-3 text-end">Итого:</td>
+          <td class="footer-cell total-sales">0</td>
+          <td class="footer-cell total-uzum" style="background-color: #e6e6fa;">0</td>
+          <td class="footer-cell total-wh" style="background-color: #e0ffff;">0</td>
+          <td class="footer-cell table-warning total-restock">0</td>
+          <td></td>
+          <td class="footer-cell grand-total">0</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% if not chunks or (chunks|length == 1 and chunks[0]|length == 0) %}
+<div class="alert alert-secondary text-center py-4">Нет товаров для пополнения (остатков достаточно или нет на складе).</div>
+{% endif %}
+
+
+<script>
+function updateRowTotal(input) {
+  const row = input.closest('tr');
+  const priceInput = row.querySelector('.price-input');
+  const qtyInput = row.querySelector('.qty-input');
+  
+  const price = parseFloat(priceInput.value) || 0;
+  let qty = parseInt(qtyInput.value) || 0;
+
+  // Enforce max limit (warehouse quantity)
+  const max = parseInt(qtyInput.getAttribute('max'));
+  if (!isNaN(max) && qty > max) {
+    qty = max;
+    qtyInput.value = qty;
+  }
+
+  const total = price * qty;
+  
+  row.querySelector('.row-total').textContent = total.toLocaleString();
+  calcTotals(row.closest('tbody'));
+}
+
+function calcTotals(tbody) {
+  const table = tbody.closest('table');
+  let sum = 0;
+  let sumSales = 0;
+  let sumUzum = 0;
+  let sumWh = 0;
+  let sumRestock = 0;
+
+  tbody.querySelectorAll('tr').forEach(row => {
+    const priceInput = row.querySelector('.price-input');
+    const qtyInput = row.querySelector('.qty-input');
+    if (!priceInput || !qtyInput) return; 
+
+    const price = parseFloat(priceInput.value) || 0;
+    
+    // Children indices shifted by +1 due to the drag handle
+    const sales = parseInt(row.children[4].textContent.replace(/\s/g, '')) || 0;
+    const uzum = parseInt(row.children[5].textContent.replace(/\s/g, '')) || 0;
+    const wh = parseInt(row.children[6].textContent.replace(/\s/g, '')) || 0;
+
+    const qty = parseInt(qtyInput.value) || 0;
+    sumRestock += qty;
+    sum += (price * qty);
+
+    sumSales += sales;
+    sumUzum += uzum;
+    sumWh += wh;
+  });
+
+  table.querySelector('.grand-total').textContent = sum.toLocaleString();
+  table.querySelector('.total-sales').textContent = sumSales.toLocaleString();
+  table.querySelector('.total-uzum').textContent = sumUzum.toLocaleString();
+  table.querySelector('.total-wh').textContent = sumWh.toLocaleString();
+  table.querySelector('.total-restock').textContent = sumRestock.toLocaleString();
+}
+
+function updateChunkCounts() {
+  document.querySelectorAll('.invoice-card').forEach((card, idx) => {
+      card.querySelector('.invoice-number').textContent = idx + 1;
+      const rows = card.querySelectorAll('tbody tr');
+      const countBadge = card.querySelector('.item-count');
+      countBadge.textContent = `${rows.length} шт`;
+
+      if (rows.length > 35) {
+          countBadge.classList.replace('bg-secondary', 'bg-danger');
+      } else {
+          countBadge.classList.replace('bg-danger', 'bg-secondary');
+      }
+  });
+}
+
+
+async function downloadChunk(btn) {
+  const items = [];
+  const card = btn.closest('.invoice-card');
+  card.querySelectorAll('tbody tr').forEach(row => {
+    const barcode = row.dataset.barcode;
+    const sku = row.dataset.sku;
+    const priceInput = row.querySelector('.price-input');
+    const qtyInput = row.querySelector('.qty-input');
+    
+    if (priceInput && qtyInput) {
+      const price = parseFloat(priceInput.value) || 0;
+      const qty = parseInt(qtyInput.value) || 0;
+      if (qty > 0) {
+        items.push({ barcode, price, qty, sku });
+      }
+    }
+  });
+
+  if (items.length === 0) {
+    alert("Нет товаров для скачивания (количество = 0)");
+    return;
+  }
+
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Генерация...";
+
+  try {
+    const res = await fetch("/invoice/restock/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items })
+    });
+
+    if (!res.ok) {
+      let errorMsg = "Ошибка сервера (" + res.status + ")";
+      try {
+        const errData = await res.json();
+        if (errData.error) errorMsg = errData.error;
+      } catch (e) {
+        const text = await res.text();
+        if (text) errorMsg = text;
+      }
+      throw new Error(errorMsg);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    
+    // Get filename
+    const disp = res.headers.get("Content-Disposition");
+    let filename = "invoice.xlsx";
+    if (disp && disp.includes("filename=")) {
+      filename = disp.split("filename=")[1].replace(/['"]/g, "");
+    } else if (disp && disp.includes("filename*=UTF-8''")) {
+        filename = decodeURIComponent(disp.split("filename*=UTF-8''")[1]);
+    }
+    
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
+  } catch (e) {
+    alert("Ошибка: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+
+async function uploadChunk(btn) {
+    const card = btn.closest('.invoice-card');
+    const rows = card.querySelectorAll('tbody tr');
+    let itemsToUpload = [];
+    
+    rows.forEach(row => {
+        let qtyInput = row.querySelector('.qty-input');
+        if (qtyInput) {
+            let qty = parseInt(qtyInput.value) || 0;
+            if (qty > 0) {
+                itemsToUpload.push({
+                    barcode: row.getAttribute('data-barcode') || '',
+                    price: parseFloat(row.getAttribute('data-price')) || 0,
+                    qty: qty,
+                    sku: row.getAttribute('data-sku') || ''
+                });
+            }
+        }
+    });
+
+    let shopFilter = document.getElementById('shop_filter');
+    let shopId = shopFilter ? shopFilter.value : null; 
+
+    if (itemsToUpload.length === 0) {
+        return alert("Нет товаров для отправки (количество = 0)");
+    }
+    if (itemsToUpload.length > 35) {
+        alert("Внимание: в одной накладной не должно быть больше 35 товаров! У вас: " + itemsToUpload.length);
+    }
+    if (!shopId) {
+        return alert("Пожалуйста, выберите магазин.");
+    }
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Отправка...';
+    btn.disabled = true;
+
+    fetch("/invoice/restock/upload-uzum", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop_id: shopId, items: itemsToUpload })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) alert("Успех! Накладная отправлена в Uzum.\\nСтрок: " + data.rows_sent);
+        else alert("Ошибка загрузки в Uzum: " + data.error);
+    })
+    .catch(error => alert("Ошибка сети при загрузке."))
+    .finally(() => { btn.innerHTML = originalText; btn.disabled = false; });
+}
+
+const hasMultiDragSupport = Boolean(
+  window.Sortable &&
+  Sortable.utils &&
+  typeof Sortable.utils.select === 'function' &&
+  typeof Sortable.utils.deselect === 'function'
+);
+const lastSelectedRow = new WeakMap();
+
+function getRows(tbody) {
+  return Array.from(tbody.querySelectorAll('tr'));
+}
+
+function getSelectedRows(tbody) {
+  return getRows(tbody).filter((row) => row.classList.contains('sortable-selected'));
+}
+
+function syncRowSelectionUi(row) {
+  const toggle = row.querySelector('.row-select-toggle');
+  if (!toggle) return;
+
+  const isSelected = row.classList.contains('sortable-selected');
+  toggle.classList.toggle('is-selected', isSelected);
+  toggle.classList.remove('is-indeterminate');
+  toggle.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+}
+
+function syncSelectAllUi(tbody) {
+  const toggle = tbody.closest('table').querySelector('.select-all-toggle');
+  if (!toggle) return;
+
+  const rows = getRows(tbody);
+  const selectedCount = getSelectedRows(tbody).length;
+  const allSelected = rows.length > 0 && selectedCount === rows.length;
+  const partiallySelected = selectedCount > 0 && selectedCount < rows.length;
+
+  toggle.classList.toggle('is-selected', allSelected);
+  toggle.classList.toggle('is-indeterminate', partiallySelected);
+  toggle.setAttribute('aria-checked', allSelected ? 'true' : (partiallySelected ? 'mixed' : 'false'));
+}
+
+function syncSelectionUi(tbody) {
+  getRows(tbody).forEach(syncRowSelectionUi);
+  syncSelectAllUi(tbody);
+}
+
+function syncAllSelectionUi() {
+  document.querySelectorAll('.sortable-tbody').forEach(syncSelectionUi);
+}
+
+function setRowSelection(row, shouldSelect) {
+  if (shouldSelect) {
+    if (hasMultiDragSupport) {
+      Sortable.utils.select(row);
+    } else {
+      row.classList.add('sortable-selected');
+    }
+  } else if (hasMultiDragSupport) {
+    Sortable.utils.deselect(row);
+  } else {
+    row.classList.remove('sortable-selected');
+  }
+
+  syncRowSelectionUi(row);
+}
+
+function clearSelectionExcept(tbodyToKeep) {
+  document.querySelectorAll('.sortable-tbody').forEach((tbody) => {
+    if (tbody === tbodyToKeep) return;
+    getSelectedRows(tbody).forEach((row) => setRowSelection(row, false));
+    syncSelectionUi(tbody);
+  });
+}
+
+function clearAllSelections() {
+  document.querySelectorAll('.sortable-tbody').forEach((tbody) => {
+    getSelectedRows(tbody).forEach((row) => setRowSelection(row, false));
+    syncSelectionUi(tbody);
+  });
+}
+
+function selectRange(tbody, anchorRow, targetRow) {
+  const rows = getRows(tbody);
+  const startIndex = rows.indexOf(anchorRow);
+  const endIndex = rows.indexOf(targetRow);
+
+  if (startIndex === -1 || endIndex === -1) return;
+
+  const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+  rows.forEach((row, idx) => setRowSelection(row, idx >= from && idx <= to));
+  syncSelectionUi(tbody);
+}
+
+function toggleRowSelection(row, event) {
+  const tbody = row.closest('tbody');
+  if (!tbody) return;
+
+  clearSelectionExcept(tbody);
+
+  const anchorRow = lastSelectedRow.get(tbody);
+  if (event.shiftKey && anchorRow && anchorRow !== row) {
+    selectRange(tbody, anchorRow, row);
+  } else {
+    setRowSelection(row, !row.classList.contains('sortable-selected'));
+    syncSelectionUi(tbody);
+  }
+
+  lastSelectedRow.set(tbody, row);
+}
+
+document.querySelectorAll('.sortable-tbody').forEach((tbody) => {
+  calcTotals(tbody);
+
+  tbody.addEventListener('click', (event) => {
+    const row = event.target.closest('tr');
+    if (!row || row.closest('tbody') !== tbody) return;
+
+    if (
+      event.target.closest('.drag-handle') ||
+      event.target.closest('.qty-input') ||
+      event.target.closest('.price-input') ||
+      event.target.closest('a') ||
+      event.target.closest('select') ||
+      event.target.closest('textarea')
+    ) {
+      return;
+    }
+
+    const clickedButton = event.target.closest('button');
+    if (clickedButton && !clickedButton.classList.contains('row-select-toggle')) {
+      return;
+    }
+
+    event.preventDefault();
+    toggleRowSelection(row, event);
+  });
+
+  new Sortable(tbody, {
+    group: 'shared',
+    animation: 150,
+    handle: '.drag-handle',
+    filter: 'input, button:not(.drag-handle), a, select, textarea',
+    preventOnFilter: false,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    multiDrag: true,
+    selectedClass: 'sortable-selected',
+    fallbackTolerance: 4,
+    avoidImplicitDeselect: true,
+    onSelect(evt) {
+      syncRowSelectionUi(evt.item);
+      syncSelectAllUi(evt.from);
+    },
+    onDeselect(evt) {
+      syncRowSelectionUi(evt.item);
+      syncSelectAllUi(evt.from);
+    },
+    onStart(evt) {
+      const row = evt.item;
+      const sourceBody = row.closest('tbody');
+      clearSelectionExcept(sourceBody);
+
+      if (!row.classList.contains('sortable-selected')) {
+        setRowSelection(row, true);
+      }
+
+      syncSelectionUi(sourceBody);
+    },
+    onEnd(evt) {
+      if (evt.from !== evt.to) {
+        calcTotals(evt.from);
+        syncSelectionUi(evt.from);
+      }
+
+      calcTotals(evt.to);
+      updateChunkCounts();
+      clearAllSelections();
+    }
+  });
+});
+
+document.querySelectorAll('.select-all-toggle').forEach((toggle) => {
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    const tbody = toggle.closest('table').querySelector('tbody');
+    const rows = getRows(tbody);
+    const shouldSelectAll = getSelectedRows(tbody).length !== rows.length;
+
+    clearSelectionExcept(tbody);
+    rows.forEach((row) => setRowSelection(row, shouldSelectAll));
+    syncSelectionUi(tbody);
+
+    if (rows.length > 0) {
+      lastSelectedRow.set(tbody, rows[0]);
+    }
+  });
+});
+
+syncAllSelectionUi();
+</script>
+{% endblock %}

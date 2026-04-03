@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Labels</title>
+  <style>
+    @page {
+      size: {{ lbl.w }}mm {{ lbl.h }}mm;
+      margin: 0;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .screen-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid #eaecf0;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+    }
+
+    .screen-toolbar__meta {
+      color: #344054;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .screen-toolbar__btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.75rem 1rem;
+      background: #101828;
+      color: #ffffff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .labels-sheet {
+      padding: 0.75rem;
+    }
+
+    .label {
+      width: {{ lbl.w }}mm;
+      height: {{ lbl.h }}mm;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      overflow: hidden;
+      box-sizing: border-box;
+      background: white;
+      padding: 0 1mm;
+      page-break-after: always;
+    }
+
+    .label:last-child {
+      page-break-after: auto;
+    }
+
+    .text-column {
+      width: {{ lbl.tcol }}mm;
+      height: {{ lbl.h }}mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 {{ lbl.tcol }}mm;
+    }
+
+    .vertical-text-wrapper {
+      transform: rotate(-90deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: {{ lbl.h }}mm;
+      min-width: {{ lbl.h }}mm;
+      height: {{ lbl.tcol }}mm;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sku-top {
+      width: {{ lbl.h }}mm;
+      font-size: {{ lbl.sku_fs }}pt;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1.08;
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-break: normal;
+      display: block;
+      max-height: {{ lbl.tcol }}mm;
+      overflow: hidden;
+    }
+
+    .sku-top__segment {
+      display: inline;
+    }
+
+    .number {
+      transform: rotate(-90deg);
+      width: {{ lbl.h }}mm;
+      display: inline-flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 0;
+      text-align: center;
+      white-space: nowrap;
+      line-height: 1;
+      font-size: {{ lbl.num_fs }}pt;
+      font-weight: 600;
+    }
+
+    .number .last4 {
+      font-size: {{ lbl.num_last4_fs }}pt;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .qr-container {
+      width: {{ lbl.qr }}mm;
+      height: {{ lbl.qr }}mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 {{ lbl.qr }}mm;
+    }
+
+    .qr-code {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    @media print {
+      .screen-toolbar {
+        display: none;
+      }
+
+      .labels-sheet {
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-toolbar">
+    <div class="screen-toolbar__meta">Этикеток: {{ variants|length }}</div>
+    <button class="screen-toolbar__btn" type="button" onclick="window.print()">Печать еще раз</button>
+  </div>
+
+  <div class="labels-sheet">
+    {% for v in variants %}
+    <div class="label">
+      <div class="text-column">
+        <div class="vertical-text-wrapper">
+          <div class="sku-top">
+            {{ v.sku }}
+          </div>
+        </div>
+      </div>
+
+      <div class="qr-container">
+        <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ v.barcode or v.sku }}&margin=0">
+      </div>
+
+      <div class="text-column">
+        <div class="number js-last4">{{ v.barcode or v.sku }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    function notifyParentDone() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "print-labels-done" }, window.location.origin);
+      }
+    }
+
+    function fitSkuText() {
+      document.querySelectorAll(".sku-top").forEach(function (el) {
+        let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+        const minFontSize = 2.8;
+        while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && fontSize > minFontSize) {
+          fontSize -= 0.15;
+          el.style.fontSize = fontSize + "px";
+        }
+      });
+    }
+
+    window.addEventListener("load", function () {
+      fitSkuText();
+      window.setTimeout(function () {
+        window.print();
+      }, 80);
+      window.setTimeout(notifyParentDone, 1500);
+    });
+
+    window.addEventListener("afterprint", notifyParentDone);
+
+    document.querySelectorAll(".js-last4").forEach(function (el) {
+      const text = (el.textContent || "").trim();
+      if (text.length <= 4) return;
+      const head = text.slice(0, -4);
+      const tail = text.slice(-4);
+      el.innerHTML = head + '<span class="last4">' + tail + "</span>";
+    });
+  </script>
+</body>
+</html>

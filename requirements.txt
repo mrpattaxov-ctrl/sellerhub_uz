@@ -1,0 +1,11 @@
+Flask
+Flask-Cors
+Flask-Login
+SQLAlchemy
+requests
+psycopg[binary]
+openpyxl
+Pillow
+APScheduler
+pyTelegramBotAPI
+gunicorn

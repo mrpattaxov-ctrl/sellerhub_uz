@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+  .warehouse-page {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .warehouse-hero {
+    border: 1px solid rgba(53, 86, 185, .12);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(83, 117, 221, .14), transparent 34%),
+      linear-gradient(160deg, #ffffff 0%, #f8faff 56%, #f3f6ff 100%);
+    box-shadow: 0 24px 48px rgba(27, 42, 84, .08);
+    padding: 1.6rem;
+  }
+
+  .warehouse-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .38rem .75rem;
+    border-radius: 999px;
+    background: rgba(52, 86, 185, .08);
+    color: #3456b9;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin-bottom: .8rem;
+  }
+
+  .warehouse-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .warehouse-title {
+    margin: 0 0 .45rem;
+    font-size: clamp(1.7rem, 3vw, 2.25rem);
+    line-height: 1.05;
+    font-weight: 700;
+    color: #14213d;
+  }
+
+  .warehouse-subtitle {
+    margin: 0;
+    max-width: 720px;
+    color: #667085;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  .warehouse-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .warehouse-btn {
+    border-radius: 14px;
+    padding: .72rem 1rem;
+    font-weight: 700;
+  }
+
+  .warehouse-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: .9rem;
+    margin-top: 1.15rem;
+  }
+
+  .warehouse-stat {
+    min-width: 0;
+    padding: 1rem 1.05rem;
+    border: 1px solid rgba(31, 52, 110, .08);
+    border-radius: 20px;
+    background: rgba(255,255,255,.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  }
+
+  .warehouse-stat-label {
+    display: block;
+    color: #7b89a7;
+    font-size: .76rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 700;
+    margin-bottom: .32rem;
+  }
+
+  .warehouse-stat-value {
+    color: #16213e;
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .warehouse-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, .9fr);
+    gap: 1.25rem;
+  }
+
+  .warehouse-card {
+    border: 1px solid rgba(16, 24, 40, .07);
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .06);
+    overflow: hidden;
+  }
+
+  .warehouse-card-body {
+    padding: 1.35rem;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .warehouse-card-title {
+    margin: 0;
+    font-size: 1.06rem;
+    font-weight: 700;
+    color: #17223d;
+  }
+
+  .warehouse-card-copy {
+    margin: 0;
+    color: #667085;
+    line-height: 1.6;
+  }
+
+  .warehouse-steps {
+    display: grid;
+    gap: .7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .warehouse-step {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: .8rem;
+    align-items: start;
+    padding: .9rem 1rem;
+    border: 1px solid #e6ebf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff, #fafcff);
+  }
+
+  .warehouse-step-index {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2747a8, #4b6fda);
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 10px 22px rgba(52, 86, 185, .24);
+  }
+
+  .warehouse-step strong {
+    display: block;
+    color: #17223d;
+    margin-bottom: .12rem;
+  }
+
+  .warehouse-step span {
+    color: #667085;
+    line-height: 1.6;
+  }
+
+  .warehouse-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+  }
+
+  .warehouse-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: .48rem .78rem;
+    border-radius: 999px;
+    background: rgba(52, 86, 185, .08);
+    border: 1px solid rgba(52, 86, 185, .14);
+    color: #3555b3;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .warehouse-dropzone {
+    border: 1px dashed rgba(52, 86, 185, .28);
+    border-radius: 22px;
+    background: linear-gradient(180deg, #fbfcff, #f6f8ff);
+    padding: 1.15rem;
+  }
+
+  .warehouse-dropzone-copy {
+    margin: 0 0 .85rem;
+    color: #5f6f8f;
+    line-height: 1.6;
+  }
+
+  .warehouse-file {
+    min-height: 58px;
+    border-radius: 18px;
+    border: 1px solid #d7deea;
+    background: linear-gradient(180deg, #ffffff, #f9fbff);
+    padding: .92rem 1rem;
+    color: #1d2939;
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  }
+
+  .warehouse-file:focus {
+    border-color: rgba(71, 103, 204, .75);
+    box-shadow: 0 0 0 4px rgba(71, 103, 204, .12);
+  }
+
+  .warehouse-file-note {
+    margin: .65rem 0 0;
+    color: #7887a4;
+    font-size: .84rem;
+    line-height: 1.55;
+  }
+
+  .warehouse-submit {
+    min-width: 220px;
+    border-radius: 16px;
+    padding: .82rem 1.15rem;
+    font-weight: 700;
+    box-shadow: 0 14px 26px rgba(25, 135, 84, .18);
+  }
+
+  .warehouse-side-list {
+    display: grid;
+    gap: .8rem;
+  }
+
+  .warehouse-side-item {
+    padding: .95rem 1rem;
+    border: 1px solid #e6ebf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff, #fafcff);
+  }
+
+  .warehouse-side-item strong {
+    display: block;
+    color: #17223d;
+    margin-bottom: .18rem;
+  }
+
+  .warehouse-side-item span {
+    color: #667085;
+    line-height: 1.6;
+  }
+
+  .warehouse-flash {
+    border: 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(52, 86, 185, .1), rgba(70, 110, 215, .06));
+    color: #26408b;
+    box-shadow: 0 14px 36px rgba(28, 44, 90, .08);
+  }
+
+  @media (max-width: 991px) {
+    .warehouse-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .warehouse-head {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .warehouse-actions {
+      width: 100%;
+    }
+
+    .warehouse-actions .warehouse-btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="warehouse-page">
+  <section class="warehouse-hero">
+    <span class="warehouse-kicker">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+      Warehouse Excel
+    </span>
+    <div class="warehouse-head">
+      <div>
+        <h1 class="warehouse-title">Импорт склада из Excel</h1>
+        <p class="warehouse-subtitle">
+          На этой странице можно скачать актуальный Excel-файл остатков, изменить колонку
+          <strong>Warehouse Quantity</strong> и загрузить файл обратно в систему.
+        </p>
+      </div>
+      <div class="warehouse-actions">
+        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">Скачать шаблон Excel</a>
+        <a href="/groups" class="btn btn-outline-secondary warehouse-btn">Назад к товарам</a>
+      </div>
+    </div>
+
+    <div class="warehouse-stats">
+      <div class="warehouse-stat">
+        <span class="warehouse-stat-label">Доступные SKU</span>
+        <span class="warehouse-stat-value">{{ summary.variant_count }}</span>
+      </div>
+      <div class="warehouse-stat">
+        <span class="warehouse-stat-label">Магазины в доступе</span>
+        <span class="warehouse-stat-value">{{ summary.shop_count }}</span>
+      </div>
+      <div class="warehouse-stat">
+        <span class="warehouse-stat-label">Суммарный склад</span>
+        <span class="warehouse-stat-value">{{ summary.total_qty }}</span>
+      </div>
+    </div>
+  </section>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert warehouse-flash mb-0">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="warehouse-grid">
+    <section class="warehouse-card">
+      <div class="warehouse-card-body">
+        <div>
+          <h2 class="warehouse-card-title">Загрузка Excel-файла</h2>
+          <p class="warehouse-card-copy">
+            Подходит файл формата <strong>.xlsx</strong>. Ваш текущий экспорт из этой страницы
+            совместим с импортом без изменения структуры.
+          </p>
+        </div>
+
+        <ol class="warehouse-steps">
+          <li class="warehouse-step">
+            <span class="warehouse-step-index">1</span>
+            <div>
+              <strong>Скачайте файл</strong>
+              <span>Сначала выгрузите текущие остатки через кнопку “Скачать шаблон Excel”.</span>
+            </div>
+          </li>
+          <li class="warehouse-step">
+            <span class="warehouse-step-index">2</span>
+            <div>
+              <strong>Измените количество</strong>
+              <span>Редактируйте только колонку <code>Warehouse Quantity</code>. SKU и Barcode нужны для точного сопоставления.</span>
+            </div>
+          </li>
+          <li class="warehouse-step">
+            <span class="warehouse-step-index">3</span>
+            <div>
+              <strong>Загрузите файл обратно</strong>
+              <span>Система обновит только найденные SKU из ваших доступных магазинов.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div>
+          <div class="warehouse-tags">
+            {% for header in expected_headers %}
+              <span class="warehouse-tag">{{ header }}</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <form action="{{ url_for('warehouse_bp.warehouse_import') }}" method="post" enctype="multipart/form-data" class="warehouse-dropzone">
+          <p class="warehouse-dropzone-copy">
+            Загрузите Excel-файл со склада. Формат <code>warehouse_qty_*.xlsx</code> поддерживается напрямую.
+          </p>
+          <input class="form-control warehouse-file" type="file" name="file" accept=".xlsx" required>
+          <p class="warehouse-file-note">
+            Поддерживается только <strong>.xlsx</strong>. Старый формат <strong>.xls</strong> не импортируется.
+          </p>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-success warehouse-submit">Импортировать остатки</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <aside class="warehouse-card">
+      <div class="warehouse-card-body">
+        <div>
+          <h2 class="warehouse-card-title">Что делает импорт</h2>
+          <p class="warehouse-card-copy">
+            Импорт сверяет строки сначала по <strong>SKU</strong>, затем по <strong>Barcode</strong>, если SKU не найден.
+          </p>
+        </div>
+
+        <div class="warehouse-side-list">
+          <div class="warehouse-side-item">
+            <strong>Совместимый файл</strong>
+            <span>Ваш файл <code>warehouse_qty_*.xlsx</code> подходит, если в нём есть колонки SKU и Warehouse Quantity.</span>
+          </div>
+          <div class="warehouse-side-item">
+            <strong>Что обновляется</strong>
+            <span>Меняется только локальное поле <strong>warehouse_quantity</strong> для найденных товаров.</span>
+          </div>
+          <div class="warehouse-side-item">
+            <strong>Что не трогается</strong>
+            <span>Данные Uzum, продажи, цены и карточки товаров импортом склада не изменяются.</span>
+          </div>
+          <div class="warehouse-side-item">
+            <strong>Ограничение доступа</strong>
+            <span>Импорт применяется только к магазинам и товарам, которые доступны текущему пользователю.</span>
+          </div>
+        </div>
+
+        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">Скачать текущие остатки</a>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Мои магазины - Склад</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f8f9fa;
+      padding: 24px 0 36px;
+      color: #101828;
+    }
+    .container { max-width: 1160px; }
+    .page-header {
+      margin-bottom: 20px;
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid #eaecf0;
+      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06);
+    }
+    .page-title {
+      margin: 0;
+      font-size: clamp(1.75rem, 2vw, 2.15rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .form-shell {
+      border: 1px solid #eaecf0;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06);
+    }
+    .shop-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      border: 1px solid #eaecf0;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.05);
+    }
+    .shop-card:hover {
+      transform: translateY(-2px);
+      border-color: #d0d5dd;
+      box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+    }
+    .fetch-btn {
+      border-radius: 9px;
+      padding: 8px 12px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+    }
+    .fetch-btn:hover {
+      transform: translateY(-1px);
+    }
+    .fetch-btn:active {
+      transform: translateY(0);
+    }
+    .fetch-btn:focus-visible {
+      outline: 2px solid #bfdbfe;
+      outline-offset: 3px;
+    }
+    .fetch-btn[disabled] {
+      opacity: 0.7;
+      transform: none;
+      box-shadow: none;
+    }
+    .fetch-btn--back {
+      color: #344054;
+      background: #fff;
+      border: 1px solid #d0d5dd;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    .fetch-btn--back:hover {
+      color: #101828;
+      border-color: #98a2b3;
+      background: #f9fafb;
+    }
+    .fetch-btn--primary {
+      color: #fff;
+      border: 1px solid #1f2937;
+      background: #1f2937;
+      box-shadow: 0 4px 12px rgba(31, 41, 55, 0.16);
+    }
+    .fetch-btn--primary:hover {
+      color: #fff;
+      background: #111827;
+      border-color: #111827;
+    }
+    .shop-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+      margin-top: auto;
+    }
+    .shop-action-btn {
+      min-width: 0;
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+    }
+    .shop-action-btn:hover {
+      transform: translateY(-1px);
+    }
+    .shop-action-btn:active {
+      transform: translateY(0);
+    }
+    .shop-action-btn:focus-visible {
+      outline: 2px solid #bfdbfe;
+      outline-offset: 2px;
+    }
+    .shop-action-btn--sync {
+      grid-column: 1 / -1;
+    }
+    .shop-action-btn--edit {
+      color: #344054;
+      background: #fff;
+      border-color: #d0d5dd;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    .shop-action-btn--sync {
+      color: #6941c6;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    .shop-action-btn--delete {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    .status-panel {
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06);
+    }
+    @media (max-width: 767.98px) {
+      .page-header {
+        padding: 16px;
+      }
+      .shop-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
+      <h1 class="page-title">Мои магазины</h1>
+      <a href="/groups" class="fetch-btn fetch-btn--back">Назад к товарам</a>
+    </div>
+
+
+    <div id="apiKeyWarning" class="alert alert-warning" style="display:none;">
+      <b>No API key saved.</b> Please go to <a href="/settings/api-key" class="alert-link">API Key</a> and add it before syncing.
+    </div>
+
+    <div class="card form-shell mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Добавить новый магазин</h5>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">ID магазина (Uzum Shop ID)</label>
+            <input type="text" id="newShopId" class="form-control" placeholder="например 12345">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Название магазина (опционально)</label>
+            <input type="text" id="newShopName" class="form-control" placeholder="например Мой Магазин">
+          </div>
+          <div class="col-md-4">
+            <button class="fetch-btn fetch-btn--primary w-100" id="btnAddShop">Добавить магазин</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h5 class="mb-3">Ваши магазины</h5>
+    <div id="shopsContainer" class="row g-3">
+      <!-- Shop buttons will appear here -->
+    </div>
+
+    <div id="syncStatus" class="mt-3" style="display:none;"></div>
+  </div>
+
+  <script>
+    async function api(url, method="GET", body=null) {
+      const opts = { method, headers: { "Content-Type": "application/json" } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      let data;
+      try { data = await res.json(); } catch { throw new Error(`Ошибка сервера (${res.status})`); }
+      if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+      return data;
+    }
+
+    async function checkApiKey() {
+      try {
+        const s = await api("/api/user/api-key");
+        const w = document.getElementById("apiKeyWarning");
+        if (w) w.style.display = s.has_key ? "none" : "block";
+      } catch (e) {}
+    }
+
+    async function loadShops() {
+      const data = await api("/api/shops");
+      const container = document.getElementById("shopsContainer");
+      container.innerHTML = "";
+      
+      if (!data.shops || data.shops.length === 0) {
+        container.innerHTML = `<div class="col-12 text-secondary">Магазины еще не добавлены.</div>`;
+        return;
+      }
+
+      data.shops.forEach(shop => {
+        const col = document.createElement("div");
+        col.className = "col-md-4 col-lg-3";
+        col.innerHTML = `
+          <div class="card shop-card h-100 text-center p-3 d-flex flex-column">
+            <div class="fw-bold fs-5">${shop.name || shop.uzum_id}</div>
+            <div class="text-secondary small mb-3">ID: ${shop.uzum_id}</div>
+            <div class="shop-actions">
+              <button class="shop-action-btn shop-action-btn--sync btn-sync" data-id="${shop.uzum_id}">Синхронизация</button>
+              <button class="shop-action-btn shop-action-btn--edit btn-edit" data-id="${shop.uzum_id}" data-name="${(shop.name || '').replace(/"/g, '&quot;')}">Ред.</button>
+              <button class="shop-action-btn shop-action-btn--delete btn-delete" data-db-id="${shop.id}" data-name="${(shop.name || shop.uzum_id).replace(/"/g, '&quot;')}">Удалить</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(col);
+      });
+
+      document.querySelectorAll(".btn-sync").forEach(btn => {
+        btn.addEventListener("click", (e) => doSync(e.target.dataset.id));
+      });
+      document.querySelectorAll(".btn-edit").forEach(btn => {
+        btn.addEventListener("click", (e) => editShop(e.target.dataset.id, e.target.dataset.name));
+      });
+      document.querySelectorAll(".btn-delete").forEach(btn => {
+        btn.addEventListener("click", (e) => deleteShop(e.target.dataset.dbId, e.target.dataset.name));
+      });
+    }
+
+    async function doSync(shopId) {
+      const status = document.getElementById("syncStatus");
+      status.style.display = "block";
+      status.className = "alert alert-info status-panel";
+      status.textContent = `Синхронизация магазина ${shopId} (товары + продажи)... подождите.`;
+
+      // Disable all sync buttons while running
+      document.querySelectorAll(".btn-sync").forEach(b => { b.disabled = true; });
+
+      try {
+        const res = await api("/api/uzum/sync", "POST", { shop_id: shopId, size: 100, sync_all: true });
+        status.className = "alert alert-success status-panel";
+        status.textContent = `Успешно! Товаров: ${res.total_products}, вариантов: ${res.fetched}.`;
+      } catch (e) {
+        status.className = "alert alert-danger status-panel";
+        status.textContent = "Ошибка: " + e.message;
+      } finally {
+        document.querySelectorAll(".btn-sync").forEach(b => { b.disabled = false; });
+      }
+    }
+
+    async function editShop(shopId, currentName) {
+      const newName = prompt("Введите новое название для магазина " + shopId, currentName);
+      if (newName !== null) {
+        await api("/api/shops", "POST", { uzum_id: shopId, name: newName });
+        checkApiKey();
+    loadShops();
+      }
+    }
+
+    document.getElementById("btnAddShop").addEventListener("click", async () => {
+      const id = document.getElementById("newShopId").value.trim();
+      const name = document.getElementById("newShopName").value.trim();
+      if (!id) return alert("Требуется ID магазина");
+
+      const btn = document.getElementById("btnAddShop");
+      btn.disabled = true;
+      btn.textContent = "Добавление...";
+
+      try {
+        await api("/api/shops", "POST", { uzum_id: id, name: name });
+        document.getElementById("newShopId").value = "";
+        document.getElementById("newShopName").value = "";
+        await loadShops();
+
+        // Auto-sync products + finance right after adding
+        btn.textContent = "Синхронизация...";
+        await doSync(id);
+      } catch (e) {
+        alert("Ошибка: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Добавить магазин";
+      }
+    });
+
+    async function deleteShop(dbId, name) {
+      if (!confirm(`Удалить магазин "${name}"?\n\nВсе товары и данные этого магазина будут удалены.`)) return;
+      try {
+        const res = await api(`/api/shops/${dbId}`, "DELETE");
+        if (res.ok) loadShops();
+        else alert(res.error || "Ошибка при удалении");
+      } catch (e) {
+        alert("Ошибка: " + e.message);
+      }
+    }
+
+    loadShops();
+  </script>
+</body>
+</html>

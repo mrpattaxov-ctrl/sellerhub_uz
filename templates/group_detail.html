@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+<style>
+  #sku-table-wrapper { overflow-x: auto !important; overflow-y: auto; max-height: 75vh; -webkit-overflow-scrolling: touch; }
+  #sku-table-wrapper .table thead th { padding: 10px 14px; font-size: 0.7rem; }
+  #sku-table-wrapper .table tbody td  { padding: 10px 14px; font-size: 0.8rem; white-space: nowrap; }
+  .product-header-card {
+    display: flex; align-items: center; gap: 16px;
+    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
+    padding: 16px; margin-bottom: 1rem;
+  }
+  .product-header-card img      { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; }
+  .product-header-card .no-img  { width:72px; height:72px; background:#f2f4f7; border-radius:8px; flex-shrink:0; }
+  /* Modern pill toggle for day presets */
+  .days-toggle {
+    display: inline-flex; background: #f1f3f5; border-radius: 10px;
+    padding: 3px; gap: 2px;
+  }
+  .preset-btn {
+    padding: 6px 14px; border-radius: 8px; font-size: .8rem;
+    font-weight: 500; color: #64748b; background: transparent;
+    border: none; cursor: pointer; transition: all .2s;
+  }
+  .preset-btn:hover { color: #334155; background: #e2e8f0; }
+  .preset-btn.active {
+    background: #fff; color: #0f172a; font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  .apply-btn {
+    padding: 6px 18px; border-radius: 8px; font-size: .8rem;
+    font-weight: 600; color: #fff; background: #0f172a;
+    border: none; cursor: pointer; transition: all .2s;
+  }
+  .apply-btn:hover { background: #334155; }
+  .apply-btn:active { transform: scale(0.97); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spin-icon { display:inline-block; animation:spin 0.8s linear infinite; }
+
+  /* ── Flatpickr date range picker (same as economics page) ── */
+  .date-range-wrapper {
+    position: relative; display: flex; align-items: center;
+    background: #fff; border: 1.5px solid #D0D5DD; border-radius: 10px;
+    padding: 0 12px; gap: 8px; height: 32px; cursor: pointer;
+    transition: border-color .2s, box-shadow .2s; min-width: 220px;
+  }
+  .date-range-wrapper:hover       { border-color: #667085; }
+  .date-range-wrapper:focus-within{ border-color: #2E90FA; box-shadow: 0 0 0 3px rgba(46,144,250,.15); }
+  .date-range-wrapper .cal-icon   { color: #667085; font-size: 14px; flex-shrink: 0; }
+  .date-range-wrapper input       { border:none; outline:none; background:transparent; font-size:12px; font-weight:500; color:#101828; cursor:pointer; width:100%; }
+  .date-range-wrapper .arrow      { color:#98A2B3; font-size:10px; flex-shrink:0; }
+
+  .flatpickr-calendar { border-radius:14px !important; box-shadow:0 12px 32px rgba(16,24,40,.14) !important; border:1px solid #EAECF0 !important; font-family:inherit !important; }
+  .flatpickr-months { padding:6px 0 4px; }
+  .flatpickr-month  { color:#101828 !important; }
+  .flatpickr-current-month .flatpickr-monthDropdown-months,
+  .flatpickr-current-month input.cur-year { font-weight:600 !important; font-size:14px !important; color:#101828 !important; }
+  .flatpickr-prev-month svg, .flatpickr-next-month svg { fill:#667085 !important; }
+  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill:#101828 !important; }
+  .flatpickr-weekday  { color:#667085 !important; font-weight:600 !important; font-size:11px !important; }
+  .flatpickr-day      { border-radius:8px !important; font-size:13px !important; color:#344054; }
+  .flatpickr-day:hover{ background:#F2F4F7 !important; border-color:#F2F4F7 !important; }
+  .flatpickr-day.today{ border-color:#D0D5DD !important; font-weight:600; }
+  .flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange {
+    background:#2E90FA !important; border-color:#2E90FA !important; color:#fff !important; font-weight:600;
+  }
+  .flatpickr-day.inRange { background:#EFF8FF !important; border-color:#EFF8FF !important; color:#175CD3 !important; border-radius:0 !important; box-shadow:-5px 0 0 #EFF8FF,5px 0 0 #EFF8FF !important; }
+  .flatpickr-day.startRange { border-radius:8px 0 0 8px !important; }
+  .flatpickr-day.endRange   { border-radius:0 8px 8px 0 !important; }
+  .flatpickr-day.startRange.endRange { border-radius:8px !important; }
+  .flatpickr-day.disabled   { color:#D0D5DD !important; }
+  .flatpickr-innerContainer { padding:0 8px 10px; }
+</style>
+
+<!-- Product header -->
+<div class="product-header-card">
+  {% if group.image_url %}
+    <img src="{{ group.image_url }}" alt="" loading="eager" width="72" height="72" fetchpriority="high">
+  {% else %}
+    <div class="no-img"></div>
+  {% endif %}
+  <div class="flex-grow-1" style="min-width:0;">
+    <h5 class="mb-1 fw-semibold text-truncate">{{ group.name }}</h5>
+    <div class="text-secondary small">
+      Uzum ID: {{ group.uzum_product_id or "—" }} &nbsp;·&nbsp; Категория: {{ group.category or "—" }}
+    </div>
+  </div>
+  <a href="/groups" class="btn btn-outline-secondary btn-sm flex-shrink-0">← Назад</a>
+</div>
+
+<!-- SKU card -->
+<div class="card">
+  <div class="card-body p-0">
+
+    <!-- Controls -->
+    <div class="px-3 pt-3 pb-2">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div>
+          <span class="fw-semibold">Таблица SKU</span>
+          <span class="text-secondary small ms-2">{{ variants | length }} вариантов</span>
+        </div>
+        <span id="loadingIndicator" class="text-primary small" style="display:none;">
+          <span class="spin-icon">⟳</span> Загрузка...
+        </span>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="days-toggle">
+          <button class="preset-btn" data-days="7">7 дн.</button>
+          <button class="preset-btn" data-days="10">10 дн.</button>
+          <button class="preset-btn" data-days="15">15 дн.</button>
+          <button class="preset-btn active" data-days="30">30 дн.</button>
+          <button class="preset-btn" data-days="60">60 дн.</button>
+          <button class="preset-btn" data-days="90">90 дн.</button>
+        </div>
+        <div class="date-range-wrapper" id="dateRangeWrapper">
+          <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="text" id="dateRangeInput" placeholder="Выберите период" readonly>
+          <span class="arrow">▼</span>
+        </div>
+        <input type="hidden" id="dateFrom">
+        <input type="hidden" id="dateTo">
+        <button class="apply-btn" id="btnApply">Показать</button>
+      </div>
+    </div>
+
+    <!-- Table: SKU | Цвет/Размер | Статус | Uzum | Склад | Штрихкод | Продажи -->
+    <div id="sku-table-wrapper">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th class="text-center">Цвет / Размер</th>
+            <th class="text-center">Статус</th>
+            <th class="text-center" style="background-color:#e6e6fa;">Uzum</th>
+            <th class="text-center" style="background-color:#e0ffff;">Склад</th>
+            <th class="text-center">Штрихкод</th>
+            <th class="text-center" id="salesHeader">Продажи 30 дн.</th>
+          </tr>
+        </thead>
+        <tbody id="skuTbody">
+          {% for v in variants %}
+          {% set s30 = sales_30d_map.get(v.id, 0) %}
+          {% set wh  = v.warehouse_quantity or 0 %}
+          <tr data-vid="{{ v.id }}" data-wh="{{ wh }}" data-s30="{{ s30 }}">
+            <td class="fw-semibold">{{ v.sku }}</td>
+            <td class="text-center text-muted">
+              {%- if v.color and v.size -%}{{ v.color }} / {{ v.size }}
+              {%- elif v.color -%}{{ v.color }}
+              {%- elif v.size  -%}{{ v.size }}
+              {%- else -%}—{%- endif -%}
+            </td>
+            <td class="text-center">
+              {% if v.status %}<span class="badge bg-light text-dark border">{{ v.status }}</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center fw-semibold" style="background-color:#e6e6fa;">{{ v.uzum_quantity }}</td>
+            <td class="text-center fw-semibold stock-cell" style="background-color:#e0ffff;">
+              {%- if s30 > 0 -%}
+                {%- if wh < s30 / 2 %}<span class="text-danger">{{ wh }}</span>
+                {%- elif wh < s30 %}<span class="text-warning">{{ wh }}</span>
+                {%- else %}<span class="text-success">{{ wh }}</span>{%- endif -%}
+              {%- else -%}{{ wh }}{%- endif -%}
+            </td>
+            <td class="text-muted font-monospace text-center" style="font-size:0.75rem;">{{ v.barcode or "—" }}</td>
+            <td class="text-center fw-semibold sales-cell">{{ s30 }}</td>
+          </tr>
+          {% endfor %}
+          {% if not variants %}
+          <tr><td colspan="7" class="text-secondary text-center py-4">SKU не найдены.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+<script>
+const GROUP_ID = {{ group.id }};
+const PRESETS = [7, 10, 15, 30, 60, 90];
+const salesCache = {};  // { "days_7": {vid: qty, ...}, "days_30": ..., "2024-01-01_2024-01-31": ... }
+
+// Store the server-rendered 30-day data as cache
+(function() {
+  const map30 = {};
+  document.querySelectorAll('#skuTbody tr[data-vid]').forEach(tr => {
+    map30[parseInt(tr.dataset.vid)] = parseInt(tr.dataset.s30 || 0);
+  });
+  salesCache['days_30'] = map30;
+})();
+
+function toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function whColor(wh, sales) {
+  if (sales <= 0) return String(wh);
+  if (wh < sales / 2) return `<span class="text-danger">${wh}</span>`;
+  if (wh < sales)     return `<span class="text-warning">${wh}</span>`;
+  return `<span class="text-success">${wh}</span>`;
+}
+
+function applySalesData(map, label) {
+  document.querySelectorAll('#skuTbody tr[data-vid]').forEach(tr => {
+    const qty = map[parseInt(tr.dataset.vid)] ?? 0;
+    const wh  = parseInt(tr.dataset.wh || 0);
+    tr.querySelector('.sales-cell').textContent = qty;
+    tr.querySelector('.stock-cell').innerHTML   = whColor(wh, qty);
+  });
+  document.getElementById('salesHeader').textContent = label;
+}
+
+async function fetchSales(params) {
+  // Build cache key
+  const cacheKey = params.date_from
+    ? `${params.date_from}_${params.date_to}`
+    : `days_${params.days}`;
+
+  // If cached, apply instantly
+  if (salesCache[cacheKey]) {
+    const label = params.date_from
+      ? `Продажи ${params.date_from} — ${params.date_to}`
+      : `Продажи ${params.days} дн.`;
+    applySalesData(salesCache[cacheKey], label);
+    return;
+  }
+
+  const ind = document.getElementById('loadingIndicator');
+  ind.style.display = '';
+  document.querySelectorAll('.sales-cell').forEach(td => td.style.opacity = '0.4');
+  try {
+    const res  = await fetch(`/api/groups/${GROUP_ID}/sales-range?` + new URLSearchParams(params));
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Ошибка'); return; }
+    const map = {};
+    (data.sales || []).forEach(r => { map[r.variant_id] = r.qty; });
+    salesCache[cacheKey] = map;
+    const label = params.date_from
+      ? `Продажи ${params.date_from} — ${params.date_to}`
+      : `Продажи ${params.days} дн.`;
+    applySalesData(map, label);
+  } catch(e) { alert('Ошибка: ' + e.message); }
+  finally {
+    ind.style.display = 'none';
+    document.querySelectorAll('.sales-cell').forEach(td => td.style.opacity = '');
+  }
+}
+
+// Preload all preset periods in background after page fully loads (images etc.)
+window.addEventListener('load', () => {
+  // Small delay to let the browser finish rendering
+  setTimeout(() => {
+    PRESETS.forEach(days => {
+      if (salesCache[`days_${days}`]) return; // 30d already cached
+      fetch(`/api/groups/${GROUP_ID}/sales-range?days=${days}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.sales) {
+            const map = {};
+            data.sales.forEach(r => { map[r.variant_id] = r.qty; });
+            salesCache[`days_${days}`] = map;
+          }
+        })
+        .catch(() => {});
+    });
+  }, 500);
+});
+
+// Flatpickr range picker
+const fp = flatpickr('#dateRangeInput', {
+  mode: 'range',
+  locale: 'ru',
+  dateFormat: 'd M Y',
+  showMonths: 2,
+  disableMobile: true,
+  onChange(selectedDates) {
+    if (selectedDates.length === 2) {
+      document.getElementById('dateFrom').value = toISO(selectedDates[0]);
+      document.getElementById('dateTo').value   = toISO(selectedDates[1]);
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+  },
+});
+document.getElementById('dateRangeWrapper').addEventListener('click', () => fp.open());
+
+// Preset buttons
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fp.clear();
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value   = '';
+    fetchSales({ days: parseInt(btn.dataset.days) });
+  });
+});
+
+// Apply button
+document.getElementById('btnApply').addEventListener('click', () => {
+  const f = document.getElementById('dateFrom').value;
+  const t = document.getElementById('dateTo').value;
+  if (!f || !t) { fp.open(); return; }
+  fetchSales({ date_from: f, date_to: t });
+});
+</script>
+
+{% endblock %}

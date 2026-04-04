@@ -1256,21 +1256,69 @@ def _start_tg_bot():
         @bot.message_handler(content_types=["contact"])
         def handle_contact(msg):
             tg_id = str(msg.from_user.id)
-            phone = (msg.contact.phone_number or "").strip().lstrip("+")
+            tg_username = msg.from_user.username or f"tg_{tg_id}"
+            phone_raw = (msg.contact.phone_number or "").strip().lstrip("+")
+            phone_e164 = "+" + phone_raw
+
             with SessionLocal() as db:
+                # Check if already linked by telegram_id
                 user = db.execute(select(User).where(User.telegram_id == tg_id)).scalar_one_or_none()
+                if not user:
+                    # Try finding by phone
+                    user = db.execute(select(User).where(User.phone == phone_e164)).scalar_one_or_none()
+
                 if user:
-                    user.phone = "+" + phone
+                    # Update telegram_id and phone if needed
+                    user.telegram_id = tg_id
+                    user.phone = phone_e164
                     db.commit()
-                    bot.send_message(msg.chat.id,
-                        "✅ Номер привязан! Теперь вы можете входить через Telegram на странице входа.\n\nВыберите действие:",
-                        reply_markup=_main_menu(user.is_admin))
+                    user_id = user.id
+                    is_admin = user.is_admin
                 else:
-                    share_markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-                    share_markup.add(telebot.types.KeyboardButton("📱 Поделиться номером", request_contact=True))
-                    bot.send_message(msg.chat.id,
-                        "⚠️ Ваш Telegram ещё не привязан к аккаунту. Сначала войдите на сайте через имя пользователя, затем поделитесь номером.",
-                        reply_markup=share_markup)
+                    # Auto-create account for new user
+                    from werkzeug.security import generate_password_hash as _gph
+                    import os as _os
+                    base = tg_username
+                    username = base
+                    suffix = 1
+                    while db.execute(select(User).where(User.username == username)).scalar_one_or_none():
+                        username = f"{base}_{suffix}"
+                        suffix += 1
+                    user = User(
+                        username=username,
+                        password_hash=_gph(_os.urandom(32).hex()),
+                        telegram_id=tg_id,
+                        phone=phone_e164,
+                        is_admin=False,
+                    )
+                    from core.subscriptions import _ensure_user_trial_started
+                    _ensure_user_trial_started(db, user)
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                    user_id = user.id
+                    is_admin = False
+
+                # Find and confirm any pending contact_link token for this phone
+                pending = db.execute(
+                    select(TelegramPending).where(
+                        TelegramPending.type == "contact_link",
+                        TelegramPending.tg_username == phone_raw,
+                        TelegramPending.confirmed == False,
+                    )
+                ).scalars().first()
+                if pending:
+                    pending.confirmed = True
+                    pending.user_id = user_id
+                    pending.tg_id = tg_id
+                    db.commit()
+
+            bot.send_message(
+                msg.chat.id,
+                "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы.",
+                parse_mode="Markdown",
+                reply_markup=_main_menu(is_admin),
+            )
 
         # ---- helpers used by shop commands ----
         def _main_menu(is_admin=False):

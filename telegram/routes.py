@@ -91,10 +91,15 @@ def api_tg_send_approval():
         if not user or not user.telegram_id:
             cfg = _app._tg_config()
             bot_username = cfg.get("bot_username", "")
+            # Create a contact_link pending token — bot will confirm it when user shares contact
+            token = secrets.token_hex(16)
+            # Store phone digits in tg_username field (reused for contact_link type)
+            _app._tg_set(token, type="contact_link", tg_username=digits)
             return jsonify({
-                "error": "not_linked",
+                "not_linked": True,
                 "bot_username": bot_username,
-            }), 404
+                "token": token,
+            }), 200
         user_id = user.id
         tg_id = user.telegram_id
 
@@ -131,7 +136,7 @@ def api_tg_send_approval():
 def api_tg_check_approval(token):
     _app._tg_clean_expired()
     entry = _app._tg_get(token)
-    if not entry or entry.get("type") != "approval":
+    if not entry or entry.get("type") not in ("approval", "contact_link"):
         return jsonify({"status": "expired"})
     if not entry.get("confirmed"):
         return jsonify({"status": "waiting"})

@@ -126,8 +126,26 @@
           <button class="auth-btn auth-btn--outline" type="button" id="btn-tg-cancel">Отменить</button>
         </div>
 
-        <div class="auth-inline-note">
-          <strong>Первый раз?</strong> Обратитесь к администратору, чтобы он привязал ваш номер телефона и магазины к аккаунту SellerHub.
+        <div id="tg-bot-step" style="display:none;">
+          <div class="auth-inline-note" style="border-left: 3px solid #229ED9; margin-bottom:16px;">
+            <strong>Аккаунт не найден.</strong><br>
+            Чтобы войти, сначала запустите бота в Telegram — он выдаст вам код для входа.
+          </div>
+          <a id="tg-bot-link" href="#" target="_blank" class="auth-btn auth-btn--telegram" style="text-decoration:none; display:block; text-align:center;">
+            Открыть бота в Telegram
+          </a>
+          <div style="margin: 16px 0; text-align:center; color:#888;">— затем введите код из бота —</div>
+          <label class="auth-label" for="tg-code">Код из Telegram</label>
+          <div class="auth-field">
+            <input id="tg-code" class="auth-input" type="text" placeholder="A1B2C3" maxlength="6" autocomplete="off" style="text-transform:uppercase; letter-spacing:4px; font-size:1.2em;">
+          </div>
+          <button id="btn-tg-code-submit" class="auth-btn auth-btn--telegram" type="button">Войти по коду</button>
+          <div id="tg-code-error" class="auth-error"></div>
+          <button class="auth-btn auth-btn--outline" style="margin-top:8px;" type="button" id="btn-tg-back">Назад</button>
+        </div>
+
+        <div class="auth-inline-note" id="tg-first-time-note">
+          <strong>Первый раз?</strong> Нажмите кнопку входа — если аккаунта нет, бот выдаст код для регистрации.
         </div>
       </div>
     </div>
@@ -178,7 +196,15 @@ async function sendTgApproval() {
       body: JSON.stringify({ phone }),
     });
     const data = await response.json();
+
     if (!response.ok) {
+      if (data.error === "not_linked") {
+        // Account not found or telegram not linked — show bot registration flow
+        showBotStep(data.bot_username);
+        button.disabled = false;
+        button.innerHTML = "<span>Отправить подтверждение в Telegram</span>";
+        return;
+      }
       throw new Error(data.error || "Не удалось отправить запрос.");
     }
 
@@ -189,6 +215,63 @@ async function sendTgApproval() {
     setTgError(error.message || "Ошибка отправки.");
     button.disabled = false;
     button.innerHTML = "<span>Отправить подтверждение в Telegram</span>";
+  }
+}
+
+function showBotStep(botUsername) {
+  document.getElementById("tg-phone-step").style.display = "none";
+  document.getElementById("tg-first-time-note").style.display = "none";
+  const botStep = document.getElementById("tg-bot-step");
+  botStep.style.display = "block";
+  if (botUsername) {
+    const link = document.getElementById("tg-bot-link");
+    link.href = "https://t.me/" + botUsername;
+    link.textContent = "Открыть @" + botUsername + " в Telegram";
+  }
+  // Auto-generate a code for the user
+  generateTgCode();
+}
+
+let tgCodePollInterval = null;
+let currentCode = null;
+
+async function generateTgCode() {
+  try {
+    const resp = await fetch("/api/telegram/code");
+    const data = await resp.json();
+    currentCode = data.code;
+    tgCodePollInterval = window.setInterval(checkTgCode, 2000);
+  } catch(e) {}
+}
+
+async function checkTgCode() {
+  if (!currentCode) return;
+  try {
+    const resp = await fetch("/api/telegram/check/" + currentCode);
+    const data = await resp.json();
+    if (data.status === "ok") {
+      window.clearInterval(tgCodePollInterval);
+      window.location.href = data.redirect;
+    } else if (data.status === "expired") {
+      window.clearInterval(tgCodePollInterval);
+      document.getElementById("tg-code-error").textContent = "Код истёк. Обновите страницу.";
+    }
+  } catch(e) {}
+}
+
+async function submitTgCode() {
+  const code = document.getElementById("tg-code").value.trim().toUpperCase();
+  const errEl = document.getElementById("tg-code-error");
+  if (!code) { errEl.textContent = "Введите код из бота."; errEl.classList.add("is-visible"); return; }
+  errEl.textContent = "";
+  errEl.classList.remove("is-visible");
+  const resp = await fetch("/api/telegram/check/" + code);
+  const data = await resp.json();
+  if (data.status === "ok") {
+    window.location.href = data.redirect;
+  } else {
+    errEl.textContent = "Неверный или истёкший код. Попробуйте снова.";
+    errEl.classList.add("is-visible");
   }
 }
 
@@ -224,6 +307,18 @@ function cancelTgApproval() {
 
 document.getElementById("btn-tg-send").addEventListener("click", sendTgApproval);
 document.getElementById("btn-tg-cancel").addEventListener("click", cancelTgApproval);
+document.getElementById("btn-tg-back").addEventListener("click", function() {
+  window.clearInterval(tgCodePollInterval);
+  tgCodePollInterval = null;
+  currentCode = null;
+  document.getElementById("tg-bot-step").style.display = "none";
+  document.getElementById("tg-phone-step").style.display = "block";
+  document.getElementById("tg-first-time-note").style.display = "block";
+});
+document.getElementById("btn-tg-code-submit").addEventListener("click", submitTgCode);
+document.getElementById("tg-code").addEventListener("keydown", function(event) {
+  if (event.key === "Enter") { event.preventDefault(); submitTgCode(); }
+});
 document.getElementById("tg-phone").addEventListener("keydown", function(event) {
   if (event.key === "Enter") {
     event.preventDefault();

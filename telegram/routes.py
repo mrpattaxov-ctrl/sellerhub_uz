@@ -89,7 +89,12 @@ def api_tg_send_approval():
             if user:
                 break
         if not user or not user.telegram_id:
-            return jsonify({"error": "Телефон не найден или Telegram не привязан к аккаунту. Войдите через имя пользователя."}), 404
+            cfg = _app._tg_config()
+            bot_username = cfg.get("bot_username", "")
+            return jsonify({
+                "error": "not_linked",
+                "bot_username": bot_username,
+            }), 404
         user_id = user.id
         tg_id = user.telegram_id
 

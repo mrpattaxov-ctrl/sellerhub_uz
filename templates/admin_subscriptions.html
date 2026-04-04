@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .admin-sub-shell {
+    display: grid;
+    gap: 22px;
+  }
+  .admin-sub-card {
+    border: 1px solid #eaecf0;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(16, 24, 40, 0.06);
+    padding: 24px;
+  }
+  .admin-sub-hero {
+    padding: 28px;
+    background: linear-gradient(135deg, #eef4ff 0%, #f8fbff 60%, #ffffff 100%);
+  }
+  .admin-sub-kicker,
+  .admin-sub-chip,
+  .admin-sub-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+  .admin-sub-kicker {
+    background: #dbeafe;
+    color: #175cd3;
+  }
+  .admin-sub-chip {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #344054;
+  }
+  .admin-sub-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .admin-sub-head h1,
+  .admin-sub-head h2 {
+    margin: 0 0 6px;
+    color: #101828;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .admin-sub-head p {
+    margin: 0;
+    color: #667085;
+  }
+  .admin-sub-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .admin-sub-overview,
+  .admin-sub-plan-grid,
+  .admin-sub-top-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .admin-sub-overview {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .admin-sub-overview-box,
+  .admin-sub-plan-card {
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    padding: 18px;
+  }
+  .admin-sub-overview-box small,
+  .admin-sub-plan-card small {
+    display: block;
+    margin-bottom: 8px;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+  }
+  .admin-sub-overview-box strong,
+  .admin-sub-plan-card strong {
+    color: #101828;
+    font-size: 1.4rem;
+  }
+  .admin-sub-overview-box p,
+  .admin-sub-plan-card p {
+    margin: 8px 0 0;
+    color: #667085;
+    font-size: 0.92rem;
+  }
+  .admin-sub-top-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  }
+  .admin-sub-plan-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    margin-top: 18px;
+  }
+  .admin-sub-alert {
+    border-radius: 18px;
+    background: #f8faff;
+    border: 1px solid #d5d9eb;
+    color: #344054;
+  }
+  .admin-sub-table {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid #eaecf0;
+  }
+  .admin-code {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .admin-code-actions {
+    display: grid;
+    gap: 10px;
+    min-width: 260px;
+  }
+  .admin-code-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .admin-code-form .form-select {
+    flex: 1 1 150px;
+    min-width: 150px;
+  }
+  .admin-sub-state {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+  .admin-sub-state--active { background: #ecfdf3; color: #027a48; }
+  .admin-sub-state--trial { background: #eff8ff; color: #175cd3; }
+  .admin-sub-state--expired { background: #fef3f2; color: #b42318; }
+  .admin-sub-state--admin { background: #f4f3ff; color: #6941c6; }
+  .admin-sub-state--code-active { background: #eff8ff; color: #175cd3; }
+  .admin-sub-state--code-off { background: #f2f4f7; color: #344054; }
+  .admin-sub-note {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475467;
+  }
+  @media (max-width: 991.98px) {
+    .admin-sub-top-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="admin-sub-shell">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert admin-sub-alert mb-0">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <section class="admin-sub-card admin-sub-hero">
+    <div class="admin-sub-head">
+      <div>
+        <div class="admin-sub-kicker">Подписки и лимиты</div>
+        <h1 style="font-size: clamp(2rem, 3vw, 2.7rem); margin-top: 14px;">Управление подписками</h1>
+        <p>Здесь настраиваются пробный период, цены, лимит магазинов и коды активации. Ниже сразу видно, у кого доступ активен, а у кого срок уже закончился.</p>
+      </div>
+      <div class="admin-sub-actions">
+        <a href="/admin/users" class="btn btn-outline-secondary">Пользователи</a>
+        <a href="/groups" class="btn btn-dark">К товарам</a>
+      </div>
+    </div>
+
+    <div class="admin-sub-overview">
+      <div class="admin-sub-overview-box">
+        <small>Платные</small>
+        <strong>{{ subscription_overview.paid_users }}</strong>
+        <p>Пользователи с уже оплаченной подпиской.</p>
+      </div>
+      <div class="admin-sub-overview-box">
+        <small>На пробе</small>
+        <strong>{{ subscription_overview.trial_users }}</strong>
+        <p>Активны за счёт тестового периода.</p>
+      </div>
+      <div class="admin-sub-overview-box">
+        <small>Истекли</small>
+        <strong>{{ subscription_overview.expired_users }}</strong>
+        <p>Этим аккаунтам уже нужно продление.</p>
+      </div>
+      <div class="admin-sub-overview-box">
+        <small>Активные коды</small>
+        <strong>{{ subscription_overview.active_codes }}</strong>
+        <p>Коды, которые ещё можно выдать пользователям.</p>
+      </div>
+      <div class="admin-sub-overview-box">
+        <small>Лимит магазинов</small>
+        <strong>{{ subscription_settings.max_shops_per_user }}</strong>
+        <p>Максимум на один аккаунт по текущим настройкам.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="admin-sub-top-grid">
+    <section class="admin-sub-card">
+      <div class="admin-sub-head">
+        <div>
+          <h2>Базовые настройки</h2>
+          <p>Меняйте пробный период, цену месяца и лимит магазинов. Цены тарифов пересчитываются автоматически ниже.</p>
+        </div>
+      </div>
+      <form method="post" class="row g-3 align-items-end">
+        <input type="hidden" name="action" value="settings">
+        <div class="col-md-4">
+          <label class="form-label">Пробный период, дней</label>
+          <input class="form-control" type="number" min="0" name="trial_days" value="{{ subscription_settings.trial_days }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Цена за 1 месяц, сум</label>
+          <input class="form-control" type="number" min="0" step="1000" name="monthly_price_sum" value="{{ subscription_settings.monthly_price_sum }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Лимит магазинов</label>
+          <input class="form-control" type="number" min="1" name="max_shops_per_user" value="{{ subscription_settings.max_shops_per_user }}">
+        </div>
+        <div class="col-12">
+          <button class="btn btn-dark" type="submit">Сохранить настройки</button>
+        </div>
+      </form>
+
+      <div class="admin-sub-plan-grid">
+        {% for plan in subscription_plans %}
+          <div class="admin-sub-plan-card">
+            <small>{{ plan.label }}</small>
+            <strong>{{ plan.price_sum_formatted }} сум</strong>
+            <p>Скидка {{ plan.discount_percent }}% от базовой цены.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="admin-sub-card">
+      <div class="admin-sub-head">
+        <div>
+          <h2>Создать код</h2>
+          <p>Код можно выдать после оплаты, как бонус или как промо-доступ.</p>
+        </div>
+      </div>
+      <form method="post" class="row g-3 align-items-end">
+        <input type="hidden" name="action" value="create_code">
+        <div class="col-12">
+          <label class="form-label">Срок действия</label>
+          <select class="form-select" name="duration_key">
+            {% for option in code_duration_options %}
+              <option value="{{ option.key }}">{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Количество активаций</label>
+          <input class="form-control" type="number" min="1" name="max_activations" value="1">
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary w-100" type="submit">Создать код</button>
+        </div>
+      </form>
+      <div class="admin-sub-note">
+        Сейчас в системе {{ subscription_overview.total_codes }} кодов. Пользователь может активировать код сам на странице подписки, без участия администратора в момент активации.
+      </div>
+    </section>
+  </div>
+
+  <section class="admin-sub-card">
+    <div class="admin-sub-head">
+      <div>
+        <h2>Активные и созданные коды</h2>
+        <p>Список кодов, сроков и количества уже использованных активаций.</p>
+      </div>
+    </div>
+    <div class="table-responsive admin-sub-table">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Код</th>
+            <th>Срок</th>
+            <th>Активации</th>
+            <th>Создан</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in code_rows %}
+            <tr>
+              <td><span class="admin-code">{{ row.code }}</span></td>
+              <td>{{ row.duration_label }}</td>
+              <td>{{ row.used_count }} / {{ row.max_activations }}</td>
+              <td>{{ row.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              <td>
+                {% if row.is_active and row.used_count < row.max_activations %}
+                  <span class="admin-sub-state admin-sub-state--code-active">Активен</span>
+                {% else %}
+                  <span class="admin-sub-state admin-sub-state--code-off">Закрыт</span>
+                {% endif %}
+                <div class="admin-code-actions mt-2">
+                  <form method="post" class="admin-code-form">
+                    <input type="hidden" name="action" value="update_code">
+                    <input type="hidden" name="code_id" value="{{ row.id }}">
+                    <select class="form-select form-select-sm" name="duration_key">
+                      {% for option in code_duration_options %}
+                        <option value="{{ option.key }}" {% if option.key == row.duration_key %}selected{% endif %}>{{ option.label }}</option>
+                      {% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Сохранить</button>
+                  </form>
+                  <form method="post" onsubmit="return confirm('Удалить код {{ row.code }}?');">
+                    <input type="hidden" name="action" value="delete_code">
+                    <input type="hidden" name="code_id" value="{{ row.id }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-secondary py-4">Коды пока не созданы.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="admin-sub-card">
+    <div class="admin-sub-head">
+      <div>
+        <h2>Статус пользователей</h2>
+        <p>Отсюда видно, кто активен, кто сидит на пробе и кто уже заблокирован по сроку.</p>
+      </div>
+      <div class="admin-sub-chip">Всего продавцов: {{ subscription_overview.total_users }}</div>
+    </div>
+    <div class="table-responsive admin-sub-table">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Пользователь</th>
+            <th>Роль</th>
+            <th>Магазины</th>
+            <th>Статус</th>
+            <th>Осталось</th>
+            <th>Действует до</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in user_rows %}
+            <tr>
+              <td><strong>{{ row.username }}</strong></td>
+              <td>{{ "Админ" if row.is_admin else "Пользователь" }}</td>
+              <td>{{ row.shop_count }}</td>
+              <td>
+                {% if row.status.state == "admin" %}
+                  <span class="admin-sub-state admin-sub-state--admin">{{ row.status.label }}</span>
+                {% elif row.status.active and row.status.state == "trial" %}
+                  <span class="admin-sub-state admin-sub-state--trial">{{ row.status.label }}</span>
+                {% elif row.status.active %}
+                  <span class="admin-sub-state admin-sub-state--active">{{ row.status.label }}</span>
+                {% else %}
+                  <span class="admin-sub-state admin-sub-state--expired">{{ row.status.label }}</span>
+                {% endif %}
+              </td>
+              <td>{{ row.status.remaining_text }}</td>
+              <td>
+                {% if row.status.is_unlimited %}
+                  Безлимит
+                {% elif row.status.effective_end_at %}
+                  {{ row.status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if row.is_admin %}
+                  <span class="text-secondary">—</span>
+                {% else %}
+                  <div class="admin-code-actions">
+                    <form method="post" class="admin-code-form">
+                      <input type="hidden" name="action" value="update_user_subscription">
+                      <input type="hidden" name="user_id" value="{{ row.id }}">
+                      <select class="form-select form-select-sm" name="duration_key">
+                        {% for option in code_duration_options %}
+                          <option value="{{ option.key }}" {% if option.key == row.duration_key %}selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                      </select>
+                      <button class="btn btn-sm btn-outline-primary" type="submit">Сохранить</button>
+                    </form>
+                    <form method="post" onsubmit="return confirm('Удалить подписку пользователя {{ row.username }}?');">
+                      <input type="hidden" name="action" value="delete_user_subscription">
+                      <input type="hidden" name="user_id" value="{{ row.id }}">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
+                    </form>
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="admin-sub-card">
+    <div class="admin-sub-head">
+      <div>
+        <h2>Последние активации</h2>
+        <p>Последние пользователи, которые уже активировали код и получили продление.</p>
+      </div>
+    </div>
+    <div class="table-responsive admin-sub-table">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Пользователь</th>
+            <th>Код</th>
+            <th>Активирован</th>
+            <th>Действует до</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in activation_rows %}
+            <tr>
+              <td><strong>{{ row.username }}</strong></td>
+              <td>{{ row.code }}</td>
+              <td>{{ row.activated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              <td>
+                {% if row.was_unlimited %}
+                  Безлимит
+                {% elif row.applied_until %}
+                  {{ row.applied_until.strftime("%Y-%m-%d %H:%M") }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-secondary py-4">Активаций пока не было.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -11,6 +11,7 @@ from werkzeug.security import generate_password_hash
 
 from extensions import SessionLocal
 from models import User
+from core.subscriptions import _ensure_user_trial_started
 
 
 telegram_bp = Blueprint("telegram_bp", __name__)
@@ -59,6 +60,7 @@ def api_tg_check_code(code):
                 telegram_id=tg_id,
                 is_admin=False,
             )
+            _ensure_user_trial_started(db, user)
             db.add(user)
             db.commit()
             db.refresh(user)

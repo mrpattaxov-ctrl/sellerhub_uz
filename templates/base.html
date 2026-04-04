@@ -8,12 +8,11 @@
   <link rel="stylesheet" href="/static/styles.css">
   {% block extra_css %}{% endblock %}
   <style>
-    /* Global Table Styling (Figma Style) */
     .table-responsive {
       background: #ffffff;
-      border-radius: 18px; /* Smooth corners */
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* Soft shadow */
-      border: 1px solid #eaecf0; /* Light gray border */
+      border-radius: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid #eaecf0;
       padding: 0;
       margin-bottom: 1.5rem;
       overflow: visible !important;
@@ -28,8 +27,8 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background-color: #f9fafb; /* Light gray header */
-      color: #475467; /* Slate 600 */
+      background-color: #f9fafb;
+      color: #475467;
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -45,7 +44,7 @@
       vertical-align: middle;
       border-bottom: 1px solid #eaecf0;
       font-size: 0.875rem;
-      color: #101828; /* Slate 900 */
+      color: #101828;
     }
     .table tbody tr:last-child td {
       border-bottom: none;
@@ -53,8 +52,8 @@
     .table-hover tbody tr:hover {
       background-color: #f9fafb;
     }
-    /* Input styling inside tables */
-    .table .form-control, .table .form-select {
+    .table .form-control,
+    .table .form-select {
       border-radius: 8px;
       border: 1px solid #d0d5dd;
       padding: 8px 12px;
@@ -65,12 +64,69 @@
       box-shadow: 0 0 0 4px rgba(152, 162, 179, 0.14);
       border-color: #86b7fe;
     }
-    /* Global card radius */
-    .card { border-radius: 18px; overflow: hidden; }
-    .card .card-img-top { border-radius: 18px 18px 0 0; }
+    .card {
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .card .card-img-top {
+      border-radius: 18px 18px 0 0;
+    }
+    .top-sub-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 31px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid #d5d9eb;
+      background: #f8fafc;
+      color: #344054;
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+    }
+    .top-sub-chip:hover {
+      color: #101828;
+      background: #f2f4f7;
+      border-color: #cfd4dc;
+      transform: translateY(-1px);
+    }
+    .top-sub-chip--trial {
+      background: #eff8ff;
+      border-color: #b2ddff;
+      color: #175cd3;
+    }
+    .top-sub-chip--active {
+      background: #ecfdf3;
+      border-color: #abefc6;
+      color: #027a48;
+    }
+    .top-sub-chip--expired {
+      background: #fef3f2;
+      border-color: #fecdca;
+      color: #b42318;
+    }
+    .top-sub-chip--unlimited {
+      background: #f4f3ff;
+      border-color: #d9d6fe;
+      color: #6941c6;
+    }
+    .top-sub-chip__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: .9;
+      flex-shrink: 0;
+    }
   </style>
 </head>
-<body>
+<body
+  data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
+  data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
+  data-subscription-label="{{ 'Подписки' if current_user.is_authenticated and current_user.is_admin else 'Подписка' }}">
 <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
   <div class="container-fluid px-3">
     <a class="navbar-brand fw-semibold" href="/groups"></a>
@@ -81,6 +137,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Пользователи
       </a>
+      <a class="btn btn-outline-info btn-sm" href="/admin/subscriptions">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M20 12V7a2 2 0 0 0-2-2h-1V3H7v2H6a2 2 0 0 0-2 2v5"/><path d="M2 12h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M12 12v9"/></svg>
+        Подписки
+      </a>
       <a class="btn btn-outline-secondary btn-sm" href="/settings/api-key">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Токен
@@ -89,6 +149,21 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Синхр.
       </button>
+      {% endif %}
+      {% if not current_user.is_admin and subscription_context %}
+      <a
+        class="top-sub-chip {% if subscription_context.status.is_unlimited %}top-sub-chip--unlimited{% elif subscription_context.status.active and subscription_context.status.state == 'trial' %}top-sub-chip--trial{% elif subscription_context.status.active %}top-sub-chip--active{% else %}top-sub-chip--expired{% endif %}"
+        href="/subscription"
+        title="Управление подпиской">
+        <span class="top-sub-chip__dot"></span>
+        {% if subscription_context.status.is_unlimited %}
+          Безлимит
+        {% elif subscription_context.status.active %}
+          {{ subscription_context.status.remaining_text }}
+        {% else %}
+          Подписка истекла
+        {% endif %}
+      </a>
       {% endif %}
       <a class="btn btn-outline-secondary btn-sm" href="/settings/notifications">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -103,7 +178,6 @@
   </div>
 </nav>
 
-<!-- Token expiry warning banner -->
 {% if current_user.is_authenticated and current_user.is_admin %}
 <div id="token-warning-banner" style="display:none"
      class="alert alert-warning alert-dismissible mb-0 rounded-0 py-2 px-3 text-center" role="alert">
@@ -114,16 +188,16 @@
 (function(){
   fetch('/api/user/api-key').then(r=>r.json()).then(d=>{
     const banner = document.getElementById('token-warning-banner');
-    const text   = document.getElementById('token-warning-text');
+    const text = document.getElementById('token-warning-text');
     if (!d.has_key) {
-      text.innerHTML = '⚠️ Uzum токен не настроен. <a href="/settings/api-key">Добавьте токен в Настройках</a> или установите <b>Chrome-расширение «Uzum Token Sync»</b>.';
+      text.innerHTML = 'Uzum токен не настроен. <a href="/settings/api-key">Добавьте токен в настройках</a> или установите <b>Chrome-расширение «Uzum Token Sync»</b>.';
       banner.style.display = '';
     } else if (d.is_expired) {
-      text.innerHTML = '🔴 Uzum токен <b>истёк</b>. Откройте <a href="https://seller.uzum.uz" target="_blank">кабинет продавца Uzum</a> — расширение обновит его автоматически.';
+      text.innerHTML = 'Uzum токен истёк. Откройте <a href="https://seller.uzum.uz" target="_blank">кабинет продавца Uzum</a> — расширение обновит его автоматически.';
       banner.style.display = '';
     } else if (d.expires_soon) {
       const mins = Math.round(d.expires_in_seconds / 60);
-      text.innerHTML = `🟡 Uzum токен истекает через <b>${mins} мин.</b> Откройте <a href="https://seller.uzum.uz" target="_blank">кабинет продавца Uzum</a> для автообновления.`;
+      text.innerHTML = `Uzum токен истекает через <b>${mins} мин.</b> Откройте <a href="https://seller.uzum.uz" target="_blank">кабинет продавца Uzum</a> для автообновления.`;
       banner.style.display = '';
     }
   }).catch(()=>{});
@@ -135,7 +209,6 @@
   {% block content %}{% endblock %}
 </main>
 
-<!-- Sync Modal -->
 <div class="modal fade" id="syncModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">

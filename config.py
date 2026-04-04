@@ -21,6 +21,12 @@ DB_POOL_RECYCLE_SECONDS = max(30, int(os.getenv("DB_POOL_RECYCLE_SECONDS", "1800
 
 # ── Flask ──────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get("SECRET_KEY", "super-secret-key-change-this")
+APP_PUBLIC_BASE_URL = str(os.getenv("APP_PUBLIC_BASE_URL", "")).strip().rstrip("/")
+PAYME_MERCHANT_ID = str(os.getenv("PAYME_MERCHANT_ID", "")).strip()
+PAYME_MERCHANT_LOGIN = str(os.getenv("PAYME_MERCHANT_LOGIN", "")).strip()
+PAYME_KEY = str(os.getenv("PAYME_KEY", "")).strip()
+PAYME_TEST_KEY = str(os.getenv("PAYME_TEST_KEY", "")).strip()
+PAYME_USE_TEST = str(os.getenv("PAYME_USE_TEST", "1")).strip().lower() in ("1", "true", "yes")
 
 # ── Finance sync ───────────────────────────────────────────────────────
 FINANCE_REFRESH_DAYS = max(1, int(os.getenv("FINANCE_REFRESH_DAYS", "45")))

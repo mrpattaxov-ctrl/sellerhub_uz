@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, text as sql_text
+from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from flask_login import UserMixin
 
@@ -144,6 +144,153 @@ class User(UserMixin, Base):
         default=False,
         nullable=False,
         server_default=sql_text("false"),
+    )
+    trial_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    subscription_is_unlimited: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default=sql_text("false"),
+    )
+
+
+class SubscriptionSettings(Base):
+    __tablename__ = "subscription_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False, default=1)
+    trial_days: Mapped[int] = mapped_column(
+        Integer,
+        default=7,
+        nullable=False,
+        server_default=sql_text("7"),
+    )
+    monthly_price_sum: Mapped[int] = mapped_column(
+        Integer,
+        default=100000,
+        nullable=False,
+        server_default=sql_text("100000"),
+    )
+    max_shops_per_user: Mapped[int] = mapped_column(
+        Integer,
+        default=5,
+        nullable=False,
+        server_default=sql_text("5"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class SubscriptionCode(Base):
+    __tablename__ = "subscription_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    duration_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_unlimited: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default=sql_text("false"),
+    )
+    max_activations: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        nullable=False,
+        server_default=sql_text("1"),
+    )
+    used_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        server_default=sql_text("0"),
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        server_default=sql_text("true"),
+    )
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SubscriptionCodeActivation(Base):
+    __tablename__ = "subscription_code_activations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("subscription_codes.id"), nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    activated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    applied_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    was_unlimited: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default=sql_text("false"),
+    )
+
+
+class SubscriptionOrder(Base):
+    __tablename__ = "subscription_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    plan_key: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    plan_label: Mapped[str] = mapped_column(String(64), nullable=False)
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_sum: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_tiyin: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default=sql_text("'pending'"),
+        index=True,
+    )
+    previous_subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    previous_subscription_is_unlimited: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default=sql_text("false"),
+    )
+    applied_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class PaymeTransaction(Base):
+    __tablename__ = "payme_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    payme_transaction_id: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    order_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscription_orders.id"), nullable=False, index=True)
+    amount_tiyin: Mapped[int] = mapped_column(Integer, nullable=False)
+    account_order_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    payme_time_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    create_time_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    perform_time_ms: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=sql_text("0"))
+    cancel_time_ms: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=sql_text("0"))
+    state: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=sql_text("1"), index=True)
+    reason: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
     )
 
 

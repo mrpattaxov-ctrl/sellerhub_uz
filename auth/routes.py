@@ -15,15 +15,27 @@ from config import (
     BACKSTAGE_LOGIN_SESSION_KEY,
     NOTIFICATION_INTERVAL_OPTIONS,
     NOTIFICATION_SETTINGS_DEFAULTS,
+    PAYME_KEY,
+    PAYME_MERCHANT_ID,
+    PAYME_MERCHANT_LOGIN,
+    PAYME_TEST_KEY,
 )
 from extensions import SessionLocal
-from models import NotificationSettings, User
+from models import NotificationSettings, SubscriptionOrder, User
 from core.auth_helpers import (
     _current_user_is_admin,
     _get_admin_token,
     _json_response,
     _jwt_expires_in_seconds,
     _uzum_auto_login,
+)
+from core.subscriptions import (
+    _activate_subscription_code,
+    _ensure_user_trial_started,
+    _get_or_create_subscription_settings,
+    _subscription_plan_rows,
+    _subscription_settings_dict,
+    _subscription_status_for_user,
 )
 from core.time_helpers import _recommended_window_lengths
 
@@ -52,6 +64,24 @@ def _safe_next_url() -> str | None:
     return None
 
 
+def _finish_admin_login(*, default_endpoint: str):
+    if current_user.is_authenticated and _current_user_is_admin():
+        return redirect(url_for(default_endpoint))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        with SessionLocal() as db:
+            user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
+            if user and check_password_hash(user.password_hash, password) and user.is_admin:
+                session.pop(BACKSTAGE_LOGIN_SESSION_KEY, None)
+                login_user(user)
+                return redirect(_safe_next_url() or url_for(default_endpoint))
+        flash("Invalid admin credentials")
+
+    return render_template("admin_login.html", form_action=request.path)
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -67,18 +97,19 @@ def login():
 def backstage_login():
     if not session.get(BACKSTAGE_LOGIN_SESSION_KEY):
         return render_template("not_found.html", message="Page not found"), 404
+    return _finish_admin_login(default_endpoint="products_bp.groups_page")
 
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        with SessionLocal() as db:
-            user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
-            if user and check_password_hash(user.password_hash, password) and user.is_admin:
-                session.pop(BACKSTAGE_LOGIN_SESSION_KEY, None)
-                login_user(user)
-                return redirect(_safe_next_url() or url_for("products_bp.groups_page"))
-            flash("Invalid admin credentials")
-    return render_template("admin_login.html")
+
+@auth_bp.get("/admin")
+def admin_entry():
+    if current_user.is_authenticated and _current_user_is_admin():
+        return redirect(url_for("admin_bp.admin_subscriptions_page"))
+    return redirect(url_for("auth_bp.admin_login_page", next=_safe_next_url()))
+
+
+@auth_bp.route("/admin/login", methods=["GET", "POST"])
+def admin_login_page():
+    return _finish_admin_login(default_endpoint="admin_bp.admin_subscriptions_page")
 
 
 @auth_bp.route("/admin-<string:secret>/login", methods=["GET", "POST"])
@@ -276,6 +307,78 @@ def settings_notifications():
         interval_options=NOTIFICATION_INTERVAL_OPTIONS,
         recommended_window_lengths=_recommended_window_lengths,
     )
+
+
+@auth_bp.route("/subscription", methods=["GET", "POST"])
+@login_required
+def subscription_page():
+    if _current_user_is_admin():
+        return redirect(url_for("admin_bp.admin_subscriptions_page"))
+
+    user_id = int(current_user.get_id())
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        settings = _get_or_create_subscription_settings(db)
+        if user is not None and _ensure_user_trial_started(db, user):
+            db.commit()
+            db.refresh(user)
+
+        payme_order_id = request.args.get("payme_order")
+        if request.method == "GET" and payme_order_id:
+            try:
+                order = db.get(SubscriptionOrder, int(payme_order_id))
+            except Exception:
+                order = None
+            if order is not None and int(order.user_id) == user_id:
+                if order.status == "paid":
+                    flash("Оплата Payme подтверждена. Подписка активирована.")
+                elif order.status == "cancelled":
+                    flash("Оплата Payme была отменена.")
+                else:
+                    flash("Платёж Payme обрабатывается. Если статус не обновился, откройте страницу ещё раз.")
+            return redirect(url_for("auth_bp.subscription_page"))
+
+        if request.method == "POST":
+            ok, message, _ = _activate_subscription_code(
+                db,
+                user=user,
+                raw_code=request.form.get("activation_code"),
+                settings=settings,
+            )
+            flash(message)
+            if ok:
+                db.commit()
+                return redirect(url_for("auth_bp.subscription_page"))
+
+        status = _subscription_status_for_user(user, settings=settings)
+        return render_template(
+            "subscription.html",
+            subscription_status=status,
+            subscription_settings=_subscription_settings_dict(settings),
+            subscription_plans=_subscription_plan_rows(settings=settings),
+            payme_enabled=bool(PAYME_MERCHANT_ID and PAYME_MERCHANT_LOGIN and (PAYME_KEY or PAYME_TEST_KEY)),
+        )
+
+
+@auth_bp.get("/subscription/expired")
+@login_required
+def subscription_expired_page():
+    if _current_user_is_admin():
+        return redirect(url_for("products_bp.groups_page"))
+
+    user_id = int(current_user.get_id())
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        settings = _get_or_create_subscription_settings(db)
+        if user is not None and _ensure_user_trial_started(db, user):
+            db.commit()
+            db.refresh(user)
+        status = _subscription_status_for_user(user, settings=settings)
+
+    if status["active"]:
+        return redirect(url_for("products_bp.groups_page"))
+
+    return render_template("subscription_expired.html", subscription_status=status)
 
 
 @auth_bp.post("/api/admin/uzum-credentials")

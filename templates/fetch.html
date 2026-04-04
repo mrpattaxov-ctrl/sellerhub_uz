@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <title>Мои магазины - Склад</title>
@@ -11,7 +11,9 @@
       padding: 24px 0 36px;
       color: #101828;
     }
-    .container { max-width: 1160px; }
+    .container {
+      max-width: 1160px;
+    }
     .page-header {
       margin-bottom: 20px;
       padding: 18px 20px;
@@ -31,19 +33,6 @@
       border-radius: 18px;
       background: #fff;
       box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06);
-    }
-    .shop-card {
-      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-      cursor: pointer;
-      border: 1px solid #eaecf0;
-      border-radius: 18px;
-      background: #fff;
-      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.05);
-    }
-    .shop-card:hover {
-      transform: translateY(-2px);
-      border-color: #d0d5dd;
-      box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
     }
     .fetch-btn {
       border-radius: 9px;
@@ -95,6 +84,46 @@
       background: #111827;
       border-color: #111827;
     }
+    .shop-limit-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #344054;
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .shop-limit-pill::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.9;
+      flex-shrink: 0;
+    }
+    .shop-limit-pill--full {
+      background: #fef3f2;
+      border-color: #fecdca;
+      color: #b42318;
+    }
+    .shop-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      border: 1px solid #eaecf0;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(16, 24, 40, 0.05);
+    }
+    .shop-card:hover {
+      transform: translateY(-2px);
+      border-color: #d0d5dd;
+      box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+    }
     .shop-actions {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -128,17 +157,15 @@
     }
     .shop-action-btn--sync {
       grid-column: 1 / -1;
+      color: #6941c6;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
     }
     .shop-action-btn--edit {
       color: #344054;
       background: #fff;
       border-color: #d0d5dd;
-      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-    }
-    .shop-action-btn--sync {
-      color: #6941c6;
-      background: #f5f3ff;
-      border-color: #ddd6fe;
       box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
     }
     .shop-action-btn--delete {
@@ -161,13 +188,22 @@
     }
   </style>
 </head>
-<body>
+<body
+  data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
+  data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
+  data-subscription-label="{{ 'Подписки' if current_user.is_authenticated and current_user.is_admin else 'Подписка' }}"
+  data-max-shops="{{ subscription_context.settings.max_shops_per_user if subscription_context else 0 }}"
+  data-shop-count="{{ subscription_context.shop_count if subscription_context else 0 }}">
   <div class="container">
     <div class="page-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
       <h1 class="page-title">Мои магазины</h1>
-      <a href="/groups" class="fetch-btn fetch-btn--back">Назад к товарам</a>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if subscription_context %}
+        <div id="shopLimitPill" class="shop-limit-pill">Магазины: {{ subscription_context.shop_count }} / {{ subscription_context.settings.max_shops_per_user }}</div>
+        {% endif %}
+        <a href="/groups" class="fetch-btn fetch-btn--back">Назад к товарам</a>
+      </div>
     </div>
-
 
     <div id="apiKeyWarning" class="alert alert-warning" style="display:none;">
       <b>No API key saved.</b> Please go to <a href="/settings/api-key" class="alert-link">API Key</a> and add it before syncing.
@@ -175,7 +211,8 @@
 
     <div class="card form-shell mb-4">
       <div class="card-body">
-        <h5 class="card-title">Добавить новый магазин</h5>
+        <h5 class="card-title mb-1">Добавить новый магазин</h5>
+        <div class="text-secondary small mb-3">Новый магазин сразу появится в списке и сможет синхронизироваться после добавления.</div>
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
             <label class="form-label">ID магазина (Uzum Shop ID)</label>
@@ -193,15 +230,39 @@
     </div>
 
     <h5 class="mb-3">Ваши магазины</h5>
-    <div id="shopsContainer" class="row g-3">
-      <!-- Shop buttons will appear here -->
-    </div>
+    <div id="shopsContainer" class="row g-3"></div>
 
     <div id="syncStatus" class="mt-3" style="display:none;"></div>
   </div>
 
   <script>
-    async function api(url, method="GET", body=null) {
+    function getShopLimit() {
+      return Number(document.body.dataset.maxShops || "0");
+    }
+
+    function updateShopLimitUi(shopCount) {
+      const limit = getShopLimit();
+      if (!limit) return;
+
+      const isFull = shopCount >= limit;
+      const pill = document.getElementById("shopLimitPill");
+      const addBtn = document.getElementById("btnAddShop");
+      const idInput = document.getElementById("newShopId");
+      const nameInput = document.getElementById("newShopName");
+
+      if (pill) {
+        pill.textContent = `Магазины: ${shopCount} / ${limit}`;
+        pill.classList.toggle("shop-limit-pill--full", isFull);
+      }
+      if (addBtn) {
+        addBtn.disabled = isFull;
+        addBtn.textContent = isFull ? "Лимит достигнут" : "Добавить магазин";
+      }
+      if (idInput) idInput.disabled = isFull;
+      if (nameInput) nameInput.disabled = isFull;
+    }
+
+    async function api(url, method = "GET", body = null) {
       const opts = { method, headers: { "Content-Type": "application/json" } };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(url, opts);
@@ -222,14 +283,17 @@
     async function loadShops() {
       const data = await api("/api/shops");
       const container = document.getElementById("shopsContainer");
+      const shops = data.shops || [];
       container.innerHTML = "";
-      
-      if (!data.shops || data.shops.length === 0) {
-        container.innerHTML = `<div class="col-12 text-secondary">Магазины еще не добавлены.</div>`;
+      document.body.dataset.shopCount = shops.length.toString();
+      updateShopLimitUi(shops.length);
+
+      if (shops.length === 0) {
+        container.innerHTML = `<div class="col-12 text-secondary">Магазины ещё не добавлены.</div>`;
         return;
       }
 
-      data.shops.forEach(shop => {
+      shops.forEach((shop) => {
         const col = document.createElement("div");
         col.className = "col-md-4 col-lg-3";
         col.innerHTML = `
@@ -238,21 +302,21 @@
             <div class="text-secondary small mb-3">ID: ${shop.uzum_id}</div>
             <div class="shop-actions">
               <button class="shop-action-btn shop-action-btn--sync btn-sync" data-id="${shop.uzum_id}">Синхронизация</button>
-              <button class="shop-action-btn shop-action-btn--edit btn-edit" data-id="${shop.uzum_id}" data-name="${(shop.name || '').replace(/"/g, '&quot;')}">Ред.</button>
-              <button class="shop-action-btn shop-action-btn--delete btn-delete" data-db-id="${shop.id}" data-name="${(shop.name || shop.uzum_id).replace(/"/g, '&quot;')}">Удалить</button>
+              <button class="shop-action-btn shop-action-btn--edit btn-edit" data-id="${shop.uzum_id}" data-name="${(shop.name || "").replace(/"/g, "&quot;")}">Ред.</button>
+              <button class="shop-action-btn shop-action-btn--delete btn-delete" data-db-id="${shop.id}" data-name="${(shop.name || shop.uzum_id).replace(/"/g, "&quot;")}">Удалить</button>
             </div>
           </div>
         `;
         container.appendChild(col);
       });
 
-      document.querySelectorAll(".btn-sync").forEach(btn => {
+      document.querySelectorAll(".btn-sync").forEach((btn) => {
         btn.addEventListener("click", (e) => doSync(e.target.dataset.id));
       });
-      document.querySelectorAll(".btn-edit").forEach(btn => {
+      document.querySelectorAll(".btn-edit").forEach((btn) => {
         btn.addEventListener("click", (e) => editShop(e.target.dataset.id, e.target.dataset.name));
       });
-      document.querySelectorAll(".btn-delete").forEach(btn => {
+      document.querySelectorAll(".btn-delete").forEach((btn) => {
         btn.addEventListener("click", (e) => deleteShop(e.target.dataset.dbId, e.target.dataset.name));
       });
     }
@@ -263,18 +327,17 @@
       status.className = "alert alert-info status-panel";
       status.textContent = `Синхронизация магазина ${shopId} (товары + продажи)... подождите.`;
 
-      // Disable all sync buttons while running
-      document.querySelectorAll(".btn-sync").forEach(b => { b.disabled = true; });
+      document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = true; });
 
       try {
         const res = await api("/api/uzum/sync", "POST", { shop_id: shopId, size: 100, sync_all: true });
         status.className = "alert alert-success status-panel";
-        status.textContent = `Успешно! Товаров: ${res.total_products}, вариантов: ${res.fetched}.`;
+        status.textContent = `Успешно. Товаров: ${res.total_products}, вариантов: ${res.fetched}.`;
       } catch (e) {
         status.className = "alert alert-danger status-panel";
         status.textContent = "Ошибка: " + e.message;
       } finally {
-        document.querySelectorAll(".btn-sync").forEach(b => { b.disabled = false; });
+        document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = false; });
       }
     }
 
@@ -283,11 +346,16 @@
       if (newName !== null) {
         await api("/api/shops", "POST", { uzum_id: shopId, name: newName });
         checkApiKey();
-    loadShops();
+        loadShops();
       }
     }
 
     document.getElementById("btnAddShop").addEventListener("click", async () => {
+      if (getShopLimit() && Number(document.body.dataset.shopCount || "0") >= getShopLimit()) {
+        alert("Лимит магазинов для этого аккаунта уже достигнут.");
+        return;
+      }
+
       const id = document.getElementById("newShopId").value.trim();
       const name = document.getElementById("newShopName").value.trim();
       if (!id) return alert("Требуется ID магазина");
@@ -302,14 +370,13 @@
         document.getElementById("newShopName").value = "";
         await loadShops();
 
-        // Auto-sync products + finance right after adding
         btn.textContent = "Синхронизация...";
         await doSync(id);
       } catch (e) {
         alert("Ошибка: " + e.message);
       } finally {
-        btn.disabled = false;
-        btn.textContent = "Добавить магазин";
+        document.body.dataset.shopCount = document.querySelectorAll("#shopsContainer > div").length.toString();
+        updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
       }
     });
 
@@ -317,14 +384,21 @@
       if (!confirm(`Удалить магазин "${name}"?\n\nВсе товары и данные этого магазина будут удалены.`)) return;
       try {
         const res = await api(`/api/shops/${dbId}`, "DELETE");
-        if (res.ok) loadShops();
-        else alert(res.error || "Ошибка при удалении");
+        if (res.ok) {
+          await loadShops();
+        } else {
+          alert(res.error || "Ошибка при удалении");
+        }
       } catch (e) {
         alert("Ошибка: " + e.message);
       }
     }
 
+    checkApiKey();
+    updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
     loadShops();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/uzum_ui.js"></script>
 </body>
 </html>

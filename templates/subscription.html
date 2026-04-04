@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+{% block content %}
+{% set shops_limit = subscription_context.settings.max_shops_per_user if subscription_context else subscription_settings.max_shops_per_user %}
+{% set shops_used = subscription_context.shop_count if subscription_context else 0 %}
+{% set shops_left = subscription_context.shops_left if subscription_context else None %}
+<style>
+  .sub-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    gap: 20px;
+  }
+  .sub-alert,
+  .sub-card {
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 20px;
+    box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
+  }
+  .sub-alert {
+    padding: 14px 18px;
+    color: #344054;
+  }
+  .sub-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .sub-stat {
+    padding: 22px 24px;
+    display: grid;
+    gap: 4px;
+  }
+  .sub-stat small {
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #667085;
+  }
+  .sub-stat strong {
+    color: #101828;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -.03em;
+  }
+  .sub-stat p {
+    margin: 0;
+    color: #667085;
+    font-size: 0.86rem;
+  }
+  .sub-plans,
+  .sub-pay-card,
+  .sub-help-card {
+    padding: 26px;
+  }
+  .sub-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .sub-head h2 {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #101828;
+  }
+  .sub-head p {
+    margin: 0;
+    color: #667085;
+    font-size: 0.88rem;
+    max-width: 700px;
+  }
+  .sub-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #f2f4f7;
+    border: 1px solid #e4e7ec;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #344054;
+    white-space: nowrap;
+  }
+  .sub-plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .sub-plan {
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 18px;
+    border: 1.5px solid #eaecf0;
+    background: #fafbff;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .sub-plan.selected,
+  .sub-plan:hover {
+    border-color: #84caff;
+    box-shadow: 0 10px 24px rgba(46, 144, 250, 0.12);
+    transform: translateY(-1px);
+  }
+  .sub-plan-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .sub-plan-badge,
+  .sub-plan-star {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .sub-plan-badge {
+    background: #ecfdf3;
+    color: #027a48;
+  }
+  .sub-plan-badge--base {
+    background: #f2f4f7;
+    color: #344054;
+  }
+  .sub-plan-star {
+    background: #f4f3ff;
+    color: #6941c6;
+  }
+  .sub-plan-title {
+    color: #101828;
+    font-size: 1.25rem;
+    font-weight: 800;
+  }
+  .sub-plan-desc,
+  .sub-plan-note {
+    color: #667085;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+  .sub-plan-price {
+    color: #101828;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -.04em;
+  }
+  .sub-plan-price span {
+    font-size: 1rem;
+    color: #667085;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  .sub-plan-old {
+    color: #98a2b3;
+    text-decoration: line-through;
+    font-size: 0.84rem;
+    min-height: 20px;
+  }
+  .sub-plan-btn,
+  .sub-pay-btn {
+    height: 46px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .16s ease, transform .16s ease, opacity .16s ease;
+  }
+  .sub-plan-btn {
+    background: #eef4ff;
+    color: #175cd3;
+  }
+  .sub-plan-btn:hover,
+  .sub-pay-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .sub-pay-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+    gap: 16px;
+  }
+  .sub-pay-btn {
+    background: #101828;
+    color: #fff;
+    width: 100%;
+  }
+  .sub-pay-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .sub-selected {
+    display: grid;
+    gap: 12px;
+  }
+  .sub-selected-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e4e7ec;
+  }
+  .sub-selected-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d0d5dd;
+    flex-shrink: 0;
+  }
+  .sub-selected-dot.active {
+    background: #2e90fa;
+  }
+  .sub-selected-label {
+    color: #344054;
+    font-weight: 700;
+  }
+  .sub-selected-hint {
+    color: #667085;
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  .sub-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 12px;
+  }
+  .sub-step {
+    display: flex;
+    gap: 12px;
+  }
+  .sub-step-num {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #f2f4f7;
+    border: 1px solid #e4e7ec;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: #344054;
+  }
+  .sub-step p {
+    margin: 0;
+    color: #475467;
+    font-size: 0.87rem;
+    line-height: 1.5;
+  }
+  .sub-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eaecf0;
+  }
+  .sub-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #e4e7ec;
+    color: #344054;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  @media (max-width: 900px) {
+    .sub-pay-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 480px) {
+    .sub-plans,
+    .sub-pay-card,
+    .sub-help-card {
+      padding: 20px;
+    }
+  }
+</style>
+
+<div class="sub-shell">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="sub-alert">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="sub-overview">
+    <article class="sub-card sub-stat">
+      <small>Статус</small>
+      <strong>{{ subscription_status.label }}</strong>
+      <p>
+        {% if subscription_status.effective_end_at %}
+          Доступ открыт до {{ subscription_status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}.
+        {% else %}
+          Текущий доступ: {{ subscription_status.remaining_text }}.
+        {% endif %}
+      </p>
+    </article>
+    <article class="sub-card sub-stat">
+      <small>Осталось</small>
+      <strong>{{ subscription_status.remaining_text }}</strong>
+      <p>Текущее оставшееся время по вашему аккаунту.</p>
+    </article>
+    <article class="sub-card sub-stat">
+      <small>Магазины</small>
+      <strong>{{ shops_used }} / {{ shops_limit }}</strong>
+      <p>Лимит магазинов для одного аккаунта.</p>
+    </article>
+  </div>
+
+  <section class="sub-card sub-plans">
+    <div class="sub-head">
+      <div>
+        <h2>Тарифы</h2>
+        <p>Оплата проходит через Payme. После успешного платежа подписка активируется автоматически, без кодов.</p>
+      </div>
+      <div class="sub-pill">Payme → автоактивация</div>
+    </div>
+
+    <div class="sub-plan-grid" id="planCards">
+      {% for plan in subscription_plans %}
+        {% set is_featured = plan.months == 12 %}
+        <article class="sub-plan" data-plan-card>
+          <div class="sub-plan-top">
+            {% if plan.discount_percent > 0 %}
+              <span class="sub-plan-badge">Скидка {{ plan.discount_percent }}%</span>
+            {% else %}
+              <span class="sub-plan-badge sub-plan-badge--base">Базовый</span>
+            {% endif %}
+            {% if is_featured %}
+              <span class="sub-plan-star">Лучшая цена</span>
+            {% endif %}
+          </div>
+
+          <div class="sub-plan-title">{{ plan.label }}</div>
+          <div class="sub-plan-desc">
+            Доступ на {{ plan.months }} {{ "месяц" if plan.months == 1 else ("месяца" if plan.months < 5 else "месяцев") }}.
+          </div>
+
+          <div class="sub-plan-price">{{ plan.price_sum_formatted }}<span>сум</span></div>
+          <div class="sub-plan-old">
+            {% if plan.discount_percent > 0 %}
+              {{ plan.full_price_sum_formatted }} сум без скидки
+            {% endif %}
+          </div>
+
+          <div class="sub-plan-note">
+            Оплата создаёт заказ в системе, Payme проводит платёж, а подписка продлевается автоматически.
+          </div>
+
+          <button
+            type="button"
+            class="sub-plan-btn"
+            data-plan-button
+            data-plan-key="{{ plan.key }}"
+            data-plan-label="{{ plan.label }}"
+            data-plan-price="{{ plan.price_sum_formatted }} сум">
+            Выбрать тариф
+          </button>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="sub-pay-layout">
+    <section class="sub-card sub-pay-card" id="paymeCard">
+      <div class="sub-head">
+        <div>
+          <h2>Оплата через Payme</h2>
+          <p>Выберите тариф выше, затем откройте Payme. После подтверждения платёж активирует план автоматически.</p>
+        </div>
+      </div>
+
+      <div class="sub-selected">
+        <div class="sub-selected-box">
+          <span class="sub-selected-dot" id="selectedDot"></span>
+          <span class="sub-selected-label" id="selectedPlanLabel">Тариф ещё не выбран</span>
+        </div>
+        <div class="sub-selected-hint" id="paymeStatusText">
+          {% if payme_enabled %}
+            После нажатия мы создадим заказ и откроем страницу Payme.
+          {% else %}
+            Payme пока не настроен в `.env`, поэтому кнопка оплаты отключена.
+          {% endif %}
+        </div>
+        <button type="button" class="sub-pay-btn" id="btnPaymeCheckout" disabled>Оплатить через Payme</button>
+      </div>
+    </section>
+
+    <aside class="sub-card sub-help-card">
+      <div class="sub-head">
+        <div>
+          <h2>Как это работает</h2>
+          <p>Три коротких шага.</p>
+        </div>
+      </div>
+
+      <ol class="sub-steps">
+        <li class="sub-step">
+          <span class="sub-step-num">1</span>
+          <p>Выберите тариф и нажмите кнопку оплаты.</p>
+        </li>
+        <li class="sub-step">
+          <span class="sub-step-num">2</span>
+          <p>Payme откроет платёжную страницу и проведёт оплату.</p>
+        </li>
+        <li class="sub-step">
+          <span class="sub-step-num">3</span>
+          <p>После подтверждения платежа доступ продлится автоматически.</p>
+        </li>
+      </ol>
+
+      <div class="sub-chips">
+        <span class="sub-chip">Пробный период: {{ subscription_settings.trial_days }} дн.</span>
+        <span class="sub-chip">Лимит магазинов: {{ shops_limit }}</span>
+        <span class="sub-chip">Свободно: {{ shops_left if shops_left is not none else "∞" }}</span>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  const planCards = document.querySelectorAll("[data-plan-card]");
+  const selectedPlanLabel = document.getElementById("selectedPlanLabel");
+  const selectedDot = document.getElementById("selectedDot");
+  const payButton = document.getElementById("btnPaymeCheckout");
+  const paymeStatusText = document.getElementById("paymeStatusText");
+  const paymeEnabled = {{ 'true' if payme_enabled else 'false' }};
+  let selectedPlanKey = "";
+
+  document.querySelectorAll("[data-plan-button]").forEach((button) => {
+    button.addEventListener("click", () => {
+      planCards.forEach((card) => card.classList.remove("selected"));
+      button.closest("[data-plan-card]").classList.add("selected");
+      selectedPlanKey = button.dataset.planKey || "";
+      selectedPlanLabel.textContent = `${button.dataset.planLabel} · ${button.dataset.planPrice}`;
+      selectedDot.classList.add("active");
+      if (paymeEnabled && selectedPlanKey) {
+        payButton.disabled = false;
+        paymeStatusText.textContent = "Заказ будет создан сразу перед открытием Payme.";
+      }
+      document.getElementById("paymeCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  async function createPaymeOrder(planKey) {
+    const response = await fetch("/api/payme/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan_key: planKey }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "Не удалось создать заказ Payme.");
+    }
+    return data;
+  }
+
+  function submitPaymeCheckout(order) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = order.checkout_url;
+    Object.entries(order.form || {}).forEach(([name, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = String(value);
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  payButton.disabled = !paymeEnabled;
+  payButton.addEventListener("click", async () => {
+    if (!selectedPlanKey) {
+      paymeStatusText.textContent = "Сначала выберите тариф.";
+      return;
+    }
+
+    payButton.disabled = true;
+    payButton.textContent = "Подготовка заказа...";
+    paymeStatusText.textContent = "Создаём заказ и открываем Payme...";
+
+    try {
+      const order = await createPaymeOrder(selectedPlanKey);
+      submitPaymeCheckout(order);
+    } catch (error) {
+      payButton.disabled = false;
+      payButton.textContent = "Оплатить через Payme";
+      paymeStatusText.textContent = error?.message || "Не удалось открыть Payme.";
+    }
+  });
+</script>
+{% endblock %}

@@ -21,7 +21,7 @@
       {% endif %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('backstage_login') }}">
+    <form method="POST" action="{{ form_action or request.path }}">
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="auth-field">
         <label class="auth-label" for="admin-username">Имя пользователя</label>

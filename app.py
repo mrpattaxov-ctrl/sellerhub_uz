@@ -32,6 +32,12 @@ from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
     _uzum_auto_login, _current_user_is_admin, admin_required, _user_shop_ids,
 )
+from core.subscriptions import (
+    _ensure_user_trial_started,
+    _get_or_create_subscription_settings,
+    _get_subscription_context_for_user,
+    _subscription_status_for_user,
+)
 
 import os
 import time
@@ -53,7 +59,24 @@ from sqlalchemy.orm import sessionmaker, joinedload
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import Base, ProductGroup, Variant, VariantSale, Shop, User, FinanceOrder, FinanceSyncLog, FinanceHourlySnapshot, NotificationSettings, WarehouseExpenseSnapshot, SyncJob, TelegramPending
+from models import (
+    Base,
+    FinanceHourlySnapshot,
+    FinanceOrder,
+    FinanceSyncLog,
+    NotificationSettings,
+    ProductGroup,
+    Shop,
+    SubscriptionCode,
+    SubscriptionCodeActivation,
+    SubscriptionSettings,
+    SyncJob,
+    TelegramPending,
+    User,
+    Variant,
+    VariantSale,
+    WarehouseExpenseSnapshot,
+)
 
 import io
 try:
@@ -64,12 +87,29 @@ except ImportError:
 
 DB_URL = DATABASE_URL
 
-Base.metadata.create_all(engine)
+def _safe_create_all():
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("SELECT pg_advisory_lock(922337203685477000)")
+            try:
+                Base.metadata.create_all(bind=conn)
+            finally:
+                conn.exec_driver_sql("SELECT pg_advisory_unlock(922337203685477000)")
+    except Exception as e:
+        print(f"[DB] Metadata create_all skipped: {e}")
+        Base.metadata.create_all(engine)
+
+
+_safe_create_all()
 
 
 def _ensure_postgres_runtime_schema():
     statements = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMP NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_is_unlimited BOOLEAN NOT NULL DEFAULT FALSE",
+        "UPDATE users SET trial_started_at = CURRENT_TIMESTAMP WHERE trial_started_at IS NULL AND COALESCE(is_admin, FALSE) = FALSE",
         "ALTER TABLE notification_settings ALTER COLUMN window_to_hour SET DEFAULT 20",
     ]
     try:
@@ -255,6 +295,8 @@ def _ensure_common_db_indexes():
         "CREATE INDEX IF NOT EXISTS ix_fhs_shop_hour ON finance_hourly_snapshots(shop_id, snapshot_hour)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_ns_user_id ON notification_settings(user_id)",
         "CREATE INDEX IF NOT EXISTS ix_wes_day_shop ON warehouse_expense_snapshots(expense_date, shop_id)",
+        "CREATE INDEX IF NOT EXISTS ix_sc_code ON subscription_codes(code)",
+        "CREATE INDEX IF NOT EXISTS ix_sca_user_activated ON subscription_code_activations(user_id, activated_at)",
     ]
     try:
         with engine.begin() as conn:
@@ -299,6 +341,51 @@ def _force_password_change():
     if request.endpoint in ("auth_bp.change_password", "change_password", "auth_bp.logout", "logout", "static"):
         return None
     return redirect(url_for("auth_bp.change_password"))
+
+
+@app.before_request
+def _enforce_active_subscription():
+    if not current_user.is_authenticated or getattr(current_user, "is_admin", False):
+        return None
+
+    allowed_endpoints = {
+        "auth_bp.change_password",
+        "auth_bp.logout",
+        "auth_bp.subscription_page",
+        "auth_bp.subscription_expired_page",
+        "static",
+    }
+    if request.endpoint in allowed_endpoints:
+        return None
+
+    with SessionLocal() as db:
+        user = db.get(User, int(current_user.get_id()))
+        if not user:
+            return None
+        settings = _get_or_create_subscription_settings(db)
+        if _ensure_user_trial_started(db, user):
+            db.commit()
+            db.refresh(user)
+        status = _subscription_status_for_user(user, settings=settings)
+
+    if status["active"]:
+        return None
+
+    if request.path.startswith("/api/"):
+        return _json_response({
+            "error": "Subscription expired",
+            "redirect": url_for("auth_bp.subscription_page"),
+        }, 402)
+    return redirect(url_for("auth_bp.subscription_expired_page"))
+
+
+@app.context_processor
+def _inject_subscription_context():
+    if not current_user.is_authenticated or getattr(current_user, "is_admin", False):
+        return {}
+    return {
+        "subscription_context": _get_subscription_context_for_user(int(current_user.get_id()))
+    }
 
 @login_manager.unauthorized_handler
 def unauthorized():
@@ -1009,6 +1096,12 @@ app.register_blueprint(_auth_mod.auth_bp)
 # ---------------------------------------------------------------------------
 import admin.routes as _admin_mod
 app.register_blueprint(_admin_mod.admin_bp)
+
+# ---------------------------------------------------------------------------
+# Register Payme-routes Blueprint (extracted into payments/routes.py)
+# ---------------------------------------------------------------------------
+import payments.routes as _payme_mod
+app.register_blueprint(_payme_mod.payme_bp)
 
 # ---------------------------------------------------------------------------
 # Register warehouse-routes Blueprint (extracted into warehouse/routes.py)
@@ -2062,6 +2155,8 @@ def _coerce_notification_settings_payload(payload: dict | None) -> dict:
             "is_24h": bool(payload.get("is_24h", data["is_24h"])),
             "interval_hours": int(payload.get("interval_hours", data["interval_hours"])),
         })
+    if bool(data["is_24h"]):
+        data["hourly_enabled"] = True
     data["window_from_hour"] = max(0, min(23, int(data["window_from_hour"])))
     data["window_to_hour"] = max(0, min(23, int(data["window_to_hour"])))
     compatible_intervals = _compatible_notification_intervals(
@@ -2529,6 +2624,7 @@ def _do_hourly_sales_check(
     target_tg_id: str | None = None,
     snapshot_time: datetime | None = None,
     day_anchor: date | None = None,
+    day_start_hour: int = 0,
     period_qty_label: str | None = None,
     day_qty_label: str = "С 00:00",
     show_period_qty_column: bool = True,
@@ -2554,13 +2650,14 @@ def _do_hourly_sales_check(
     snap_hour = now.replace(minute=0, second=0, microsecond=0)
     hour_start = snap_hour - _dt.timedelta(hours=window_hours)
     today = day_anchor or snap_hour.date()
+    day_start_hour = max(0, min(23, int(day_start_hour or 0)))
     prev_hour = _app_naive(snap_hour - _dt.timedelta(hours=1))
     hour_label = _format_sales_window_label(hour_start, snap_hour)
     hour_from_ts = int(hour_start.timestamp())
     # Use the last second of the closed hour to avoid leaking fresh-hour sales
     # into the previous-hour notification if the API treats dateTo as inclusive.
     hour_to_ts = int((snap_hour - _dt.timedelta(seconds=1)).timestamp())
-    day_from_ts = _app_day_start_ts(today)
+    day_from_ts = int(_app_dt(today, day_start_hour).timestamp())
     period_qty_label = period_qty_label or ("За час" if window_hours == 1 else "За период")
     requested_user_ids = sorted({
         int(uid)
@@ -2641,25 +2738,34 @@ def _do_hourly_sales_check(
 
     with SessionLocal() as db:
         # ── 1. Read today's totals from finance_orders (already synced) ──
+        day_dates = {today}
+        if day_start_hour > 0:
+            day_dates.add((snap_hour - _dt.timedelta(seconds=1)).date())
         today_rows = db.execute(
             select(FinanceOrder)
             .where(
-                FinanceOrder.period_from == today,
-                FinanceOrder.period_to == today,
+                FinanceOrder.period_from.in_(sorted(day_dates)),
+                FinanceOrder.period_to.in_(sorted(day_dates)),
             )
         ).scalars().all()
 
         # Build: {shop_id: {sku_title: FinanceOrder}}
         current_map: dict[str, dict[str, dict]] = {}
         for fo in today_rows:
-            current_map.setdefault(fo.shop_id, {})[fo.sku_title] = {
-                "amount":         fo.amount,
-                "sell_price":     fo.sell_price,
-                "purchase_price": fo.purchase_price,
-                "seller_profit":  fo.seller_profit,
-                "commission":     fo.commission,
-                "logistics_fee":  fo.logistics_fee,
-            }
+            sku_bucket = current_map.setdefault(fo.shop_id, {}).setdefault(fo.sku_title, {
+                "amount": 0,
+                "sell_price": 0,
+                "purchase_price": 0,
+                "seller_profit": 0,
+                "commission": 0,
+                "logistics_fee": 0,
+            })
+            sku_bucket["amount"] += fo.amount or 0
+            sku_bucket["sell_price"] += fo.sell_price or 0
+            sku_bucket["purchase_price"] += fo.purchase_price or 0
+            sku_bucket["seller_profit"] += fo.seller_profit or 0
+            sku_bucket["commission"] += fo.commission or 0
+            sku_bucket["logistics_fee"] += fo.logistics_fee or 0
 
         # ── 2. Read previous hourly snapshot ─────────────────────────────
         prev_rows = db.execute(
@@ -2860,14 +2966,8 @@ def _do_hourly_sales_check(
             f"({warehouse_expense_snapshot_day.isoformat()}) = {_t2 - _t2_start:.2f}s"
         )
     else:
-        for _uid, _sid_list in uid_shop_ids.items():
-            try:
-                uid_expenses[_uid] = fetch_warehouse_expenses(_sid_list, api_key=api_key)
-            except Exception as e:
-                print(f"[HourlySales] expenses fetch failed for uid={_uid}: {e}")
-                uid_expenses[_uid] = {}
         _t2 = time.monotonic()
-        print(f"[HourlySales] TIMING: warehouse expenses API = {_t2 - _t2_start:.2f}s")
+        print(f"[HourlySales] TIMING: warehouse expenses skipped for interval notification = {_t2 - _t2_start:.2f}s")
 
     # ── Build per-user notification payloads ────────────────────────
     user_payloads: list[tuple[str, dict, str, str, str, bool, bool]] = []  # (telegram_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin)
@@ -2889,7 +2989,10 @@ def _do_hourly_sales_check(
                 items = []
                 t_hour = 0
 
-                for gid, gd in sorted(groups_d.items(), key=lambda x: (-x[1]["h_qty"], -x[1]["d_qty"], str(x[1]["name"]))):
+                for gid, gd in sorted(
+                    groups_d.items(),
+                    key=lambda x: (x[1]["d_qty"], x[1]["h_qty"], str(x[1]["name"]).lower()),
+                ):
                     rev  = gd["revenue"]
                     profit = gd["profit"]
                     margin = round(profit / rev * 100, 1) if rev > 0 else 0.0
@@ -2981,6 +3084,7 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
         window_hours: int,
         snapshot_time: datetime,
         day_anchor: date,
+        day_start_hour: int = 0,
         period_qty_label: str,
         day_qty_label: str = "С 00:00",
         show_period_qty_column: bool = True,
@@ -2992,6 +3096,7 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
             window_hours,
             snapshot_time.isoformat(),
             day_anchor.isoformat(),
+            day_start_hour,
             period_qty_label,
             day_qty_label,
             show_period_qty_column,
@@ -3004,6 +3109,7 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
             "window_hours": window_hours,
             "snapshot_time": snapshot_time,
             "day_anchor": day_anchor,
+            "day_start_hour": day_start_hour,
             "period_qty_label": period_qty_label,
             "day_qty_label": day_qty_label,
             "show_period_qty_column": show_period_qty_column,
@@ -3037,26 +3143,29 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
 
             daily_summary_hour = int(prefs.get("daily_summary_hour", 0))
             if hour == daily_summary_hour:
-                prev_day = (snap_hour - timedelta(days=1)).date()
+                summary_day_anchor = (snap_hour - timedelta(days=1)).date()
                 _queue_dispatch(
                     user.id,
                     window_hours=24,
                     snapshot_time=_app_dt(snap_hour.date(), 0),
-                    day_anchor=prev_day,
+                    day_anchor=summary_day_anchor,
+                    day_start_hour=0,
                     period_qty_label="За день",
                     day_qty_label="С 00:00",
                     show_period_qty_column=False,
-                    warehouse_expense_snapshot_day=prev_day,
+                    warehouse_expense_snapshot_day=summary_day_anchor,
                     warehouse_expense_capture_if_missing=True,
                     pin=True,
                 )
 
-            if hour in set(prefs.get("interval_send_hours") or []):
+            interval_send_hours = set(prefs.get("interval_send_hours") or [])
+            if hour in interval_send_hours or (hour == daily_summary_hour and daily_summary_hour != 0):
                 _queue_dispatch(
                     user.id,
                     window_hours=interval_hours,
                     snapshot_time=snap_hour,
                     day_anchor=snap_hour.date(),
+                    day_start_hour=0,
                     period_qty_label="За час" if interval_hours == 1 else "За период",
                     day_qty_label="С 00:00",
                 )

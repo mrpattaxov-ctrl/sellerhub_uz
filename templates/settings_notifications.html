@@ -588,7 +588,17 @@
     return fromHour;
   }
 
+  function forceHourlyEnabled() {
+    if (!toggleEnabled.checked) {
+      toggleEnabled.checked = true;
+      toggleEnabled.dispatchEvent(new Event("change"));
+    }
+  }
+
   function syncWindowState() {
+    if (toggle24h.checked) {
+      forceHourlyEnabled();
+    }
     const disabled = toggle24h.checked;
     fromSelect.disabled = disabled;
     toSelect.disabled = disabled;
@@ -628,8 +638,20 @@
     syncAdvice();
   }
 
-  toggleEnabled.addEventListener("change", syncAdvice);
-  toggle24h.addEventListener("change", syncAll);
+  toggleEnabled.addEventListener("change", () => {
+    if (!toggleEnabled.checked && toggle24h.checked) {
+      toggle24h.checked = false;
+      syncAll();
+      return;
+    }
+    syncAdvice();
+  });
+  toggle24h.addEventListener("change", () => {
+    if (toggle24h.checked) {
+      forceHourlyEnabled();
+    }
+    syncAll();
+  });
   fromSelect.addEventListener("change", syncAll);
   toSelect.addEventListener("change", syncAll);
   intervalSelect.addEventListener("change", syncAdvice);

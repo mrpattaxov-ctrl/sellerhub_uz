@@ -117,6 +117,8 @@ def _notification_interval_send_hours(
         if absolute_hour == 24 and normalized_hour == daily_summary_hour:
             continue
         send_hours.append(normalized_hour)
+    if not is_24h and int(window_to_hour) == 0 and start_hour > 0:
+        send_hours.insert(0, start_hour)
     return tuple(send_hours)
 
 

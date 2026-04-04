@@ -1095,6 +1095,8 @@ app.register_blueprint(_auth_mod.auth_bp)
 # Register admin-routes Blueprint (extracted into admin/routes.py)
 # ---------------------------------------------------------------------------
 import admin.routes as _admin_mod
+import sys as _sys
+_admin_mod.init_admin_routes(_sys.modules[__name__])
 app.register_blueprint(_admin_mod.admin_bp)
 
 # ---------------------------------------------------------------------------
@@ -4117,13 +4119,24 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
         shop_obj = db.execute(
             select(Shop).where(Shop.uzum_id == shop_uzum_id)
         ).scalar_one_or_none()
-        if not shop_obj:
+        is_new_shop = shop_obj is None
+        if is_new_shop:
             shop_obj = Shop(uzum_id=shop_uzum_id,
                             name=f"Shop {shop_uzum_id}",
                             owner_id=None)
             db.add(shop_obj)
             db.commit()
+            db.refresh(shop_obj)
         current_shop_pk = shop_obj.id
+
+    if is_new_shop:
+        import threading as _t
+        def _seed(uzum_id=shop_uzum_id, pk=current_shop_pk):
+            try:
+                _sync_finance_for_shop(uzum_id, pk)
+            except Exception as _e:
+                print(f"[FetchSync] Finance seed failed for {uzum_id}: {_e}")
+        _t.Thread(target=_seed, daemon=True).start()
 
     # Fetch finance sales map (avg_daily_sales, purchase_price, sell_price come from here)
     sales_map = None

@@ -1,6 +1,8 @@
 """Admin routes extracted from app.py as a Flask Blueprint."""
 from __future__ import annotations
 
+import threading
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import delete, desc, select
@@ -42,6 +44,23 @@ from core.subscriptions import (
 )
 
 admin_bp = Blueprint("admin_bp", __name__)
+
+_app = None
+
+
+def init_admin_routes(app_module):
+    global _app
+    _app = app_module
+
+
+def _fire_finance_seed(uzum_id: str, shop_pk: int):
+    """Trigger a background finance seed for a newly added shop."""
+    def _run(uzum_id=uzum_id, shop_pk=shop_pk):
+        try:
+            _app._sync_finance_for_shop(uzum_id, shop_pk)
+        except Exception as e:
+            print(f"[AdminShop] Finance seed failed for {uzum_id}: {e}")
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: int | None = None):
@@ -121,6 +140,7 @@ def add_shop():
             elif not is_admin and existing.owner_id is None:
                 existing.owner_id = uid
             db.commit()
+            _fire_finance_seed(uzum_id, existing.id)
             return _json_response({"ok": True, "id": existing.id})
 
         limit_error = _shop_limit_error_response(db, resolved_owner)
@@ -129,6 +149,8 @@ def add_shop():
         s = Shop(uzum_id=uzum_id, name=name or f"Shop {uzum_id}", owner_id=resolved_owner)
         db.add(s)
         db.commit()
+        db.refresh(s)
+        _fire_finance_seed(uzum_id, s.id)
         return _json_response({"ok": True, "id": s.id})
 
 @admin_bp.post("/api/shops/<int:shop_id>/assign")

@@ -1404,10 +1404,25 @@ def _start_tg_bot():
                     shop = Shop(uzum_id=uzum_id, name=name or None, owner_id=owner)
                     db.add(shop)
                     db.commit()
+                    db.refresh(shop)
+                    new_shop_pk = shop.id
                     assigned = "добавлен (не привязан к продавцу)" if is_admin else "добавлен и привязан к вашему аккаунту"
                     bot.send_message(msg.chat.id,
-                        f"✅ Магазин *{name or uzum_id}* {assigned}!",
+                        f"✅ Магазин *{name or uzum_id}* {assigned}!\n\n"
+                        f"💰 Запускаю загрузку продаж (30 дней)...",
                         parse_mode="Markdown", reply_markup=_main_menu(is_admin))
+                    def _seed_finance(uzum_id=uzum_id, shop_pk=new_shop_pk, chat_id=msg.chat.id, shop_name=name or uzum_id):
+                        try:
+                            res = _sync_finance_for_shop(uzum_id, shop_pk)
+                            bot.send_message(chat_id,
+                                f"✅ Продажи загружены для *{shop_name}*! SKU обновлено: {res['updated']}",
+                                parse_mode="Markdown")
+                        except Exception as _e:
+                            bot.send_message(chat_id,
+                                f"⚠️ Не удалось загрузить продажи для *{shop_name}*: {_e}",
+                                parse_mode="Markdown")
+                    import threading as _threading
+                    _threading.Thread(target=_seed_finance, daemon=True).start()
 
         def _addshop_ask_id(msg, user_id, is_admin):
             if msg.text and msg.text.startswith("/"):

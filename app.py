@@ -3229,14 +3229,20 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
 
         sub_settings = _get_or_create_subscription_settings(db)
 
+        # Subscription dates are stored as naive UTC (datetime.utcnow()).
+        # snap_hour is timezone-aware (Tashkent). Convert to naive UTC so comparisons
+        # don't raise TypeError when mixing aware and naive datetimes.
+        from datetime import timezone as _utc_tz
+        snap_hour_utc = snap_hour.astimezone(_utc_tz.utc).replace(tzinfo=None)
+
         for user in users:
             # Skip expired users; send a one-time expiry notice in the first hour after expiry
             if not user.is_admin:
-                status = _subscription_status_for_user(user, settings=sub_settings, now=snap_hour)
+                status = _subscription_status_for_user(user, settings=sub_settings, now=snap_hour_utc)
                 if not status["active"]:
                     effective_end = status.get("effective_end_at")
                     if effective_end:
-                        just_expired = (snap_hour - timedelta(hours=1)) <= effective_end < snap_hour
+                        just_expired = (snap_hour_utc - timedelta(hours=1)) <= effective_end < snap_hour_utc
                         if just_expired:
                             tg_id = (user.telegram_id or "").strip()
                             if tg_id:

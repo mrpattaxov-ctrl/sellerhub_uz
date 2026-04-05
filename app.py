@@ -297,6 +297,16 @@ def _ensure_common_db_indexes():
         "CREATE INDEX IF NOT EXISTS ix_wes_day_shop ON warehouse_expense_snapshots(expense_date, shop_id)",
         "CREATE INDEX IF NOT EXISTS ix_sc_code ON subscription_codes(code)",
         "CREATE INDEX IF NOT EXISTS ix_sca_user_activated ON subscription_code_activations(user_id, activated_at)",
+        # Product sync hot path: variant lookups during sync (eliminates N+1 seq-scans)
+        "CREATE INDEX IF NOT EXISTS ix_variant_uzum_sku_id ON variants(uzum_sku_id)",
+        "CREATE INDEX IF NOT EXISTS ix_variant_barcode ON variants(barcode)",
+        "CREATE INDEX IF NOT EXISTS ix_variant_sku ON variants(sku)",
+        "CREATE INDEX IF NOT EXISTS ix_variant_group_id ON variants(group_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pg_uzum_product_id_shop ON product_groups(uzum_product_id, shop_id)",
+        # Groups page and warehouse queries
+        "CREATE INDEX IF NOT EXISTS ix_pg_shop_id ON product_groups(shop_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pg_is_archived ON product_groups(is_archived)",
+        "CREATE INDEX IF NOT EXISTS ix_variant_sale_variant_date ON variant_sales(variant_id, date)",
     ]
     try:
         with engine.begin() as conn:
@@ -1411,7 +1421,7 @@ def _start_tg_bot():
                     assigned = "добавлен (не привязан к продавцу)" if is_admin else "добавлен и привязан к вашему аккаунту"
                     bot.send_message(msg.chat.id,
                         f"✅ Магазин *{name or uzum_id}* {assigned}!\n\n"
-                        f"💰 Запускаю загрузку продаж (30 дней)...",
+                        f"💰 Запускаю загрузку продаж и истории финансов (с 2022 г.)...",
                         parse_mode="Markdown", reply_markup=_main_menu(is_admin))
                     def _seed_finance(uzum_id=uzum_id, shop_pk=new_shop_pk, chat_id=msg.chat.id, shop_name=name or uzum_id):
                         try:
@@ -1422,6 +1432,17 @@ def _start_tg_bot():
                         except Exception as _e:
                             bot.send_message(chat_id,
                                 f"⚠️ Не удалось загрузить продажи для *{shop_name}*: {_e}",
+                                parse_mode="Markdown")
+                        # Also populate FinanceOrder table (finance page) from 2022-01-01
+                        try:
+                            _job_id = _create_sync_job(uzum_id, "full")
+                            _run_manual_sync_job(_job_id, uzum_id, False)
+                            bot.send_message(chat_id,
+                                f"📊 История финансов загружена для *{shop_name}* (с 2022 г.).",
+                                parse_mode="Markdown")
+                        except Exception as _e:
+                            bot.send_message(chat_id,
+                                f"⚠️ Не удалось загрузить историю финансов для *{shop_name}*: {_e}",
                                 parse_mode="Markdown")
                     import threading as _threading
                     _threading.Thread(target=_seed_finance, daemon=True).start()
@@ -3951,7 +3972,7 @@ def _finance_sync_range(shop_id: str, d_from: date, d_to: date, sync_type: str, 
 
     # Fetch chunks in parallel. Keep this configurable so multi-user deployments
     # can tune throughput vs. API pressure without changing code.
-    max_workers = FINANCE_AUTO_SYNC_WORKERS_PER_SHOP if auto_sync else max(1, int(os.getenv("FINANCE_SYNC_WORKERS", "8")))
+    max_workers = FINANCE_AUTO_SYNC_WORKERS_PER_SHOP if auto_sync else max(1, int(os.getenv("FINANCE_SYNC_WORKERS", "50")))
     total_fetched = 0
     total_chunks = len(chunks)
 
@@ -4135,7 +4156,13 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
             try:
                 _sync_finance_for_shop(uzum_id, pk)
             except Exception as _e:
-                print(f"[FetchSync] Finance seed failed for {uzum_id}: {_e}")
+                print(f"[FetchSync] Finance seed (variants) failed for {uzum_id}: {_e}")
+            # Also populate FinanceOrder table (finance page) from 2022-01-01
+            try:
+                _job_id = _create_sync_job(uzum_id, "full")
+                _run_manual_sync_job(_job_id, uzum_id, False)
+            except Exception as _e:
+                print(f"[FetchSync] FinanceOrder seed failed for {uzum_id}: {_e}")
         _t.Thread(target=_seed, daemon=True).start()
 
     # Fetch finance sales map (avg_daily_sales, purchase_price, sell_price come from here)
@@ -4259,6 +4286,14 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
                     active_group_ids.add(group.id)
 
                 # ── Process nested SKUs ──────────────────────────────────────
+                # Preload all existing variants for this group to avoid N+1 DB queries
+                existing_variants = db.execute(
+                    select(Variant).where(Variant.group_id == group.id)
+                ).scalars().all()
+                _v_by_uzum_id = {v.uzum_sku_id: v for v in existing_variants if v.uzum_sku_id}
+                _v_by_barcode = {v.barcode: v for v in existing_variants if v.barcode}
+                _v_by_sku = {v.sku: v for v in existing_variants if v.sku}
+
                 sku_list = p.get("skuList") or []
                 for s in sku_list:
                     # Prefer skuFullTitle (e.g. "LUXUZ-RING31-ЧЕРН-17") over skuTitle ("ЧЕРН-17")
@@ -4294,31 +4329,27 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
                     s_paid_price_item = s.get("paidStoragePriceItem")
 
                     # ── Upsert Variant (match by uzum_sku_id, then barcode, then sku) ──
+                    # Uses preloaded dicts to avoid N+1 DB queries
                     v = None
                     if uzum_sku_id:
-                        v = db.execute(
-                            select(Variant).where(Variant.group_id == group.id,
-                                                  Variant.uzum_sku_id == uzum_sku_id)
-                        ).scalar_one_or_none()
+                        v = _v_by_uzum_id.get(uzum_sku_id)
                     if v is None and barcode:
-                        v = db.execute(
-                            select(Variant).where(Variant.group_id == group.id,
-                                                  Variant.barcode == barcode)
-                        ).scalar_one_or_none()
+                        v = _v_by_barcode.get(barcode)
                     if v is None:
-                        v = db.execute(
-                            select(Variant).where(Variant.group_id == group.id,
-                                                  Variant.sku == sku_title)
-                        ).scalar_one_or_none()
+                        v = _v_by_sku.get(sku_title)
                     if v is None:
                         v = Variant(group_id=group.id, sku=sku_title)
+                        db.add(v)
+                        _v_by_sku[sku_title] = v
                     else:
                         v.sku = sku_title  # Update SKU to latest from API
 
                     if uzum_sku_id:
                         v.uzum_sku_id = uzum_sku_id
+                        _v_by_uzum_id[uzum_sku_id] = v
                     if barcode:
                         v.barcode = barcode
+                        _v_by_barcode[barcode] = v
                     if sku_image:
                         v.image_url = sku_image
                     if characteristics:

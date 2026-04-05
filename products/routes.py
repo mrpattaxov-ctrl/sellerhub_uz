@@ -100,6 +100,8 @@ def groups_page():
     shop_filter = (request.args.get("shop_id") or "").strip()
     status_filter = (request.args.get("status") or "active").strip().lower()
     display_status = "archived" if status_filter in ("archived", "archive") else "active"
+    page = max(1, int(request.args.get("page") or 1))
+    per_page = 50
 
     # Restrict to the user's assigned shops
     uid = int(current_user.get_id())
@@ -131,6 +133,7 @@ def groups_page():
                 Variant.sku.ilike(like) |
                 Variant.barcode.ilike(like)
             ).distinct()
+
         # Sort by sku-list position (0 = not in sku-list, goes last), then by id
         stmt = stmt.order_by(
             (ProductGroup.uzum_sort_order == 0).asc(),
@@ -138,9 +141,13 @@ def groups_page():
             ProductGroup.id.asc(),
         )
 
-        groups = db.execute(stmt).scalars().all()
+        total_count = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
+        total_pages = max(1, (total_count + per_page - 1) // per_page)
+        page = min(page, total_pages)
 
-        # aggregate counts
+        groups = db.execute(stmt.offset((page - 1) * per_page).limit(per_page)).scalars().all()
+
+        # aggregate counts only for current page
         group_ids = [g.id for g in groups]
         vstmt = (
             select(
@@ -150,7 +157,7 @@ def groups_page():
                 func.coalesce(func.sum(Variant.warehouse_quantity), 0),
                 func.min(Variant.sku),
             )
-            .where(Variant.group_id.in_(group_ids) if group_ids else True)
+            .where(Variant.group_id.in_(group_ids) if group_ids else False)
             .group_by(Variant.group_id)
         )
         agg = {gid: {"variants": c, "uzum_qty": int(u), "wh_qty": int(w), "sku": "-".join(str(s).split("-")[:2]) if s else ""} for (gid, c, u, w, s) in db.execute(vstmt).all()}
@@ -161,7 +168,8 @@ def groups_page():
         ).scalars().all()
 
     return render_template("groups.html", groups=groups, agg=agg, q=q,
-                           current_status=display_status, shops=shops, current_shop_id=shop_filter)
+                           current_status=display_status, shops=shops, current_shop_id=shop_filter,
+                           page=page, total_pages=total_pages, total_count=total_count, per_page=per_page)
 
 @products_bp.get("/fetch")
 @login_required

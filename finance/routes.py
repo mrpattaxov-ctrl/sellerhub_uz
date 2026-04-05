@@ -40,22 +40,38 @@ def finance_page():
     with SessionLocal() as db:
         shops = db.execute(select(Shop).where(Shop.id.in_(allowed))).scalars().all() if allowed else []
         sync_info = {}
-        for shop in shops:
-            last = db.execute(
-                select(FinanceSyncLog)
-                .where(FinanceSyncLog.shop_id == shop.uzum_id)
-                .order_by(desc(FinanceSyncLog.synced_at))
-                .limit(1)
-            ).scalar_one_or_none()
-            total = db.execute(
-                select(func.count(FinanceOrder.id))
-                .where(FinanceOrder.shop_id == shop.uzum_id)
-            ).scalar() or 0
-            sync_info[shop.uzum_id] = {
-                "last_sync": last.synced_at.strftime("%Y-%m-%d %H:%M") if last else None,
-                "last_type": last.sync_type if last else None,
-                "total_records": total,
-            }
+        if shops:
+            uzum_ids = [s.uzum_id for s in shops]
+            latest_log_subq = (
+                select(
+                    FinanceSyncLog.shop_id,
+                    func.max(FinanceSyncLog.synced_at).label("max_synced_at"),
+                )
+                .where(FinanceSyncLog.shop_id.in_(uzum_ids))
+                .group_by(FinanceSyncLog.shop_id)
+                .subquery()
+            )
+            log_rows = db.execute(
+                select(FinanceSyncLog).join(
+                    latest_log_subq,
+                    (FinanceSyncLog.shop_id == latest_log_subq.c.shop_id) &
+                    (FinanceSyncLog.synced_at == latest_log_subq.c.max_synced_at),
+                )
+            ).scalars().all()
+            last_log_map = {log.shop_id: log for log in log_rows}
+            count_rows = db.execute(
+                select(FinanceOrder.shop_id, func.count(FinanceOrder.id).label("cnt"))
+                .where(FinanceOrder.shop_id.in_(uzum_ids))
+                .group_by(FinanceOrder.shop_id)
+            ).all()
+            total_map = {row.shop_id: row.cnt for row in count_rows}
+            for shop in shops:
+                last = last_log_map.get(shop.uzum_id)
+                sync_info[shop.uzum_id] = {
+                    "last_sync": last.synced_at.strftime("%Y-%m-%d %H:%M") if last else None,
+                    "last_type": last.sync_type if last else None,
+                    "total_records": total_map.get(shop.uzum_id, 0),
+                }
     return render_template(
         "finance_sync.html",
         shops=shops,
@@ -212,51 +228,60 @@ def api_finance_data():
         if not target_shops:
             return _json_response({"items": [], "totals": {}})
 
-        stmt = (
-            select(FinanceOrder)
-            .where(
-                FinanceOrder.shop_id.in_(target_shops),
-                FinanceOrder.period_from <= d_to,
-                FinanceOrder.period_to >= d_from,
-            )
-            .order_by(FinanceOrder.period_from.desc())
-        )
+        where_clauses = [
+            FinanceOrder.shop_id.in_(target_shops),
+            FinanceOrder.period_from <= d_to,
+            FinanceOrder.period_to >= d_from,
+        ]
         if sku_filter:
-            stmt = stmt.where(FinanceOrder.sku_title.contains(sku_filter))
+            where_clauses.append(FinanceOrder.sku_title.contains(sku_filter))
 
-        orders = db.execute(stmt).scalars().all()
-        sku_map = {}
-        for order in orders:
-            key = order.sku_title
-            if key not in sku_map:
-                title = (order.product_title_ru or order.product_title or "") if lang == "ru" else (order.product_title or "")
-                sku_map[key] = {
-                    "sku": key,
-                    "product_title": title,
-                    "product_id": order.product_id,
-                    "image_url": order.image_url or "",
-                    "shop_id": order.shop_id,
-                    "characteristics": order.characteristics or "",
-                    "amount": 0,
-                    "amount_returns": 0,
-                    "sell_price": 0,
-                    "commission": 0,
-                    "seller_profit": 0,
-                    "purchase_price": 0,
-                    "logistics_fee": 0,
-                    "seller_discount": 0,
-                }
-            item = sku_map[key]
-            item["amount"] += order.amount
-            item["amount_returns"] += order.amount_returns
-            item["sell_price"] += order.sell_price
-            item["commission"] += order.commission
-            item["seller_profit"] += order.seller_profit
-            item["purchase_price"] += order.purchase_price
-            item["logistics_fee"] += order.logistics_fee
-            item["seller_discount"] += order.seller_discount
+        title_col = func.max(FinanceOrder.product_title_ru if lang == "ru" else FinanceOrder.product_title)
+        stmt = (
+            select(
+                FinanceOrder.sku_title,
+                func.max(FinanceOrder.product_title_ru).label("product_title_ru"),
+                func.max(FinanceOrder.product_title).label("product_title"),
+                func.max(FinanceOrder.product_id).label("product_id"),
+                func.max(FinanceOrder.image_url).label("image_url"),
+                func.max(FinanceOrder.shop_id).label("shop_id"),
+                func.max(FinanceOrder.characteristics).label("characteristics"),
+                func.sum(FinanceOrder.amount).label("amount"),
+                func.sum(FinanceOrder.amount_returns).label("amount_returns"),
+                func.sum(FinanceOrder.sell_price).label("sell_price"),
+                func.sum(FinanceOrder.commission).label("commission"),
+                func.sum(FinanceOrder.seller_profit).label("seller_profit"),
+                func.sum(FinanceOrder.purchase_price).label("purchase_price"),
+                func.sum(FinanceOrder.logistics_fee).label("logistics_fee"),
+                func.sum(FinanceOrder.seller_discount).label("seller_discount"),
+                func.count(FinanceOrder.id).label("row_count"),
+            )
+            .where(*where_clauses)
+            .group_by(FinanceOrder.sku_title)
+            .order_by(func.sum(FinanceOrder.amount).desc())
+        )
 
-        items = sorted(sku_map.values(), key=lambda value: value["amount"], reverse=True)
+        rows = db.execute(stmt).all()
+        total_row_count = sum(r.row_count for r in rows)
+        items = [
+            {
+                "sku": r.sku_title,
+                "product_title": (r.product_title_ru or r.product_title or "") if lang == "ru" else (r.product_title or ""),
+                "product_id": r.product_id,
+                "image_url": r.image_url or "",
+                "shop_id": r.shop_id,
+                "characteristics": r.characteristics or "",
+                "amount": int(r.amount or 0),
+                "amount_returns": int(r.amount_returns or 0),
+                "sell_price": float(r.sell_price or 0),
+                "commission": float(r.commission or 0),
+                "seller_profit": float(r.seller_profit or 0),
+                "purchase_price": float(r.purchase_price or 0),
+                "logistics_fee": float(r.logistics_fee or 0),
+                "seller_discount": float(r.seller_discount or 0),
+            }
+            for r in rows
+        ]
         labels = {
             "ru": {
                 "amount": "Количество", "returns": "Возвраты", "revenue": "Выручка",
@@ -282,7 +307,7 @@ def api_finance_data():
         return _json_response({
             "date_from": d_from.isoformat(),
             "date_to": d_to.isoformat(),
-            "total_orders": len(orders),
+            "total_orders": total_row_count,
             "total_skus": len(items),
             "labels": labels.get(lang, labels["ru"]),
             "totals": {
@@ -305,24 +330,47 @@ def api_finance_sync_status():
     allowed = _user_shop_ids(uid)
     with SessionLocal() as db:
         shops = db.execute(select(Shop).where(Shop.id.in_(allowed))).scalars().all() if allowed else []
+        if not shops:
+            return _json_response({})
+
+        uzum_ids = [s.uzum_id for s in shops]
+
+        # Batch: latest sync log per shop in one query
+        latest_log_subq = (
+            select(
+                FinanceSyncLog.shop_id,
+                func.max(FinanceSyncLog.synced_at).label("max_synced_at"),
+            )
+            .where(FinanceSyncLog.shop_id.in_(uzum_ids))
+            .group_by(FinanceSyncLog.shop_id)
+            .subquery()
+        )
+        log_rows = db.execute(
+            select(FinanceSyncLog).join(
+                latest_log_subq,
+                (FinanceSyncLog.shop_id == latest_log_subq.c.shop_id) &
+                (FinanceSyncLog.synced_at == latest_log_subq.c.max_synced_at),
+            )
+        ).scalars().all()
+        last_log_map = {log.shop_id: log for log in log_rows}
+
+        # Batch: total order count per shop in one query
+        count_rows = db.execute(
+            select(FinanceOrder.shop_id, func.count(FinanceOrder.id).label("cnt"))
+            .where(FinanceOrder.shop_id.in_(uzum_ids))
+            .group_by(FinanceOrder.shop_id)
+        ).all()
+        total_map = {row.shop_id: row.cnt for row in count_rows}
+
         result = {}
         for shop in shops:
-            last = db.execute(
-                select(FinanceSyncLog)
-                .where(FinanceSyncLog.shop_id == shop.uzum_id)
-                .order_by(desc(FinanceSyncLog.synced_at))
-                .limit(1)
-            ).scalar_one_or_none()
-            total = db.execute(
-                select(func.count(FinanceOrder.id))
-                .where(FinanceOrder.shop_id == shop.uzum_id)
-            ).scalar() or 0
+            last = last_log_map.get(shop.uzum_id)
             result[shop.uzum_id] = {
                 "name": shop.name or shop.uzum_id,
                 "last_sync": last.synced_at.strftime("%Y-%m-%d %H:%M") if last else None,
                 "last_type": last.sync_type if last else None,
                 "records_fetched": last.records_fetched if last else 0,
-                "total_records": total,
+                "total_records": total_map.get(shop.uzum_id, 0),
             }
     return _json_response(result)
 

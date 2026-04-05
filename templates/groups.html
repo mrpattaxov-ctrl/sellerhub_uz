@@ -127,6 +127,31 @@
     </div>
   {% endif %}
 </div>
+
+{% if total_pages is defined and total_pages > 1 %}
+<nav class="mt-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <small class="text-muted">Показано {{ groups|length }} из {{ total_count }} товаров (страница {{ page }} из {{ total_pages }})</small>
+  <ul class="pagination pagination-sm mb-0" id="pgNav"></ul>
+</nav>
+<script>
+(function(){
+  var cur = {{ page }}, total = {{ total_pages }};
+  var params = new URLSearchParams(window.location.search);
+  function pageUrl(p) { params.set('page', p); return window.location.pathname + '?' + params.toString(); }
+  var ul = document.getElementById('pgNav');
+  function li(p, label, disabled, active) {
+    var el = document.createElement('li');
+    el.className = 'page-item' + (disabled?' disabled':'') + (active?' active':'');
+    el.innerHTML = '<a class="page-link" href="' + (disabled?'#':pageUrl(p)) + '">' + label + '</a>';
+    return el;
+  }
+  ul.appendChild(li(cur-1,'‹', cur<=1, false));
+  var start = Math.max(1, cur-2), end = Math.min(total, cur+2);
+  for(var p=start;p<=end;p++) ul.appendChild(li(p,p,false,p===cur));
+  ul.appendChild(li(cur+1,'›', cur>=total, false));
+})();
+</script>
+{% endif %}
 <script>
 document.getElementById('liveSearch').addEventListener('input', function() {
   const q = this.value.toLowerCase().trim();

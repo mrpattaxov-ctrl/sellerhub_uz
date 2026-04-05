@@ -131,10 +131,14 @@ def health():
 def get_products():
     q = (request.args.get("q") or "").strip()
     days = int(request.args.get("days") or 30)
+    page = max(1, int(request.args.get("page") or 1))
+    per_page = min(500, max(1, int(request.args.get("per_page") or 200)))
     since = date.today() - timedelta(days=days)
 
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+
     with SessionLocal() as db:
-        # Return synced variant data for the current product catalog.
         sales_subq = (
             select(VariantSale.variant_id, func.coalesce(func.sum(VariantSale.qty_sold), 0).label("sales_sum"))
             .where(VariantSale.date >= since)
@@ -152,6 +156,11 @@ def get_products():
             .outerjoin(sales_subq, Variant.id == sales_subq.c.variant_id)
         )
 
+        if allowed_shop_ids:
+            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        else:
+            stmt = stmt.where(False)
+
         if q:
             like = f"%{q}%"
             stmt = stmt.where(
@@ -160,7 +169,8 @@ def get_products():
                 Variant.barcode.ilike(like)
             )
 
-        stmt = stmt.order_by(Variant.id)
+        total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
+        stmt = stmt.order_by(Variant.id).offset((page - 1) * per_page).limit(per_page)
         rows = db.execute(stmt).all()
 
         items = []
@@ -186,7 +196,10 @@ def get_products():
 
         return _json_response({
             "days": days,
-            "items": items
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "items": items,
         })
 
 

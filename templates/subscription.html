@@ -279,6 +279,45 @@
     font-size: 0.8rem;
     font-weight: 600;
   }
+  .sub-code-section {
+    padding: 26px;
+  }
+  .sub-code-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .sub-code-input {
+    flex: 1;
+    height: 46px;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 12px;
+    padding: 0 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .sub-code-input:focus {
+    border-color: #2e90fa;
+    box-shadow: 0 0 0 3px rgba(46,144,250,.15);
+  }
+  .sub-code-submit {
+    height: 46px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 12px;
+    background: #101828;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .16s;
+  }
+  .sub-code-submit:hover { opacity: .85; }
   @media (max-width: 900px) {
     .sub-pay-layout {
       grid-template-columns: 1fr;
@@ -433,6 +472,44 @@
       </div>
     </aside>
   </div>
+
+  <section class="sub-card sub-code-section">
+    <div class="sub-head">
+      <div>
+        <h2>Активация по коду</h2>
+        <p>Введите код активации, полученный от администратора.</p>
+      </div>
+      <div class="sub-pill">Код от администратора</div>
+    </div>
+    <form method="post">
+      <div class="sub-code-input-row">
+        <input
+          type="text"
+          class="sub-code-input"
+          name="activation_code"
+          placeholder="XXXXXXXXXX"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false">
+        <button type="submit" class="sub-code-submit">Активировать</button>
+      </div>
+    </form>
+    <ol class="sub-steps" style="margin-top:18px; padding-top:16px; border-top:1px solid #eaecf0;">
+      <li class="sub-step">
+        <span class="sub-step-num">1</span>
+        <p>Попросите администратора выдать код активации.</p>
+      </li>
+      <li class="sub-step">
+        <span class="sub-step-num">2</span>
+        <p>Введите код в поле выше и нажмите «Активировать».</p>
+      </li>
+      <li class="sub-step">
+        <span class="sub-step-num">3</span>
+        <p>Подписка продлится автоматически сразу после активации.</p>
+      </li>
+    </ol>
+  </section>
 </div>
 
 <script>
@@ -507,5 +584,6 @@
       paymeStatusText.textContent = error?.message || "Не удалось открыть Payme.";
     }
   });
+
 </script>
 {% endblock %}

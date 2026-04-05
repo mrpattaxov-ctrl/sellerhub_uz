@@ -59,7 +59,13 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
         try:
             _app._sync_finance_for_shop(uzum_id, shop_pk)
         except Exception as e:
-            print(f"[AdminShop] Finance seed failed for {uzum_id}: {e}")
+            print(f"[AdminShop] Finance seed (variants) failed for {uzum_id}: {e}")
+        # Also populate FinanceOrder table (finance page) from 2022-01-01
+        try:
+            job_id = _app._create_sync_job(uzum_id, "full")
+            _app._run_manual_sync_job(job_id, uzum_id, False)
+        except Exception as e:
+            print(f"[AdminShop] FinanceOrder seed failed for {uzum_id}: {e}")
     threading.Thread(target=_run, daemon=True).start()
 
 

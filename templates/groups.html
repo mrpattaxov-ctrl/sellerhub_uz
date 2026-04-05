@@ -153,13 +153,21 @@
 </script>
 {% endif %}
 <script>
-document.getElementById('liveSearch').addEventListener('input', function() {
-  const q = this.value.toLowerCase().trim();
-  document.querySelectorAll('#productsGrid > div').forEach(card => {
-    const text = card.textContent.toLowerCase();
-    card.style.display = (!q || text.includes(q)) ? '' : 'none';
+// Live search: debounce 400ms then navigate server-side via ?q= so all pages are searched
+(function(){
+  var inp = document.getElementById('liveSearch');
+  var timer;
+  inp.addEventListener('input', function() {
+    clearTimeout(timer);
+    var val = this.value;
+    timer = setTimeout(function() {
+      var params = new URLSearchParams(window.location.search);
+      if (val.trim()) params.set('q', val.trim()); else params.delete('q');
+      params.delete('page');
+      window.location.search = params.toString();
+    }, 400);
   });
-});
+})();
 
 // Shop picker dropdown
 const picker = document.getElementById('shopPicker');

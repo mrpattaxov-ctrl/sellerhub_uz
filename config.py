@@ -15,8 +15,8 @@ ENABLE_DEBUG_ROUTES = True
 
 # ── Database ───────────────────────────────────────────────────────────
 DATABASE_URL = (os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "").strip()
-DB_POOL_SIZE = max(5, int(os.getenv("DB_POOL_SIZE", "20")))
-DB_MAX_OVERFLOW = max(0, int(os.getenv("DB_MAX_OVERFLOW", "40")))
+DB_POOL_SIZE = max(5, int(os.getenv("DB_POOL_SIZE", "50")))
+DB_MAX_OVERFLOW = max(0, int(os.getenv("DB_MAX_OVERFLOW", "70")))
 DB_POOL_RECYCLE_SECONDS = max(30, int(os.getenv("DB_POOL_RECYCLE_SECONDS", "1800")))
 
 # ── Flask ──────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ FINANCE_AUTO_REFRESH_ENABLED = str(os.getenv("FINANCE_AUTO_REFRESH_ENABLED", "1"
 FINANCE_RECENT_DAYS = max(1, min(FINANCE_REFRESH_DAYS, int(os.getenv("FINANCE_RECENT_DAYS", "7"))))
 FINANCE_RECENT_REFRESH_HOURS = max(1, int(os.getenv("FINANCE_RECENT_REFRESH_HOURS", "6")))
 FINANCE_AUTO_REFRESH_WORKERS = max(1, int(os.getenv("FINANCE_AUTO_REFRESH_WORKERS", "50")))
-FINANCE_AUTO_SYNC_WORKERS_PER_SHOP = max(1, int(os.getenv("FINANCE_AUTO_SYNC_WORKERS_PER_SHOP", "5")))
+FINANCE_AUTO_SYNC_WORKERS_PER_SHOP = max(1, int(os.getenv("FINANCE_AUTO_SYNC_WORKERS_PER_SHOP", "20")))
 FINANCE_AUTO_QUEUE_TICK_SECONDS = max(1, int(os.getenv("FINANCE_AUTO_QUEUE_TICK_SECONDS", "5")))
 
 # ── Hourly sales burst ────────────────────────────────────────────────
@@ -69,7 +69,7 @@ NOTIFICATION_SETTINGS_DEFAULTS = {
 ONBOARD_MAX_CONCURRENT_SYNCS = max(1, int(os.getenv("ONBOARD_MAX_CONCURRENT_SYNCS", "20")))
 
 # ── HTTP client defaults ──────────────────────────────────────────────
-HTTP_POOL_MAXSIZE = max(4, int(os.getenv("HTTP_POOL_MAXSIZE", "32")))
+HTTP_POOL_MAXSIZE = max(4, int(os.getenv("HTTP_POOL_MAXSIZE", "100")))
 HTTP_USER_AGENT = os.getenv(
     "HTTP_USER_AGENT",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

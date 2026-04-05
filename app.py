@@ -2314,6 +2314,20 @@ def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False):
         print(f"[HourlySales] send_photo error: {e}")
 
 
+def _send_tg_message(tg_id: str, text: str):
+    """Send a plain text message to a Telegram user via the bot."""
+    try:
+        import telebot as _tb
+        cfg = _tg_config()
+        token = cfg.get("bot_token", "")
+        if not token or not tg_id:
+            return
+        bot = _tb.TeleBot(token, threaded=False)
+        bot.send_message(tg_id, text)
+    except Exception as e:
+        print(f"[Subscription] send_message error for {tg_id}: {e}")
+
+
 def _render_stock_image(rows: list, shop_name: str) -> bytes:
     """Render a stock table (Uzum qty vs Warehouse qty) as a PNG image."""
     from PIL import Image, ImageDraw, ImageFont
@@ -3213,7 +3227,28 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
             if (user.telegram_id or "").strip()
         ]
 
+        sub_settings = _get_or_create_subscription_settings(db)
+
         for user in users:
+            # Skip expired users; send a one-time expiry notice in the first hour after expiry
+            if not user.is_admin:
+                status = _subscription_status_for_user(user, settings=sub_settings, now=snap_hour)
+                if not status["active"]:
+                    effective_end = status.get("effective_end_at")
+                    if effective_end:
+                        just_expired = (snap_hour - timedelta(hours=1)) <= effective_end < snap_hour
+                        if just_expired:
+                            tg_id = (user.telegram_id or "").strip()
+                            if tg_id:
+                                _send_tg_message(
+                                    tg_id,
+                                    "⚠️ Ваша подписка на SellerHub истекла.\n\n"
+                                    "Уведомления о продажах приостановлены. "
+                                    "Перейдите на страницу подписки, чтобы продлить доступ.",
+                                )
+                                print(f"[Subscription] Sent expiry notice to user_id={user.id} tg={tg_id}")
+                    continue  # Do not send sales notifications to expired users
+
             prefs = _get_user_notification_settings(user.id, db=db)
             if not prefs["hourly_enabled"]:
                 continue

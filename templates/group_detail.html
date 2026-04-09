@@ -83,10 +83,10 @@
   <div class="flex-grow-1" style="min-width:0;">
     <h5 class="mb-1 fw-semibold text-truncate">{{ group.name }}</h5>
     <div class="text-secondary small">
-      Uzum ID: {{ group.uzum_product_id or "—" }} &nbsp;·&nbsp; Категория: {{ group.category or "—" }}
+      Uzum ID: {{ group.uzum_product_id or "—" }} &nbsp;·&nbsp; {{ t.common_category }}: {{ group.category or "—" }}
     </div>
   </div>
-  <a href="/groups" class="btn btn-outline-secondary btn-sm flex-shrink-0">← Назад</a>
+  <a href="/groups" class="btn btn-outline-secondary btn-sm flex-shrink-0">{{ t.detail_back_link }}</a>
 </div>
 
 <!-- SKU card -->
@@ -97,46 +97,46 @@
     <div class="px-3 pt-3 pb-2">
       <div class="d-flex align-items-center justify-content-between mb-2">
         <div>
-          <span class="fw-semibold">Таблица SKU</span>
-          <span class="text-secondary small ms-2">{{ variants | length }} вариантов</span>
+          <span class="fw-semibold">{{ t.detail_sku_table }}</span>
+          <span class="text-secondary small ms-2">{{ variants | length }} {{ t.detail_variants }}</span>
         </div>
         <span id="loadingIndicator" class="text-primary small" style="display:none;">
-          <span class="spin-icon">⟳</span> Загрузка...
+          <span class="spin-icon">⟳</span> {{ t.common_loading }}
         </span>
       </div>
 
       <div class="d-flex flex-wrap gap-2 align-items-center">
         <div class="days-toggle">
-          <button class="preset-btn" data-days="7">7 дн.</button>
-          <button class="preset-btn" data-days="10">10 дн.</button>
-          <button class="preset-btn" data-days="15">15 дн.</button>
-          <button class="preset-btn active" data-days="30">30 дн.</button>
-          <button class="preset-btn" data-days="60">60 дн.</button>
-          <button class="preset-btn" data-days="90">90 дн.</button>
+          <button class="preset-btn" data-days="7">7 {{ t.detail_days_short }}</button>
+          <button class="preset-btn" data-days="10">10 {{ t.detail_days_short }}</button>
+          <button class="preset-btn" data-days="15">15 {{ t.detail_days_short }}</button>
+          <button class="preset-btn active" data-days="30">30 {{ t.detail_days_short }}</button>
+          <button class="preset-btn" data-days="60">60 {{ t.detail_days_short }}</button>
+          <button class="preset-btn" data-days="90">90 {{ t.detail_days_short }}</button>
         </div>
         <div class="date-range-wrapper" id="dateRangeWrapper">
           <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="text" id="dateRangeInput" placeholder="Выберите период" readonly>
+          <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
           <span class="arrow">▼</span>
         </div>
         <input type="hidden" id="dateFrom">
         <input type="hidden" id="dateTo">
-        <button class="apply-btn" id="btnApply">Показать</button>
+        <button class="apply-btn" id="btnApply">{{ t.detail_show_btn }}</button>
       </div>
     </div>
 
-    <!-- Table: SKU | Цвет/Размер | Статус | Uzum | Склад | Штрихкод | Продажи -->
+    <!-- Table: SKU | Color/Size | Status | Uzum | Warehouse | Barcode | Sales -->
     <div id="sku-table-wrapper">
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
             <th>SKU</th>
-            <th class="text-center">Цвет / Размер</th>
-            <th class="text-center">Статус</th>
+            <th class="text-center">{{ t.detail_color }} / {{ t.detail_size }}</th>
+            <th class="text-center">{{ t.common_status }}</th>
             <th class="text-center" style="background-color:#e6e6fa;">Uzum</th>
-            <th class="text-center" style="background-color:#e0ffff;">Склад</th>
-            <th class="text-center">Штрихкод</th>
-            <th class="text-center" id="salesHeader">Продажи 30 дн.</th>
+            <th class="text-center" style="background-color:#e0ffff;">{{ t.detail_wh_qty }}</th>
+            <th class="text-center">{{ t.detail_barcode }}</th>
+            <th class="text-center" id="salesHeader">{{ t.detail_sales_label }} 30 {{ t.detail_days_short }}</th>
           </tr>
         </thead>
         <tbody id="skuTbody">
@@ -168,7 +168,7 @@
           </tr>
           {% endfor %}
           {% if not variants %}
-          <tr><td colspan="7" class="text-secondary text-center py-4">SKU не найдены.</td></tr>
+          <tr><td colspan="7" class="text-secondary text-center py-4">{{ t.detail_no_skus }}</td></tr>
           {% endif %}
         </tbody>
       </table>
@@ -182,6 +182,8 @@
 <script>
 const GROUP_ID = {{ group.id }};
 const PRESETS = [7, 10, 15, 30, 60, 90];
+const _SALES_LABEL = '{{ t.detail_sales_label }}';
+const _DAYS_SHORT = '{{ t.detail_days_short }}';
 const salesCache = {};  // { "days_7": {vid: qty, ...}, "days_30": ..., "2024-01-01_2024-01-31": ... }
 
 // Store the server-rendered 30-day data as cache
@@ -223,8 +225,8 @@ async function fetchSales(params) {
   // If cached, apply instantly
   if (salesCache[cacheKey]) {
     const label = params.date_from
-      ? `Продажи ${params.date_from} — ${params.date_to}`
-      : `Продажи ${params.days} дн.`;
+      ? `${_SALES_LABEL} ${params.date_from} — ${params.date_to}`
+      : `${_SALES_LABEL} ${params.days} ${_DAYS_SHORT}`;
     applySalesData(salesCache[cacheKey], label);
     return;
   }
@@ -235,13 +237,13 @@ async function fetchSales(params) {
   try {
     const res  = await fetch(`/api/groups/${GROUP_ID}/sales-range?` + new URLSearchParams(params));
     const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Ошибка'); return; }
+    if (!res.ok) { alert(data.error || '{{ t.common_error }}'); return; }
     const map = {};
     (data.sales || []).forEach(r => { map[r.variant_id] = r.qty; });
     salesCache[cacheKey] = map;
     const label = params.date_from
-      ? `Продажи ${params.date_from} — ${params.date_to}`
-      : `Продажи ${params.days} дн.`;
+      ? `${_SALES_LABEL} ${params.date_from} — ${params.date_to}`
+      : `${_SALES_LABEL} ${params.days} ${_DAYS_SHORT}`;
     applySalesData(map, label);
   } catch(e) { alert('Ошибка: ' + e.message); }
   finally {

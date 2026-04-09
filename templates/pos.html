@@ -10,9 +10,9 @@
       <div class="pos-toolbar">
         <label class="pos-search-bar flex-fill mb-0" for="posSearch">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-          <input id="posSearch" type="text" placeholder="Поиск по названию, SKU или штрихкоду..." autocomplete="off" autofocus>
+          <input id="posSearch" type="text" placeholder="{{ t.pos_search_placeholder }}" autocomplete="off" autofocus>
         </label>
-        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">Накладные</button>
+        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">{{ t.pos_invoices_btn }}</button>
       </div>
 
       <div id="posResults" class="pos-product-grid"></div>
@@ -22,15 +22,15 @@
   <aside class="pos-panel">
     <div class="pos-card pos-cart">
       <div class="pos-cart-header">
-        <div class="pos-mode-toggle" role="radiogroup" aria-label="Режим POS">
+        <div class="pos-mode-toggle" role="radiogroup" aria-label="{{ t.pos_mode_label }}">
           <input type="radio" id="modeSale" name="posMode" value="sale" checked>
-          <label for="modeSale">Продажа (-)</label>
+          <label for="modeSale">{{ t.pos_mode_sale_label }}</label>
           <input type="radio" id="modeStockIn" name="posMode" value="stock_in">
-          <label for="modeStockIn">Приход (+)</label>
+          <label for="modeStockIn">{{ t.pos_mode_stock_in }}</label>
         </div>
 
         <div class="pos-cart-title">
-          <h5>Корзина</h5>
+          <h5>{{ t.pos_cart }}</h5>
           <span id="cartCount" class="pos-count-badge">0</span>
         </div>
       </div>
@@ -39,10 +39,10 @@
 
       <div class="pos-action-footer">
         <div class="pos-action-summary">
-          <span>Итого товаров</span>
+          <span>{{ t.pos_total_items }}</span>
           <strong id="totalQty">0</strong>
         </div>
-        <button id="btnCheckout" class="pos-primary-btn" type="button" disabled>Подтвердить</button>
+        <button id="btnCheckout" class="pos-primary-btn" type="button" disabled>{{ t.pos_confirm_btn }}</button>
       </div>
     </div>
   </aside>
@@ -52,21 +52,21 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content pos-modal">
       <div class="modal-header">
-        <h5 class="modal-title">Загрузка накладной</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        <h5 class="modal-title">{{ t.pos_invoice_modal_title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t.nav_close }}"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label" for="invoiceShopSelect">Магазин</label>
+          <label class="form-label" for="invoiceShopSelect">{{ t.common_shop }}</label>
           <select id="invoiceShopSelect" class="form-select"></select>
         </div>
         <div class="mb-0">
-          <label class="form-label" for="invoiceIdInput">ID накладной</label>
-          <input id="invoiceIdInput" class="form-control" placeholder="Введите ID накладной">
+          <label class="form-label" for="invoiceIdInput">{{ t.pos_invoice_id_label }}</label>
+          <input id="invoiceIdInput" class="form-control" placeholder="{{ t.pos_invoice_id_placeholder }}">
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">Загрузить</button>
+        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">{{ t.pos_load_btn }}</button>
       </div>
     </div>
   </div>
@@ -80,15 +80,15 @@ new PosEngine({
   showStock: true,
   showModeToggle: true,
   actionBtnId: "btnCheckout",
-  emptyCartTitle: "Корзина пуста",
-  emptyCartText: "Добавьте товары из результата поиска или загрузите накладную.",
-  actionPendingText: "Обработка...",
+  emptyCartTitle: "{{ t.pos_empty_cart }}",
+  emptyCartText: "{{ t.pos_empty_cart_text }}",
+  actionPendingText: "{{ t.pos_processing }}",
   actionShortcut: "ctrl+enter",
   updateActionBtn: function (button, items, totalQty, mode) {
     button.className = "pos-primary-btn " + (mode === "sale" ? "pos-primary-btn--danger" : "pos-primary-btn--success");
     button.textContent = mode === "sale"
-      ? "Продать (" + totalQty + ")"
-      : "Принять на склад (" + totalQty + ")";
+      ? "{{ t.pos_sell_btn }} (" + totalQty + ")"
+      : "{{ t.pos_stock_in_btn }} (" + totalQty + ")";
   },
   onAction: async function (items, mode) {
     const response = await fetch("/api/pos/transaction", {
@@ -98,10 +98,10 @@ new PosEngine({
     });
     const data = await response.json();
     if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Не удалось выполнить транзакцию.");
+      throw new Error(data.error || "{{ t.pos_transaction_error }}");
     }
     return {
-      message: mode === "sale" ? "Продажа проведена." : "Приход проведен."
+      message: mode === "sale" ? "{{ t.pos_sale_done }}" : "{{ t.pos_receipt_done }}"
     };
   }
 });

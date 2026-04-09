@@ -2,11 +2,6 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 id="pageTitle">Финансы</h4>
-  <div class="d-flex gap-2">
-    <button class="btn btn-sm btn-outline-secondary" onclick="toggleLang()">
-      <span id="langBtn">UZ</span>
-    </button>
-  </div>
 </div>
 
 <!-- Sync section -->
@@ -165,7 +160,7 @@
 </div>
 
 <script>
-let currentLang = 'ru';
+let currentLang = '{{ lang }}';
 let lastData = null;
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
 
@@ -568,8 +563,8 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('dateFrom').value = firstDay;
   document.getElementById('dateTo').value = today;
   document.getElementById('shopSelect').addEventListener('change', updateSyncInfo);
+  applyLang();
   updateSyncInfo();
-  applyAdminLabels();
   if (IS_ADMIN) {
     loadAdminDashboard();
     window.setInterval(loadAdminDashboard, 15000);

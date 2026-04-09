@@ -3,7 +3,7 @@
 <div class="row justify-content-center">
   <div class="col-12 col-lg-8 col-xl-6">
     <div class="d-flex align-items-center justify-content-between mb-4">
-      <h1 class="h3 mb-0 fw-semibold">Калькулятор прибыли</h1>
+      <h1 class="h3 mb-0 fw-semibold">{{ t.calc_profit_title }}</h1>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -11,35 +11,35 @@
         <!-- Inputs -->
         <div class="row g-3 mb-4">
           <div class="col-12">
-            <label class="form-label fw-medium">Поиск категории (авто-комиссия)</label>
+            <label class="form-label fw-medium">{{ t.calc_cat_search }}</label>
             <div class="position-relative">
-              <input type="text" id="catSearch" class="form-control" placeholder="Например: Одежда, Электроника..." autocomplete="off">
+              <input type="text" id="catSearch" class="form-control" placeholder="{{ t.calc_example_placeholder }}" autocomplete="off">
               <div id="catResults" class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 250px; overflow-y: auto; display: none;"></div>
             </div>
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label fw-medium">Цена продажи (сум)</label>
+            <label class="form-label fw-medium">{{ t.calc_sale_price_label }}</label>
             <input type="number" id="calcPrice" class="form-control form-control-lg" placeholder="0" oninput="calc()">
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label fw-medium">Себестоимость (сум)</label>
+            <label class="form-label fw-medium">{{ t.calc_cost_price_label }}</label>
             <input type="number" id="calcCost" class="form-control form-control-lg" placeholder="0" oninput="calc()">
           </div>
-          
+
           <div class="col-6">
-            <label class="form-label text-secondary small">Комиссия Uzum (%)</label>
+            <label class="form-label text-secondary small">{{ t.calc_commission_pct }}</label>
             <input type="number" id="calcCommPct" class="form-control" value="15" oninput="calc()">
           </div>
           <div class="col-6">
-            <label class="form-label text-secondary small">Логистика (сум)</label>
+            <label class="form-label text-secondary small">{{ t.calc_logistics_label }}</label>
             <input type="number" id="calcLogistics" class="form-control" value="0" placeholder="0" oninput="calc()">
           </div>
           <div class="col-6">
-            <label class="form-label text-secondary small">Налог (%)</label>
+            <label class="form-label text-secondary small">{{ t.calc_tax_label }}</label>
             <input type="number" id="calcTaxPct" class="form-control" value="0" oninput="calc()">
           </div>
           <div class="col-6">
-            <label class="form-label text-secondary small">Прочие расходы (сум)</label>
+            <label class="form-label text-secondary small">{{ t.calc_other_expenses }}</label>
             <input type="number" id="calcOther" class="form-control" value="0" placeholder="0" oninput="calc()">
           </div>
         </div>
@@ -49,27 +49,27 @@
         <!-- Results -->
         <div class="row g-3 text-center">
           <div class="col-6">
-            <div class="text-secondary small mb-1">Чистая прибыль</div>
+            <div class="text-secondary small mb-1">{{ t.calc_net_profit }}</div>
             <div class="fs-2 fw-bold" id="resProfit">0</div>
-            <div class="small text-muted">сум</div>
+            <div class="small text-muted">{{ t.calc_sum_label }}</div>
           </div>
           <div class="col-6">
-            <div class="text-secondary small mb-1">Маржинальность</div>
+            <div class="text-secondary small mb-1">{{ t.calc_margin }}</div>
             <div class="fs-2 fw-bold" id="resMargin">0%</div>
           </div>
         </div>
 
         <div class="mt-4 p-3 bg-light rounded-3">
           <div class="d-flex justify-content-between mb-2">
-            <span class="text-secondary">Комиссия платформы:</span>
+            <span class="text-secondary">{{ t.calc_platform_commission }}</span>
             <span class="fw-medium" id="resCommAmt">0</span>
           </div>
           <div class="d-flex justify-content-between mb-2">
-            <span class="text-secondary">Налог:</span>
+            <span class="text-secondary">{{ t.calc_tax_row }}</span>
             <span class="fw-medium" id="resTaxAmt">0</span>
           </div>
           <div class="d-flex justify-content-between border-top pt-2 mt-2">
-            <span class="fw-bold">ROI (Возврат инвестиций):</span>
+            <span class="fw-bold">{{ t.calc_roi }}</span>
             <span class="fw-bold text-success" id="resRoi">0%</span>
           </div>
         </div>
@@ -97,10 +97,10 @@ catSearch.addEventListener('input', function() {
     catResults.style.display = 'none';
     return;
   }
-  
+
  const matches = uzumCommissions.filter(c => (c.category_last || "").toLowerCase().includes(val));
-  
-  
+
+
   if (matches.length > 0) {
     catResults.innerHTML = matches.slice(0, 50).map(c => {
       const pct = (c.commission || 0) * 100;
@@ -140,10 +140,10 @@ function calc() {
 
   const commAmt = price * (commPct / 100);
   const taxAmt = price * (taxPct / 100);
-  
+
   const totalExpenses = cost + commAmt + logistics + taxAmt + other;
   const profit = price - totalExpenses;
-  
+
   let margin = 0;
   if (price > 0) margin = (profit / price) * 100;
 

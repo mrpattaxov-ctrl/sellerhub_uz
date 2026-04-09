@@ -2,14 +2,14 @@
 {% block content %}
 <div class="row mb-4">
   <div class="col">
-    <h4>Потерянные товары</h4>
-    <p class="text-muted small">lost = invoiced - active (В продаже) - defected (Брак) - sold</p>
+    <h4>{{ t.lost_title }}</h4>
+    <p class="text-muted small">lost = invoiced - active - defected - sold</p>
   </div>
 </div>
 
 <div class="row mb-4">
   <div class="col-auto">
-    <label class="form-label fw-semibold">Магазин</label>
+    <label class="form-label fw-semibold">{{ t.common_shop }}</label>
     <select id="shopSelect" class="form-select">
       {% for shop in shops %}
       <option value="{{ shop.uzum_id }}">{{ shop.name or shop.uzum_id }}</option>
@@ -17,10 +17,10 @@
     </select>
   </div>
   <div class="col-auto d-flex align-items-end">
-    <button id="btnCalc" class="btn btn-dark" onclick="calculate()">Рассчитать</button>
+    <button id="btnCalc" class="btn btn-dark" onclick="calculate()">{{ t.lost_calculate_btn }}</button>
   </div>
   <div class="col-auto d-flex align-items-end">
-    <button id="btnExcel" class="btn btn-success" onclick="downloadExcel()" disabled>Скачать Excel</button>
+    <button id="btnExcel" class="btn btn-success" onclick="downloadExcel()" disabled>{{ t.lost_download_excel }}</button>
   </div>
 </div>
 
@@ -42,11 +42,11 @@
       <tr>
         <th>#</th>
         <th>SKU</th>
-        <th>Invoiced</th>
-        <th>Active (В продаже)</th>
-        <th>Defected (Брак)</th>
-        <th>Sold</th>
-        <th>Lost</th>
+        <th>{{ t.lost_invoiced_col }}</th>
+        <th>{{ t.lost_active_col }}</th>
+        <th>{{ t.lost_defected_col }}</th>
+        <th>{{ t.lost_sold_col }}</th>
+        <th>{{ t.lost_lost_col }}</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -55,6 +55,18 @@
 
 <script>
 let lastData = null;
+const _T = {
+  loading: '{{ t.common_loading }}',
+  calculate: '{{ t.lost_calculate_btn }}',
+  invoices: '{{ t.inv_items }}:',
+  invoiced: '{{ t.lost_invoiced_col }}:',
+  active: '{{ t.lost_active_col }}:',
+  defected: '{{ t.lost_defected_col }}:',
+  sold: '{{ t.lost_sold_col }}:',
+  lost: '{{ t.lost_lost_col }}:',
+  warnings: '{{ t.common_error }}:',
+  error: '{{ t.common_error }}:',
+};
 
 function status(msg) {
   const el = document.getElementById('statusBox');
@@ -67,18 +79,18 @@ function calculate() {
   if (!shopId) return;
   const btn = document.getElementById('btnCalc');
   btn.disabled = true;
-  btn.textContent = 'Загрузка...';
+  btn.textContent = _T.loading;
   document.getElementById('btnExcel').disabled = true;
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('summaryBox').style.display = 'none';
   document.getElementById('tableBox').style.display = 'none';
-  status('Создание отчёта и сбор данных... Это может занять 1-2 минуты.');
+  status(_T.loading);
 
   fetch('/api/lost-goods?shop_id=' + shopId + '&all=true')
     .then(r => r.json())
     .then(data => {
       btn.disabled = false;
-      btn.textContent = 'Рассчитать';
+      btn.textContent = _T.calculate;
       status('');
       lastData = data;
 
@@ -90,17 +102,17 @@ function calculate() {
 
       if (data.errors && data.errors.length) {
         const el = document.getElementById('errorBox');
-        el.textContent = 'Предупреждения: ' + data.errors.map(e => e.error || JSON.stringify(e)).join('; ');
+        el.textContent = _T.warnings + ' ' + data.errors.map(e => e.error || JSON.stringify(e)).join('; ');
         el.style.display = '';
       }
 
       const t = data.totals || {};
-      document.getElementById('sumInvoices').textContent = 'Накладных: ' + (data.total_invoices || 0);
-      document.getElementById('sumInvoiced').textContent = 'Принято: ' + (t.invoiced || 0);
-      document.getElementById('sumActive').textContent = 'В продаже: ' + (t.active || 0);
-      document.getElementById('sumDefected').textContent = 'Брак: ' + (t.defected || 0);
-      document.getElementById('sumSold').textContent = 'Продано: ' + (t.sold || 0);
-      document.getElementById('sumLost').textContent = 'Потеряно: ' + (t.lost || 0);
+      document.getElementById('sumInvoices').textContent = _T.invoices + ' ' + (data.total_invoices || 0);
+      document.getElementById('sumInvoiced').textContent = _T.invoiced + ' ' + (t.invoiced || 0);
+      document.getElementById('sumActive').textContent = _T.active + ' ' + (t.active || 0);
+      document.getElementById('sumDefected').textContent = _T.defected + ' ' + (t.defected || 0);
+      document.getElementById('sumSold').textContent = _T.sold + ' ' + (t.sold || 0);
+      document.getElementById('sumLost').textContent = _T.lost + ' ' + (t.lost || 0);
       document.getElementById('summaryBox').style.display = '';
 
       const tbody = document.getElementById('tbody');
@@ -123,9 +135,9 @@ function calculate() {
     })
     .catch(err => {
       btn.disabled = false;
-      btn.textContent = 'Рассчитать';
+      btn.textContent = _T.calculate;
       status('');
-      document.getElementById('errorBox').textContent = 'Ошибка: ' + err;
+      document.getElementById('errorBox').textContent = _T.error + ' ' + err;
       document.getElementById('errorBox').style.display = '';
     });
 }
@@ -133,7 +145,6 @@ function calculate() {
 function downloadExcel() {
   if (!lastData) return;
   const shopId = document.getElementById('shopSelect').value;
-  // POST the data to the excel endpoint
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = '/lost-goods/export?shop_id=' + shopId;

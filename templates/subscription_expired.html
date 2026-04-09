@@ -63,15 +63,15 @@
 
 <div class="expired-shell">
   <div class="expired-card text-center">
-    <div class="expired-badge mb-3">Доступ остановлен</div>
-    <h1 class="mb-3" style="font-size: clamp(2rem, 3vw, 2.8rem); font-weight: 800; letter-spacing: -0.04em;">Подписка закончилась</h1>
+    <div class="expired-badge mb-3">{{ t.sub_expired }}</div>
+    <h1 class="mb-3" style="font-size: clamp(2rem, 3vw, 2.8rem); font-weight: 800; letter-spacing: -0.04em;">{{ t.sub_expired_title }}</h1>
     <p class="text-secondary mb-0" style="font-size: 1.02rem; max-width: 640px; margin-inline: auto;">
-      Данные приложения сейчас скрыты. Продлите тариф или активируйте код, и доступ откроется снова без дополнительных действий.
+      {{ t.sub_expired_desc }}
     </p>
 
     <div class="expired-meta">
       <div class="expired-meta-box">
-        <small>Последний активный момент</small>
+        <small>{{ t.common_date }}</small>
         <strong>
           {% if subscription_status.effective_end_at %}
             {{ subscription_status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}
@@ -81,14 +81,14 @@
         </strong>
       </div>
       <div class="expired-meta-box">
-        <small>Следующий шаг</small>
-        <strong>Откройте страницу подписки и выберите продление или код активации.</strong>
+        <small>{{ t.common_actions }}</small>
+        <strong>{{ t.sub_renew }}</strong>
       </div>
     </div>
 
     <div class="expired-actions">
-      <a href="/subscription" class="btn btn-dark btn-lg">Открыть управление подпиской</a>
-      <a href="/logout" class="btn btn-outline-secondary btn-lg">Выйти</a>
+      <a href="/subscription" class="btn btn-dark btn-lg">{{ t.sub_renew }}</a>
+      <a href="/logout" class="btn btn-outline-secondary btn-lg">{{ t.nav_logout }}</a>
     </div>
   </div>
 </div>

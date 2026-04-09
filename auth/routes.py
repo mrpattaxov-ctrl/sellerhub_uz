@@ -112,6 +112,13 @@ def admin_login_page():
     return _finish_admin_login(default_endpoint="admin_bp.admin_subscriptions_page")
 
 
+@auth_bp.get("/set-lang/<string:lang>")
+def set_lang(lang: str):
+    if lang in ("ru", "uz"):
+        session["lang"] = lang
+    return redirect(request.referrer or url_for("products_bp.groups_page"))
+
+
 @auth_bp.route("/admin-<string:secret>/login", methods=["GET", "POST"])
 def admin_login(secret: str):
     if secret != _ADMIN_SECRET:

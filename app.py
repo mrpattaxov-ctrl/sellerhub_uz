@@ -39,25 +39,27 @@ from core.subscriptions import (
     _subscription_status_for_user,
 )
 
+import io
 import os
 import time
 import threading
 import hashlib
 from datetime import date, datetime, timedelta, timezone, time as dt_time
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-import zipfile
-from zoneinfo import ZoneInfo
-import requests
+from urllib.error import HTTPError
 
+import requests
 from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session
 from flask_cors import CORS
-from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect
-from sqlalchemy.engine import make_url
-from sqlalchemy.orm import sessionmaker, joinedload
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect
+from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
+
+try:
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, Border, Side
+except ImportError:
+    openpyxl = None
 
 from models import (
     Base,
@@ -77,13 +79,6 @@ from models import (
     VariantSale,
     WarehouseExpenseSnapshot,
 )
-
-import io
-try:
-    import openpyxl
-    from openpyxl.styles import Font, Alignment, Border, Side
-except ImportError:
-    openpyxl = None
 
 DB_URL = DATABASE_URL
 
@@ -389,6 +384,15 @@ def _enforce_active_subscription():
     return redirect(url_for("auth_bp.subscription_expired_page"))
 
 
+from translations import get_translations
+
+
+@app.context_processor
+def _inject_lang():
+    lang = session.get("lang", "ru")
+    return {"lang": lang, "t": get_translations(lang)}
+
+
 @app.context_processor
 def _inject_subscription_context():
     if not current_user.is_authenticated or getattr(current_user, "is_admin", False):
@@ -610,8 +614,7 @@ def fetch_finance_sales_map(shop_id, api_key=None, days=30, date_from_ts=None, d
     } if auth_val else None
 
     def _loop(param_name):
-        local_map = {}
-        local_map = {} # {identifier: {"qty": int, "price": int}}
+        local_map = {}  # {identifier: {"qty": int, "price": int}}
         s_page = 0
         success = False
         while True:
@@ -1835,19 +1838,6 @@ import threading as _threading
 # ----------------------------
 # Hourly sales notifications
 # ----------------------------
-
-def _send_tg_message(tg_id: str, text: str):
-    """Send a Telegram message using the configured bot token."""
-    try:
-        import telebot as _tb
-        cfg = _tg_config()
-        token = cfg.get("bot_token", "")
-        if not token or not tg_id:
-            return
-        _tb.TeleBot(token, threaded=False).send_message(tg_id, text, parse_mode="Markdown")
-    except Exception as e:
-        print(f"[HourlySales] send_message error: {e}")
-
 
 def _base_sku(skus: list[str]) -> str:
     """Return the common dash-prefix shared by all SKUs in a group.

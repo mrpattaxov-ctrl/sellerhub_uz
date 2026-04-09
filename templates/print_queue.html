@@ -10,9 +10,9 @@
       <div class="pos-toolbar">
         <label class="pos-search-bar flex-fill mb-0" for="posSearch">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-          <input id="posSearch" type="text" placeholder="Поиск товара для печати..." autocomplete="off" autofocus>
+          <input id="posSearch" type="text" placeholder="{{ t.pos_search_print_placeholder }}" autocomplete="off" autofocus>
         </label>
-        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">Накладные</button>
+        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">{{ t.pos_invoices_btn }}</button>
       </div>
 
       <div id="posResults" class="pos-product-grid"></div>
@@ -23,7 +23,7 @@
     <div class="pos-card pos-cart">
       <div class="pos-cart-header">
         <div class="pos-cart-title">
-          <h5>Очередь печати</h5>
+          <h5>{{ t.pos_print_queue_title }}</h5>
           <span id="cartCount" class="pos-count-badge">0</span>
         </div>
       </div>
@@ -32,25 +32,25 @@
 
       <div class="pos-action-footer">
         <div class="pos-action-summary">
-          <span>Всего этикеток</span>
+          <span>{{ t.pos_total_labels }}</span>
           <strong id="totalQty">0</strong>
         </div>
 
         <div class="pos-size-picker">
-          <label class="pos-size-picker__label" for="labelSize">Размер</label>
+          <label class="pos-size-picker__label" for="labelSize">{{ t.pos_label_size }}</label>
           <div class="pos-size-picker__field">
             <select id="labelSize" class="pos-size-picker__select">
-              <option value="" selected disabled>Выберите размер</option>
-              <option value="30x20">30 x 20 мм</option>
-              <option value="43x25">43 x 25 мм</option>
-              <option value="40x30">40 x 30 мм</option>
-              <option value="60x60">60 x 60 мм</option>
-              <option value="70x37">70 x 37 мм</option>
+              <option value="" selected disabled>{{ t.pos_select_size }}</option>
+              <option value="30x20">30 x 20 {{ t.pos_label_mm }}</option>
+              <option value="43x25">43 x 25 {{ t.pos_label_mm }}</option>
+              <option value="40x30">40 x 30 {{ t.pos_label_mm }}</option>
+              <option value="60x60">60 x 60 {{ t.pos_label_mm }}</option>
+              <option value="70x37">70 x 37 {{ t.pos_label_mm }}</option>
             </select>
           </div>
         </div>
 
-        <button id="btnPrint" class="pos-primary-btn" type="button" disabled>Печать</button>
+        <button id="btnPrint" class="pos-primary-btn" type="button" disabled>{{ t.print_btn }}</button>
       </div>
     </div>
   </aside>
@@ -60,21 +60,21 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content pos-modal">
       <div class="modal-header">
-        <h5 class="modal-title">Загрузка накладной</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        <h5 class="modal-title">{{ t.pos_invoice_modal_title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t.nav_close }}"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label" for="invoiceShopSelect">Магазин</label>
+          <label class="form-label" for="invoiceShopSelect">{{ t.common_shop }}</label>
           <select id="invoiceShopSelect" class="form-select"></select>
         </div>
         <div class="mb-0">
-          <label class="form-label" for="invoiceIdInput">ID накладной</label>
-          <input id="invoiceIdInput" class="form-control" placeholder="Введите ID накладной">
+          <label class="form-label" for="invoiceIdInput">{{ t.pos_invoice_id_label }}</label>
+          <input id="invoiceIdInput" class="form-control" placeholder="{{ t.pos_invoice_id_placeholder }}">
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">Загрузить</button>
+        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">{{ t.pos_load_btn }}</button>
       </div>
     </div>
   </div>
@@ -138,9 +138,9 @@ const printQueueEngine = new PosEngine({
   showStock: false,
   showModeToggle: false,
   actionBtnId: "btnPrint",
-  emptyCartTitle: "Список пуст",
-  emptyCartText: "Добавьте товары в очередь печати или загрузите накладную.",
-  actionPendingText: "Подготовка...",
+  emptyCartTitle: "{{ t.pos_print_empty_title }}",
+  emptyCartText: "{{ t.pos_print_empty_text }}",
+  actionPendingText: "{{ t.pos_print_preparing }}",
   actionShortcut: "ctrl+p",
   clearCartOnAction: false,
   clearSearchOnAction: false,
@@ -149,10 +149,10 @@ const printQueueEngine = new PosEngine({
     button.className = "pos-primary-btn";
     button.disabled = items.length === 0 || !hasSize;
     if (!hasSize && items.length > 0) {
-      button.textContent = "Выберите размер";
+      button.textContent = "{{ t.pos_select_size }}";
       return;
     }
-    button.textContent = totalQty ? "Печать (" + totalQty + ")" : "Печать";
+    button.textContent = totalQty ? "{{ t.pos_print_btn }} (" + totalQty + ")" : "{{ t.pos_print_btn }}";
   },
   onAction: async function (items) {
     const ids = [];
@@ -162,13 +162,13 @@ const printQueueEngine = new PosEngine({
       }
     });
     if (!ids.length) {
-      throw new Error("Очередь печати пуста.");
+      throw new Error("{{ t.pos_print_queue_empty_err }}");
     }
     if (!getSelectedLabelSize()) {
-      throw new Error("Выберите размер этикетки.");
+      throw new Error("{{ t.pos_print_no_size_err }}");
     }
     printQueueLabels(ids);
-    return { message: "Диалог печати открыт." };
+    return { message: "{{ t.pos_print_dialog_ok }}" };
   }
 });
 

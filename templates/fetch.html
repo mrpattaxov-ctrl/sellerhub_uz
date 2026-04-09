@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Мои магазины - Склад</title>
+  <title>{{ t.fetch_title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
@@ -191,17 +191,17 @@
 <body
   data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
-  data-subscription-label="{{ 'Подписки' if current_user.is_authenticated and current_user.is_admin else 'Подписка' }}"
+  data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
   data-max-shops="{{ subscription_context.settings.max_shops_per_user if subscription_context else 0 }}"
   data-shop-count="{{ subscription_context.shop_count if subscription_context else 0 }}">
   <div class="container">
     <div class="page-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
-      <h1 class="page-title">Мои магазины</h1>
+      <h1 class="page-title">{{ t.fetch_title }}</h1>
       <div class="d-flex align-items-center gap-2 flex-wrap">
         {% if subscription_context %}
-        <div id="shopLimitPill" class="shop-limit-pill">Магазины: {{ subscription_context.shop_count }} / {{ subscription_context.settings.max_shops_per_user }}</div>
+        <div id="shopLimitPill" class="shop-limit-pill">{{ t.fetch_shops_label }} {{ subscription_context.shop_count }} / {{ subscription_context.settings.max_shops_per_user }}</div>
         {% endif %}
-        <a href="/groups" class="fetch-btn fetch-btn--back">Назад к товарам</a>
+        <a href="/groups" class="fetch-btn fetch-btn--back">{{ t.fetch_back_products }}</a>
       </div>
     </div>
 
@@ -211,31 +211,54 @@
 
     <div class="card form-shell mb-4">
       <div class="card-body">
-        <h5 class="card-title mb-1">Добавить новый магазин</h5>
-        <div class="text-secondary small mb-3">Новый магазин сразу появится в списке и сможет синхронизироваться после добавления.</div>
+        <h5 class="card-title mb-1">{{ t.fetch_add_shop_title }}</h5>
+        <div class="text-secondary small mb-3">{{ t.fetch_add_shop_desc }}</div>
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
-            <label class="form-label">ID магазина (Uzum Shop ID)</label>
-            <input type="text" id="newShopId" class="form-control" placeholder="например 12345">
+            <label class="form-label">{{ t.fetch_shop_id_label }}</label>
+            <input type="text" id="newShopId" class="form-control" placeholder="{{ t.fetch_shop_id_placeholder }}">
           </div>
           <div class="col-md-4">
-            <label class="form-label">Название магазина (опционально)</label>
-            <input type="text" id="newShopName" class="form-control" placeholder="например Мой Магазин">
+            <label class="form-label">{{ t.fetch_shop_name_label }}</label>
+            <input type="text" id="newShopName" class="form-control" placeholder="{{ t.fetch_shop_name_placeholder }}">
           </div>
           <div class="col-md-4">
-            <button class="fetch-btn fetch-btn--primary w-100" id="btnAddShop">Добавить магазин</button>
+            <button class="fetch-btn fetch-btn--primary w-100" id="btnAddShop">{{ t.fetch_add_btn }}</button>
           </div>
         </div>
       </div>
     </div>
 
-    <h5 class="mb-3">Ваши магазины</h5>
+    <h5 class="mb-3">{{ t.fetch_your_shops }}</h5>
     <div id="shopsContainer" class="row g-3"></div>
 
     <div id="syncStatus" class="mt-3" style="display:none;"></div>
   </div>
 
   <script>
+    const _FT = {
+      shopsLabel: '{{ t.fetch_shops_label }}',
+      limitReached: '{{ t.fetch_limit_reached }}',
+      addBtn: '{{ t.fetch_add_btn }}',
+      noShops: '{{ t.fetch_no_shops }}',
+      syncLabel: '{{ t.fetch_syncing_label }}',
+      editLabel: '{{ t.fetch_edit_label }}',
+      deleteLabel: '{{ t.fetch_delete_label }}',
+      limitAlert: '{{ t.fetch_limit_alert }}',
+      idRequired: '{{ t.fetch_shop_id_required }}',
+      adding: '{{ t.fetch_adding }}',
+      syncing: '{{ t.fetch_syncing_status }}',
+      syncPrefix: '{{ t.fetch_sync_prefix }}',
+      syncSuffix: '{{ t.fetch_sync_suffix }}',
+      syncOkPrefix: '{{ t.fetch_sync_ok_prefix }}',
+      syncOkVariants: '{{ t.fetch_sync_ok_variants }}',
+      deletePrefix: '{{ t.fetch_delete_prefix }}',
+      deleteSuffix: '{{ t.fetch_delete_suffix }}',
+      editPrefix: '{{ t.fetch_edit_prefix }}',
+      errorPrefix: '{{ t.fetch_error_prefix }}',
+      serverErrorPrefix: '{{ t.fetch_server_error_prefix }}',
+    };
+
     function getShopLimit() {
       return Number(document.body.dataset.maxShops || "0");
     }
@@ -251,12 +274,12 @@
       const nameInput = document.getElementById("newShopName");
 
       if (pill) {
-        pill.textContent = `Магазины: ${shopCount} / ${limit}`;
+        pill.textContent = `${_FT.shopsLabel} ${shopCount} / ${limit}`;
         pill.classList.toggle("shop-limit-pill--full", isFull);
       }
       if (addBtn) {
         addBtn.disabled = isFull;
-        addBtn.textContent = isFull ? "Лимит достигнут" : "Добавить магазин";
+        addBtn.textContent = isFull ? _FT.limitReached : _FT.addBtn;
       }
       if (idInput) idInput.disabled = isFull;
       if (nameInput) nameInput.disabled = isFull;
@@ -267,8 +290,8 @@
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(url, opts);
       let data;
-      try { data = await res.json(); } catch { throw new Error(`Ошибка сервера (${res.status})`); }
-      if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+      try { data = await res.json(); } catch { throw new Error(`${_FT.serverErrorPrefix} (${res.status})`); }
+      if (!res.ok) throw new Error(data.error || `${_FT.errorPrefix} ${res.status}`);
       return data;
     }
 
@@ -289,7 +312,7 @@
       updateShopLimitUi(shops.length);
 
       if (shops.length === 0) {
-        container.innerHTML = `<div class="col-12 text-secondary">Магазины ещё не добавлены.</div>`;
+        container.innerHTML = `<div class="col-12 text-secondary">${_FT.noShops}</div>`;
         return;
       }
 
@@ -301,9 +324,9 @@
             <div class="fw-bold fs-5">${shop.name || shop.uzum_id}</div>
             <div class="text-secondary small mb-3">ID: ${shop.uzum_id}</div>
             <div class="shop-actions">
-              <button class="shop-action-btn shop-action-btn--sync btn-sync" data-id="${shop.uzum_id}">Синхронизация</button>
-              <button class="shop-action-btn shop-action-btn--edit btn-edit" data-id="${shop.uzum_id}" data-name="${(shop.name || "").replace(/"/g, "&quot;")}">Ред.</button>
-              <button class="shop-action-btn shop-action-btn--delete btn-delete" data-db-id="${shop.id}" data-name="${(shop.name || shop.uzum_id).replace(/"/g, "&quot;")}">Удалить</button>
+              <button class="shop-action-btn shop-action-btn--sync btn-sync" data-id="${shop.uzum_id}">${_FT.syncLabel}</button>
+              <button class="shop-action-btn shop-action-btn--edit btn-edit" data-id="${shop.uzum_id}" data-name="${(shop.name || "").replace(/"/g, "&quot;")}">${_FT.editLabel}</button>
+              <button class="shop-action-btn shop-action-btn--delete btn-delete" data-db-id="${shop.id}" data-name="${(shop.name || shop.uzum_id).replace(/"/g, "&quot;")}">${_FT.deleteLabel}</button>
             </div>
           </div>
         `;
@@ -325,24 +348,24 @@
       const status = document.getElementById("syncStatus");
       status.style.display = "block";
       status.className = "alert alert-info status-panel";
-      status.textContent = `Синхронизация магазина ${shopId} (товары + продажи)... подождите.`;
+      status.textContent = `${_FT.syncPrefix} ${shopId} ${_FT.syncSuffix}`;
 
       document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = true; });
 
       try {
         const res = await api("/api/uzum/sync", "POST", { shop_id: shopId, size: 100, sync_all: true });
         status.className = "alert alert-success status-panel";
-        status.textContent = `Успешно. Товаров: ${res.total_products}, вариантов: ${res.fetched}.`;
+        status.textContent = `${_FT.syncOkPrefix} ${res.total_products}${_FT.syncOkVariants} ${res.fetched}.`;
       } catch (e) {
         status.className = "alert alert-danger status-panel";
-        status.textContent = "Ошибка: " + e.message;
+        status.textContent = _FT.errorPrefix + " " + e.message;
       } finally {
         document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = false; });
       }
     }
 
     async function editShop(shopId, currentName) {
-      const newName = prompt("Введите новое название для магазина " + shopId, currentName);
+      const newName = prompt(_FT.editPrefix + " " + shopId, currentName);
       if (newName !== null) {
         await api("/api/shops", "POST", { uzum_id: shopId, name: newName });
         checkApiKey();
@@ -352,17 +375,17 @@
 
     document.getElementById("btnAddShop").addEventListener("click", async () => {
       if (getShopLimit() && Number(document.body.dataset.shopCount || "0") >= getShopLimit()) {
-        alert("Лимит магазинов для этого аккаунта уже достигнут.");
+        alert(_FT.limitAlert);
         return;
       }
 
       const id = document.getElementById("newShopId").value.trim();
       const name = document.getElementById("newShopName").value.trim();
-      if (!id) return alert("Требуется ID магазина");
+      if (!id) return alert(_FT.idRequired);
 
       const btn = document.getElementById("btnAddShop");
       btn.disabled = true;
-      btn.textContent = "Добавление...";
+      btn.textContent = _FT.adding;
 
       try {
         await api("/api/shops", "POST", { uzum_id: id, name: name });
@@ -370,10 +393,10 @@
         document.getElementById("newShopName").value = "";
         await loadShops();
 
-        btn.textContent = "Синхронизация...";
+        btn.textContent = _FT.syncing;
         await doSync(id);
       } catch (e) {
-        alert("Ошибка: " + e.message);
+        alert(_FT.errorPrefix + " " + e.message);
       } finally {
         document.body.dataset.shopCount = document.querySelectorAll("#shopsContainer > div").length.toString();
         updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
@@ -381,16 +404,16 @@
     });
 
     async function deleteShop(dbId, name) {
-      if (!confirm(`Удалить магазин "${name}"?\n\nВсе товары и данные этого магазина будут удалены.`)) return;
+      if (!confirm(`${_FT.deletePrefix} "${name}"${_FT.deleteSuffix}`)) return;
       try {
         const res = await api(`/api/shops/${dbId}`, "DELETE");
         if (res.ok) {
           await loadShops();
         } else {
-          alert(res.error || "Ошибка при удалении");
+          alert(res.error || _FT.errorPrefix);
         }
       } catch (e) {
-        alert("Ошибка: " + e.message);
+        alert(_FT.errorPrefix + " " + e.message);
       }
     }
 

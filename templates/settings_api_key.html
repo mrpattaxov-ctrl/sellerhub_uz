@@ -3,8 +3,8 @@
 <div class="row justify-content-center">
   <div class="col-12 col-lg-7">
     <div class="d-flex align-items-center justify-content-between mb-4">
-      <h1 class="h4 mb-0 fw-semibold">Uzum Токен</h1>
-      <a class="btn btn-outline-secondary btn-sm" href="/groups">Назад</a>
+      <h1 class="h4 mb-0 fw-semibold">{{ t.api_title }}</h1>
+      <a class="btn btn-outline-secondary btn-sm" href="/groups">{{ t.nav_back }}</a>
     </div>
 
     {% with messages = get_flashed_messages() %}
@@ -16,29 +16,26 @@
     <!-- AUTO LOGIN SECTION -->
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-body p-4">
-        <h5 class="fw-semibold mb-1">Автоматический вход в Uzum</h5>
-        <p class="text-muted mb-3">
-          Введите телефон и пароль от аккаунта <b>Uzum Seller</b>. Приложение будет само обновлять токен
-          каждые 90 минут — никаких ручных действий не требуется.
-        </p>
+        <h5 class="fw-semibold mb-1">{{ t.api_auto_login }}</h5>
+        <p class="text-muted mb-3">{{ t.api_auto_desc }}</p>
         {% if uzum_phone %}
           <div class="alert alert-success py-2">
-            Учётные данные сохранены: <b>{{ uzum_phone }}</b> &nbsp;
-            {% if has_password %}<span class="badge bg-success">Пароль ✓</span>{% endif %}
+            {{ t.api_credentials_saved }}: <b>{{ uzum_phone }}</b> &nbsp;
+            {% if has_password %}<span class="badge bg-success">{{ t.api_password_label }} ✓</span>{% endif %}
           </div>
         {% endif %}
         <form method="POST">
           <div class="mb-3">
-            <label class="form-label fw-medium">Телефон или Email</label>
+            <label class="form-label fw-medium">{{ t.api_phone_label }}</label>
             <input type="text" name="uzum_phone" class="form-control"
-                   placeholder="+998901234567 или seller@example.com" value="{{ uzum_phone }}">
+                   placeholder="{{ t.api_phone_placeholder }}" value="{{ uzum_phone }}">
           </div>
           <div class="mb-3">
-            <label class="form-label fw-medium">Пароль</label>
+            <label class="form-label fw-medium">{{ t.api_password_label }}</label>
             <input type="password" name="uzum_password" class="form-control"
-                   placeholder="{{ 'Оставьте пустым, чтобы не менять' if has_password else 'Введите пароль' }}">
+                   placeholder="{{ t.api_password_keep if has_password else t.api_password_enter }}">
           </div>
-          <button class="btn btn-success" type="submit">Сохранить и войти</button>
+          <button class="btn btn-success" type="submit">{{ t.api_save_login }}</button>
         </form>
       </div>
     </div>
@@ -46,18 +43,15 @@
     <!-- MANUAL TOKEN SECTION -->
     <div class="card border-0 shadow-sm">
       <div class="card-body p-4">
-        <h5 class="fw-semibold mb-1">Ручной токен</h5>
-        <p class="text-muted mb-3">
-          Или вставьте токен вручную (из F12 → Network → Authorization). Используется только если
-          авто-вход не настроен.
-        </p>
+        <h5 class="fw-semibold mb-1">{{ t.api_manual_title }}</h5>
+        <p class="text-muted mb-3">{{ t.api_manual_desc }}</p>
         <form method="POST">
-          <label class="form-label fw-medium">Bearer Token</label>
+          <label class="form-label fw-medium">{{ t.api_token_label }}</label>
           <input type="password" name="api_key" class="form-control font-monospace"
-                 placeholder="Bearer eyJ..." value="{{ api_key }}">
+                 placeholder="{{ t.api_token_placeholder }}" value="{{ api_key }}">
           <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary" type="submit">Сохранить</button>
-            <button class="btn btn-outline-danger" type="submit" name="api_key" value="">Очистить</button>
+            <button class="btn btn-primary" type="submit">{{ t.api_save }}</button>
+            <button class="btn btn-outline-danger" type="submit" name="api_key" value="">{{ t.api_clear }}</button>
           </div>
         </form>
       </div>

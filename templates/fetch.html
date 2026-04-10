@@ -193,7 +193,8 @@
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
   data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
   data-max-shops="{{ subscription_context.settings.max_shops_per_user if subscription_context else 0 }}"
-  data-shop-count="{{ subscription_context.shop_count if subscription_context else 0 }}">
+  data-shop-count="{{ subscription_context.shop_count if subscription_context else 0 }}"
+  data-lang="{{ lang }}">
   <div class="container">
     <div class="page-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
       <h1 class="page-title">{{ t.fetch_title }}</h1>
@@ -237,26 +238,26 @@
 
   <script>
     const _FT = {
-      shopsLabel: '{{ t.fetch_shops_label }}',
-      limitReached: '{{ t.fetch_limit_reached }}',
-      addBtn: '{{ t.fetch_add_btn }}',
-      noShops: '{{ t.fetch_no_shops }}',
-      syncLabel: '{{ t.fetch_syncing_label }}',
-      editLabel: '{{ t.fetch_edit_label }}',
-      deleteLabel: '{{ t.fetch_delete_label }}',
-      limitAlert: '{{ t.fetch_limit_alert }}',
-      idRequired: '{{ t.fetch_shop_id_required }}',
-      adding: '{{ t.fetch_adding }}',
-      syncing: '{{ t.fetch_syncing_status }}',
-      syncPrefix: '{{ t.fetch_sync_prefix }}',
-      syncSuffix: '{{ t.fetch_sync_suffix }}',
-      syncOkPrefix: '{{ t.fetch_sync_ok_prefix }}',
-      syncOkVariants: '{{ t.fetch_sync_ok_variants }}',
-      deletePrefix: '{{ t.fetch_delete_prefix }}',
-      deleteSuffix: '{{ t.fetch_delete_suffix }}',
-      editPrefix: '{{ t.fetch_edit_prefix }}',
-      errorPrefix: '{{ t.fetch_error_prefix }}',
-      serverErrorPrefix: '{{ t.fetch_server_error_prefix }}',
+      shopsLabel: {{ t.fetch_shops_label | tojson }},
+      limitReached: {{ t.fetch_limit_reached | tojson }},
+      addBtn: {{ t.fetch_add_btn | tojson }},
+      noShops: {{ t.fetch_no_shops | tojson }},
+      syncLabel: {{ t.fetch_syncing_label | tojson }},
+      editLabel: {{ t.fetch_edit_label | tojson }},
+      deleteLabel: {{ t.fetch_delete_label | tojson }},
+      limitAlert: {{ t.fetch_limit_alert | tojson }},
+      idRequired: {{ t.fetch_shop_id_required | tojson }},
+      adding: {{ t.fetch_adding | tojson }},
+      syncing: {{ t.fetch_syncing_status | tojson }},
+      syncPrefix: {{ t.fetch_sync_prefix | tojson }},
+      syncSuffix: {{ t.fetch_sync_suffix | tojson }},
+      syncOkPrefix: {{ t.fetch_sync_ok_prefix | tojson }},
+      syncOkVariants: {{ t.fetch_sync_ok_variants | tojson }},
+      deletePrefix: {{ t.fetch_delete_prefix | tojson }},
+      deleteSuffix: {{ t.fetch_delete_suffix | tojson }},
+      editPrefix: {{ t.fetch_edit_prefix | tojson }},
+      errorPrefix: {{ t.fetch_error_prefix | tojson }},
+      serverErrorPrefix: {{ t.fetch_server_error_prefix | tojson }},
     };
 
     function getShopLimit() {

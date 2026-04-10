@@ -128,11 +128,13 @@ def groups_page():
 
         if q:
             like = f"%{q}%"
-            stmt = stmt.outerjoin(ProductGroup.variants).where(
+            # Use a subquery to avoid SELECT DISTINCT + ORDER BY expression conflict in PostgreSQL
+            subq = stmt.outerjoin(ProductGroup.variants).where(
                 ProductGroup.name.ilike(like) |
                 Variant.sku.ilike(like) |
                 Variant.barcode.ilike(like)
-            ).distinct()
+            ).with_only_columns(ProductGroup.id).distinct().subquery()
+            stmt = select(ProductGroup).where(ProductGroup.id.in_(select(subq)))
 
         # Sort by sku-list position (0 = not in sku-list, goes last), then by id
         stmt = stmt.order_by(

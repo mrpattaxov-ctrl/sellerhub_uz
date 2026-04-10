@@ -110,7 +110,7 @@
             <input id="tg-phone" class="auth-input auth-input--icon" type="tel" placeholder="{{ t.login_phone_placeholder }}" autocomplete="tel">
           </div>
           <button id="btn-tg-send" class="auth-btn auth-btn--telegram" type="button">
-            <span>{{ t.login_send_code }}</span>
+            <span>{{ t.login_send_tg_btn }}</span>
           </button>
           <div id="tg-error" class="auth-error"></div>
         </div>
@@ -148,14 +148,14 @@
 {% block auth_extra_js %}
 <script>
 const _LT = {
-  phoneRequired: '{{ t.login_phone_required }}',
-  sending: '{{ t.login_sending }}',
-  sendTgBtn: '{{ t.login_send_tg_btn }}',
-  requestFailed: '{{ t.login_request_failed }}',
-  sendError: '{{ t.login_send_error }}',
-  openTgPrefix: '{{ t.login_open_tg_prefix }}',
-  openTgSuffix: '{{ t.login_open_tg_suffix }}',
-  expiredError: '{{ t.login_expired_error }}',
+  phoneRequired: {{ t.login_phone_required | tojson }},
+  sending: {{ t.login_sending | tojson }},
+  sendTgBtn: {{ t.login_send_tg_btn | tojson }},
+  requestFailed: {{ t.login_request_failed | tojson }},
+  sendError: {{ t.login_send_error | tojson }},
+  openTgPrefix: {{ t.login_open_tg_prefix | tojson }},
+  openTgSuffix: {{ t.login_open_tg_suffix | tojson }},
+  expiredError: {{ t.login_expired_error | tojson }},
 };
 
 let tgPollInterval = null;

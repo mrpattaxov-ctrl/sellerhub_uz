@@ -76,19 +76,29 @@
 {% block extra_js %}
 <script src="/static/pos_shared.js"></script>
 <script>
+const _PT = {
+  emptyCartTitle: {{ t.pos_empty_cart | tojson }},
+  emptyCartText: {{ t.pos_empty_cart_text | tojson }},
+  actionPendingText: {{ t.pos_processing | tojson }},
+  sellBtn: {{ t.pos_sell_btn | tojson }},
+  stockInBtn: {{ t.pos_stock_in_btn | tojson }},
+  transactionError: {{ t.pos_transaction_error | tojson }},
+  saleDone: {{ t.pos_sale_done | tojson }},
+  receiptDone: {{ t.pos_receipt_done | tojson }},
+};
 new PosEngine({
   showStock: true,
   showModeToggle: true,
   actionBtnId: "btnCheckout",
-  emptyCartTitle: "{{ t.pos_empty_cart }}",
-  emptyCartText: "{{ t.pos_empty_cart_text }}",
-  actionPendingText: "{{ t.pos_processing }}",
+  emptyCartTitle: _PT.emptyCartTitle,
+  emptyCartText: _PT.emptyCartText,
+  actionPendingText: _PT.actionPendingText,
   actionShortcut: "ctrl+enter",
   updateActionBtn: function (button, items, totalQty, mode) {
     button.className = "pos-primary-btn " + (mode === "sale" ? "pos-primary-btn--danger" : "pos-primary-btn--success");
     button.textContent = mode === "sale"
-      ? "{{ t.pos_sell_btn }} (" + totalQty + ")"
-      : "{{ t.pos_stock_in_btn }} (" + totalQty + ")";
+      ? _PT.sellBtn + " (" + totalQty + ")"
+      : _PT.stockInBtn + " (" + totalQty + ")";
   },
   onAction: async function (items, mode) {
     const response = await fetch("/api/pos/transaction", {
@@ -98,10 +108,10 @@ new PosEngine({
     });
     const data = await response.json();
     if (!response.ok || !data.ok) {
-      throw new Error(data.error || "{{ t.pos_transaction_error }}");
+      throw new Error(data.error || _PT.transactionError);
     }
     return {
-      message: mode === "sale" ? "{{ t.pos_sale_done }}" : "{{ t.pos_receipt_done }}"
+      message: mode === "sale" ? _PT.saleDone : _PT.receiptDone
     };
   }
 });

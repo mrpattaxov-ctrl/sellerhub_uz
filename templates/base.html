@@ -126,7 +126,8 @@
 <body
   data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
-  data-subscription-label="{{ 'Подписки' if current_user.is_authenticated and current_user.is_admin else 'Подписка' }}">
+  data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
+  data-lang="{{ lang }}">
 <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
   <div class="container-fluid px-3">
     <a class="navbar-brand fw-semibold" href="/groups"></a>
@@ -191,10 +192,10 @@
 <script>
 (function(){
   var _t = {
-    not_set: '{{ t.token_not_set }} <a href="/settings/api-key">{{ t.token_add }}</a>',
-    expired: '{{ t.token_expired }}',
-    expires_soon_pre: '{{ t.token_expires_soon }}',
-    expires_soon_post: '{{ t.token_min }}'
+    not_set: {{ (t.token_not_set ~ ' <a href="/settings/api-key">' ~ t.token_add ~ '</a>') | tojson }},
+    expired: {{ t.token_expired | tojson }},
+    expires_soon_pre: {{ t.token_expires_soon | tojson }},
+    expires_soon_post: {{ t.token_min | tojson }}
   };
   fetch('/api/user/api-key').then(r=>r.json()).then(d=>{
     const banner = document.getElementById('token-warning-banner');

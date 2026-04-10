@@ -188,7 +188,7 @@ if (picker) {
 }
 
 {% if current_user.is_authenticated and current_user.is_admin %}
-const _syncAllLabel = '{{ t.groups_sync_all }}';
+const _syncAllLabel = {{ t.groups_sync_all | tojson }};
 async function syncAllShops(btn) {
   if (!confirm('{{ t.groups_sync_confirm }}')) return;
   btn.disabled = true;

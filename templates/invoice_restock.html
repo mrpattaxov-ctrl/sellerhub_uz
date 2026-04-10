@@ -278,18 +278,18 @@
 
 <script>
 const _IRT = {
-  pcs: '{{ t.inv_restock_pcs }}',
-  noQty: '{{ t.inv_restock_no_qty }}',
-  generating: '{{ t.inv_restock_generating }}',
-  errorPrefix: '{{ t.common_error }}',
-  noSend: '{{ t.inv_restock_no_send }}',
-  max35: '{{ t.inv_restock_max35 }}',
-  selectShop: '{{ t.inv_restock_select_shop }}',
-  sending: '{{ t.inv_restock_sending }}',
-  success: '{{ t.inv_restock_success }}',
-  uploadError: '{{ t.inv_restock_upload_error }}',
-  networkError: '{{ t.inv_restock_network_error }}',
-  serverError: '{{ t.fetch_server_error_prefix }}',
+  pcs: {{ t.inv_restock_pcs | tojson }},
+  noQty: {{ t.inv_restock_no_qty | tojson }},
+  generating: {{ t.inv_restock_generating | tojson }},
+  errorPrefix: {{ t.common_error | tojson }},
+  noSend: {{ t.inv_restock_no_send | tojson }},
+  max35: {{ t.inv_restock_max35 | tojson }},
+  selectShop: {{ t.inv_restock_select_shop | tojson }},
+  sending: {{ t.inv_restock_sending | tojson }},
+  success: {{ t.inv_restock_success | tojson }},
+  uploadError: {{ t.inv_restock_upload_error | tojson }},
+  networkError: {{ t.inv_restock_network_error | tojson }},
+  serverError: {{ t.fetch_server_error_prefix | tojson }},
 };
 
 function updateRowTotal(input) {
@@ -366,6 +366,12 @@ function updateChunkCounts() {
 
 
 async function downloadChunk(btn) {
+  const shopFilter = document.getElementById('shop_filter');
+  const shopId = shopFilter ? shopFilter.value : null;
+  if (!shopId) {
+    return alert(_IRT.selectShop);
+  }
+
   const items = [];
   const card = btn.closest('.invoice-card');
   card.querySelectorAll('tbody tr').forEach(row => {
@@ -373,7 +379,7 @@ async function downloadChunk(btn) {
     const sku = row.dataset.sku;
     const priceInput = row.querySelector('.price-input');
     const qtyInput = row.querySelector('.qty-input');
-    
+
     if (priceInput && qtyInput) {
       const price = parseFloat(priceInput.value) || 0;
       const qty = parseInt(qtyInput.value) || 0;

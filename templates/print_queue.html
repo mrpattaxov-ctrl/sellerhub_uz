@@ -134,13 +134,23 @@ function printQueueLabels(ids) {
   document.body.appendChild(iframe);
 }
 
+const _PQT = {
+  emptyCartTitle: {{ t.pos_print_empty_title | tojson }},
+  emptyCartText: {{ t.pos_print_empty_text | tojson }},
+  actionPendingText: {{ t.pos_print_preparing | tojson }},
+  selectSize: {{ t.pos_select_size | tojson }},
+  printBtn: {{ t.pos_print_btn | tojson }},
+  queueEmptyErr: {{ t.pos_print_queue_empty_err | tojson }},
+  noSizeErr: {{ t.pos_print_no_size_err | tojson }},
+  dialogOk: {{ t.pos_print_dialog_ok | tojson }},
+};
 const printQueueEngine = new PosEngine({
   showStock: false,
   showModeToggle: false,
   actionBtnId: "btnPrint",
-  emptyCartTitle: "{{ t.pos_print_empty_title }}",
-  emptyCartText: "{{ t.pos_print_empty_text }}",
-  actionPendingText: "{{ t.pos_print_preparing }}",
+  emptyCartTitle: _PQT.emptyCartTitle,
+  emptyCartText: _PQT.emptyCartText,
+  actionPendingText: _PQT.actionPendingText,
   actionShortcut: "ctrl+p",
   clearCartOnAction: false,
   clearSearchOnAction: false,
@@ -149,10 +159,10 @@ const printQueueEngine = new PosEngine({
     button.className = "pos-primary-btn";
     button.disabled = items.length === 0 || !hasSize;
     if (!hasSize && items.length > 0) {
-      button.textContent = "{{ t.pos_select_size }}";
+      button.textContent = _PQT.selectSize;
       return;
     }
-    button.textContent = totalQty ? "{{ t.pos_print_btn }} (" + totalQty + ")" : "{{ t.pos_print_btn }}";
+    button.textContent = totalQty ? _PQT.printBtn + " (" + totalQty + ")" : _PQT.printBtn;
   },
   onAction: async function (items) {
     const ids = [];
@@ -162,13 +172,13 @@ const printQueueEngine = new PosEngine({
       }
     });
     if (!ids.length) {
-      throw new Error("{{ t.pos_print_queue_empty_err }}");
+      throw new Error(_PQT.queueEmptyErr);
     }
     if (!getSelectedLabelSize()) {
-      throw new Error("{{ t.pos_print_no_size_err }}");
+      throw new Error(_PQT.noSizeErr);
     }
     printQueueLabels(ids);
-    return { message: "{{ t.pos_print_dialog_ok }}" };
+    return { message: _PQT.dialogOk };
   }
 });
 

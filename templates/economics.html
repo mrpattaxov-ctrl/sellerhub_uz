@@ -181,7 +181,11 @@
     .flatpickr-innerContainer { padding: 0 6px 6px; }
   </style>
 </head>
-<body>
+<body
+  data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
+  data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
+  data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
+  data-lang="{{ lang }}">
   <!-- Sidebar injected by uzum_ui.js -->
 
   <div class="p-4">

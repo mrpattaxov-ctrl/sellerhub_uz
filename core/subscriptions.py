@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import secrets
 import string
+import threading
+import time
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -16,6 +18,30 @@ from models import (
     SubscriptionSettings,
     User,
 )
+
+# ── In-memory caches ──────────────────────────────────────────────────
+_settings_cache: dict | None = None          # cached SubscriptionSettings dict
+_settings_cache_at: float = 0.0              # epoch seconds when cached
+_settings_cache_ttl: float = 300.0           # 5 minutes
+_settings_cache_lock = threading.Lock()
+
+_ctx_cache: dict[int, tuple[float, dict]] = {}  # user_id -> (epoch, ctx)
+_ctx_cache_ttl: float = 60.0                    # 1 minute per user
+_ctx_cache_lock = threading.Lock()
+
+
+def _invalidate_settings_cache() -> None:
+    """Call after admin saves subscription settings."""
+    global _settings_cache, _settings_cache_at
+    with _settings_cache_lock:
+        _settings_cache = None
+        _settings_cache_at = 0.0
+
+
+def _invalidate_user_ctx_cache(user_id: int) -> None:
+    """Call after trial start or subscription change for a user."""
+    with _ctx_cache_lock:
+        _ctx_cache.pop(int(user_id), None)
 
 SUBSCRIPTION_PLAN_OPTIONS = (
     {"key": "1m", "label": "1 месяц", "months": 1, "duration_days": 30, "discount_percent": 0},
@@ -48,6 +74,20 @@ def _get_or_create_subscription_settings(db) -> SubscriptionSettings:
     db.add(row)
     db.commit()
     db.refresh(row)
+    return row
+
+
+def _get_cached_subscription_settings(db) -> SubscriptionSettings:
+    """Return SubscriptionSettings, using a 5-minute in-memory cache."""
+    global _settings_cache, _settings_cache_at
+    now = time.monotonic()
+    with _settings_cache_lock:
+        if _settings_cache is not None and (now - _settings_cache_at) < _settings_cache_ttl:
+            return _settings_cache
+    row = _get_or_create_subscription_settings(db)
+    with _settings_cache_lock:
+        _settings_cache = row
+        _settings_cache_at = time.monotonic()
     return row
 
 
@@ -521,20 +561,36 @@ def _can_user_add_shop(
 
 
 def _get_subscription_context_for_user(user_id: int) -> dict:
+    uid = int(user_id)
+    now_mono = time.monotonic()
+
+    # Return cached context if still fresh
+    with _ctx_cache_lock:
+        entry = _ctx_cache.get(uid)
+        if entry is not None and (now_mono - entry[0]) < _ctx_cache_ttl:
+            return entry[1]
+
     with SessionLocal() as db:
-        user = db.get(User, int(user_id))
-        settings = _get_or_create_subscription_settings(db)
+        user = db.get(User, uid)
+        settings = _get_cached_subscription_settings(db)
         if user is not None and _ensure_user_trial_started(db, user):
             db.commit()
             db.refresh(user)
+            # Trial just started — bust this user's cache
+            _invalidate_user_ctx_cache(uid)
         status = _subscription_status_for_user(user, settings=settings)
         settings_dict = _subscription_settings_dict(settings)
-        shop_count = _user_shop_count(db, int(user_id))
+        shop_count = _user_shop_count(db, uid)
         max_shops = int(settings_dict.get("max_shops_per_user", 0) or 0)
-        return {
+        ctx = {
             "settings": settings_dict,
             "status": status,
             "plans": _subscription_plan_rows(settings=settings),
             "shop_count": shop_count,
             "shops_left": max(0, max_shops - shop_count) if max_shops > 0 else None,
         }
+
+    with _ctx_cache_lock:
+        _ctx_cache[uid] = (time.monotonic(), ctx)
+
+    return ctx

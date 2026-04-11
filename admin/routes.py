@@ -35,6 +35,8 @@ from core.subscriptions import (
     _ensure_user_trial_started,
     _generate_subscription_code,
     _get_or_create_subscription_settings,
+    _invalidate_settings_cache,
+    _invalidate_user_ctx_cache,
     _recalculate_subscription_for_user,
     _subscription_code_duration_label,
     _subscription_code_duration_rows,
@@ -321,6 +323,7 @@ def admin_subscriptions_page():
                 settings.max_shops_per_user = max_shops_per_user
                 db.add(settings)
                 db.commit()
+                _invalidate_settings_cache()
                 flash("Настройки подписки сохранены.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 
@@ -439,6 +442,7 @@ def admin_subscriptions_page():
                     settings=settings,
                 )
                 db.commit()
+                _invalidate_user_ctx_cache(user.id)
                 flash(f"Подписка пользователя {user.username} обновлена.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 
@@ -454,6 +458,7 @@ def admin_subscriptions_page():
                     return redirect(url_for("admin_bp.admin_subscriptions_page"))
                 _admin_clear_user_subscription(db, user=user)
                 db.commit()
+                _invalidate_user_ctx_cache(user.id)
                 flash(f"Подписка пользователя {user.username} удалена.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 

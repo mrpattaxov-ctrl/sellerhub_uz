@@ -33,6 +33,7 @@ from core.subscriptions import (
     _activate_subscription_code,
     _ensure_user_trial_started,
     _get_or_create_subscription_settings,
+    _invalidate_user_ctx_cache,
     _subscription_plan_rows,
     _subscription_settings_dict,
     _subscription_status_for_user,
@@ -355,6 +356,7 @@ def subscription_page():
             flash(message)
             if ok:
                 db.commit()
+                _invalidate_user_ctx_cache(int(current_user.get_id()))
                 return redirect(url_for("auth_bp.subscription_page"))
 
         status = _subscription_status_for_user(user, settings=settings)

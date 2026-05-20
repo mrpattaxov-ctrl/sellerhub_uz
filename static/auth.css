@@ -383,3 +383,22 @@ body.auth-body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Dark mode ── */
+[data-bs-theme="dark"] body.auth-body { background: #0f1117; color: #e2e8f0; }
+[data-bs-theme="dark"] .auth-panel { background: linear-gradient(180deg, #0f1117 0%, #131625 100%); }
+[data-bs-theme="dark"] .auth-card,
+[data-bs-theme="dark"] .auth-admin-card { background: #1a1d27; border-color: #2d3148; box-shadow: 0 18px 40px rgba(0,0,0,.3); }
+[data-bs-theme="dark"] .auth-card-title { color: #e2e8f0; }
+[data-bs-theme="dark"] .auth-card-subtitle { color: #8892a4; }
+[data-bs-theme="dark"] .auth-label { color: #94a3b8; }
+[data-bs-theme="dark"] .auth-input { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+[data-bs-theme="dark"] .auth-input:focus { border-color: #2e90fa; }
+[data-bs-theme="dark"] .auth-btn--dark { background: #e2e8f0; color: #0f1117; }
+[data-bs-theme="dark"] .auth-btn--outline { background: #1e2130; border-color: #3a3f5c; color: #94a3b8; }
+[data-bs-theme="dark"] .auth-wait-box { background: #1e2130; border-color: #2d3148; color: #94a3b8; }
+[data-bs-theme="dark"] .auth-inline-note { border-top-color: #2d3148; color: #64748b; }
+[data-bs-theme="dark"] .auth-inline-note a { color: #94a3b8; }
+[data-bs-theme="dark"] .auth-muted-link { color: #64748b; }
+[data-bs-theme="dark"] .auth-muted-link:hover { color: #94a3b8; }
+[data-bs-theme="dark"] .auth-admin-shell { background: #0f1117; }

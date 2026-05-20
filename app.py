@@ -973,6 +973,12 @@ app.register_blueprint(_telegram_mod.telegram_bp)
 _TELEGRAM_CONFIG_PATH = os.path.join(DATA_DIR, "telegram_config.json")
 
 def _tg_config() -> dict:
+    # Environment variables take priority. Falls back to on-disk JSON for
+    # legacy/dev setups that update the token via the admin UI.
+    env_token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    env_username = (os.environ.get("TELEGRAM_BOT_USERNAME") or "").strip()
+    if env_token:
+        return {"bot_token": env_token, "bot_username": env_username}
     try:
         with open(_TELEGRAM_CONFIG_PATH) as f:
             return json.load(f)
@@ -982,12 +988,6 @@ def _tg_config() -> dict:
 def _tg_save_config(cfg: dict):
     with open(_TELEGRAM_CONFIG_PATH, "w") as f:
         json.dump(cfg, f)
-
-if not os.path.exists(_TELEGRAM_CONFIG_PATH):
-    _tg_save_config({
-        "bot_token": "8657801234:AAE21INFXemj1q8IEySIbp5D17Y9_10GWKE",
-        "bot_username": "SellerHub_uz_bot",
-    })
 
 # In-memory store: code -> {tg_id, tg_username, created_at}
 import secrets, time as _time

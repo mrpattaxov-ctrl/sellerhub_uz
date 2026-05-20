@@ -49,3 +49,183 @@ body {
   0% { background-position: 100% 0; }
   100% { background-position: 0 0; }
 }
+
+/* ── Dark mode overrides ── */
+[data-bs-theme="dark"] body { background: #0f1117; }
+[data-bs-theme="dark"] .product-img { background: #1a1d27; }
+[data-bs-theme="dark"] .card.product-card { border-color: #2d3148; box-shadow: 0 6px 22px rgba(0,0,0,.3); }
+[data-bs-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 37%, rgba(255,255,255,.04) 63%);
+  background-size: 400% 100%;
+}
+
+/* groups.html */
+[data-bs-theme="dark"] .search-wrapper { background: #1a1d27 !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] .search-wrapper input { color: #e2e8f0 !important; background: transparent !important; }
+[data-bs-theme="dark"] .shop-picker-btn { background: #1a1d27 !important; border-color: #3a3f5c !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .shop-picker-menu { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .shop-picker-item { color: #94a3b8 !important; }
+[data-bs-theme="dark"] .shop-picker-item:hover { background: #1e2130 !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .shop-picker-item.selected { background: #0f1e38 !important; color: #60a5fa !important; }
+[data-bs-theme="dark"] .status-toggle { background: #1e2130 !important; }
+[data-bs-theme="dark"] .status-toggle-opt { color: #64748b !important; }
+[data-bs-theme="dark"] .status-toggle-opt:hover { color: #94a3b8 !important; background: #252a3f !important; }
+[data-bs-theme="dark"] .status-toggle-opt.active { background: #252a3f !important; color: #e2e8f0 !important; }
+
+/* invoice_restock.html — inline style override */
+[data-bs-theme="dark"] [style*="#e6e6fa"] { background-color: #1e2130 !important; color: #a78bfa !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] [style*="#e0ffff"] { background-color: #1e2130 !important; color: #34d399 !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] [style*="#fff3cd"] { background-color: #1e2130 !important; color: #fbbf24 !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] thead.table-light th { background-color: #1a1d27 !important; color: #94a3b8 !important; border-color: #2d3148 !important; }
+
+/* group_detail.html */
+[data-bs-theme="dark"] .product-header-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .product-header-card .no-img { background: #1e2130 !important; }
+[data-bs-theme="dark"] .days-toggle { background: #1e2130 !important; }
+[data-bs-theme="dark"] .preset-btn { color: #64748b !important; background: transparent !important; }
+[data-bs-theme="dark"] .preset-btn:hover { color: #94a3b8 !important; background: #252a3f !important; }
+[data-bs-theme="dark"] .preset-btn.active { background: #252a3f !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .apply-btn { background: #e2e8f0 !important; color: #0f1117 !important; }
+[data-bs-theme="dark"] .date-range-wrapper { background: #1a1d27 !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] .date-range-wrapper input { color: #e2e8f0 !important; background: transparent !important; }
+/* flatpickr calendar */
+[data-bs-theme="dark"] .flatpickr-calendar { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .flatpickr-month,
+[data-bs-theme="dark"] .flatpickr-monthDropdown-months { color: #e2e8f0 !important; background: #1a1d27 !important; }
+[data-bs-theme="dark"] .flatpickr-weekday { color: #64748b !important; background: #1a1d27 !important; }
+[data-bs-theme="dark"] .flatpickr-day { color: #94a3b8 !important; }
+[data-bs-theme="dark"] .flatpickr-day:hover { background: #1e2130 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .flatpickr-day.today { border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] .flatpickr-day.selected { background: #2e6da8 !important; color: #fff !important; }
+[data-bs-theme="dark"] .flatpickr-day.inRange { background: #0f1e38 !important; color: #60a5fa !important; }
+[data-bs-theme="dark"] .flatpickr-prev-month svg,
+[data-bs-theme="dark"] .flatpickr-next-month svg { fill: #94a3b8 !important; }
+
+/* invoice_restock.html */
+[data-bs-theme="dark"] .sortable-tbody tr.sortable-selected td { background-color: #0f1e38 !important; }
+[data-bs-theme="dark"] .sortable-ghost { background-color: #0f1e38 !important; }
+[data-bs-theme="dark"] .sortable-chosen td { background-color: #1a2d4a !important; }
+[data-bs-theme="dark"] .selection-toggle,
+[data-bs-theme="dark"] .drag-handle { background: linear-gradient(180deg, #1a1d27 0%, #151820 100%) !important; }
+[data-bs-theme="dark"] .footer-summary td { border-top-color: #2d3148 !important; }
+[data-bs-theme="dark"] .action-btn--excel { background: linear-gradient(135deg, #1e2130 0%, #252a3f 100%) !important; }
+[data-bs-theme="dark"] .invoice-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .invoice-card .card-header,
+[data-bs-theme="dark"] .invoice-card .card-header.bg-white { background: #1a1d27 !important; border-bottom-color: #2d3148 !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .invoice-card .card-header h5 { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .invoice-card .item-count.badge.bg-secondary { background: #1e2130 !important; color: #94a3b8 !important; }
+[data-bs-theme="dark"] .action-btn--uzum { background: linear-gradient(135deg, #1a1040 0%, #2a1a5a 100%) !important; color: #a78bfa !important; }
+[data-bs-theme="dark"] .action-btn--uzum:hover { background: linear-gradient(135deg, #2a1a5a 0%, #3a2070 100%) !important; }
+[data-bs-theme="dark"] .alert.alert-secondary { background: #1a1d27 !important; border-color: #2d3148 !important; color: #94a3b8 !important; }
+
+/* qty-pill — jadvaldagi miqdor badge'lari (uzum/sklad rangli pillalar) */
+.qty-pill {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.qty-pill--uzum { background: #efe8ff; border-color: #c4b5fd; color: #5b21b6; }
+.qty-pill--wh   { background: #dcfce7; border-color: #86efac; color: #166534; }
+[data-bs-theme="dark"] .qty-pill--uzum { background: rgba(167,139,250,0.1) !important; border-color: #6d28d9 !important; color: #a78bfa !important; }
+[data-bs-theme="dark"] .qty-pill--wh   { background: rgba(52,211,153,0.1) !important; border-color: #059669 !important; color: #34d399 !important; }
+
+/* warehouse_data.html */
+[data-bs-theme="dark"] .warehouse-hero { background: linear-gradient(160deg, #0f1117 0%, #131625 56%, #111420 100%) !important; }
+[data-bs-theme="dark"] .warehouse-kicker { background: rgba(99,132,255,.15) !important; color: #93b4ff !important; }
+[data-bs-theme="dark"] .warehouse-title { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-subtitle { color: #8892a4 !important; }
+[data-bs-theme="dark"] .warehouse-stat { background: rgba(30,33,48,.9) !important; border-color: rgba(99,132,255,.12) !important; }
+[data-bs-theme="dark"] .warehouse-stat-label { color: #64748b !important; }
+[data-bs-theme="dark"] .warehouse-stat-value { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .warehouse-card-title { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-card-copy { color: #8892a4 !important; }
+[data-bs-theme="dark"] .warehouse-step { background: linear-gradient(180deg, #1a1d27, #161a25) !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .warehouse-step strong { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-step span { color: #8892a4 !important; }
+[data-bs-theme="dark"] .warehouse-tag { background: rgba(99,132,255,.15) !important; color: #93b4ff !important; }
+[data-bs-theme="dark"] .warehouse-dropzone { background: linear-gradient(180deg, #1a1d27, #161a25) !important; border-color: #3a3f5c !important; }
+[data-bs-theme="dark"] .warehouse-dropzone-copy { color: #64748b !important; }
+[data-bs-theme="dark"] .warehouse-file { background: #1e2130 !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-side-item { background: linear-gradient(180deg, #1a1d27, #161a25) !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .warehouse-side-item strong { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .warehouse-side-item span { color: #8892a4 !important; }
+[data-bs-theme="dark"] .warehouse-flash { background: linear-gradient(135deg, rgba(99,132,255,.15), rgba(99,132,255,.08)) !important; color: #93b4ff !important; }
+
+/* settings_notifications.html */
+[data-bs-theme="dark"] .notify-kicker { background: rgba(99,132,255,.15) !important; color: #93b4ff !important; }
+[data-bs-theme="dark"] .notify-title { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-subtitle { color: #8892a4 !important; }
+[data-bs-theme="dark"] .notify-flash { background: linear-gradient(135deg, rgba(99,132,255,.12), rgba(99,132,255,.06)) !important; color: #93b4ff !important; }
+[data-bs-theme="dark"] .notify-summary { background: linear-gradient(160deg, #0f1117 0%, #131625 55%, #111420 100%) !important; }
+[data-bs-theme="dark"] .notify-summary-title { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-summary-copy { color: #8892a4 !important; }
+[data-bs-theme="dark"] .notify-chip { background: rgba(30,33,48,.9) !important; border-color: rgba(99,132,255,.12) !important; }
+[data-bs-theme="dark"] .notify-chip-label { color: #64748b !important; }
+[data-bs-theme="dark"] .notify-chip-value { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .notify-card-title { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-card-copy { color: #8892a4 !important; }
+[data-bs-theme="dark"] .notify-toggle { background: linear-gradient(180deg, #1a1d27, #161a25) !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .notify-toggle-ui { background: #3a3f5c !important; }
+[data-bs-theme="dark"] .notify-toggle-copy strong { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-toggle-copy span { color: #8892a4 !important; }
+[data-bs-theme="dark"] .notify-select { background: #1a1d27 !important; border-color: #3a3f5c !important; color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .notify-footer-note { color: #64748b !important; }
+
+/* subscription.html */
+[data-bs-theme="dark"] .sub-alert,
+[data-bs-theme="dark"] .sub-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .sub-head h2 { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .sub-head p { color: #8892a4 !important; }
+[data-bs-theme="dark"] .sub-step p { color: #94a3b8 !important; }
+[data-bs-theme="dark"] .sub-stat small,
+[data-bs-theme="dark"] .sub-stat p,
+[data-bs-theme="dark"] .sub-selected-hint,
+[data-bs-theme="dark"] .sub-plan-desc { color: #8892a4 !important; }
+[data-bs-theme="dark"] .sub-stat strong,
+[data-bs-theme="dark"] .sub-plan-title,
+[data-bs-theme="dark"] .sub-plan-price,
+[data-bs-theme="dark"] .sub-selected-label { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .sub-pill,
+[data-bs-theme="dark"] .sub-step-num,
+[data-bs-theme="dark"] .sub-chip { background: #1e2130 !important; border-color: #2d3148 !important; color: #94a3b8 !important; }
+[data-bs-theme="dark"] .sub-plan { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .sub-plan.selected { border-color: #2e6da8 !important; background: #0f1e38 !important; }
+[data-bs-theme="dark"] .sub-plan-btn { background: #1e2d4a !important; color: #60a5fa !important; }
+[data-bs-theme="dark"] .sub-pay-btn,
+[data-bs-theme="dark"] .sub-code-submit { background: #e2e8f0 !important; color: #0f1117 !important; }
+[data-bs-theme="dark"] .sub-selected-box { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .sub-code-input { border-color: #3a3f5c !important; background: #1a1d27 !important; color: #e2e8f0 !important; }
+
+/* subscription_expired.html */
+[data-bs-theme="dark"] .expired-card { background: linear-gradient(180deg, #1a0a0a 0%, #1a1d27 100%) !important; border-color: #4a1a1a !important; }
+[data-bs-theme="dark"] .expired-badge { background: #2a0e0e !important; color: #f87171 !important; }
+[data-bs-theme="dark"] .expired-meta-box { background: rgba(30,10,10,.86) !important; border-color: #4a1a1a !important; }
+[data-bs-theme="dark"] .expired-meta-box small { color: #f87171 !important; }
+[data-bs-theme="dark"] .expired-meta-box strong { color: #e2e8f0 !important; }
+
+/* admin_subscriptions.html */
+[data-bs-theme="dark"] .admin-sub-card { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .admin-sub-hero { background: linear-gradient(135deg, #0f1e38 0%, #131625 60%, #0f1117 100%) !important; }
+[data-bs-theme="dark"] .admin-sub-kicker { background: #0f1e38 !important; color: #60a5fa !important; }
+[data-bs-theme="dark"] .admin-sub-chip { background: #1a1d27 !important; border-color: #2d3148 !important; color: #94a3b8 !important; }
+[data-bs-theme="dark"] .admin-sub-head h1,
+[data-bs-theme="dark"] .admin-sub-head h2 { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .admin-sub-head p { color: #8892a4 !important; }
+[data-bs-theme="dark"] .admin-sub-overview-box { background: #1a1d27 !important; border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .admin-sub-overview-box small { color: #64748b !important; }
+[data-bs-theme="dark"] .admin-sub-overview-box strong { color: #e2e8f0 !important; }
+[data-bs-theme="dark"] .admin-sub-plan-card { background: #1a1d27 !important; }
+[data-bs-theme="dark"] .admin-sub-alert { background: #0f1e38 !important; border-color: #1e4080 !important; }
+[data-bs-theme="dark"] .admin-sub-table { border-color: #2d3148 !important; }
+[data-bs-theme="dark"] .admin-code,
+[data-bs-theme="dark"] .admin-sub-note { background: #1e2130 !important; border-color: #2d3148 !important; color: #94a3b8 !important; }
+[data-bs-theme="dark"] .admin-sub-state--active { background: #0a2318 !important; color: #4ade80 !important; }
+[data-bs-theme="dark"] .admin-sub-state--trial { background: #0f1e38 !important; color: #60a5fa !important; }
+[data-bs-theme="dark"] .admin-sub-state--expired { background: #2a0e0e !important; color: #f87171 !important; }
+[data-bs-theme="dark"] .admin-sub-state--admin { background: #1a1040 !important; color: #a78bfa !important; }

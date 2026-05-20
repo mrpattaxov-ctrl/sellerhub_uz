@@ -213,36 +213,36 @@
     // Inject Layout CSS
     const layoutStyle = document.createElement("style");
     layoutStyle.innerHTML = `
-      body { margin-left: 280px !important; background-color: #F9FAFB; transition: margin-left 0.3s ease; }
-      body.sidebar-closed { margin-left: 60px !important; }
+      body { margin-left: 220px !important; background-color: #F9FAFB; transition: margin-left 0.3s ease; }
+      body.sidebar-closed { margin-left: 56px !important; }
 
       .uzum-sidebar {
-        position: fixed; top: 0; left: 0; height: 100vh; width: 280px;
+        position: fixed; top: 0; left: 0; height: 100vh; width: 220px;
         background: #FFFFFF; border-right: 1px solid #EAECF0;
         display: flex; flex-direction: column;
         z-index: 1050; overflow-y: auto; overflow-x: hidden;
         font-family: system-ui, -apple-system, sans-serif;
         transition: width 0.3s ease;
       }
-      .uzum-sidebar.closed { width: 60px; }
+      .uzum-sidebar.closed { width: 56px; }
 
       .uzum-sidebar-header {
-        padding: 24px 20px;
+        padding: 16px 14px;
         border-bottom: 1px solid #EAECF0;
         display: flex; align-items: center; justify-content: space-between;
-        min-height: 73px;
+        min-height: 56px;
       }
       .uzum-sidebar.closed .uzum-sidebar-header {
-        padding: 24px 0; justify-content: center;
+        padding: 16px 0; justify-content: center;
       }
       .uzum-sidebar.closed .uzum-brand #uzumBrandLabel { display: none; }
 
       .uzum-sidebar-content {
-        padding: 20px;
-        display: flex; flex-direction: column; gap: 24px;
+        padding: 12px 10px;
+        display: flex; flex-direction: column; gap: 16px;
         flex: 1;
       }
-      .uzum-sidebar.closed .uzum-sidebar-content { padding: 12px 0; gap: 16px; }
+      .uzum-sidebar.closed .uzum-sidebar-content { padding: 10px 0; gap: 12px; }
 
       .uzum-brand {
         font-size: 18px; font-weight: 600; color: #101828;
@@ -273,9 +273,9 @@
       .uzum-floating-toggle { display: none; }
 
       .uzum-nav-item {
-        display: flex; align-items: center; gap: 12px;
-        padding: 10px 12px; border-radius: 6px;
-        color: #344054; text-decoration: none; font-weight: 500; font-size: 14px;
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; border-radius: 6px;
+        color: #344054; text-decoration: none; font-weight: 500; font-size: 13px;
         transition: all 0.2s; white-space: nowrap; overflow: hidden;
       }
       .uzum-nav-item:hover { background: #F9FAFB; color: #101828; }
@@ -328,6 +328,26 @@
       
       .uzum-dd-container { width: 100%; display: block; }
       .uzum-dd-btn { width: 100%; justify-content: space-between; }
+
+      /* ── Dark mode ── */
+      [data-bs-theme="dark"] body { background-color: #0f1117 !important; }
+      [data-bs-theme="dark"] .uzum-sidebar { background: #1a1d27; border-right-color: #2d3148; }
+      [data-bs-theme="dark"] .uzum-sidebar-header { border-bottom-color: #2d3148; }
+      [data-bs-theme="dark"] .uzum-brand { color: #e2e8f0; }
+      [data-bs-theme="dark"] .uzum-brand svg path { stroke: #94a3b8; }
+      [data-bs-theme="dark"] .uzum-toggle-btn { color: #64748b; }
+      [data-bs-theme="dark"] .uzum-toggle-btn:hover { color: #e2e8f0; }
+      [data-bs-theme="dark"] .uzum-nav-item { color: #94a3b8; }
+      [data-bs-theme="dark"] .uzum-nav-item svg { stroke: #64748b; }
+      [data-bs-theme="dark"] .uzum-nav-item:hover { background: #1e2130; color: #e2e8f0; }
+      [data-bs-theme="dark"] .uzum-nav-item:hover svg { stroke: #94a3b8; }
+      [data-bs-theme="dark"] .uzum-nav-item.active { background: #252a3f; color: #e2e8f0; }
+      [data-bs-theme="dark"] .uzum-nav-item.active svg { stroke: #94a3b8; }
+      [data-bs-theme="dark"] .uzum-section-label { color: #475569; }
+      [data-bs-theme="dark"] .uzum-sidebar input.form-control { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+      [data-bs-theme="dark"] .uzum-segment { background: #1e2130; }
+      [data-bs-theme="dark"] .uzum-segment-opt { color: #64748b; }
+      [data-bs-theme="dark"] .uzum-segment-opt.active { background: #252a3f; color: #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
     `;
     document.head.appendChild(layoutStyle);
 

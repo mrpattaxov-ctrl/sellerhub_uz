@@ -45,6 +45,13 @@
         <button id="btnCheckout" class="pos-primary-btn" type="button" disabled>{{ t.pos_confirm_btn }}</button>
       </div>
     </div>
+
+    <div class="pos-card pos-history-panel">
+      <div class="pos-cart-title">
+        <h5>{{ t.pos_history_title }}</h5>
+      </div>
+      <div id="posHistory" class="pos-history-list"></div>
+    </div>
   </aside>
 </div>
 
@@ -85,6 +92,16 @@ const _PT = {
   transactionError: {{ t.pos_transaction_error | tojson }},
   saleDone: {{ t.pos_sale_done | tojson }},
   receiptDone: {{ t.pos_receipt_done | tojson }},
+  historyEmpty: {{ t.pos_history_empty | tojson }},
+  historyUndoBtn: {{ t.pos_history_undo_btn | tojson }},
+  historyRevertedBadge: {{ t.pos_history_reverted_badge | tojson }},
+  historyConfirmUndo: {{ t.pos_history_confirm_undo | tojson }},
+  historyUndoSuccess: {{ t.pos_history_undo_success | tojson }},
+  historyUndoFailed: {{ t.pos_history_undo_failed | tojson }},
+  actionSale: {{ t.pos_action_sale | tojson }},
+  actionStockIn: {{ t.pos_action_stock_in | tojson }},
+  historyUnits: {{ t.pos_history_units | tojson }},
+  historySkuLabel: {{ t.pos_history_sku_label | tojson }},
 };
 new PosEngine({
   showStock: true,
@@ -94,6 +111,16 @@ new PosEngine({
   emptyCartText: _PT.emptyCartText,
   actionPendingText: _PT.actionPendingText,
   actionShortcut: "ctrl+enter",
+  historyContainerId: "posHistory",
+  historyEmptyText: _PT.historyEmpty,
+  historyUndoBtnText: _PT.historyUndoBtn,
+  historyRevertedBadgeText: _PT.historyRevertedBadge,
+  historyConfirmUndoText: _PT.historyConfirmUndo,
+  historyUndoSuccessText: _PT.historyUndoSuccess,
+  historyUndoFailedText: _PT.historyUndoFailed,
+  historyUnitsText: _PT.historyUnits,
+  historySkuLabelText: _PT.historySkuLabel,
+  historyLabels: { sale: _PT.actionSale, stock_in: _PT.actionStockIn },
   updateActionBtn: function (button, items, totalQty, mode) {
     button.className = "pos-primary-btn " + (mode === "sale" ? "pos-primary-btn--danger" : "pos-primary-btn--success");
     button.textContent = mode === "sale"

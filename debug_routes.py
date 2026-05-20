@@ -1398,8 +1398,8 @@ def debug_lost_goods():
     body = {
         "idempotencyKey": str(uuid.uuid4()),
         "jobType": "LEFT_OUT_REPORT",
-        "contentType": "CSV",
-        "params": {"shopIds": [int(shop_id)]},
+        "contentType": "XLSX",
+        "params": {"shopIds": [str(shop_id)]},
     }
     request_id = None
     try:
@@ -1458,7 +1458,13 @@ def debug_lost_goods():
         if status == "COMPLETED":
             try:
                 meta = http_json(f"https://api-seller.uzum.uz/api/seller/documents/v2/{request_id}")
-                csv_link = meta.get("link") if isinstance(meta, dict) else None
+                csv_link = None
+                if isinstance(meta, dict):
+                    p = meta.get("payload", meta)
+                    if isinstance(p, dict):
+                        csv_link = p.get("link") or p.get("fileLink") or p.get("downloadLink")
+                    if not csv_link:
+                        csv_link = meta.get("link") or meta.get("fileLink")
                 if csv_link:
                     import urllib.request as _ur
                     req = _ur.Request(csv_link, headers={
@@ -1715,17 +1721,39 @@ def debug_documents():
 @debug_bp.get("/report")
 @login_required
 def debug_report():
-    """Create, wait, download and parse a report in one call.
+    """Fetch, wait and download a report. Checks existing list first before creating.
 
     Usage: /debug/report?shop_id=5983&type=LEFT_OUT_REPORT
     Report types: SELLS_REPORT, EXPENSES_REPORT, LEFT_OUT_REPORT,
     MARKED_SALES_REPORT, COMMISSIONER_REPORT, PAID_STORAGE_REPORT,
     SELLER_RETURN_PAID_STORAGE_REPORT, SELLER_STORAGE_REPORT, LEFT_OUT_REPORT_2024
     """
-    import uuid, time as _time, csv, io
+    import uuid, json, time as _time, csv, io, urllib.request as _ur
+    from datetime import date, datetime, timedelta
 
-    shop_id = request.args.get("shop_id", "").strip()
+    shop_id     = request.args.get("shop_id", "").strip()
     report_type = request.args.get("type", "LEFT_OUT_REPORT").strip()
+    # Date range — default to last 30 days
+    today          = date.today()
+    date_from      = request.args.get("date_from", (today - timedelta(days=30)).strftime("%Y-%m-%d")).strip()
+    date_to        = request.args.get("date_to",   today.strftime("%Y-%m-%d")).strip()
+    # Unix timestamps — same format Uzum uses in finance/orders API
+    date_from_ts   = int(datetime.strptime(date_from, "%Y-%m-%d").timestamp())
+    date_to_ts     = int(datetime.strptime(date_to,   "%Y-%m-%d").replace(hour=23, minute=59, second=59).timestamp())
+    try:
+        poll_interval_ms = max(100, int(request.args.get("poll_interval_ms", "3000")))
+    except (ValueError, TypeError):
+        poll_interval_ms = 3000
+    poll_interval_s = poll_interval_ms / 1000.0
+
+    t_total_start = _time.perf_counter()
+    t_create_ms   = 0
+    t_poll_ms     = 0
+    t_download_ms = 0
+    poll_attempts = 0
+
+    # Reports that don't need a date range
+    NO_DATE_TYPES = {"LEFT_OUT_REPORT", "LEFT_OUT_REPORT_2024", "SELLER_STORAGE_REPORT"}
 
     if not shop_id:
         with SessionLocal() as s:
@@ -1734,150 +1762,422 @@ def debug_report():
                 shop_id = shop.uzum_id
 
     if not shop_id:
-        return _json_response({"error": "No shop_id. Usage: /debug/report?shop_id=5983&type=LEFT_OUT_REPORT"}, 400)
+        return _json_response({"error": "No shop_id"}, 400)
 
-    # Step 1: Create the report
-    create_url = "https://api-seller.uzum.uz/api/seller/documents/create"
-    body = {
-        "idempotencyKey": str(uuid.uuid4()),
-        "jobType": report_type,
-        "contentType": "CSV",
-        "params": {
-            "shopIds": [int(shop_id)],
-        },
-    }
+    # ── helpers ──────────────────────────────────────────────────────────
+    def _extract_items(data):
+        if isinstance(data, list):
+            return data
+        if not isinstance(data, dict):
+            return []
+        p = data.get("payload", data)
+        if isinstance(p, list):
+            return p
+        if isinstance(p, dict):
+            for k in ["content", "items", "data", "list"]:
+                v = p.get(k)
+                if isinstance(v, list):
+                    return v
+        return []
 
-    try:
-        create_resp = http_json(create_url, method="POST", body=body)
-    except Exception as e:
-        return _json_response({"error": f"Failed to create report: {e}"}, 500)
+    def _extract_link(meta):
+        if not isinstance(meta, dict):
+            return None
+        p = meta.get("payload", meta)
+        if isinstance(p, dict):
+            lnk = p.get("link") or p.get("fileLink") or p.get("downloadLink")
+            if lnk:
+                return lnk
+        return meta.get("link") or meta.get("fileLink") or meta.get("downloadLink")
 
-    payload = create_resp.get("payload", {}) if isinstance(create_resp, dict) else {}
-    request_id = payload.get("requestId")
-    if not request_id:
-        return _json_response({"error": "No requestId in response", "response": create_resp}, 500)
-
-    # Step 2: Poll until COMPLETED (max 120 seconds)
-    # Try direct document URL first, fallback to list search
-    status = "CREATED"
-    last_response = None
-    for attempt in range(40):
-        _time.sleep(3)
-
-        # Method 1: Try direct URL for this document
-        try:
-            direct = http_json(f"https://api-seller.uzum.uz/api/seller/documents/v2/{request_id}")
-            last_response = direct
-            if isinstance(direct, dict):
-                p = direct.get("payload", direct)
-                if isinstance(p, dict):
-                    s = p.get("status", "")
-                    if s:
-                        status = s
-                # If we got actual data (not just status), it's done
-                if status == "COMPLETED":
-                    break
-                # If response is not a status dict, might be the actual data
-                if not isinstance(p, dict) or "status" not in p:
-                    status = "COMPLETED"
-                    break
-        except Exception:
-            pass
-
-        # Method 2: Check the documents list
-        try:
-            check_url = (
-                f"https://api-seller.uzum.uz/api/seller/documents/v2"
-                f"?jobFilters={report_type}&shopIds={shop_id}&page=0&size=5"
-            )
-            docs = http_json(check_url)
-            # Search through all possible structures for our requestId
-            items = []
-            if isinstance(docs, list):
-                items = docs
-            elif isinstance(docs, dict):
-                p = docs.get("payload", docs)
-                if isinstance(p, list):
-                    items = p
-                elif isinstance(p, dict):
-                    for k in ["content", "items", "data", "list"]:
-                        v = p.get(k)
-                        if isinstance(v, list):
-                            items = v
-                            break
-            for item in items:
-                if isinstance(item, dict) and item.get("requestId") == request_id:
-                    status = item.get("status", "")
-                    break
-        except Exception:
-            pass
-
-        if status == "COMPLETED":
-            break
-
-    if status != "COMPLETED":
-        return _json_response({
-            "error": f"Report not ready after 120s, status: {status}",
-            "requestId": request_id,
-            "last_response": last_response,
-        }, 408)
-
-    # Step 3: Get the download link
-    download_url = f"https://api-seller.uzum.uz/api/seller/documents/v2/{request_id}"
-    try:
-        meta = http_json(download_url)
-    except Exception as e:
-        return _json_response({"error": f"Failed to get download link: {e}", "requestId": request_id}, 500)
-
-    # Extract CSV link from response
-    csv_link = None
-    if isinstance(meta, dict):
-        csv_link = meta.get("link")
-    if not csv_link:
-        return _json_response({
-            "error": "No download link found",
-            "requestId": request_id,
-            "meta": meta,
-        }, 500)
-
-    # Step 4: Download and parse the CSV
-    try:
-        import urllib.request
-        req = urllib.request.Request(csv_link, headers={
+    def _download_and_parse(file_url):
+        req = _ur.Request(file_url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
         })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw_bytes = resp.read()
-            # Try UTF-8 first, then UTF-8-BOM, then latin-1
-            for enc in ["utf-8-sig", "utf-8", "cp1251", "latin-1"]:
-                try:
-                    text = raw_bytes.decode(enc)
-                    break
-                except Exception:
-                    continue
+        with _ur.urlopen(req, timeout=60) as resp:
+            raw = resp.read()
 
-            # Detect delimiter (could be ; or ,)
-            first_line = text.split("\n")[0] if text else ""
+        # XLSX/ZIP files start with PK magic bytes — parse directly, skip CSV attempt
+        if raw[:2] == b'PK':
+            try:
+                import openpyxl as _xl, io as _io2
+                wb = _xl.load_workbook(_io2.BytesIO(raw), read_only=True, data_only=True)
+                ws = wb.active
+                all_rows = list(ws.iter_rows(values_only=True))
+                if not all_rows:
+                    return [], [], "xlsx"
+                headers = [str(c) if c is not None else "" for c in all_rows[0]]
+                rows = [
+                    dict(zip(headers, [str(c) if c is not None else "" for c in r]))
+                    for r in all_rows[1:]
+                ]
+                return rows, headers, "xlsx"
+            except Exception as e:
+                raise RuntimeError(f"XLSX parse failed: {e}") from e
+
+        # Try CSV parsing — normalize line endings first
+        text = None
+        for enc in ["utf-8-sig", "utf-8", "cp1251", "latin-1"]:
+            try:
+                text = raw.decode(enc)
+                break
+            except Exception:
+                continue
+        if text:
+            text = text.replace('\r\n', '\n').replace('\r', '\n')
+            first_line = text.split("\n")[0]
             delimiter = ";" if ";" in first_line else ","
-
             reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
             rows = list(reader)
+            if rows or reader.fieldnames:
+                return rows, reader.fieldnames or [], "csv"
 
+        # Final XLSX fallback (in case magic bytes check missed it)
+        try:
+            import openpyxl as _xl2, io as _io3
+            wb = _xl2.load_workbook(_io3.BytesIO(raw), read_only=True, data_only=True)
+            ws = wb.active
+            all_rows = list(ws.iter_rows(values_only=True))
+            if not all_rows:
+                return [], [], "xlsx"
+            headers = [str(c) if c is not None else "" for c in all_rows[0]]
+            rows = [dict(zip(headers, [str(c) if c is not None else "" for c in r])) for r in all_rows[1:]]
+            return rows, headers, "xlsx"
+        except Exception:
+            pass
+        return [], [], "unknown"
+
+    # ── Step 1: Check existing list — only for NO_DATE types ─────────────
+    # Date-based types (SELLS_REPORT etc.) must always create fresh so that
+    # the requested date range is respected.  Reusing a cached report from a
+    # different period would silently return wrong data.
+    list_url = (
+        f"https://api-seller.uzum.uz/api/seller/documents/v2"
+        f"?jobFilters={report_type}&shopIds={shop_id}&page=0&size=20"
+    )
+    need_dates = report_type not in NO_DATE_TYPES
+    request_id = None
+    file_link = None
+    source = None
+
+    if not need_dates:
+        # NO_DATE types: safe to reuse any completed report (no date mismatch risk)
+        try:
+            docs = http_json(list_url)
+            items = _extract_items(docs)
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                jt = item.get("jobType") or item.get("type") or ""
+                st = item.get("status") or item.get("jobStatus") or ""
+                if (not jt or jt == report_type) and st == "COMPLETED":
+                    request_id = item.get("requestId") or item.get("id")
+                    file_link = _extract_link(item) or item.get("link") or item.get("fileUrl")
+                    source = "existing_list"
+                    break
+        except Exception:
+            pass
+
+    # ── Step 2: If not found, try to create ──────────────────────────────
+    # Exact format captured from Uzum seller dashboard (browser network tab):
+    #   POST /api/seller/documents/create
+    #   {
+    #     "idempotencyKey": "<uuid>",
+    #     "jobType": "SELLS_REPORT",
+    #     "contentType": "CSV",            ← TOP level, not inside params
+    #     "params": {
+    #       "returns": false,
+    #       "group": false,                ← false, not true
+    #       "dateFrom": 1776211200000,     ← milliseconds
+    #       "dateTo":   1776297599000,
+    #       "shopIds": [5983]
+    #     }
+    #   }
+    create_error = None
+    if not request_id:
+        create_url = "https://api-seller.uzum.uz/api/seller/documents/create"
+        create_headers = {
+            "Origin":  "https://seller.uzum.uz",
+            "Referer": "https://seller.uzum.uz/",
+        }
+        date_from_ms = date_from_ts * 1000
+        date_to_ms   = date_to_ts   * 1000
+
+        params = {
+            "returns": False,
+            "group":   False,
+            "shopIds": [int(shop_id)],
+        }
+        if need_dates:
+            params["dateFrom"] = date_from_ms
+            params["dateTo"]   = date_to_ms
+
+        body = {
+            "idempotencyKey": str(uuid.uuid4()),
+            "jobType":        report_type,
+            "contentType":    "CSV",
+            "params":         params,
+        }
+
+        _t_c0 = _time.perf_counter()
+        try:
+            create_resp = http_json(create_url, method="POST", body=body, headers=create_headers)
+            t_create_ms = int((_time.perf_counter() - _t_c0) * 1000)
+            p = create_resp.get("payload", {}) if isinstance(create_resp, dict) else {}
+            request_id = p.get("requestId")
+            if request_id:
+                source = "created"
+        except Exception as e:
+            t_create_ms = int((_time.perf_counter() - _t_c0) * 1000)
+            create_error = str(e)
+
+        if not request_id:
             return _json_response({
-                "shop_id": shop_id,
-                "report_type": report_type,
-                "requestId": request_id,
-                "csv_link": csv_link,
-                "total_rows": len(rows),
-                "columns": reader.fieldnames,
-                "data": rows,
-            })
-    except Exception as e:
+                "error": f"Could not create report. Uzum error: {create_error}",
+                "list_url": list_url,
+                "body_sent": body,
+            }, 500)
+
+    # ── Step 3: Poll until COMPLETED ─────────────────────────────────────
+    status = "COMPLETED" if file_link else "CREATED"
+    last_raw = None
+
+    _t_p0 = _time.perf_counter()
+    if not file_link:
+        for _ in range(40):
+            _time.sleep(poll_interval_s)
+            poll_attempts += 1
+            try:
+                direct = http_json(f"https://api-seller.uzum.uz/api/seller/documents/v2/{request_id}")
+                last_raw = direct
+                p = direct.get("payload", direct) if isinstance(direct, dict) else {}
+                if isinstance(p, dict):
+                    s = p.get("status") or p.get("jobStatus") or ""
+                    if s:
+                        status = s
+                    lnk = _extract_link(direct)
+                    if lnk:
+                        file_link = lnk
+                        status = "COMPLETED"
+                if status == "COMPLETED":
+                    break
+            except Exception:
+                pass
+
+            # Also check the list
+            try:
+                docs2 = http_json(
+                    f"https://api-seller.uzum.uz/api/seller/documents/v2"
+                    f"?jobFilters={report_type}&shopIds={shop_id}&page=0&size=5"
+                )
+                for item in _extract_items(docs2):
+                    if isinstance(item, dict) and item.get("requestId") == request_id:
+                        status = item.get("status") or item.get("jobStatus") or status
+                        lnk = _extract_link(item) or item.get("link") or item.get("fileUrl")
+                        if lnk:
+                            file_link = lnk
+                        break
+            except Exception:
+                pass
+
+            if status == "COMPLETED":
+                break
+
+    if status != "COMPLETED" or not file_link:
+        # Try one last direct fetch for the link
+        try:
+            meta = http_json(f"https://api-seller.uzum.uz/api/seller/documents/v2/{request_id}")
+            file_link = _extract_link(meta)
+            last_raw = meta
+        except Exception:
+            pass
+
+    t_poll_ms = int((_time.perf_counter() - _t_p0) * 1000)
+
+    if not file_link:
         return _json_response({
-            "error": f"CSV download/parse failed: {e}",
+            "error": f"Report not ready or no download link found. Status: {status}",
             "requestId": request_id,
-            "csv_link": csv_link,
+            "source": source,
+            "last_response": last_raw,
+            "timings": {
+                "create_ms": t_create_ms,
+                "poll_ms": t_poll_ms,
+                "poll_attempts": poll_attempts,
+                "poll_interval_ms": poll_interval_ms,
+                "poll_sleep_ms": poll_attempts * poll_interval_ms,
+                "download_ms": 0,
+                "total_ms": int((_time.perf_counter() - t_total_start) * 1000),
+            },
+        }, 408)
+
+    # ── Step 4: Download and parse ────────────────────────────────────────
+    # Cap rows sent to the browser so a multi-year report can't OOM the tab.
+    # Full file is still reachable via csv_link.
+    try:
+        MAX_PREVIEW_ROWS = max(50, int(request.args.get("max_rows", "1000")))
+    except (ValueError, TypeError):
+        MAX_PREVIEW_ROWS = 1000
+    _t_d0 = _time.perf_counter()
+    try:
+        rows, columns, fmt = _download_and_parse(file_link)
+        t_download_ms = int((_time.perf_counter() - _t_d0) * 1000)
+        total_rows = len(rows)
+        preview_rows = rows[:MAX_PREVIEW_ROWS]
+        truncated = total_rows > len(preview_rows)
+        return _json_response({
+            "shop_id": shop_id,
+            "report_type": report_type,
+            "source": source,
+            "file_format": fmt,
+            "requestId": request_id,
+            "csv_link": file_link,
+            "total_rows": total_rows,
+            "preview_rows": len(preview_rows),
+            "truncated": truncated,
+            "max_preview_rows": MAX_PREVIEW_ROWS,
+            "columns": columns,
+            "data": preview_rows,
+            "timings": {
+                "create_ms": t_create_ms,
+                "poll_ms": t_poll_ms,
+                "poll_attempts": poll_attempts,
+                "poll_interval_ms": poll_interval_ms,
+                "poll_sleep_ms": poll_attempts * poll_interval_ms,
+                "download_ms": t_download_ms,
+                "total_ms": int((_time.perf_counter() - t_total_start) * 1000),
+            },
+        })
+    except Exception as e:
+        t_download_ms = int((_time.perf_counter() - _t_d0) * 1000)
+        return _json_response({
+            "error": f"File download/parse failed: {e}",
+            "requestId": request_id,
+            "csv_link": file_link,
+            "timings": {
+                "create_ms": t_create_ms,
+                "poll_ms": t_poll_ms,
+                "poll_attempts": poll_attempts,
+                "poll_interval_ms": poll_interval_ms,
+                "poll_sleep_ms": poll_attempts * poll_interval_ms,
+                "download_ms": t_download_ms,
+                "total_ms": int((_time.perf_counter() - t_total_start) * 1000),
+            },
         }, 500)
+
+
+# ===================================================================
+# /debug/report-probe  — try multiple create body formats to find what works
+# ===================================================================
+@debug_bp.get("/report-probe")
+@login_required
+def debug_report_probe():
+    """Probe the Uzum create-report endpoint with different body formats.
+    Usage: /debug/report-probe?shop_id=5983&type=SELLS_REPORT
+    """
+    import uuid as _uuid
+    shop_id = request.args.get("shop_id", "").strip()
+    report_type = request.args.get("type", "SELLS_REPORT").strip()
+
+    if not shop_id:
+        with SessionLocal() as s:
+            shop = s.query(Shop).first()
+            if shop:
+                shop_id = shop.uzum_id
+
+    create_url = "https://api-seller.uzum.uz/api/seller/documents/create"
+
+    import json as _json
+    from datetime import date as _date, datetime as _datetime, timedelta as _td
+    _NO_DATE = {"LEFT_OUT_REPORT", "LEFT_OUT_REPORT_2024", "SELLER_STORAGE_REPORT"}
+    _today = _date.today()
+    _dfrom_str = request.args.get("date_from", (_today - _td(days=30)).strftime("%Y-%m-%d"))
+    _dto_str   = request.args.get("date_to",   _today.strftime("%Y-%m-%d"))
+    # Convert YYYY-MM-DD to Unix timestamps (seconds) — same format Uzum finance API uses
+    _dfrom_ts  = int(_datetime.strptime(_dfrom_str, "%Y-%m-%d").timestamp())
+    _dto_ts    = int(_datetime.strptime(_dto_str,   "%Y-%m-%d").replace(hour=23, minute=59, second=59).timestamp())
+    # Keep original strings too as fallback
+    _dfrom = _dfrom_str
+    _dto   = _dto_str
+
+    # Verified working format (captured from seller.uzum.uz browser network tab):
+    # - contentType at TOP level as "CSV" (NOT inside params, NOT "MS_EXCEL")
+    # - group: false, returns: false INSIDE params (no language field)
+    # - shopIds is an int array [int]
+    # - dateFrom/dateTo are millisecond unix timestamps
+    _has_dates = report_type not in _NO_DATE
+    _dfrom_ms  = _dfrom_ts * 1000
+    _dto_ms    = _dto_ts   * 1000
+
+    def _params_good(with_dates=True):
+        p = {"returns": False, "group": False, "shopIds": [int(shop_id)]}
+        if with_dates and _has_dates:
+            p["dateFrom"] = _dfrom_ms
+            p["dateTo"]   = _dto_ms
+        return p
+
+    candidates = [
+        # 1. The verified-working format — this should succeed
+        {"idempotencyKey": str(_uuid.uuid4()), "jobType": report_type,
+         "contentType": "CSV", "params": _params_good(True)},
+        # 2. Same without dates (for NO_DATE types)
+        {"idempotencyKey": str(_uuid.uuid4()), "jobType": report_type,
+         "contentType": "CSV", "params": _params_good(False)},
+        # 3. MS_EXCEL variant at top level (for comparison)
+        {"idempotencyKey": str(_uuid.uuid4()), "jobType": report_type,
+         "contentType": "MS_EXCEL", "params": _params_good(True)},
+    ]
+
+    _create_headers = {
+        "Origin":  "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    }
+    results = []
+    for body in candidates:
+        try:
+            resp = http_json(create_url, method="POST", body=body, headers=_create_headers)
+            results.append({"body": body, "status": "OK", "response": resp})
+            break  # stop at first success
+        except Exception as e:
+            results.append({"body": body, "status": "ERROR", "error": str(e)})
+
+    return _json_response({
+        "shop_id": shop_id,
+        "report_type": report_type,
+        "date_from": _dfrom,
+        "date_to": _dto,
+        "probe_results": results,
+    })
+
+
+# ===================================================================
+# /debug/report-list  — dump raw list response to see document structure
+# ===================================================================
+@debug_bp.get("/report-list")
+@login_required
+def debug_report_list():
+    """Dump the raw documents list to inspect structure.
+    Usage: /debug/report-list?shop_id=5983&type=SELLS_REPORT
+    """
+    shop_id     = request.args.get("shop_id", "").strip()
+    report_type = request.args.get("type", "SELLS_REPORT").strip()
+
+    if not shop_id:
+        with SessionLocal() as s:
+            shop = s.query(Shop).first()
+            if shop:
+                shop_id = shop.uzum_id
+
+    url = (
+        f"https://api-seller.uzum.uz/api/seller/documents/v2"
+        f"?jobFilters={report_type}&shopIds={shop_id}&page=0&size=5"
+    )
+    try:
+        raw = http_json(url)
+    except Exception as e:
+        return _json_response({"error": str(e), "url": url}, 500)
+
+    return _json_response({"url": url, "shop_id": shop_id, "report_type": report_type, "raw": raw})
 
 
 # ===================================================================
@@ -2264,3 +2564,52 @@ def debug_invoice_products():
         "raw_response_type": type(data).__name__,
         "raw_response_keys": list(data.keys()) if isinstance(data, dict) else None,
     })
+
+
+# ===================================================================
+# /debug/reports-viewer  — HTML page: shows all report types for a shop
+# ===================================================================
+@debug_bp.get("/reports-viewer")
+@login_required
+def debug_reports_viewer():
+    """Interactive HTML debug page for Uzum seller documents/reports.
+    Usage: /debug/reports-viewer?shop_id=5983
+    Each report type is loaded in parallel via JS; clicking fetches CSV data.
+    """
+    from flask import render_template
+
+    shop_id = request.args.get("shop_id", "").strip()
+
+    # Auto-detect shop_id if not provided
+    if not shop_id:
+        with SessionLocal() as s:
+            shop = s.query(Shop).first()
+            if shop:
+                shop_id = shop.uzum_id or ""
+
+    # Primary (actively used): SELLS_REPORT and EXPENSES_REPORT
+    PRIMARY_JOB_TYPES = [
+        "SELLS_REPORT",
+        "EXPENSES_REPORT",
+    ]
+    # Legacy (kept for future use, not auto-loaded)
+    LEGACY_JOB_TYPES = [
+        "LEFT_OUT_REPORT",
+        "MARKED_SALES_REPORT",
+        "COMMISSIONER_REPORT",
+        "PAID_STORAGE_REPORT",
+        "SELLER_RETURN_PAID_STORAGE_REPORT",
+        "SELLER_STORAGE_REPORT",
+        "LEFT_OUT_REPORT_2024",
+    ]
+
+    from datetime import date, timedelta
+    today = date.today()
+    return render_template(
+        "debug_reports_viewer.html",
+        shop_id=shop_id,
+        primary_job_types=PRIMARY_JOB_TYPES,
+        legacy_job_types=LEGACY_JOB_TYPES,
+        today=today.strftime("%Y-%m-%d"),
+        today_minus_30=(today - timedelta(days=30)).strftime("%Y-%m-%d"),
+    )

@@ -29,6 +29,7 @@ from core.auth_helpers import (
     _jwt_expires_in_seconds,
     _uzum_auto_login,
 )
+from core.redis_client import unrevoke_user
 from core.subscriptions import (
     _activate_subscription_code,
     _ensure_user_trial_started,
@@ -37,6 +38,7 @@ from core.subscriptions import (
     _subscription_plan_rows,
     _subscription_settings_dict,
     _subscription_status_for_user,
+    write_session_subscription,
 )
 from core.time_helpers import _recommended_window_lengths
 
@@ -77,6 +79,12 @@ def _finish_admin_login(*, default_endpoint: str):
             if user and check_password_hash(user.password_hash, password) and user.is_admin:
                 session.pop(BACKSTAGE_LOGIN_SESSION_KEY, None)
                 login_user(user)
+                # Admins bypass the gate but write session keys anyway so any
+                # future status read via session is consistent.
+                settings = _get_or_create_subscription_settings(db)
+                status = _subscription_status_for_user(user, settings=settings)
+                write_session_subscription(session, status)
+                unrevoke_user(user.id)
                 return redirect(_safe_next_url() or url_for(default_endpoint))
         flash("Invalid admin credentials")
 
@@ -356,7 +364,14 @@ def subscription_page():
             flash(message)
             if ok:
                 db.commit()
-                _invalidate_user_ctx_cache(int(current_user.get_id()))
+                db.refresh(user)
+                uid = int(current_user.get_id())
+                _invalidate_user_ctx_cache(uid)
+                # Recompute and mirror into the session so the next request
+                # skips the DB fast-path.
+                new_status = _subscription_status_for_user(user, settings=settings)
+                write_session_subscription(session, new_status)
+                unrevoke_user(uid)
                 return redirect(url_for("auth_bp.subscription_page"))
 
         status = _subscription_status_for_user(user, settings=settings)

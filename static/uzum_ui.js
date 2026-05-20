@@ -235,7 +235,7 @@
       .uzum-sidebar.closed .uzum-sidebar-header {
         padding: 24px 0; justify-content: center;
       }
-      .uzum-sidebar.closed .uzum-brand span { display: none; }
+      .uzum-sidebar.closed .uzum-brand #uzumBrandLabel { display: none; }
 
       .uzum-sidebar-content {
         padding: 20px;
@@ -248,6 +248,14 @@
         font-size: 18px; font-weight: 600; color: #101828;
         display: flex; align-items: center; gap: 10px;
         white-space: nowrap;
+        text-decoration: none;
+        transition: color 0.18s ease;
+      }
+      .uzum-brand:hover { color: #101828; }
+      .uzum-brand:focus-visible {
+        outline: 2px solid #98A2B3;
+        outline-offset: 4px;
+        border-radius: 8px;
       }
       .uzum-toggle-btn {
         cursor: pointer;
@@ -328,12 +336,12 @@
     header.className = "uzum-sidebar-header";
     header.innerHTML = `
       <div class="uzum-brand">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg id="uzumBrandIcon" style="cursor:pointer;flex-shrink:0;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M2 17L12 22L22 17" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M2 12L12 17L22 12" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span>SellerHub</span>
+        <span id="uzumBrandLabel" onclick="window.location.assign('/groups')" style="cursor:pointer;">SellerHub</span>
       </div>
       <button class="uzum-toggle-btn" id="uzumSidebarToggle" title="${SL.collapse}">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
@@ -434,9 +442,7 @@
       localStorage.setItem("uzum_sidebar_closed", isClosed);
     };
 
-    // Click brand icon to toggle both ways
-    header.querySelector(".uzum-brand svg").style.cursor = "pointer";
-    header.querySelector(".uzum-brand svg").addEventListener("click", (e) => {
+    header.querySelector("#uzumBrandIcon").addEventListener("click", (e) => {
       e.preventDefault(); e.stopPropagation(); toggleSidebar();
     });
     header.querySelector("#uzumSidebarToggle").addEventListener("click", (e) => {

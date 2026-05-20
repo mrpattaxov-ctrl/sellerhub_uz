@@ -186,6 +186,224 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* OpenAPI shop picker — matches the groups.html style but multi-select */
+    .openapi-picker { position: relative; display: block; width: 100%; }
+    .openapi-picker-btn {
+      display: flex; align-items: center; gap: 14px;
+      background: #fff; border: 2px solid #D0D5DD; border-radius: 14px;
+      padding: 0 22px; height: 64px; cursor: pointer; width: 100%;
+      font-size: 18px; font-weight: 600; color: #101828;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .openapi-picker-btn:hover { border-color: #667085; }
+    .openapi-picker-btn svg { color: #98A2B3; flex-shrink: 0; }
+    .openapi-picker-btn .opi-label { flex: 1; text-align: left; }
+    .openapi-picker-btn .opi-caret { transition: transform .2s; }
+    .openapi-picker.open .openapi-picker-btn .opi-caret { transform: rotate(180deg); }
+    .openapi-picker-menu {
+      display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+      background: #fff; border: 1px solid #EAECF0; border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(16,24,40,.16); z-index: 200;
+      max-height: 700px; overflow-y: auto;
+    }
+    .openapi-picker.open .openapi-picker-menu { display: block; }
+    .openapi-picker-toolbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 22px; border-bottom: 1px solid #EAECF0;
+      font-size: 16px; color: #344054; background: #F9FAFB; font-weight: 600;
+      position: sticky; top: 0;
+    }
+    .openapi-picker-toolbar button {
+      background: none; border: none; color: #175CD3; font-weight: 600;
+      cursor: pointer; padding: 0; font-size: 16px;
+    }
+    .openapi-picker-toolbar button:hover { text-decoration: underline; }
+    .openapi-picker-item {
+      display: flex; align-items: center; gap: 18px;
+      padding: 22px 22px; cursor: pointer;
+      font-size: 17px; color: #101828; transition: background .15s;
+      border-bottom: 1px solid #F2F4F7;
+    }
+    .openapi-picker-item:last-child { border-bottom: none; }
+    .openapi-picker-item:hover { background: #F9FAFB; }
+    .openapi-picker-item.selected { background: #EFF8FF; }
+    .openapi-picker-item.disabled {
+      background: #F9FAFB; color: #98A2B3; cursor: not-allowed;
+    }
+    .openapi-picker-item input[type="checkbox"] {
+      width: 24px; height: 24px; flex-shrink: 0; accent-color: #175CD3;
+    }
+    .openapi-picker-item .opi-name { flex: 1; font-weight: 700; font-size: 17px; }
+    .openapi-picker-item .opi-id { color: #98A2B3; font-size: 14px; }
+    .openapi-picker-item .opi-badge {
+      font-size: 13px; padding: 6px 12px; border-radius: 999px;
+      background: #ECFDF3; color: #027A48; font-weight: 600;
+    }
+    .openapi-picker-item .opi-badge--muted { background: #F2F4F7; color: #475467; }
+
+    /* Custom confirm dialog (matches the page's form-shell aesthetic) */
+    .app-confirm-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(16, 24, 40, 0.55);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 1050;
+      padding: 16px;
+      animation: appConfirmFade 0.18s ease-out;
+    }
+    .app-confirm-backdrop.open { display: flex; }
+    @keyframes appConfirmFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .app-confirm-dialog {
+      width: 100%;
+      max-width: 440px;
+      background: #fff;
+      border-radius: 18px;
+      border: 1px solid #eaecf0;
+      box-shadow: 0 24px 48px rgba(16, 24, 40, 0.18);
+      overflow: hidden;
+      animation: appConfirmPop 0.18s ease-out;
+    }
+    @keyframes appConfirmPop {
+      from { transform: translateY(8px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .app-confirm-body {
+      padding: 24px 24px 8px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .app-confirm-icon {
+      flex-shrink: 0;
+      width: 44px; height: 44px;
+      border-radius: 999px;
+      background: #fef3f2;
+      border: 6px solid #fee4e2;
+      color: #b42318;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-confirm-text { flex: 1; }
+    .app-confirm-title {
+      margin: 0 0 6px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #101828;
+      letter-spacing: -0.01em;
+    }
+    .app-confirm-message {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #475467;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .app-confirm-footer {
+      padding: 16px 24px 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .app-confirm-btn {
+      border-radius: 10px;
+      padding: 9px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.2;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+      min-width: 96px;
+    }
+    .app-confirm-btn:hover { transform: translateY(-1px); }
+    .app-confirm-btn:active { transform: translateY(0); }
+    .app-confirm-btn:focus-visible { outline: 2px solid #bfdbfe; outline-offset: 2px; }
+    .app-confirm-btn--cancel {
+      color: #344054;
+      background: #fff;
+      border-color: #d0d5dd;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+    .app-confirm-btn--cancel:hover {
+      color: #101828;
+      border-color: #98a2b3;
+      background: #f9fafb;
+    }
+    .app-confirm-btn--danger {
+      color: #fff;
+      background: #d92d20;
+      border-color: #d92d20;
+      box-shadow: 0 4px 12px rgba(217, 45, 32, 0.22);
+    }
+    .app-confirm-btn--danger:hover {
+      background: #b42318;
+      border-color: #b42318;
+    }
+    @media (max-width: 480px) {
+      .app-confirm-footer { flex-direction: column-reverse; }
+      .app-confirm-btn { width: 100%; }
+    }
+
+    /* Toast notifications (top-right, stack downward) */
+    .app-toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 1100;
+      pointer-events: none;
+      max-width: calc(100vw - 40px);
+    }
+    .app-toast {
+      pointer-events: auto;
+      min-width: 280px;
+      max-width: 420px;
+      background: #fff;
+      border: 1px solid #eaecf0;
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(16, 24, 40, 0.14);
+      padding: 14px 16px;
+      display: flex; gap: 12px; align-items: flex-start;
+      opacity: 0;
+      transform: translateX(16px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .app-toast.show { opacity: 1; transform: translateX(0); }
+    .app-toast.hide { opacity: 0; transform: translateX(16px); }
+    .app-toast-icon {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-toast-body {
+      flex: 1;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #101828;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .app-toast-close {
+      flex-shrink: 0;
+      background: none; border: none; padding: 2px; cursor: pointer;
+      color: #98a2b3; line-height: 1;
+      border-radius: 6px;
+    }
+    .app-toast-close:hover { color: #475467; background: #f2f4f7; }
+    .app-toast--success { border-left: 4px solid #12b76a; }
+    .app-toast--success .app-toast-icon { background: #d1fadf; color: #027a48; }
+    .app-toast--error { border-left: 4px solid #d92d20; }
+    .app-toast--error .app-toast-icon { background: #fee4e2; color: #b42318; }
+    .app-toast--info { border-left: 4px solid #2e90fa; }
+    .app-toast--info .app-toast-icon { background: #d1e9ff; color: #175cd3; }
+    @media (max-width: 480px) {
+      .app-toast-container { left: 16px; right: 16px; top: 16px; }
+      .app-toast { min-width: 0; max-width: none; }
+    }
   </style>
 </head>
 <body
@@ -208,6 +426,47 @@
 
     <div id="apiKeyWarning" class="alert alert-warning" style="display:none;">
       <b>No API key saved.</b> Please go to <a href="/settings/api-key" class="alert-link">API Key</a> and add it before syncing.
+    </div>
+
+    <div class="card form-shell mb-4">
+      <div class="card-body">
+        <h5 class="card-title mb-1">{{ t.fetch_openapi_title }}</h5>
+        <div class="text-secondary small mb-3">{{ t.fetch_openapi_desc }}</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-9">
+            <label class="form-label">{{ t.fetch_openapi_token_label }}</label>
+            <input type="password" id="openapiToken" class="form-control" placeholder="{{ t.fetch_openapi_token_placeholder }}" autocomplete="off">
+          </div>
+          <div class="col-md-3">
+            <button class="fetch-btn fetch-btn--primary w-100" id="btnDiscoverShops">{{ t.fetch_openapi_discover_btn }}</button>
+          </div>
+        </div>
+        <div id="openapiResult" class="mt-3" style="display:none;">
+          <label class="form-label">{{ t.fetch_openapi_pick_label }}</label>
+          <div class="openapi-picker" id="openapiPicker">
+            <div class="openapi-picker-btn" id="openapiPickerBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span class="opi-label" id="openapiPickerLabel">{{ t.fetch_openapi_picker_placeholder }}</span>
+              <svg class="opi-caret" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="openapi-picker-menu" id="openapiPickerMenu">
+              <div class="openapi-picker-toolbar">
+                <span id="openapiPickerCount">0 / 0</span>
+                <div class="d-flex gap-3">
+                  <button type="button" id="openapiSelectAllBtn">{{ t.fetch_openapi_select_all }}</button>
+                  <button type="button" id="openapiClearAllBtn">{{ t.fetch_openapi_clear_all }}</button>
+                </div>
+              </div>
+              <div id="openapiShopsList"></div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-3 gap-2 flex-wrap">
+            <small class="text-secondary" id="openapiSelectionSummary"></small>
+            <button class="fetch-btn fetch-btn--primary" id="btnAttachSelected">{{ t.fetch_openapi_attach_btn }}</button>
+          </div>
+        </div>
+        <div id="openapiError" class="alert alert-danger mt-3" style="display:none;"></div>
+      </div>
     </div>
 
     <div class="card form-shell mb-4">
@@ -236,6 +495,30 @@
     <div id="syncStatus" class="mt-3" style="display:none;"></div>
   </div>
 
+  <div class="app-toast-container" id="appToastContainer" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="app-confirm-backdrop" id="appConfirmBackdrop" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle">
+    <div class="app-confirm-dialog">
+      <div class="app-confirm-body">
+        <div class="app-confirm-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/>
+          </svg>
+        </div>
+        <div class="app-confirm-text">
+          <h3 class="app-confirm-title" id="appConfirmTitle"></h3>
+          <p class="app-confirm-message" id="appConfirmMessage"></p>
+        </div>
+      </div>
+      <div class="app-confirm-footer">
+        <button type="button" class="app-confirm-btn app-confirm-btn--cancel" id="appConfirmCancel"></button>
+        <button type="button" class="app-confirm-btn app-confirm-btn--danger" id="appConfirmOk"></button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const _FT = {
       shopsLabel: {{ t.fetch_shops_label | tojson }},
@@ -255,9 +538,33 @@
       syncOkVariants: {{ t.fetch_sync_ok_variants | tojson }},
       deletePrefix: {{ t.fetch_delete_prefix | tojson }},
       deleteSuffix: {{ t.fetch_delete_suffix | tojson }},
+      confirmDeleteTitle: {{ t.fetch_confirm_delete_title | tojson }},
+      confirmYes: {{ t.common_yes | tojson }},
+      confirmNo: {{ t.common_no | tojson }},
+      addedPrefix: {{ t.fetch_added_prefix | tojson }},
+      addedSuffix: {{ t.fetch_added_suffix | tojson }},
+      deletedPrefix: {{ t.fetch_deleted_prefix | tojson }},
+      deletedSuffix: {{ t.fetch_deleted_suffix | tojson }},
       editPrefix: {{ t.fetch_edit_prefix | tojson }},
       errorPrefix: {{ t.fetch_error_prefix | tojson }},
       serverErrorPrefix: {{ t.fetch_server_error_prefix | tojson }},
+      openapiTokenRequired: {{ t.fetch_openapi_token_required | tojson }},
+      openapiDiscovering: {{ t.fetch_openapi_discovering | tojson }},
+      openapiDiscoverBtn: {{ t.fetch_openapi_discover_btn | tojson }},
+      openapiNoShops: {{ t.fetch_openapi_no_shops | tojson }},
+      openapiAlreadyAdded: {{ t.fetch_openapi_already_added | tojson }},
+      openapiOwnedByOther: {{ t.fetch_openapi_owned_by_other | tojson }},
+      openapiAttaching: {{ t.fetch_openapi_attaching | tojson }},
+      openapiAttachBtn: {{ t.fetch_openapi_attach_btn | tojson }},
+      openapiSelectAtLeastOne: {{ t.fetch_openapi_select_at_least_one | tojson }},
+      openapiAddedPrefix: {{ t.fetch_openapi_added_prefix | tojson }},
+      openapiSkippedPrefix: {{ t.fetch_openapi_skipped_prefix | tojson }},
+      openapiReasonAlready: {{ t.fetch_openapi_reason_already | tojson }},
+      openapiReasonOwned: {{ t.fetch_openapi_reason_owned | tojson }},
+      openapiReasonLimit: {{ t.fetch_openapi_reason_limit | tojson }},
+      openapiPickerPlaceholder: {{ t.fetch_openapi_picker_placeholder | tojson }},
+      openapiSelectedSuffix: {{ t.fetch_openapi_selected_suffix | tojson }},
+      openapiSelectedSummaryPrefix: {{ t.fetch_openapi_selected_summary_prefix | tojson }},
     };
 
     function getShopLimit() {
@@ -376,13 +683,13 @@
 
     document.getElementById("btnAddShop").addEventListener("click", async () => {
       if (getShopLimit() && Number(document.body.dataset.shopCount || "0") >= getShopLimit()) {
-        alert(_FT.limitAlert);
+        appToast(_FT.limitAlert, "error");
         return;
       }
 
       const id = document.getElementById("newShopId").value.trim();
       const name = document.getElementById("newShopName").value.trim();
-      if (!id) return alert(_FT.idRequired);
+      if (!id) { appToast(_FT.idRequired, "error"); return; }
 
       const btn = document.getElementById("btnAddShop");
       btn.disabled = true;
@@ -394,35 +701,350 @@
         document.getElementById("newShopName").value = "";
         await loadShops();
 
+        const label = name || id;
+        appToast(`${_FT.addedPrefix} "${label}" ${_FT.addedSuffix}`, "success");
+
         btn.textContent = _FT.syncing;
         await doSync(id);
       } catch (e) {
-        alert(_FT.errorPrefix + " " + e.message);
+        appToast(_FT.errorPrefix + " " + e.message, "error");
       } finally {
         document.body.dataset.shopCount = document.querySelectorAll("#shopsContainer > div").length.toString();
         updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
       }
     });
 
+    // Top-right toast notification (success / error / info).
+    function appToast(message, type = "success", duration = 3500) {
+      const container = document.getElementById("appToastContainer");
+      if (!container || !message) return;
+
+      const icons = {
+        success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        error:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        info:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16"/></svg>',
+      };
+
+      const toast = document.createElement("div");
+      toast.className = `app-toast app-toast--${type}`;
+      toast.innerHTML = `
+        <div class="app-toast-icon" aria-hidden="true">${icons[type] || icons.info}</div>
+        <div class="app-toast-body"></div>
+        <button type="button" class="app-toast-close" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+      toast.querySelector(".app-toast-body").textContent = message;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => toast.classList.add("show"));
+
+      const dismiss = () => {
+        toast.classList.remove("show");
+        toast.classList.add("hide");
+        setTimeout(() => toast.remove(), 220);
+      };
+      toast.querySelector(".app-toast-close").addEventListener("click", dismiss);
+      if (duration > 0) setTimeout(dismiss, duration);
+    }
+
+    // Promise-based confirm dialog styled to match the page.
+    function appConfirm({ title, message, okLabel, cancelLabel }) {
+      return new Promise((resolve) => {
+        const backdrop = document.getElementById("appConfirmBackdrop");
+        const titleEl = document.getElementById("appConfirmTitle");
+        const msgEl = document.getElementById("appConfirmMessage");
+        const okBtn = document.getElementById("appConfirmOk");
+        const cancelBtn = document.getElementById("appConfirmCancel");
+
+        titleEl.textContent = title || "";
+        msgEl.textContent = message || "";
+        okBtn.textContent = okLabel || _FT.confirmYes;
+        cancelBtn.textContent = cancelLabel || _FT.confirmNo;
+
+        const close = (result) => {
+          backdrop.classList.remove("open");
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          backdrop.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKey);
+          resolve(result);
+        };
+        const onOk = () => close(true);
+        const onCancel = () => close(false);
+        const onBackdrop = (e) => { if (e.target === backdrop) close(false); };
+        const onKey = (e) => {
+          if (e.key === "Escape") close(false);
+          else if (e.key === "Enter") close(true);
+        };
+
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+        backdrop.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKey);
+
+        backdrop.classList.add("open");
+        setTimeout(() => cancelBtn.focus(), 0);
+      });
+    }
+
     async function deleteShop(dbId, name) {
-      if (!confirm(`${_FT.deletePrefix} "${name}"${_FT.deleteSuffix}`)) return;
+      const ok = await appConfirm({
+        title: _FT.confirmDeleteTitle,
+        message: `${_FT.deletePrefix} "${name}"${_FT.deleteSuffix}`,
+      });
+      if (!ok) return;
       try {
         const res = await api(`/api/shops/${dbId}`, "DELETE");
         if (res.ok) {
           await loadShops();
+          appToast(`${_FT.deletedPrefix} "${name}" ${_FT.deletedSuffix}`, "success");
         } else {
-          alert(res.error || _FT.errorPrefix);
+          appToast(res.error || _FT.errorPrefix, "error");
         }
       } catch (e) {
-        alert(_FT.errorPrefix + " " + e.message);
+        appToast(_FT.errorPrefix + " " + e.message, "error");
       }
     }
+
+    // ── OpenAPI-token shop discovery ─────────────────────────────────────
+    let _openapiDiscovered = [];
+    const _opiSelected = new Set();  // uzum_ids currently ticked
+
+    function _setOpenapiError(msg) {
+      const el = document.getElementById("openapiError");
+      if (!el) return;
+      if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+      el.style.display = "block";
+      el.textContent = msg;
+    }
+
+    function _reasonLabel(reason) {
+      if (reason === "already_added") return _FT.openapiReasonAlready;
+      if (reason === "owned_by_other") return _FT.openapiReasonOwned;
+      if (reason === "limit_reached") return _FT.openapiReasonLimit;
+      return reason || "";
+    }
+
+    function _escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, (c) => (
+        {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]
+      ));
+    }
+
+    function _opiPickableCount() {
+      return _openapiDiscovered.filter((s) => !s.already_added && !s.owned_by_other).length;
+    }
+
+    function _updateOpiPickerUi() {
+      const label = document.getElementById("openapiPickerLabel");
+      const count = document.getElementById("openapiPickerCount");
+      const summary = document.getElementById("openapiSelectionSummary");
+      const attachBtn = document.getElementById("btnAttachSelected");
+      const selected = _opiSelected.size;
+      const pickable = _opiPickableCount();
+
+      label.textContent = selected
+        ? `${selected} / ${pickable} ${_FT.openapiSelectedSuffix}`
+        : _FT.openapiPickerPlaceholder;
+      count.textContent = `${selected} / ${pickable}`;
+      summary.textContent = selected
+        ? `${_FT.openapiSelectedSummaryPrefix} ${selected}`
+        : "";
+      attachBtn.disabled = selected === 0;
+
+      // Reflect tick state into checkbox elements and row .selected class
+      document.querySelectorAll(".openapi-picker-item").forEach((el) => {
+        const id = el.dataset.uzumId;
+        const cb = el.querySelector('input[type="checkbox"]');
+        if (cb && !cb.disabled) cb.checked = _opiSelected.has(id);
+        el.classList.toggle("selected", _opiSelected.has(id));
+      });
+    }
+
+    function _renderDiscoveredShops(shops) {
+      const wrap = document.getElementById("openapiResult");
+      const list = document.getElementById("openapiShopsList");
+      const picker = document.getElementById("openapiPicker");
+      list.innerHTML = "";
+      _openapiDiscovered = shops || [];
+      _opiSelected.clear();
+
+      if (!_openapiDiscovered.length) {
+        wrap.style.display = "block";
+        picker.classList.remove("open");
+        list.innerHTML = `<div class="openapi-picker-item disabled">${_FT.openapiNoShops}</div>`;
+        _updateOpiPickerUi();
+        return;
+      }
+
+      _openapiDiscovered.forEach((s) => {
+        const disabled = s.already_added || s.owned_by_other;
+        const badge = s.already_added
+          ? `<span class="opi-badge">${_FT.openapiAlreadyAdded}</span>`
+          : s.owned_by_other
+            ? `<span class="opi-badge opi-badge--muted">${_FT.openapiOwnedByOther}</span>`
+            : "";
+        const row = document.createElement("div");
+        row.className = "openapi-picker-item" + (disabled ? " disabled" : "");
+        row.dataset.uzumId = s.uzum_id;
+        row.innerHTML = `
+          <input type="checkbox" ${disabled ? "disabled" : ""}>
+          <span class="opi-name">${_escapeHtml(s.name) || ("Shop " + _escapeHtml(s.uzum_id))}</span>
+          <span class="opi-id">ID: ${_escapeHtml(s.uzum_id)}</span>
+          ${badge}
+        `;
+        if (!disabled) {
+          row.addEventListener("click", (ev) => {
+            // Toggle selection — but don't close the menu
+            ev.stopPropagation();
+            const id = row.dataset.uzumId;
+            if (_opiSelected.has(id)) _opiSelected.delete(id);
+            else _opiSelected.add(id);
+            _updateOpiPickerUi();
+          });
+        }
+        list.appendChild(row);
+      });
+
+      wrap.style.display = "block";
+      picker.classList.add("open"); // open by default so the user sees the list immediately
+      _updateOpiPickerUi();
+    }
+
+    // ── Picker open/close + toolbar handlers ─────────────────────────────
+    (function bindOpenapiPicker() {
+      const picker = document.getElementById("openapiPicker");
+      const btn = document.getElementById("openapiPickerBtn");
+      const menu = document.getElementById("openapiPickerMenu");
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        picker.classList.toggle("open");
+      });
+      // Click inside the menu should not close it
+      menu.addEventListener("click", (e) => e.stopPropagation());
+      document.addEventListener("click", () => picker.classList.remove("open"));
+
+      document.getElementById("openapiSelectAllBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        _openapiDiscovered.forEach((s) => {
+          if (!s.already_added && !s.owned_by_other) _opiSelected.add(s.uzum_id);
+        });
+        _updateOpiPickerUi();
+      });
+      document.getElementById("openapiClearAllBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        _opiSelected.clear();
+        _updateOpiPickerUi();
+      });
+    })();
+
+    document.getElementById("btnDiscoverShops").addEventListener("click", async () => {
+      const tokenInput = document.getElementById("openapiToken");
+      const btn = document.getElementById("btnDiscoverShops");
+      _setOpenapiError("");
+      const token = (tokenInput.value || "").trim();
+      if (!token) { _setOpenapiError(_FT.openapiTokenRequired); return; }
+
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = _FT.openapiDiscovering;
+      try {
+        const data = await api("/api/shops/openapi/discover", "POST", { token });
+        _renderDiscoveredShops(data.shops || []);
+      } catch (e) {
+        _setOpenapiError(_FT.errorPrefix + " " + e.message);
+        document.getElementById("openapiResult").style.display = "none";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+
+    document.getElementById("btnAttachSelected").addEventListener("click", async () => {
+      const btn = document.getElementById("btnAttachSelected");
+      _setOpenapiError("");
+      const picks = _openapiDiscovered
+        .filter((s) => _opiSelected.has(s.uzum_id))
+        .map((s) => ({ uzum_id: s.uzum_id, name: s.name || "" }));
+
+      if (!picks.length) { _setOpenapiError(_FT.openapiSelectAtLeastOne); return; }
+
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = _FT.openapiAttaching;
+      try {
+        const data = await api("/api/shops/openapi/attach", "POST", { shops: picks });
+        const addedCount = (data.added || []).length;
+        const skipped = data.skipped || [];
+
+        let msg = `${_FT.openapiAddedPrefix} ${addedCount}.`;
+        if (skipped.length) {
+          const parts = skipped.map((s) => `${s.uzum_id} (${_reasonLabel(s.reason)})`);
+          msg += ` ${_FT.openapiSkippedPrefix} ${parts.join(", ")}.`;
+        }
+        appToast(msg, addedCount > 0 ? "success" : "info", 5000);
+
+        // Refresh shop list + token already persisted server-side
+        document.getElementById("openapiResult").style.display = "none";
+        document.getElementById("openapiPicker").classList.remove("open");
+        document.getElementById("openapiToken").value = "";
+        _openapiDiscovered = [];
+        _opiSelected.clear();
+        await loadShops();
+
+        // Auto-sync products for each newly attached shop (sequentially,
+        // so we don't hammer the Uzum API). Mirrors the manual-add flow
+        // which calls doSync() right after creating the shop.
+        const addedShops = (data.added || []);
+        if (addedShops.length) {
+          appToast(`${_FT.syncing} (${addedShops.length})`, "info", 2500);
+          let okCount = 0;
+          let failCount = 0;
+          let lastError = "";
+          for (let i = 0; i < addedShops.length; i++) {
+            const s = addedShops[i];
+            const label = String(s.uzum_id);
+            try {
+              const res = await api("/api/uzum/sync", "POST",
+                { shop_id: label, size: 100, sync_all: true });
+              const status = document.getElementById("syncStatus");
+              status.style.display = "block";
+              status.className = "alert alert-success status-panel";
+              status.textContent = `[${i+1}/${addedShops.length}] ${_FT.syncOkPrefix} ${res.total_products}${_FT.syncOkVariants} ${res.fetched}.`;
+              okCount++;
+            } catch (err) {
+              const status = document.getElementById("syncStatus");
+              status.style.display = "block";
+              status.className = "alert alert-danger status-panel";
+              status.textContent = `[${i+1}/${addedShops.length}] ${label} — ${_FT.errorPrefix} ${err.message}`;
+              lastError = err.message;
+              failCount++;
+            }
+          }
+          // Final summary toast so the user has a clear end-state
+          if (failCount === 0) {
+            appToast(`${_FT.syncOkPrefix} ${okCount}/${addedShops.length}`, "success", 4000);
+          } else if (okCount === 0) {
+            appToast(`${_FT.errorPrefix} ${lastError}`, "error", 8000);
+          } else {
+            appToast(`${okCount} / ${addedShops.length} — ${_FT.errorPrefix} ${lastError}`, "info", 6000);
+          }
+          // Refresh the shop cards so any newly populated names/variants show
+          await loadShops();
+        }
+      } catch (e) {
+        _setOpenapiError(_FT.errorPrefix + " " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
 
     checkApiKey();
     updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
     loadShops();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/uzum_ui.js"></script>
+  <script src="/static/uzum_ui.js?v=20260412b"></script>
 </body>
 </html>

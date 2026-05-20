@@ -62,6 +62,9 @@
           fetchInvoiceBtnId: "btnFetchInvoice",
           searchEndpoint: "/api/pos/search",
           invoiceEndpoint: "/api/pos/fetch-invoice",
+          historyContainerId: "posHistory",
+          historyEndpoint: "/api/pos/history",
+          undoEndpoint: "/api/pos/undo/",
           searchDelay: 260,
           showStock: true,
           showModeToggle: false,
@@ -79,6 +82,15 @@
           onAction: null,
           onActionSuccess: null,
           updateActionBtn: null,
+          historyEmptyText: "Пока нет действий",
+          historyUndoBtnText: "Отменить",
+          historyRevertedBadgeText: "Отменено",
+          historyConfirmUndoText: "Отменить это действие?",
+          historyUndoSuccessText: "Действие отменено",
+          historyUndoFailedText: "Не удалось отменить",
+          historyUnitsText: "шт.",
+          historySkuLabelText: "SKU",
+          historyLabels: { sale: "Продажа", stock_in: "Приёмка" },
         },
         config || {}
       );
@@ -86,6 +98,7 @@
       this.state = {
         cart: {},
         mode: this.config.defaultMode,
+        history: [],
       };
 
       this.results = [];
@@ -105,12 +118,15 @@
         invoiceShopSelect: document.getElementById(this.config.invoiceShopSelectId),
         invoiceIdInput: document.getElementById(this.config.invoiceIdInputId),
         fetchInvoiceBtn: document.getElementById(this.config.fetchInvoiceBtnId),
+        history: document.getElementById(this.config.historyContainerId),
       };
 
       this.bindEvents();
       this.renderResultsState("idle");
       this.renderCart();
       this.updateActionButton();
+      this.renderHistory();
+      this.loadHistory();
     }
 
     bindEvents() {
@@ -189,6 +205,16 @@
       if (this.refs.actionBtn) {
         this.refs.actionBtn.addEventListener("click", function () {
           self.handleAction();
+        });
+      }
+
+      if (this.refs.history) {
+        this.refs.history.addEventListener("click", function (event) {
+          var btn = event.target.closest('[data-history-action="undo"]');
+          if (!btn) return;
+          var id = parseInt(btn.getAttribute("data-history-id"), 10);
+          if (!Number.isFinite(id)) return;
+          self.undoAction(id);
         });
       }
 
@@ -632,6 +658,7 @@
 
         this.renderCart();
         this.showToast((result && result.message) || "Действие выполнено.", "success");
+        this.loadHistory();
       } catch (error) {
         this.showToast(error.message || "Не удалось выполнить действие.", "danger");
         this.updateActionButton();
@@ -709,6 +736,142 @@
       } finally {
         this.refs.fetchInvoiceBtn.disabled = false;
         this.refs.fetchInvoiceBtn.textContent = originalText;
+      }
+    }
+
+    async loadHistory() {
+      if (!this.refs.history) return;
+      try {
+        var response = await fetch(this.config.historyEndpoint);
+        var data = await response.json();
+        this.state.history = Array.isArray(data.items) ? data.items : [];
+      } catch (error) {
+        this.state.history = [];
+      }
+      this.renderHistory();
+    }
+
+    formatHistoryTime(iso) {
+      if (!iso) return "";
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      try {
+        return d.toLocaleString();
+      } catch (_e) {
+        return d.toISOString();
+      }
+    }
+
+    renderHistory() {
+      if (!this.refs.history) return;
+
+      var entries = Array.isArray(this.state.history) ? this.state.history : [];
+      if (!entries.length) {
+        this.refs.history.innerHTML =
+          '<div class="pos-history-empty">' + esc(this.config.historyEmptyText) + "</div>";
+        return;
+      }
+
+      var self = this;
+      this.refs.history.innerHTML = entries
+        .map(function (entry) {
+          var reverted = !!entry.reverted_at;
+          var label =
+            (self.config.historyLabels && self.config.historyLabels[entry.action]) ||
+            entry.action ||
+            "";
+          var actionClass =
+            entry.action === "sale"
+              ? "pos-history-action--sale"
+              : "pos-history-action--stock-in";
+          var time = self.formatHistoryTime(entry.created_at);
+          var itemsList = (entry.items || [])
+            .map(function (it) {
+              return [
+                '<li class="pos-history-line">',
+                '<span class="pos-history-line-name">',
+                esc(it.name || ""),
+                "</span>",
+                '<span class="pos-history-line-sku mono">',
+                esc(self.config.historySkuLabelText),
+                ": ",
+                esc(it.sku || ""),
+                "</span>",
+                '<span class="pos-history-line-qty">',
+                esc(it.qty_before),
+                " → ",
+                esc(it.qty_after),
+                " (",
+                Number(it.qty) > 0 ? "+" : "",
+                esc(it.qty),
+                ")",
+                "</span>",
+                "</li>",
+              ].join("");
+            })
+            .join("");
+
+          var revertedBadge = reverted
+            ? '<span class="pos-history-reverted-badge">' +
+              esc(self.config.historyRevertedBadgeText) +
+              "</span>"
+            : "";
+          var undoBtn = reverted
+            ? ""
+            : [
+                '<button type="button" class="pos-history-undo-btn" data-history-action="undo" data-history-id="',
+                entry.id,
+                '">',
+                esc(self.config.historyUndoBtnText),
+                "</button>",
+              ].join("");
+
+          var rowClass = "pos-history-row" + (reverted ? " pos-history-row--reverted" : "");
+
+          return [
+            '<article class="',
+            rowClass,
+            '">',
+            '<header class="pos-history-header">',
+            '<span class="pos-history-action ',
+            actionClass,
+            '">',
+            esc(label),
+            "</span>",
+            '<span class="pos-history-summary">',
+            esc(entry.total_qty || 0),
+            " ",
+            esc(self.config.historyUnitsText),
+            "</span>",
+            revertedBadge,
+            '<span class="pos-history-time">',
+            esc(time),
+            "</span>",
+            "</header>",
+            '<ul class="pos-history-items">',
+            itemsList,
+            "</ul>",
+            undoBtn ? '<div class="pos-history-footer">' + undoBtn + "</div>" : "",
+            "</article>",
+          ].join("");
+        })
+        .join("");
+    }
+
+    async undoAction(id) {
+      if (!id) return;
+      if (!window.confirm(this.config.historyConfirmUndoText)) return;
+
+      try {
+        var response = await fetch(this.config.undoEndpoint + id, { method: "POST" });
+        var data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || this.config.historyUndoFailedText);
+        }
+        this.showToast(this.config.historyUndoSuccessText, "success");
+        await this.loadHistory();
+      } catch (error) {
+        this.showToast(error.message || this.config.historyUndoFailedText, "danger");
       }
     }
 

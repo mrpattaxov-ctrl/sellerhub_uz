@@ -3,15 +3,19 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time as dt_time
 
 from flask import Blueprint, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update
 
 from extensions import SessionLocal
-from models import ProductGroup, Variant, VariantSale, Shop, FinanceOrder
+from models import ProductGroup, Variant, VariantSale, Shop
 from core.parsers import _safe_qty
+from core.sales_reads import (
+    day_bounds_tashkent,
+    read_sales_aggregated,
+)
 from core.time_helpers import _today_app_tz
 from core.http_client import http_post_multipart
 from core.auth_helpers import (
@@ -194,39 +198,45 @@ def group_detail(group_id: int):
             select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
         ).scalars().all()
 
-        # Get 30d sales from finance_orders DB (consistent with date-range queries)
+        # 30d sales from sales_lines (Tashkent window [today-30, today+1)).
+        # Old path filtered `period_from >= d_from AND period_to <= today` — the new
+        # equivalent is `created_at >= today-30d 00:00 AND created_at < today+1d 00:00`.
         shop = db.get(Shop, group.shop_id)
         sales_30d_map: dict[int, int] = {}
         if shop:
             today = _today_app_tz()
-            d_from = today - timedelta(days=30)
-            fo_rows = db.execute(
-                select(
-                    FinanceOrder.sku_title,
-                    FinanceOrder.sku_id,
-                    func.sum(FinanceOrder.amount).label("total_qty"),
-                )
-                .where(
-                    FinanceOrder.shop_id == shop.uzum_id,
-                    FinanceOrder.period_from >= d_from,
-                    FinanceOrder.period_to <= today,
-                )
-                .group_by(FinanceOrder.sku_title, FinanceOrder.sku_id)
-            ).all()
-            # Build lookups (assign, don't accumulate — avoids double-counting)
+            start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
+            _, end_ts = day_bounds_tashkent(today)
+            agg_rows = read_sales_aggregated(
+                shop.uzum_id,
+                start_ts,
+                end_ts,
+                group_by="sku",
+                session=db,
+            )
+            # Build lookups (assign, don't accumulate — avoids double-counting).
+            # `sales_lines.sku_id` carries the seller SKU code (e.g. "LUXUZ-RING-СИНИЙ-17"),
+            # which matches `Variant.sku` — NOT the numeric `Variant.uzum_sku_id`.
             by_title: dict[str, int] = {}
             by_sku_id: dict[str, int] = {}
-            for row in fo_rows:
-                title = (row.sku_title or "").strip()
-                qty = int(row.total_qty or 0)
-                by_title[title] = qty
-                by_title[title.upper()] = qty
-                if row.sku_id:
-                    by_sku_id[str(row.sku_id)] = qty
+            for row in agg_rows:
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                if title:
+                    by_title[title] = qty
+                    by_title[title.upper()] = qty
+                sid = row.get("sku_id")
+                if sid:
+                    sid_s = str(sid)
+                    by_sku_id[sid_s] = qty
+                    by_sku_id[sid_s.upper()] = qty
             for v in variants:
-                matched = by_title.get(v.sku) or by_title.get((v.sku or "").upper()) or 0
+                vsku = v.sku or ""
+                matched = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
                 if matched == 0 and v.uzum_sku_id:
                     matched = by_sku_id.get(v.uzum_sku_id, 0)
+                if matched == 0:
+                    matched = by_title.get(vsku) or by_title.get(vsku.upper()) or 0
                 sales_30d_map[v.id] = matched
 
     return render_template("group_detail.html", group=group, variants=variants,
@@ -264,40 +274,37 @@ def economics_data_api():
         shop_uzum_ids = [s.uzum_id for s in shops]
         shop_id_to_uzum = {s.id: s.uzum_id for s in shops}
 
-        # Query finance_orders from DB per shop + date range
-        # Key by (shop_uzum_id, sku_key) to avoid cross-shop doubling
+        # Aggregate sales_lines per (shop_uzum_id, sku) for the Tashkent window
+        # [date_from 00:00, date_to+1 00:00). Old path filtered
+        # `period_from >= date_from AND period_to <= date_to` — the new path
+        # is the equivalent right-open `created_at` window.
         per_shop_sales: dict[tuple[str, str], dict] = {}
         if shop_uzum_ids:
-            fo_rows = db.execute(
-                select(
-                    FinanceOrder.shop_id,
-                    FinanceOrder.sku_title,
-                    FinanceOrder.sku_id,
-                    func.sum(FinanceOrder.amount).label("total_qty"),
-                    func.sum(FinanceOrder.sell_price).label("total_sell"),
-                    func.sum(FinanceOrder.commission).label("total_commission"),
-                    func.sum(FinanceOrder.logistics_fee).label("total_logistics"),
-                )
-                .where(
-                    FinanceOrder.shop_id.in_(shop_uzum_ids),
-                    FinanceOrder.period_from >= date_from,
-                    FinanceOrder.period_to <= date_to,
-                )
-                .group_by(FinanceOrder.shop_id, FinanceOrder.sku_title, FinanceOrder.sku_id)
-            ).all()
-            for row in fo_rows:
-                sid = str(row.shop_id)
-                title = (row.sku_title or "").strip()
-                qty = int(row.total_qty or 0)
-                sell = int(row.total_sell or 0)
-                comm = int(row.total_commission or 0)
-                logi = int(row.total_logistics or 0)
+            start_ts, _ = day_bounds_tashkent(date_from)
+            _, end_ts = day_bounds_tashkent(date_to)
+            agg_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                start_ts,
+                end_ts,
+                group_by="sku",
+                session=db,
+            )
+            # `sales_lines.shop_id` is int but the rest of this module keys
+            # lookups by the string uzum_id — cast back to str.
+            for row in agg_rows:
+                sid = str(row.get("shop_id"))
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                sell = int(row.get("revenue_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
                 entry = {"qty": qty, "sell_price": sell,
                          "commission": comm, "logistics": logi}
-                per_shop_sales[(sid, title)] = entry
-                per_shop_sales[(sid, title.upper())] = entry
-                if row.sku_id:
-                    per_shop_sales[(sid, str(row.sku_id))] = entry
+                if title:
+                    per_shop_sales[(sid, title)] = entry
+                    per_shop_sales[(sid, title.upper())] = entry
+                if row.get("sku_id"):
+                    per_shop_sales[(sid, str(row["sku_id"]))] = entry
 
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
         if allowed_shop_ids:
@@ -453,11 +460,80 @@ def uzum_sync_finance():
             if not shop_obj:
                  return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
 
-            # Fetch 30-day sales stats for the shop
-            sales_map = _app.fetch_finance_sales_map(shop_id, api_key=api_key)
+            # Fetch 30-day sales via the SELLS_REPORT pipeline (one Uzum
+            # /documents/v2 call replaces the legacy paginated /finance/orders).
+            today = _today_app_tz()
+            window_from = datetime.combine(today - timedelta(days=30), dt_time(0, 0, 0))
+            window_to   = datetime.combine(today + timedelta(days=1),  dt_time(0, 0, 0))
 
-            if sales_map is None:
+            try:
+                rows = _app._fetch_sells_report_rows_for_shops(
+                    [int(shop_id)], window_from, window_to,
+                ) or []
+            except Exception:
                 return _json_response({"error": "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u043e \u043f\u0440\u043e\u0434\u0430\u0436\u0430\u0445 (\u043e\u0448\u0438\u0431\u043a\u0430 API). \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 ID \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430."}, 500)
+
+            # Seed sales_lines for this 30-day window so the Finance page is
+            # populated immediately. Failure here must not abort the variant
+            # update \u2014 the next HH:00 hourly bulk will catch up.
+            try:
+                _app._ingest_sales_lines_window(rows, window_from, window_to)
+            except Exception as e:
+                print(f"[ProductsSync] sales_lines seed failed for shop={shop_id}: {e!r}")
+
+            # Aggregate per SKU, dropping cancelled rows. Build the same
+            # {sku: {qty, price, sell_price, commission, logistics}} shape
+            # the variant loop below expects (per-unit values, int).
+            agg: dict[str, dict[str, float]] = {}
+            for r in rows:
+                if (r.get("status") or "").strip() == "\u041e\u0442\u043c\u0435\u043d\u0435\u043d":
+                    continue
+                sku = str(r.get("sku_id") or "").strip()
+                if not sku:
+                    continue
+                try:
+                    q = int(r.get("qty") or 0)
+                except (TypeError, ValueError):
+                    q = 0
+                if q <= 0:
+                    continue
+                a = agg.setdefault(sku, {
+                    "qty": 0,
+                    "purchase_price_total": 0.0,
+                    "revenue_total": 0.0,
+                    "commission_total": 0.0,
+                    "logistics_total": 0.0,
+                })
+                a["qty"] += q
+                try:
+                    a["purchase_price_total"] += float(r.get("purchase_price") or 0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    a["revenue_total"] += float(r.get("revenue") or 0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    a["commission_total"] += float(r.get("commission") or 0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    a["logistics_total"] += float(r.get("logistics_fee") or 0)
+                except (TypeError, ValueError):
+                    pass
+
+            sales_map: dict[str, dict] = {}
+            for sku, a in agg.items():
+                qty = int(a["qty"])
+                if qty <= 0:
+                    continue
+                sales_map[sku] = {
+                    "qty": qty,
+                    "price":      int(a["purchase_price_total"] / qty) if a["purchase_price_total"] > 0 else 0,
+                    "sell_price": int(a["revenue_total"]         / qty) if a["revenue_total"]         > 0 else 0,
+                    "commission": int(a["commission_total"]      / qty) if a["commission_total"]      > 0 else 0,
+                    "logistics":  int(a["logistics_total"]       / qty) if a["logistics_total"]       > 0 else 0,
+                }
 
             # Update ALL variants in DB for this shop
             variants = db.execute(select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)).scalars().all()
@@ -541,42 +617,47 @@ def group_sales_range(group_id: int):
             select(Variant).where(Variant.group_id == group_id)
         ).scalars().all()
 
-        # Query finance_orders from DB — aggregate by sku_title+sku_id for this shop+date range
-        fo_rows = db.execute(
-            select(
-                FinanceOrder.sku_title,
-                FinanceOrder.sku_id,
-                func.sum(FinanceOrder.amount).label("total_qty"),
-            )
-            .where(
-                FinanceOrder.shop_id == shop.uzum_id,
-                FinanceOrder.period_from >= d_from,
-                FinanceOrder.period_to <= d_to,
-            )
-            .group_by(FinanceOrder.sku_title, FinanceOrder.sku_id)
-        ).all()
-        # Build lookups
+        # Aggregate sales_lines by SKU for this shop + date range. Old path
+        # `period_from >= d_from AND period_to <= d_to` → right-open
+        # `created_at >= d_from 00:00 AND created_at < d_to+1d 00:00`
+        # (Tashkent).
+        start_ts, _ = day_bounds_tashkent(d_from)
+        _, end_ts = day_bounds_tashkent(d_to)
+        agg_rows = read_sales_aggregated(
+            shop.uzum_id,
+            start_ts,
+            end_ts,
+            group_by="sku",
+            session=db,
+        )
+        # Build lookups. `sales_lines.sku_id` is the seller SKU code that
+        # matches `Variant.sku` directly — title / uzum_sku_id are fallbacks.
         sales_by_title: dict[str, int] = {}
         sales_by_sku_id: dict[str, int] = {}
-        for row in fo_rows:
-            title = (row.sku_title or "").strip()
-            qty = int(row.total_qty or 0)
-            sales_by_title[title] = qty
-            sales_by_title[title.upper()] = qty
-            if row.sku_id:
-                sales_by_sku_id[str(row.sku_id)] = qty
+        for row in agg_rows:
+            title = (row.get("sku_title") or "").strip()
+            qty = int(row.get("qty_sum") or 0)
+            if title:
+                sales_by_title[title] = qty
+                sales_by_title[title.upper()] = qty
+            sid = row.get("sku_id")
+            if sid:
+                sid_s = str(sid)
+                sales_by_sku_id[sid_s] = qty
+                sales_by_sku_id[sid_s.upper()] = qty
 
         result = []
         for v in variants:
-            qty = 0
-            # Match by sku or barcode against sku_title
-            for key in [v.sku, (v.sku or "").upper(), v.barcode,
-                        (v.barcode or "").upper()]:
-                if key and key in sales_by_title:
-                    qty = sales_by_title[key]
-                    break
+            vsku = v.sku or ""
+            qty = sales_by_sku_id.get(vsku) or sales_by_sku_id.get(vsku.upper()) or 0
             if qty == 0 and v.uzum_sku_id and v.uzum_sku_id in sales_by_sku_id:
                 qty = sales_by_sku_id[v.uzum_sku_id]
+            if qty == 0:
+                for key in [vsku, vsku.upper(), v.barcode,
+                            (v.barcode or "").upper()]:
+                    if key and key in sales_by_title:
+                        qty = sales_by_title[key]
+                        break
             result.append({"variant_id": v.id, "qty": qty})
 
     return _json_response({"sales": result, "days": days_label,

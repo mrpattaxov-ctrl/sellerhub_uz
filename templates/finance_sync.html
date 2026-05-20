@@ -4,98 +4,20 @@
   <h4 id="pageTitle">Финансы</h4>
 </div>
 
-<!-- Sync section -->
+<!-- Filter section -->
 <div class="card mb-4">
   <div class="card-body">
-    <h6 id="syncTitle">Синхронизация данных</h6>
     <div class="row g-3 align-items-end">
       <div class="col-auto">
         <label class="form-label small" id="lblShop">Магазин</label>
         <select id="shopSelect" class="form-select form-select-sm">
           {% for shop in shops %}
-          <option value="{{ shop.uzum_id }}"
-            data-last="{{ sync_info[shop.uzum_id].last_sync or '' }}"
-            data-total="{{ sync_info[shop.uzum_id].total_records }}">
+          <option value="{{ shop.uzum_id }}">
             {{ shop.name or shop.uzum_id }}
           </option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-auto">
-        <button class="btn btn-sm btn-dark" id="btnSync" onclick="doSync()">
-          <span id="syncBtnText">Синхронизировать</span>
-        </button>
-      </div>
-      <div class="col-auto">
-        <button class="btn btn-sm btn-outline-danger" id="btnFullSync" onclick="doFullSync()">
-          <span id="fullSyncBtnText">Полная пересинхронизация</span>
-        </button>
-      </div>
-      <div class="col-auto">
-        <span class="badge bg-secondary" id="syncInfo"></span>
-      </div>
-    </div>
-    <div id="syncStatus" class="small text-muted mt-2" style="display:none"></div>
-  </div>
-</div>
-
-{% if is_admin %}
-<div class="card mb-4" id="hourlyBurstCard">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-      <div>
-        <h6 class="mb-1" id="burstTitle">Hourly Burst</h6>
-        <div class="small text-muted" id="burstHint">Refreshes every 15s</div>
-      </div>
-      <span class="badge text-bg-secondary" id="burstStatus">Idle</span>
-    </div>
-
-    <div class="row g-2 mb-3">
-      <div class="col-md-3 col-6">
-        <div class="border rounded p-2 h-100">
-          <div class="small text-muted" id="burstStartLabel">Start</div>
-          <div class="fw-semibold small" id="burstStartValue">—</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="border rounded p-2 h-100">
-          <div class="small text-muted" id="burstDurationLabel">Duration</div>
-          <div class="fw-semibold small" id="burstDurationValue">—</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="border rounded p-2 h-100">
-          <div class="small text-muted" id="burstSuccessLabel">Success</div>
-          <div class="fw-semibold small" id="burstSuccessValue">—</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="border rounded p-2 h-100">
-          <div class="small text-muted" id="burstFailedLabel">Failed</div>
-          <div class="fw-semibold small" id="burstFailedValue">—</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mb-2">
-      <div class="small text-muted" id="burstWindowLabel">Window</div>
-      <div class="small" id="burstWindowValue">—</div>
-    </div>
-
-    <div>
-      <div class="small text-muted mb-1" id="burstFailedShopsLabel">Failed shops</div>
-      <div class="d-flex flex-wrap gap-1" id="burstFailedShops">
-        <span class="text-muted small">None</span>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<!-- Filter section -->
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="row g-3 align-items-end">
       <div class="col-auto">
         <label class="form-label small" id="lblFrom">С</label>
         <input type="date" id="dateFrom" class="form-control form-control-sm">
@@ -162,70 +84,29 @@
 <script>
 let currentLang = '{{ lang }}';
 let lastData = null;
-const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
 
 const L = {
   ru: {
-    pageTitle: 'Финансы', syncTitle: 'Синхронизация данных',
-    shop: 'Магазин', sync: 'Синхронизировать', fullSync: 'Полная пересинхронизация',
+    pageTitle: 'Финансы',
+    shop: 'Магазин',
     from: 'С', to: 'По', search: 'Поиск по SKU', apply: 'Применить',
     export: 'Скачать Excel', sku: 'Артикул', product: 'Товар',
     amount: 'Кол-во', returns: 'Возвраты', revenue: 'Выручка',
     commission: 'Комиссия', logistics: 'Логистика', profit: 'Прибыль',
-    cost: 'Себестоимость', loading: 'Загрузка...', lastSync: 'Последняя синхронизация',
-    records: 'записей', syncing: 'Синхронизация...', done: 'Готово!',
-    noData: 'Нет данных. Сначала синхронизируйте.',
+    cost: 'Себестоимость', loading: 'Загрузка...',
     orders: 'заказов',
   },
   uz: {
-    pageTitle: 'Moliya', syncTitle: "Ma'lumotlarni sinxronlash",
-    shop: "Do'kon", sync: 'Sinxronlash', fullSync: "To'liq qayta sinxronlash",
+    pageTitle: 'Moliya',
+    shop: "Do'kon",
     from: 'Dan', to: 'Gacha', search: "SKU bo'yicha qidirish", apply: "Qo'llash",
     export: 'Excel yuklab olish', sku: 'Artikul', product: 'Mahsulot',
     amount: 'Miqdori', returns: 'Qaytarishlar', revenue: 'Tushum',
     commission: 'Komissiya', logistics: 'Logistika', profit: 'Foyda',
-    cost: 'Tannarx', loading: 'Yuklanmoqda...', lastSync: 'Oxirgi sinxronlash',
-    records: "yozuvlar", syncing: 'Sinxronlanmoqda...', done: 'Tayyor!',
-    noData: "Ma'lumot yo'q. Avval sinxronlang.",
+    cost: 'Tannarx', loading: 'Yuklanmoqda...',
     orders: 'buyurtmalar',
   }
 };
-
-Object.assign(L.ru, {
-  burstTitle: 'Hourly Burst',
-  burstHint: 'Refreshes every 15s',
-  burstStart: 'Start',
-  burstDuration: 'Duration',
-  burstSuccess: 'Success',
-  burstFailed: 'Failed',
-  burstWindow: 'Window',
-  burstFailedShops: 'Failed shops',
-  burstWaiting: 'Waiting for first run',
-  burstNone: 'None',
-  burstRunning: 'Running',
-  burstIdle: 'Idle',
-  burstCompleted: 'Completed',
-  burstPartial: 'Completed with failures',
-  burstStatusFailed: 'Failed',
-});
-
-Object.assign(L.uz, {
-  burstTitle: 'Hourly Burst',
-  burstHint: 'Har 15 soniyada yangilanadi',
-  burstStart: 'Boshlanish',
-  burstDuration: 'Davomiyligi',
-  burstSuccess: 'Muvaffaqiyatli',
-  burstFailed: 'Xatoliklar',
-  burstWindow: 'Oraliq',
-  burstFailedShops: "Xato do'konlar",
-  burstWaiting: 'Birinchi ishga tushishni kutmoqda',
-  burstNone: "Yo'q",
-  burstRunning: 'Ishlamoqda',
-  burstIdle: 'Kutmoqda',
-  burstCompleted: 'Tugadi',
-  burstPartial: 'Xatolar bilan tugadi',
-  burstStatusFailed: 'Xato',
-});
 
 function t(key) { return (L[currentLang] || L.ru)[key] || key; }
 
@@ -239,10 +120,7 @@ function toggleLang() {
 
 function applyLang() {
   document.getElementById('pageTitle').textContent = t('pageTitle');
-  document.getElementById('syncTitle').textContent = t('syncTitle');
   document.getElementById('lblShop').textContent = t('shop');
-  document.getElementById('syncBtnText').textContent = t('sync');
-  document.getElementById('fullSyncBtnText').textContent = t('fullSync');
   document.getElementById('lblFrom').textContent = t('from');
   document.getElementById('lblTo').textContent = t('to');
   document.getElementById('lblSearch').textContent = t('search');
@@ -258,211 +136,6 @@ function applyLang() {
   document.getElementById('thProfit').textContent = t('profit');
   document.getElementById('thCost').textContent = t('cost');
   document.getElementById('loadingText').textContent = t('loading');
-  applyAdminLabels();
-  updateSyncInfo();
-}
-
-function applyAdminLabels() {
-  if (!IS_ADMIN) return;
-  document.getElementById('burstTitle').textContent = t('burstTitle');
-  document.getElementById('burstHint').textContent = t('burstHint');
-  document.getElementById('burstStartLabel').textContent = t('burstStart');
-  document.getElementById('burstDurationLabel').textContent = t('burstDuration');
-  document.getElementById('burstSuccessLabel').textContent = t('burstSuccess');
-  document.getElementById('burstFailedLabel').textContent = t('burstFailed');
-  document.getElementById('burstWindowLabel').textContent = t('burstWindow');
-  document.getElementById('burstFailedShopsLabel').textContent = t('burstFailedShops');
-}
-
-function fmtDateTime(value) {
-  if (!value) return t('burstWaiting');
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
-}
-
-function fmtDuration(seconds) {
-  if (seconds == null || seconds === '') return '—';
-  const total = Math.max(0, Math.round(Number(seconds)));
-  if (!Number.isFinite(total)) return '—';
-  if (total < 60) return total + 's';
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  return mins + 'm ' + secs + 's';
-}
-
-function burstStatusText(status, inProgress) {
-  if (inProgress || status === 'running') return t('burstRunning');
-  if (status === 'completed') return t('burstCompleted');
-  if (status === 'partial_failure') return t('burstPartial');
-  if (status === 'failed') return t('burstStatusFailed');
-  return t('burstIdle');
-}
-
-function burstStatusClass(status, inProgress) {
-  if (inProgress || status === 'running') return 'text-bg-primary';
-  if (status === 'completed') return 'text-bg-success';
-  if (status === 'partial_failure') return 'text-bg-warning';
-  if (status === 'failed') return 'text-bg-danger';
-  return 'text-bg-secondary';
-}
-
-function renderBurstFailedShops(items) {
-  const box = document.getElementById('burstFailedShops');
-  if (!box) return;
-  if (!items || !items.length) {
-    box.innerHTML = '<span class="text-muted small">' + esc(t('burstNone')) + '</span>';
-    return;
-  }
-  box.innerHTML = items.map(item => {
-    const title = item.error ? ' title="' + esc(item.error) + '"' : '';
-    return '<span class="badge rounded-pill text-bg-light border"' + title + '>' + esc(item.shop_id) + '</span>';
-  }).join('');
-}
-
-function updateSyncInfo() {
-  const sel = document.getElementById('shopSelect');
-  const opt = sel.options[sel.selectedIndex];
-  const last = opt?.dataset.last;
-  const total = opt?.dataset.total || '0';
-  const info = document.getElementById('syncInfo');
-  if (last) {
-    info.textContent = t('lastSync') + ': ' + last + ' | ' + total + ' ' + t('records');
-  } else {
-    info.textContent = t('noData');
-  }
-}
-
-function _pollSyncJob(jobId, btn, status) {
-  const poll = setInterval(() => {
-    fetch('/api/finance/job-status/' + jobId)
-      .then(r => r.json())
-      .then(j => {
-        if (j.error && !j.status) { clearInterval(poll); btn.disabled = false; status.textContent = 'Error: ' + j.error; return; }
-        const pct = j.total_days ? Math.round(j.progress_days / j.total_days * 100) : 0;
-        if (j.status === 'running') {
-          status.textContent = t('syncing') + '  ' + pct + '% (' + j.progress_days + '/' + j.total_days + ' ' +
-            (currentLang === 'ru' ? 'дней' : 'kun') + ', ' + (j.records_fetched || 0) + ' ' + t('records') + ')';
-        } else if (j.status === 'completed') {
-          clearInterval(poll);
-          btn.disabled = false;
-          status.textContent = t('done') + ' ' + (j.records_fetched || 0) + ' ' + t('records') +
-            ' (' + (j.sync_type || '') + ': ' + (j.date_from || '') + ' - ' + (j.date_to || '') + ')';
-          refreshSyncInfo();
-        } else if (j.status === 'failed') {
-          clearInterval(poll);
-          btn.disabled = false;
-          status.textContent = 'Error: ' + (j.error || 'unknown');
-        }
-        // queued — keep polling
-      })
-      .catch(() => { clearInterval(poll); btn.disabled = false; status.textContent = 'Error: connection lost'; });
-  }, 2000);
-}
-
-function doSync() {
-  const shopId = document.getElementById('shopSelect').value;
-  const btn = document.getElementById('btnSync');
-  const status = document.getElementById('syncStatus');
-  btn.disabled = true;
-  status.textContent = t('syncing');
-  status.style.display = '';
-
-  fetch('/api/finance/sync', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shop_id: shopId})
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.error) { btn.disabled = false; status.textContent = 'Error: ' + d.error; return; }
-    _pollSyncJob(d.job_id, btn, status);
-  })
-  .catch(e => {
-    btn.disabled = false;
-    status.textContent = 'Error: ' + e;
-  });
-}
-
-function doFullSync() {
-  if (!confirm(currentLang === 'ru'
-    ? 'Удалить все данные и загрузить заново с 2022 года?'
-    : "Barcha ma'lumotlarni o'chirib, 2022-yildan qayta yuklash?")) return;
-
-  const shopId = document.getElementById('shopSelect').value;
-  const btn = document.getElementById('btnFullSync');
-  const status = document.getElementById('syncStatus');
-  btn.disabled = true;
-  status.textContent = t('syncing') + ' (2022-01-01 → ' + new Date().toISOString().slice(0,10) + ')...';
-  status.style.display = '';
-
-  fetch('/api/finance/sync-full', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shop_id: shopId})
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.error) { btn.disabled = false; status.textContent = 'Error: ' + d.error; return; }
-    _pollSyncJob(d.job_id, btn, status);
-  })
-  .catch(e => {
-    btn.disabled = false;
-    status.textContent = 'Error: ' + e;
-  });
-}
-
-function refreshSyncInfo() {
-  fetch('/api/finance/sync-status')
-    .then(r => r.json())
-    .then(d => {
-      const sel = document.getElementById('shopSelect');
-      for (const opt of sel.options) {
-        const info = d[opt.value];
-        if (info) {
-          opt.dataset.last = info.last_sync || '';
-          opt.dataset.total = info.total_records || 0;
-        }
-      }
-      updateSyncInfo();
-    });
-}
-
-function loadAdminDashboard() {
-  if (!IS_ADMIN) return;
-  fetch('/api/admin/finance/sync-dashboard')
-    .then(r => {
-      if (!r.ok) throw new Error('dashboard');
-      return r.json();
-    })
-    .then(data => {
-      const burst = data.hourly_burst || {};
-      const total = Number(burst.last_total_shops || 0);
-      const success = Number(burst.last_success_count || 0);
-      const failed = Number(burst.last_failed_count || 0);
-      const status = document.getElementById('burstStatus');
-
-      status.textContent = burstStatusText(burst.last_status, burst.in_progress);
-      status.className = 'badge ' + burstStatusClass(burst.last_status, burst.in_progress);
-
-      document.getElementById('burstStartValue').textContent = fmtDateTime(burst.last_started_at);
-      document.getElementById('burstDurationValue').textContent = burst.in_progress ? t('burstRunning') : fmtDuration(burst.last_duration_seconds);
-      document.getElementById('burstSuccessValue').textContent = total ? (fmt(success) + ' / ' + fmt(total)) : fmt(success);
-      document.getElementById('burstFailedValue').textContent = fmt(failed);
-
-      const hasWindow = burst.last_window_from && burst.last_window_to;
-      document.getElementById('burstWindowValue').textContent = hasWindow
-        ? (fmtDateTime(burst.last_window_from) + ' - ' + fmtDateTime(burst.last_window_to))
-        : t('burstWaiting');
-
-      renderBurstFailedShops(burst.last_failed_shops || []);
-    })
-    .catch(() => {
-      const status = document.getElementById('burstStatus');
-      if (status) {
-        status.textContent = t('burstStatusFailed');
-        status.className = 'badge text-bg-danger';
-      }
-    });
 }
 
 function loadData() {
@@ -562,13 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const firstDay = today.slice(0,8) + '01';
   document.getElementById('dateFrom').value = firstDay;
   document.getElementById('dateTo').value = today;
-  document.getElementById('shopSelect').addEventListener('change', updateSyncInfo);
   applyLang();
-  updateSyncInfo();
-  if (IS_ADMIN) {
-    loadAdminDashboard();
-    window.setInterval(loadAdminDashboard, 15000);
-  }
 });
 </script>
 {% endblock %}

@@ -3,17 +3,18 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from flask import Blueprint, render_template, request, send_file
 from flask_login import current_user, login_required
-from sqlalchemy import desc, func, select
+from sqlalchemy import func, select
 
 from core.auth_helpers import _current_user_is_admin, _json_response, _user_shop_ids
 from core.http_client import http_json
+from core.sales_reads import day_bounds_tashkent
 from core.time_helpers import _today_app_tz
 from extensions import SessionLocal
-from models import FinanceOrder, FinanceSyncLog, Shop
+from models import ProductGroup, SalesLine, Shop, Variant
 
 try:
     import openpyxl
@@ -38,62 +39,18 @@ def finance_page():
     uid = int(current_user.get_id())
     allowed = _user_shop_ids(uid)
     with SessionLocal() as db:
-        shops = db.execute(select(Shop).where(Shop.id.in_(allowed))).scalars().all() if allowed else []
-        sync_info = {}
-        if shops:
-            uzum_ids = [s.uzum_id for s in shops]
-            latest_log_subq = (
-                select(
-                    FinanceSyncLog.shop_id,
-                    func.max(FinanceSyncLog.synced_at).label("max_synced_at"),
-                )
-                .where(FinanceSyncLog.shop_id.in_(uzum_ids))
-                .group_by(FinanceSyncLog.shop_id)
-                .subquery()
-            )
-            log_rows = db.execute(
-                select(FinanceSyncLog).join(
-                    latest_log_subq,
-                    (FinanceSyncLog.shop_id == latest_log_subq.c.shop_id) &
-                    (FinanceSyncLog.synced_at == latest_log_subq.c.max_synced_at),
-                )
+        shops = (
+            db.execute(
+                select(Shop).where(Shop.id.in_(allowed)).order_by(Shop.uzum_id)
             ).scalars().all()
-            last_log_map = {log.shop_id: log for log in log_rows}
-            count_rows = db.execute(
-                select(FinanceOrder.shop_id, func.count(FinanceOrder.id).label("cnt"))
-                .where(FinanceOrder.shop_id.in_(uzum_ids))
-                .group_by(FinanceOrder.shop_id)
-            ).all()
-            total_map = {row.shop_id: row.cnt for row in count_rows}
-            for shop in shops:
-                last = last_log_map.get(shop.uzum_id)
-                sync_info[shop.uzum_id] = {
-                    "last_sync": last.synced_at.strftime("%Y-%m-%d %H:%M") if last else None,
-                    "last_type": last.sync_type if last else None,
-                    "total_records": total_map.get(shop.uzum_id, 0),
-                }
+            if allowed
+            else []
+        )
     return render_template(
         "finance_sync.html",
         shops=shops,
-        sync_info=sync_info,
         is_admin=_current_user_is_admin(),
     )
-
-
-@finance_bp.post("/api/finance/sync")
-@login_required
-def api_finance_sync():
-    shop_id = request.json.get("shop_id", "").strip() if request.is_json else ""
-    if not shop_id:
-        return _json_response({"error": "shop_id required"}, 400)
-
-    with _app._finance_active_lock:
-        if shop_id in _app._finance_active_shops:
-            return _json_response({"error": "finance sync already running for this shop"}, 409)
-
-    job_id = _app._create_sync_job(shop_id, "auto")
-    _app._onboard_executor.submit(_app._run_manual_sync_job, job_id, shop_id, False)
-    return _json_response({"job_id": job_id, "status": "queued", "shop_id": shop_id})
 
 
 @finance_bp.get("/api/finance/debug-fetch")
@@ -161,37 +118,6 @@ def api_finance_debug_fetch():
     })
 
 
-@finance_bp.post("/api/finance/sync-full")
-@login_required
-def api_finance_sync_full():
-    shop_id = request.json.get("shop_id", "").strip() if request.is_json else ""
-    if not shop_id:
-        return _json_response({"error": "shop_id required"}, 400)
-
-    with _app._finance_active_lock:
-        if shop_id in _app._finance_active_shops:
-            return _json_response({"error": "finance sync already running for this shop"}, 409)
-
-    job_id = _app._create_sync_job(shop_id, "full")
-    _app._onboard_executor.submit(_app._run_manual_sync_job, job_id, shop_id, True)
-    return _json_response({"job_id": job_id, "status": "queued", "shop_id": shop_id})
-
-
-@finance_bp.get("/api/finance/job-status/<job_id>")
-@login_required
-def api_finance_job_status(job_id):
-    job = _app._get_sync_job(job_id)
-    if not job:
-        return _json_response({"error": "job not found"}, 404)
-    return _json_response(job)
-
-
-@finance_bp.get("/api/finance/active-jobs")
-@login_required
-def api_finance_active_jobs():
-    return _json_response(_app._list_sync_jobs(statuses=("queued", "running")))
-
-
 @finance_bp.get("/api/finance/data")
 @login_required
 def api_finance_data():
@@ -228,49 +154,98 @@ def api_finance_data():
         if not target_shops:
             return _json_response({"items": [], "totals": {}})
 
+        # target_shops still holds Shop.uzum_id strings; SalesLine.shop_id is int.
+        target_shop_ints: list[int] = []
+        for sid in target_shops:
+            try:
+                target_shop_ints.append(int(sid))
+            except (TypeError, ValueError):
+                continue
+        if not target_shop_ints:
+            return _json_response({"items": [], "totals": {}})
+
+        # Tashkent window [d_from 00:00, d_to+1 00:00). sales_lines has
+        # per-order rows so a strict right-open window is the correct shape.
+        start_ts, _ = day_bounds_tashkent(d_from)
+        _, end_ts = day_bounds_tashkent(d_to)
+
         where_clauses = [
-            FinanceOrder.shop_id.in_(target_shops),
-            FinanceOrder.period_from <= d_to,
-            FinanceOrder.period_to >= d_from,
+            SalesLine.shop_id.in_(target_shop_ints),
+            SalesLine.created_at >= start_ts,
+            SalesLine.created_at < end_ts,
         ]
         if sku_filter:
-            where_clauses.append(FinanceOrder.sku_title.contains(sku_filter))
+            where_clauses.append(SalesLine.sku_title.contains(sku_filter))
 
-        title_col = func.max(FinanceOrder.product_title_ru if lang == "ru" else FinanceOrder.product_title)
+        # Server-side GROUP BY — single query. `sales_lines` carries no
+        # product_title_ru / product_title / image_url / characteristics
+        # columns; those are resolved via a cheap Variant lookup below.
         stmt = (
             select(
-                FinanceOrder.sku_title,
-                func.max(FinanceOrder.product_title_ru).label("product_title_ru"),
-                func.max(FinanceOrder.product_title).label("product_title"),
-                func.max(FinanceOrder.product_id).label("product_id"),
-                func.max(FinanceOrder.image_url).label("image_url"),
-                func.max(FinanceOrder.shop_id).label("shop_id"),
-                func.max(FinanceOrder.characteristics).label("characteristics"),
-                func.sum(FinanceOrder.amount).label("amount"),
-                func.sum(FinanceOrder.amount_returns).label("amount_returns"),
-                func.sum(FinanceOrder.sell_price).label("sell_price"),
-                func.sum(FinanceOrder.commission).label("commission"),
-                func.sum(FinanceOrder.seller_profit).label("seller_profit"),
-                func.sum(FinanceOrder.purchase_price).label("purchase_price"),
-                func.sum(FinanceOrder.logistics_fee).label("logistics_fee"),
-                func.sum(FinanceOrder.seller_discount).label("seller_discount"),
-                func.count(FinanceOrder.id).label("row_count"),
+                SalesLine.sku_title.label("sku_title"),
+                func.max(SalesLine.product_id).label("product_id"),
+                func.max(SalesLine.shop_id).label("shop_id"),
+                func.max(SalesLine.sku_id).label("sku_id"),
+                func.coalesce(func.sum(SalesLine.qty), 0).label("amount"),
+                func.coalesce(func.sum(SalesLine.qty_returns), 0).label("amount_returns"),
+                func.coalesce(func.sum(SalesLine.revenue), 0).label("sell_price"),
+                func.coalesce(func.sum(SalesLine.commission), 0).label("commission"),
+                func.coalesce(func.sum(SalesLine.seller_profit), 0).label("seller_profit"),
+                func.coalesce(func.sum(SalesLine.purchase_price), 0).label("purchase_price"),
+                func.coalesce(func.sum(SalesLine.logistics_fee), 0).label("logistics_fee"),
+                func.coalesce(func.sum(SalesLine.promo_amount), 0).label("seller_discount"),
+                func.count().label("row_count"),
             )
             .where(*where_clauses)
-            .group_by(FinanceOrder.sku_title)
-            .order_by(func.sum(FinanceOrder.amount).desc())
+            .group_by(SalesLine.sku_title)
+            .order_by(func.sum(SalesLine.qty).desc())
         )
 
         rows = db.execute(stmt).all()
-        total_row_count = sum(r.row_count for r in rows)
-        items = [
-            {
+        total_row_count = sum(int(r.row_count or 0) for r in rows)
+
+        # Enrichment: resolve product_title_ru / product_title / image_url /
+        # characteristics via Variant lookup. Cheap — one IN-query per page.
+        sku_titles = [r.sku_title for r in rows if r.sku_title]
+        variant_meta: dict[str, dict] = {}
+        if sku_titles:
+            var_rows = db.execute(
+                select(
+                    Variant.sku,
+                    Variant.image_url,
+                    Variant.color,
+                    Variant.size,
+                    ProductGroup.name,
+                )
+                .join(ProductGroup, Variant.group_id == ProductGroup.id)
+                .where(Variant.sku.in_(sku_titles))
+            ).all()
+            for vr in var_rows:
+                bits: list[str] = []
+                if vr.color:
+                    bits.append(str(vr.color))
+                if vr.size:
+                    bits.append(str(vr.size))
+                variant_meta[vr.sku] = {
+                    "product_title": vr.name or "",
+                    "image_url": vr.image_url or "",
+                    "characteristics": ", ".join(bits),
+                }
+
+        items = []
+        for r in rows:
+            meta = variant_meta.get(r.sku_title, {})
+            product_title = meta.get("product_title", "")
+            # sales_lines doesn't split ru/uz titles — use Variant group name
+            # for both languages (the finance page shows whichever the user
+            # chose; SKU + characteristics carry the variant info).
+            items.append({
                 "sku": r.sku_title,
-                "product_title": (r.product_title_ru or r.product_title or "") if lang == "ru" else (r.product_title or ""),
+                "product_title": product_title,
                 "product_id": r.product_id,
-                "image_url": r.image_url or "",
-                "shop_id": r.shop_id,
-                "characteristics": r.characteristics or "",
+                "image_url": meta.get("image_url", ""),
+                "shop_id": str(r.shop_id) if r.shop_id is not None else "",
+                "characteristics": meta.get("characteristics", ""),
                 "amount": int(r.amount or 0),
                 "amount_returns": int(r.amount_returns or 0),
                 "sell_price": float(r.sell_price or 0),
@@ -279,9 +254,7 @@ def api_finance_data():
                 "purchase_price": float(r.purchase_price or 0),
                 "logistics_fee": float(r.logistics_fee or 0),
                 "seller_discount": float(r.seller_discount or 0),
-            }
-            for r in rows
-        ]
+            })
         labels = {
             "ru": {
                 "amount": "Количество", "returns": "Возвраты", "revenue": "Выручка",
@@ -321,139 +294,6 @@ def api_finance_data():
             },
             "items": items,
         })
-
-
-@finance_bp.get("/api/finance/sync-status")
-@login_required
-def api_finance_sync_status():
-    uid = int(current_user.get_id())
-    allowed = _user_shop_ids(uid)
-    with SessionLocal() as db:
-        shops = db.execute(select(Shop).where(Shop.id.in_(allowed))).scalars().all() if allowed else []
-        if not shops:
-            return _json_response({})
-
-        uzum_ids = [s.uzum_id for s in shops]
-
-        # Batch: latest sync log per shop in one query
-        latest_log_subq = (
-            select(
-                FinanceSyncLog.shop_id,
-                func.max(FinanceSyncLog.synced_at).label("max_synced_at"),
-            )
-            .where(FinanceSyncLog.shop_id.in_(uzum_ids))
-            .group_by(FinanceSyncLog.shop_id)
-            .subquery()
-        )
-        log_rows = db.execute(
-            select(FinanceSyncLog).join(
-                latest_log_subq,
-                (FinanceSyncLog.shop_id == latest_log_subq.c.shop_id) &
-                (FinanceSyncLog.synced_at == latest_log_subq.c.max_synced_at),
-            )
-        ).scalars().all()
-        last_log_map = {log.shop_id: log for log in log_rows}
-
-        # Batch: total order count per shop in one query
-        count_rows = db.execute(
-            select(FinanceOrder.shop_id, func.count(FinanceOrder.id).label("cnt"))
-            .where(FinanceOrder.shop_id.in_(uzum_ids))
-            .group_by(FinanceOrder.shop_id)
-        ).all()
-        total_map = {row.shop_id: row.cnt for row in count_rows}
-
-        result = {}
-        for shop in shops:
-            last = last_log_map.get(shop.uzum_id)
-            result[shop.uzum_id] = {
-                "name": shop.name or shop.uzum_id,
-                "last_sync": last.synced_at.strftime("%Y-%m-%d %H:%M") if last else None,
-                "last_type": last.sync_type if last else None,
-                "records_fetched": last.records_fetched if last else 0,
-                "total_records": total_map.get(shop.uzum_id, 0),
-            }
-    return _json_response(result)
-
-
-@finance_bp.get("/api/admin/finance/sync-dashboard")
-@login_required
-def api_finance_sync_dashboard():
-    if not _current_user_is_admin():
-        return _json_response({"error": "Admin only"}, 403)
-
-    with _app._finance_active_lock:
-        active = sorted(_app._finance_active_shops)
-
-    with _app._finance_stats_lock:
-        stats = dict(_app._finance_stats)
-    hourly_burst = _app._hourly_burst_stats_snapshot()
-
-    queue_size = 0
-    onboard_queue_size = 0
-    try:
-        queue_size = _app._finance_executor._work_queue.qsize()
-        onboard_queue_size = _app._onboard_executor._work_queue.qsize()
-    except Exception:
-        pass
-
-    with _app._finance_queue_lock:
-        pending_queue_size = len(_app._finance_pending_shop_ids)
-
-    active_manual_jobs = [
-        {key: value for key, value in job.items() if key != "created_at"}
-        for job in _app._list_sync_jobs(statuses=("queued", "running"))
-    ]
-
-    with SessionLocal() as db:
-        total_shops = db.execute(
-            select(func.count(func.distinct(Shop.uzum_id))).where(Shop.uzum_id.isnot(None))
-        ).scalar() or 0
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-        recent_syncs = db.execute(
-            select(
-                FinanceSyncLog.sync_type,
-                func.count(FinanceSyncLog.id),
-                func.sum(FinanceSyncLog.records_fetched),
-            )
-            .where(FinanceSyncLog.synced_at >= one_hour_ago)
-            .group_by(FinanceSyncLog.sync_type)
-        ).all()
-        synced_shops = db.execute(
-            select(func.count(func.distinct(FinanceSyncLog.shop_id)))
-        ).scalar() or 0
-        stragglers = db.execute(
-            select(
-                FinanceSyncLog.shop_id,
-                func.max(FinanceSyncLog.synced_at).label("last_sync"),
-            )
-            .group_by(FinanceSyncLog.shop_id)
-            .order_by(func.max(FinanceSyncLog.synced_at).asc())
-            .limit(20)
-        ).all()
-
-    return _json_response({
-        "total_shops": total_shops,
-        "synced_shops": synced_shops,
-        "never_synced": total_shops - synced_shops,
-        "currently_syncing": active,
-        "currently_syncing_count": len(active),
-        "executor_queue_size": queue_size + pending_queue_size,
-        "pending_queue_size": pending_queue_size,
-        "executor_workers": _app.FINANCE_AUTO_REFRESH_WORKERS,
-        "onboard_queue_size": onboard_queue_size,
-        "onboard_max_workers": _app.ONBOARD_MAX_CONCURRENT_SYNCS,
-        "active_manual_jobs": active_manual_jobs,
-        "stats": stats,
-        "hourly_burst": hourly_burst,
-        "last_hour": [
-            {"type": sync_type, "count": count, "records": records or 0}
-            for sync_type, count, records in recent_syncs
-        ],
-        "stragglers": [
-            {"shop_id": shop_id, "last_sync": last_sync.isoformat() if last_sync else None}
-            for shop_id, last_sync in stragglers
-        ],
-    })
 
 
 @finance_bp.post("/api/finance/export")

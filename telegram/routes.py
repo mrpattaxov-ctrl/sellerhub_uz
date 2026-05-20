@@ -4,14 +4,20 @@ from __future__ import annotations
 import os
 import secrets
 
-from flask import Blueprint, jsonify, request, url_for
+from flask import Blueprint, jsonify, request, session, url_for
 from flask_login import login_user
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash
 
 from extensions import SessionLocal
 from models import User
-from core.subscriptions import _ensure_user_trial_started
+from core.redis_client import unrevoke_user
+from core.subscriptions import (
+    _ensure_user_trial_started,
+    _get_or_create_subscription_settings,
+    _subscription_status_for_user,
+    write_session_subscription,
+)
 
 
 telegram_bp = Blueprint("telegram_bp", __name__)
@@ -65,6 +71,13 @@ def api_tg_check_code(code):
             db.commit()
             db.refresh(user)
         login_user(user)
+        # Step 0: mirror subscription state into the signed session so the
+        # gate's fast path hits on the next request — and clear any stale
+        # revoke so a re-login unblocks the user.
+        settings = _get_or_create_subscription_settings(db)
+        status = _subscription_status_for_user(user, settings=settings)
+        write_session_subscription(session, status)
+        unrevoke_user(user.id)
 
     _app._tg_delete(code)
     return jsonify({"status": "ok", "redirect": url_for("products_bp.groups_page")})
@@ -89,7 +102,17 @@ def api_tg_send_approval():
             if user:
                 break
         if not user or not user.telegram_id:
-            return jsonify({"error": "Телефон не найден или Telegram не привязан к аккаунту. Войдите через имя пользователя."}), 404
+            cfg = _app._tg_config()
+            bot_username = cfg.get("bot_username", "")
+            # Create a contact_link pending token — bot will confirm it when user shares contact
+            token = secrets.token_hex(16)
+            # Store phone digits in tg_username field (reused for contact_link type)
+            _app._tg_set(token, type="contact_link", tg_username=digits)
+            return jsonify({
+                "not_linked": True,
+                "bot_username": bot_username,
+                "token": token,
+            }), 200
         user_id = user.id
         tg_id = user.telegram_id
 
@@ -126,7 +149,7 @@ def api_tg_send_approval():
 def api_tg_check_approval(token):
     _app._tg_clean_expired()
     entry = _app._tg_get(token)
-    if not entry or entry.get("type") != "approval":
+    if not entry or entry.get("type") not in ("approval", "contact_link"):
         return jsonify({"status": "expired"})
     if not entry.get("confirmed"):
         return jsonify({"status": "waiting"})
@@ -136,6 +159,12 @@ def api_tg_check_approval(token):
         if not user:
             return jsonify({"status": "error"})
         login_user(user)
+        # Step 0: mirror subscription state into the signed session + clear
+        # any stale revoke on re-login.
+        settings = _get_or_create_subscription_settings(db)
+        status = _subscription_status_for_user(user, settings=settings)
+        write_session_subscription(session, status)
+        unrevoke_user(user.id)
 
     _app._tg_delete(token)
     return jsonify({"status": "ok", "redirect": url_for("products_bp.groups_page")})

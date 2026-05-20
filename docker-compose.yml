@@ -30,11 +30,29 @@ services:
         limits:
           memory: 2G
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "no", "--save", "", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
   app:
     build: .
     restart: always
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "${APP_PORT:-5000}:5000"
@@ -46,17 +64,54 @@ services:
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Tashkent}
       APP_TZ_OFFSET_HOURS: ${APP_TZ_OFFSET_HOURS:-5}
       DATABASE_URL: postgresql+psycopg://uzum:${POSTGRES_PASSWORD:-uzum_secret_change_me}@db:5432/uzum
+      REDIS_URL: redis://redis:6379/0
       FINANCE_AUTO_REFRESH_WORKERS: "100"
       FINANCE_AUTO_SYNC_WORKERS_PER_SHOP: "3"
       DB_POOL_SIZE: "80"
       DB_MAX_OVERFLOW: "150"
       ONBOARD_MAX_CONCURRENT_SYNCS: "20"
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:5000
+      - --workers
+      - "4"
+      - --threads
+      - "16"
+      - --timeout
+      - "600"
+      - --reload
+      - app:app
     volumes:
       - app_data:/app/data
     deploy:
       resources:
         limits:
           memory: 6G
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - .git/
+            - .claude/
+            - __pycache__/
+            - "**/__pycache__/"
+            - "*.pyc"
+            - .venv/
+            - venv/
+            - data/
+            - legacy/
+            - migrations/versions/__pycache__/
+            - node_modules/
+            - .pytest_cache/
+            - "*.xlsx"
+            - "*.log"
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: Dockerfile
 
 volumes:
   pgdata:

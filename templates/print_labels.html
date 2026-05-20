@@ -157,8 +157,8 @@
 </head>
 <body>
   <div class="screen-toolbar">
-    <div class="screen-toolbar__meta">Этикеток: {{ variants|length }}</div>
-    <button class="screen-toolbar__btn" type="button" onclick="window.print()">Печать еще раз</button>
+    <div class="screen-toolbar__meta">{{ t.label_count_prefix }} {{ variants|length }}</div>
+    <button class="screen-toolbar__btn" type="button" onclick="window.print()">{{ t.label_print_again }}</button>
   </div>
 
   <div class="labels-sheet">

@@ -1,12 +1,18 @@
 """Shared extensions: database engine, session factory, login manager."""
 from __future__ import annotations
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from flask_login import LoginManager
 
-from config import DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_RECYCLE_SECONDS
+from config import (
+    DATABASE_URL,
+    DB_POOL_SIZE,
+    DB_MAX_OVERFLOW,
+    DB_POOL_RECYCLE_SECONDS,
+    DB_PREPARE_THRESHOLD,
+)
 
 # ── Validate DATABASE_URL ─────────────────────────────────────────────
 if not DATABASE_URL:
@@ -35,6 +41,43 @@ engine = create_engine(
     max_overflow=DB_MAX_OVERFLOW,
     pool_recycle=DB_POOL_RECYCLE_SECONDS,
 )
+
+
+def _resolve_prepare_threshold(raw: str):
+    """Map DB_PREPARE_THRESHOLD env value to psycopg3's prepare_threshold.
+
+    - "none" / "off" / "disable" / ""  -> None  (never auto-prepare)
+    - integer string                    -> int
+    - anything else                     -> None (safe default for PgBouncer)
+    """
+    if raw in ("", "none", "off", "disable", "disabled", "null"):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+_PREPARE_THRESHOLD = _resolve_prepare_threshold(DB_PREPARE_THRESHOLD)
+
+
+@event.listens_for(engine, "connect")
+def _disable_psycopg_prepared_statements(dbapi_connection, connection_record):
+    """Disable psycopg3 server-side prepared statements for PgBouncer txn-mode.
+
+    psycopg3 auto-prepares after 5 executions of the same SQL text. Under
+    PgBouncer transaction pooling the backend connection rotates between
+    clients, so a prepared statement registered on one real connection is
+    invisible to the next -> "prepared statement ... does not exist".
+    Setting prepare_threshold = None on each new DB-API connection disables
+    it entirely.
+    """
+    try:
+        dbapi_connection.prepare_threshold = _PREPARE_THRESHOLD
+    except Exception:
+        # psycopg2 or other drivers don't have this attr; safe to ignore.
+        pass
+
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, future=True)
 

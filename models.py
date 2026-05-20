@@ -1,5 +1,6 @@
 from datetime import datetime, date
-from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, text as sql_text
+from decimal import Decimal
+from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, Numeric, Index, CheckConstraint, text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from flask_login import UserMixin
 
@@ -122,6 +123,22 @@ class VariantSale(Base):
     variant: Mapped["Variant"] = relationship(back_populates="sales")
 
 
+class PosActionLog(Base):
+    __tablename__ = "pos_action_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    shop_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("shops.id"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    items_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    reverted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_pos_action_log_user_created", "user_id", "created_at"),
+    )
+
+
 class User(UserMixin, Base):
     __tablename__ = "users"
 
@@ -129,6 +146,10 @@ class User(UserMixin, Base):
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
     api_key: Mapped[str] = mapped_column(String(500), nullable=True)
+    # Per-user Uzum Seller OpenAPI token (https://api-seller.uzum.uz/api/seller-openapi).
+    # Pasted by the user in My Shops to discover their owned shops; persisted
+    # on first successful /v1/shops probe.
+    uzum_openapi_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # True for the platform admin (you). Only admins can set the Uzum token,
     # create other users, and assign shops.
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -294,67 +315,6 @@ class PaymeTransaction(Base):
     )
 
 
-class FinanceOrder(Base):
-    """Cached grouped finance data from Uzum seller API (group=true)."""
-    __tablename__ = "finance_orders"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    period_from: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    period_to: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    sku_title: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
-    sku_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
-    product_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
-    product_title: Mapped[str] = mapped_column(String(500), nullable=True)      # Uzbek
-    product_title_ru: Mapped[str] = mapped_column(String(500), nullable=True)  # Russian
-    image_url: Mapped[str] = mapped_column(String(800), nullable=True)
-    characteristics: Mapped[str] = mapped_column(String(300), nullable=True)        # e.g. "20, Синий"
-    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    amount_returns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    sell_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)      # total for period
-    purchase_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # total for period
-    seller_discount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    seller_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    commission: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    withdrawn_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    logistics_fee: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-
-class FinanceSyncLog(Base):
-    """Tracks when finance data was last synced per shop."""
-    __tablename__ = "finance_sync_log"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    sync_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "full" or "refresh"
-    date_from: Mapped[date] = mapped_column(Date, nullable=False)
-    date_to: Mapped[date] = mapped_column(Date, nullable=False)
-    records_fetched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-
-class FinanceHourlySnapshot(Base):
-    """Snapshot of daily sales totals taken each hour.
-
-    Hourly delta = current finance_orders totals - previous snapshot.
-    Zero API calls needed — reads entirely from PostgreSQL.
-    """
-    __tablename__ = "finance_hourly_snapshots"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    sku_title: Mapped[str] = mapped_column(String(300), nullable=False)
-    snapshot_hour: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
-    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    sell_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    purchase_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    seller_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    commission: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    logistics_fee: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-
 class NotificationSettings(Base):
     __tablename__ = "notification_settings"
 
@@ -398,36 +358,6 @@ class NotificationSettings(Base):
     )
 
 
-class WarehouseExpenseSnapshot(Base):
-    """Daily warehouse-expense snapshot per shop for Telegram summaries."""
-    __tablename__ = "warehouse_expense_snapshots"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    expense_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    items_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    total_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-
-class SyncJob(Base):
-    """Cross-worker async sync job state stored in the database."""
-    __tablename__ = "sync_jobs"
-
-    job_id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    sync_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued", index=True)
-    progress_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    total_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    records_fetched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    date_from: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    date_to: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    error: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
-
-
 class TelegramPending(Base):
     """Pending Telegram login requests — stored in DB so all gunicorn workers can access."""
     __tablename__ = "telegram_pending"
@@ -439,3 +369,155 @@ class TelegramPending(Base):
     tg_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 1 — Uzum Reports API migration (SELLS_REPORT group=false +
+# EXPENSES_REPORT). See migrations/versions/20260419_0001_phase1_sales_reports.py
+# and project_sales_reports_implementation_plan.md for the full design.
+#
+# Business timestamps (created_at, received_at, charged_at) are NAIVE
+# Tashkent local time — verbatim from the CSV, NO tz shift.
+# Infra timestamps (synced_at, last_*_at, last_attempt_at) are NAIVE UTC
+# (datetime.utcnow()).
+# ─────────────────────────────────────────────────────────────────────
+
+
+class SalesLine(Base):
+    """Per-order-line sales ledger from SELLS_REPORT group=false.
+
+    PK = (shop_id, order_id, sku_id). NO `day` column — all range queries
+    go through `created_at` (the Tashkent timestamp from the CSV) with the
+    `(shop_id, created_at DESC)` index.
+    """
+    __tablename__ = "sales_lines"
+
+    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    order_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sku_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+    sku_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    barcode: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    product_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Rows with status == "Отменен" are DROPPED at ingest time; the column
+    # is kept so audit/debug can inspect statuses of rows that survived.
+    status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    # Business timestamps — naive Tashkent (verbatim CSV).
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    qty_returns: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    seller_profit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    commission: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    promo_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    purchase_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    logistics_fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+
+    # Infra timestamp — naive UTC via datetime.utcnow().
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_sales_lines_shop_created",
+            "shop_id",
+            sql_text("created_at DESC"),
+        ),
+        Index(
+            "ix_sales_lines_shop_sku_created",
+            "shop_id",
+            "sku_id",
+            sql_text("created_at DESC"),
+        ),
+    )
+
+
+class ExpensesLedger(Base):
+    """Per-operation expenses from EXPENSES_REPORT.
+
+    Stores ALL rows including `Логистика` and `Возврат` — filtering happens
+    at read/notification time. `amount` is ALWAYS positive; direction lives
+    in `op_type` (`Оплата` = outflow, `Возврат` = income).
+    """
+    __tablename__ = "expenses_ledger"
+
+    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+
+    # Business timestamp — naive Tashkent (verbatim CSV).
+    charged_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+
+    source: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    service: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    op_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+    qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    # ALWAYS positive; direction via op_type.
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+
+    # Infra timestamp — naive UTC.
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="ck_expenses_ledger_amount_nonneg"),
+        Index("ix_expenses_ledger_shop_day", "shop_id", "day"),
+        Index(
+            "ix_expenses_ledger_shop_charged",
+            "shop_id",
+            sql_text("charged_at DESC"),
+        ),
+    )
+
+
+class ShopBackfillChunk(Base):
+    """Initial-backfill chunk state for NEW shops only (2022 → today).
+
+    NOT used for the nightly 45-day refetch — that's a single API call per
+    shop. Drained by `_onboarding_backfill_loop` via
+    `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`.
+    """
+    __tablename__ = "shop_backfill_chunks"
+
+    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chunk_start: Mapped[date] = mapped_column(Date, primary_key=True)
+    chunk_end: Mapped[date] = mapped_column(Date, primary_key=True)
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default=sql_text("'pending'"),
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Infra timestamp — naive UTC.
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_shop_backfill_chunks_status", "status", "shop_id"),
+    )
+
+
+class ShopSyncState(Base):
+    """Per-shop high-level scheduler state for the Reports pipeline."""
+    __tablename__ = "shop_sync_state"
+
+    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    backfill_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default=sql_text("'pending'"),
+    )
+    backfill_through_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Infra timestamps — naive UTC.
+    last_hourly_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_nightly_refetch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_expenses_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

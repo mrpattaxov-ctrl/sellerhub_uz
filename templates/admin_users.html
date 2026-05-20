@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="mb-0">Управление пользователями</h4>
+  <h4 class="mb-0">{{ t.admin_users_title }}</h4>
   <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
-    + Новый пользователь
+    {{ t.admin_new_user_btn }}
   </button>
 </div>
 
@@ -12,10 +12,10 @@
     <thead>
       <tr>
         <th>ID</th>
-        <th>Логин</th>
-        <th>Роль</th>
-        <th>Магазины</th>
-        <th>Действия</th>
+        <th>{{ t.admin_login_col }}</th>
+        <th>{{ t.admin_role_col }}</th>
+        <th>{{ t.common_shops }}</th>
+        <th>{{ t.common_actions }}</th>
       </tr>
     </thead>
     <tbody id="users-tbody">
@@ -25,9 +25,9 @@
         <td><strong>{{ u.username }}</strong></td>
         <td>
           {% if u.is_admin %}
-          <span class="badge bg-danger">Админ</span>
+          <span class="badge bg-danger">{{ t.admin_role_admin }}</span>
           {% else %}
-          <span class="badge bg-secondary">Продавец</span>
+          <span class="badge bg-secondary">{{ t.admin_role_seller }}</span>
           {% endif %}
         </td>
         <td>
@@ -38,7 +38,7 @@
             {% if not u.is_admin %}
             <button class="btn btn-outline-secondary btn-sm py-0"
                     onclick="openAssignModal({{ u.id }}, '{{ u.username }}')">
-              + магазин
+              {{ t.admin_add_shop_link }}
             </button>
             {% endif %}
           </div>
@@ -47,7 +47,7 @@
           {% if not u.is_admin %}
           <button class="btn btn-outline-danger btn-sm"
                   onclick="deleteUser({{ u.id }}, '{{ u.username }}')">
-            Удалить
+            {{ t.nav_delete }}
           </button>
           {% endif %}
         </td>
@@ -62,23 +62,23 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Создать пользователя</h5>
+        <h5 class="modal-title">{{ t.admin_create_user_title }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label">Логин</label>
+          <label class="form-label">{{ t.admin_login_col }}</label>
           <input id="newUsername" class="form-control" placeholder="seller_ivanov">
         </div>
         <div class="mb-3">
-          <label class="form-label">Пароль</label>
+          <label class="form-label">{{ t.common_password }}</label>
           <input id="newPassword" type="password" class="form-control">
         </div>
         <div id="createUserError" class="alert alert-danger d-none"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-        <button class="btn btn-primary" onclick="createUser()">Создать</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">{{ t.nav_cancel }}</button>
+        <button class="btn btn-primary" onclick="createUser()">{{ t.admin_create_user_btn }}</button>
       </div>
     </div>
   </div>
@@ -89,25 +89,25 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Назначить магазин — <span id="assignUsername"></span></h5>
+        <h5 class="modal-title">{{ t.admin_assign_shop_title }} — <span id="assignUsername"></span></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <label class="form-label">Выберите магазин</label>
+        <label class="form-label">{{ t.admin_select_shop_label }}</label>
         <select id="assignShopSelect" class="form-select">
-          <option value="">— выберите —</option>
+          <option value="">—</option>
           {% for s in shops %}
           <option value="{{ s.id }}" data-owner="{{ s.owner_id or '' }}">
             {{ s.name or s.uzum_id }} (ID: {{ s.uzum_id }})
-            {% if s.owner_id and s.owner_id != 0 %} [занят]{% endif %}
+            {% if s.owner_id and s.owner_id != 0 %} {{ t.admin_shop_occupied }}{% endif %}
           </option>
           {% endfor %}
         </select>
         <div id="assignError" class="alert alert-danger d-none mt-2"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-        <button class="btn btn-primary" onclick="assignShop()">Назначить</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">{{ t.nav_cancel }}</button>
+        <button class="btn btn-primary" onclick="assignShop()">{{ t.admin_assign_btn }}</button>
       </div>
     </div>
   </div>
@@ -136,7 +136,7 @@ async function assignShop() {
     location.reload();
   } else {
     const el = document.getElementById('assignError');
-    el.textContent = d.error || 'Ошибка';
+    el.textContent = d.error || '{{ t.common_error }}';
     el.classList.remove('d-none');
   }
 }
@@ -146,7 +146,7 @@ async function createUser() {
   const password = document.getElementById('newPassword').value.trim();
   const errEl = document.getElementById('createUserError');
   if (!username || !password) {
-    errEl.textContent = 'Заполните логин и пароль'; errEl.classList.remove('d-none'); return;
+    errEl.textContent = '{{ t.admin_fill_error }}'; errEl.classList.remove('d-none'); return;
   }
   const r = await fetch('/api/admin/users', {
     method: 'POST',
@@ -157,19 +157,19 @@ async function createUser() {
   if (d.ok) {
     location.reload();
   } else {
-    errEl.textContent = d.error || 'Ошибка';
+    errEl.textContent = d.error || '{{ t.common_error }}';
     errEl.classList.remove('d-none');
   }
 }
 
 async function deleteUser(uid, username) {
-  if (!confirm(`Удалить пользователя "${username}"? Его магазины станут свободными.`)) return;
+  if (!confirm('{{ t.admin_delete_user_confirm }}'.replace('{username}', username))) return;
   const r = await fetch(`/api/admin/users/${uid}`, {method: 'DELETE'});
   const d = await r.json();
   if (d.ok) {
     document.querySelector(`tr[data-uid="${uid}"]`)?.remove();
   } else {
-    alert(d.error || 'Ошибка');
+    alert(d.error || '{{ t.common_error }}');
   }
 }
 </script>

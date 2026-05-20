@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug: Reports Viewer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f4f6fa; font-family: system-ui, sans-serif; padding: 28px 0 60px; }
+    .page-header { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+                   padding: 20px 28px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    .page-header h1 { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
+    .page-header p  { font-size: 0.82rem; color: #64748b; margin: 0; }
+
+    .report-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+                   margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
+    .report-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; cursor: pointer; user-select: none;
+      border-bottom: 1px solid transparent; transition: background .15s;
+    }
+    .report-card-header:hover { background: #f8fafc; }
+    .report-card-header.open { border-bottom-color: #e2e8f0; background: #f8fafc; }
+    .report-title { font-size: 0.92rem; font-weight: 600; color: #1e293b; }
+    .report-meta  { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+
+    .badge-status { font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+    .badge-idle     { background: #f1f5f9; color: #64748b; }
+    .badge-loading  { background: #eff6ff; color: #2563eb; }
+    .badge-done     { background: #f0fdf4; color: #16a34a; }
+    .badge-error    { background: #fef2f2; color: #dc2626; }
+    .badge-probing  { background: #fef9c3; color: #b45309; }
+
+    .report-body { padding: 0; display: none; }
+    .report-body.open { display: block; }
+
+    .report-summary { padding: 12px 20px; font-size: 0.8rem; color: #475569;
+                      background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .report-summary b { color: #0f172a; }
+
+    .table-wrapper { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+    table.report-table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
+    table.report-table thead th {
+      position: sticky; top: 0; background: #f1f5f9; color: #475569;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      padding: 8px 14px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; z-index: 2;
+    }
+    table.report-table tbody td { padding: 7px 14px; border-bottom: 1px solid #f1f5f9;
+                                   color: #1e293b; white-space: nowrap; }
+    table.report-table tbody tr:hover td { background: #f8fafc; }
+    table.report-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Probe results table */
+    table.probe-table { border-collapse: collapse; width: 100%; font-size: 0.76rem; }
+    table.probe-table th { background: #1e293b; color: #e2e8f0; padding: 7px 12px;
+                           font-size: 0.68rem; text-transform: uppercase; letter-spacing: .04em;
+                           white-space: nowrap; }
+    table.probe-table td { padding: 6px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    table.probe-table tr:hover td { background: #f8fafc; }
+    table.probe-table tr:last-child td { border-bottom: none; }
+    .probe-ok   td { background: #f0fdf4 !important; }
+    .probe-fail td { background: #fff !important; }
+    .probe-box { padding: 14px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    .probe-box h6 { font-size: 0.78rem; font-weight: 700; color: #334155; margin: 0 0 10px; }
+    .body-pre { font-size: 0.68rem; color: #475569; white-space: pre-wrap; word-break: break-all;
+                max-width: 380px; }
+    .err-text  { font-size: 0.73rem; color: #dc2626; word-break: break-all; max-width: 300px; }
+    .ok-text   { font-size: 0.73rem; color: #16a34a; }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #bfdbfe;
+               border-top-color: #2563eb; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .chevron { transition: transform .2s; font-size: 0.8rem; color: #94a3b8; }
+    .chevron.open { transform: rotate(90deg); }
+
+    .err-box { padding: 14px 20px; font-size: 0.8rem; color: #dc2626; display: flex;
+               align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .load-bar { height: 3px; background: linear-gradient(90deg,#2563eb 0%,#60a5fa 50%,#2563eb 100%);
+                background-size: 200% 100%; animation: loadanim 1.2s linear infinite; }
+    @keyframes loadanim { 0%{background-position:0 0} 100%{background-position:-200% 0} }
+
+    .shop-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .shop-form input { font-size: 0.85rem; padding: 6px 12px; border-radius: 8px;
+                       border: 1px solid #d1d5db; width: 180px; }
+    .shop-form button.btn-primary-dark { font-size: 0.85rem; padding: 6px 16px; border-radius: 8px;
+                        background: #0f172a; color: #fff; border: none; cursor: pointer; }
+    .shop-form button.btn-primary-dark:hover { background: #1e293b; }
+
+    .raw-link { font-size: 0.72rem; color: #2563eb; text-decoration: none; }
+    .raw-link:hover { text-decoration: underline; }
+    .truncate-note { font-size: 0.72rem; color: #94a3b8; padding: 8px 20px;
+                     border-top: 1px solid #f1f5f9; }
+
+    .btn-probe { font-size: 0.72rem; padding: 3px 10px; border-radius: 6px;
+                 background: #fef9c3; color: #92400e; border: 1px solid #fde68a;
+                 cursor: pointer; white-space: nowrap; }
+    .btn-probe:hover { background: #fef08a; }
+    .btn-probe:disabled { opacity: .5; cursor: default; }
+  </style>
+</head>
+<body>
+<div class="container-fluid" style="max-width:1200px;">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>Reports Viewer <span style="font-weight:400;color:#64748b;font-size:1rem;">— Uzum Seller Documents</span></h1>
+    <p>Each report is created on Uzum, waits until ready, downloads the CSV and shows the data.</p>
+    <div class="mt-3 shop-form">
+      <label style="font-size:.82rem;font-weight:600;color:#374151;">Shop ID:</label>
+      <input id="shopIdInput" type="text" value="{{ shop_id }}" placeholder="e.g. 5983">
+      <label style="font-size:.82rem;font-weight:600;color:#374151;">From:</label>
+      <input id="dateFromInput" type="date" value="{{ today_minus_30 }}" style="width:140px;">
+      <label style="font-size:.82rem;font-weight:600;color:#374151;">To:</label>
+      <input id="dateToInput" type="date" value="{{ today }}" style="width:140px;">
+      <button class="btn-primary-dark" onclick="reloadAll()">Load All Reports</button>
+      <span id="globalStatus" style="font-size:.78rem;color:#64748b;"></span>
+    </div>
+  </div>
+
+  <!-- Primary Report Cards -->
+  <div style="font-size:.8rem;font-weight:700;color:#0f172a;margin:18px 0 8px;letter-spacing:.04em;text-transform:uppercase;">
+    Primary reports (auto-loaded)
+  </div>
+  {% for jt in primary_job_types %}
+  <div class="report-card" id="card-{{ jt }}">
+    <div class="report-card-header" onclick="toggleCard('{{ jt }}')" id="hdr-{{ jt }}">
+      <div>
+        <div class="report-title">{{ jt }}</div>
+        <div class="report-meta" id="meta-{{ jt }}">Click "Load All Reports" to fetch</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge-status badge-idle" id="badge-{{ jt }}">idle</span>
+        <span class="chevron" id="chv-{{ jt }}">&#9654;</span>
+      </div>
+    </div>
+    <div class="report-body" id="body-{{ jt }}">
+      <div id="inner-{{ jt }}"></div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Legacy Report Cards -->
+  <div style="font-size:.8rem;font-weight:700;color:#64748b;margin:24px 0 8px;letter-spacing:.04em;text-transform:uppercase;">
+    Legacy reports (click to load on demand)
+  </div>
+  {% for jt in legacy_job_types %}
+  <div class="report-card" id="card-{{ jt }}" style="opacity:.75;">
+    <div class="report-card-header" onclick="toggleCard('{{ jt }}'); loadOneIfIdle('{{ jt }}')" id="hdr-{{ jt }}">
+      <div>
+        <div class="report-title">{{ jt }} <span style="font-size:.68rem;color:#94a3b8;font-weight:400;">— legacy</span></div>
+        <div class="report-meta" id="meta-{{ jt }}">Click to load</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge-status badge-idle" id="badge-{{ jt }}">idle</span>
+        <span class="chevron" id="chv-{{ jt }}">&#9654;</span>
+      </div>
+    </div>
+    <div class="report-body" id="body-{{ jt }}">
+      <div id="inner-{{ jt }}"></div>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<script>
+const PRIMARY_JOB_TYPES = {{ primary_job_types | tojson }};
+const LEGACY_JOB_TYPES  = {{ legacy_job_types | tojson }};
+const JOB_TYPES = PRIMARY_JOB_TYPES.concat(LEGACY_JOB_TYPES);
+
+function toggleCard(jt) {
+  const body = document.getElementById('body-' + jt);
+  const hdr  = document.getElementById('hdr-' + jt);
+  const chv  = document.getElementById('chv-' + jt);
+  if (body.classList.contains('open')) {
+    body.classList.remove('open');
+    hdr.classList.remove('open');
+    chv.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    hdr.classList.add('open');
+    chv.classList.add('open');
+  }
+}
+
+function openCard(jt) {
+  document.getElementById('body-' + jt).classList.add('open');
+  document.getElementById('hdr-'  + jt).classList.add('open');
+  document.getElementById('chv-'  + jt).classList.add('open');
+}
+
+function setStatus(jt, state, text) {
+  const badge = document.getElementById('badge-' + jt);
+  badge.className = 'badge-status badge-' + state;
+  badge.textContent = text;
+}
+
+function setMeta(jt, text) {
+  document.getElementById('meta-' + jt).textContent = text;
+}
+
+function showLoading(jt) {
+  const inner = document.getElementById('inner-' + jt);
+  inner.innerHTML = '<div class="load-bar"></div><div style="padding:16px 20px;font-size:.82rem;color:#64748b;"><span class="spinner"></span> Creating report and waiting for Uzum to process it… this may take 1-2 minutes.</div>';
+  openCard(jt);
+}
+
+function showError(jt, msg, shopId, dateFrom, dateTo) {
+  const inner = document.getElementById('inner-' + jt);
+  inner.innerHTML = `
+    <div class="err-box">
+      <div><b>Error:</b> ${escHtml(msg)}</div>
+      <button class="btn-probe" id="probe-btn-${escHtml(jt)}"
+              onclick="runProbe('${escHtml(jt)}','${escHtml(shopId)}','${escHtml(dateFrom)}','${escHtml(dateTo)}')">
+        Probe formats
+      </button>
+    </div>
+    <div id="probe-result-${escHtml(jt)}"></div>`;
+}
+
+function showData(jt, result) {
+  const inner = document.getElementById('inner-' + jt);
+  const rows    = result.data || [];
+  const cols    = result.columns || (rows.length > 0 ? Object.keys(rows[0]) : []);
+  const total   = result.total_rows || rows.length;
+  const csvLink = result.csv_link || '';
+  const reqId   = result.requestId || '';
+  const src     = result.source || '';
+  const shown   = rows.length;
+
+  const srcBadge = src === 'created'
+    ? `<span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:999px;font-size:.68rem;font-weight:700;padding:2px 9px;">&#10003; Fresh</span>`
+    : src === 'existing_list'
+    ? `<span style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;border-radius:999px;font-size:.68rem;font-weight:700;padding:2px 9px;">&#9851; Cached</span>`
+    : '';
+
+  const t = result.timings || null;
+  let timingHtml = '';
+  if (t) {
+    const fmt = (ms) => (ms >= 1000 ? (ms/1000).toFixed(2) + 's' : ms + 'ms');
+    timingHtml = `<div style="margin-top:6px;font-size:.72rem;color:#475569;">
+      <b>Total ${fmt(t.total_ms)}</b>
+      &nbsp;·&nbsp; create ${fmt(t.create_ms)}
+      &nbsp;·&nbsp; poll ${fmt(t.poll_ms)} (${t.poll_attempts}× @ ${t.poll_interval_ms}ms)
+      &nbsp;·&nbsp; download+parse ${fmt(t.download_ms)}
+    </div>`;
+  }
+
+  let html = `<div class="report-summary">
+    ${srcBadge ? srcBadge + ' &nbsp;|&nbsp; ' : ''}
+    <b>${total.toLocaleString()}</b> rows &nbsp;|&nbsp;
+    <b>${cols.length}</b> columns &nbsp;|&nbsp;
+    Request ID: <code style="font-size:.72rem;">${escHtml(reqId)}</code>`;
+  if (csvLink) {
+    html += ` &nbsp;|&nbsp; <a class="raw-link" href="${escHtml(csvLink)}" target="_blank">Download CSV</a>`;
+  }
+  html += timingHtml;
+  html += `</div>`;
+
+  if (cols.length === 0) {
+    html += `<div style="padding:16px 20px;color:#64748b;font-size:.82rem;">No data returned.</div>`;
+  } else {
+    html += `<div class="table-wrapper"><table class="report-table"><thead><tr>`;
+    for (const c of cols) {
+      html += `<th>${escHtml(c)}</th>`;
+    }
+    html += `</tr></thead><tbody>`;
+    for (const row of rows) {
+      html += `<tr>`;
+      for (const c of cols) {
+        html += `<td>${escHtml(String(row[c] ?? ''))}</td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table></div>`;
+    if (shown < total) {
+      html += `<div class="truncate-note">Showing first ${shown.toLocaleString()} of ${total.toLocaleString()} rows.</div>`;
+    }
+  }
+
+  inner.innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Probe endpoint ─────────────────────────────────────── */
+async function runProbe(jt, shopId, dateFrom, dateTo) {
+  const btn = document.getElementById('probe-btn-' + jt);
+  const box = document.getElementById('probe-result-' + jt);
+  if (btn) { btn.disabled = true; btn.textContent = 'Probing…'; }
+  setStatus(jt, 'probing', 'probing…');
+  box.innerHTML = '<div class="probe-box"><span class="spinner"></span> Trying all body formats against Uzum…</div>';
+
+  const url = `/debug/report-probe?shop_id=${encodeURIComponent(shopId)}&type=${encodeURIComponent(jt)}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    renderProbe(jt, data);
+  } catch(e) {
+    box.innerHTML = `<div class="probe-box" style="color:#dc2626;">Probe request failed: ${escHtml(String(e))}</div>`;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Re-probe'; }
+}
+
+function renderProbe(jt, data) {
+  const box = document.getElementById('probe-result-' + jt);
+  const results = data.probe_results || [];
+  const firstOk = results.find(r => r.status === 'OK');
+
+  if (firstOk) {
+    setStatus(jt, 'done', 'format found!');
+  } else {
+    setStatus(jt, 'error', 'all formats failed');
+  }
+
+  let html = `<div class="probe-box">
+    <h6>Probe results — ${escHtml(data.report_type)} &nbsp; shop ${escHtml(String(data.shop_id))} &nbsp; ${escHtml(data.date_from||'')} → ${escHtml(data.date_to||'')}</h6>
+    <div class="table-wrapper" style="max-height:none;">
+    <table class="probe-table">
+      <thead><tr>
+        <th>#</th><th>contentType</th><th>params style</th><th>params value</th><th>result</th>
+      </tr></thead>
+      <tbody>`;
+
+  results.forEach((r, i) => {
+    const b = r.body || {};
+    const ct    = b.contentType || '—';
+    const pval  = b.params;
+    const pstr  = pval === undefined ? '(no params)' :
+                  (typeof pval === 'string' ? 'JSON string' : 'object');
+    const pdisplay = pval === undefined ? '' :
+                     (typeof pval === 'string'
+                       ? escHtml(pval.slice(0, 120) + (pval.length > 120 ? '…' : ''))
+                       : escHtml(JSON.stringify(pval).slice(0, 120)));
+    const isOk = r.status === 'OK';
+    html += `<tr class="${isOk ? 'probe-ok' : 'probe-fail'}">
+      <td>${i+1}</td>
+      <td><code>${escHtml(ct)}</code></td>
+      <td><b>${escHtml(pstr)}</b></td>
+      <td><div class="body-pre">${pdisplay}</div></td>
+      <td>`;
+    if (isOk) {
+      const reqId = (r.response?.payload?.requestId) || (r.response?.requestId) || '?';
+      html += `<span class="ok-text">✓ OK — requestId: <code>${escHtml(String(reqId))}</code></span>`;
+    } else {
+      html += `<span class="err-text">${escHtml(r.error || 'unknown error')}</span>`;
+    }
+    html += `</td></tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  if (firstOk) {
+    html += `<div style="margin-top:10px;font-size:.78rem;color:#15803d;font-weight:600;">
+      Working format found! Now retrying report load with correct format…</div>`;
+  } else {
+    html += `<div style="margin-top:10px;font-size:.78rem;color:#dc2626;">
+      All formats returned errors. Check the error messages above to understand what Uzum expects.</div>`;
+  }
+  html += `</div>`;
+  box.innerHTML = html;
+}
+
+/* ── Main report loader ─────────────────────────────────── */
+async function loadReport(jt, shopId, dateFrom, dateTo) {
+  setStatus(jt, 'loading', 'loading…');
+  setMeta(jt, 'Sending request to Uzum…');
+  showLoading(jt);
+
+  const url = `/debug/report?shop_id=${encodeURIComponent(shopId)}&type=${encodeURIComponent(jt)}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}&poll_interval_ms=1000`;
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) {
+      setStatus(jt, 'error', 'error');
+      setMeta(jt, data.error);
+      showError(jt, data.error, shopId, dateFrom, dateTo);
+    } else {
+      const rows = (data.total_rows || 0).toLocaleString();
+      const src  = data.source || '';
+      const doneLabel = src === 'created' ? '✓ Fresh' : src === 'existing_list' ? '♻ Cached' : 'done';
+      setStatus(jt, 'done', doneLabel);
+      setMeta(jt, `${rows} rows · ${(data.columns || []).length} columns`);
+      showData(jt, data);
+    }
+  } catch(e) {
+    setStatus(jt, 'error', 'error');
+    setMeta(jt, String(e));
+    showError(jt, String(e), shopId, dateFrom, dateTo);
+  }
+}
+
+function reloadAll() {
+  // Only auto-loads PRIMARY reports (SELLS_REPORT, EXPENSES_REPORT).
+  // Legacy ones stay idle until user clicks their card.
+  const shopId   = document.getElementById('shopIdInput').value.trim();
+  const dateFrom = document.getElementById('dateFromInput').value.trim();
+  const dateTo   = document.getElementById('dateToInput').value.trim();
+  if (!shopId) { alert('Enter a Shop ID first.'); return; }
+
+  const gs = document.getElementById('globalStatus');
+  gs.textContent = `Loading ${PRIMARY_JOB_TYPES.length} primary reports in parallel…`;
+
+  for (const jt of PRIMARY_JOB_TYPES) {
+    setStatus(jt, 'idle', 'idle');
+    setMeta(jt, 'Queued…');
+    document.getElementById('inner-' + jt).innerHTML = '';
+  }
+
+  const promises = PRIMARY_JOB_TYPES.map(jt => loadReport(jt, shopId, dateFrom, dateTo));
+  Promise.allSettled(promises).then(() => {
+    gs.textContent = 'Primary reports done. Legacy reports load on click.';
+  });
+}
+
+function loadOneIfIdle(jt) {
+  // Lazy-load a legacy card when the user expands it.
+  const badge = document.getElementById('badge-' + jt);
+  if (!badge || !badge.classList.contains('badge-idle')) return;
+  const shopId   = document.getElementById('shopIdInput').value.trim();
+  const dateFrom = document.getElementById('dateFromInput').value.trim();
+  const dateTo   = document.getElementById('dateToInput').value.trim();
+  if (!shopId) return;
+  loadReport(jt, shopId, dateFrom, dateTo);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const shopId = document.getElementById('shopIdInput').value.trim();
+  if (shopId) reloadAll();
+});
+</script>
+</body>
+</html>

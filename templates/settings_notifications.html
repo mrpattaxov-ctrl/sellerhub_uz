@@ -386,14 +386,12 @@
     <div>
       <span class="notify-kicker">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-        Telegram settings
+        {{ t.notif_kicker }}
       </span>
-      <h1 class="notify-title">Уведомления Telegram</h1>
-      <p class="notify-subtitle">
-        Настройте, когда получать статистику и когда закрепляется дневная сводка.
-      </p>
+      <h1 class="notify-title">{{ t.notif_page_title }}</h1>
+      <p class="notify-subtitle">{{ t.notif_page_subtitle }}</p>
     </div>
-    <a class="btn btn-outline-secondary btn-sm notify-back" href="/groups">Назад</a>
+    <a class="btn btn-outline-secondary btn-sm notify-back" href="/groups">{{ t.nav_back }}</a>
   </div>
 
   {% with messages = get_flashed_messages() %}
@@ -415,19 +413,19 @@
 
       <div class="notify-chip-grid">
         <div class="notify-chip">
-          <span class="notify-chip-label">Статус</span>
-          <span class="notify-chip-value" id="notify-chip-status">Включено</span>
+          <span class="notify-chip-label">{{ t.common_status }}</span>
+          <span class="notify-chip-value" id="notify-chip-status">{{ t.notif_enabled }}</span>
         </div>
         <div class="notify-chip">
-          <span class="notify-chip-label">Интервал</span>
-          <span class="notify-chip-value" id="notify-chip-interval">Каждые 1 ч.</span>
+          <span class="notify-chip-label">{{ t.notif_interval }}</span>
+          <span class="notify-chip-value" id="notify-chip-interval">1 {{ t.common_hours }}</span>
         </div>
         <div class="notify-chip">
-          <span class="notify-chip-label">Окно</span>
+          <span class="notify-chip-label">{{ t.notif_window_from }} — {{ t.notif_window_to }}</span>
           <span class="notify-chip-value" id="notify-chip-window">08:00-20:00</span>
         </div>
         <div class="notify-chip">
-          <span class="notify-chip-label">Дневная сводка</span>
+          <span class="notify-chip-label">{{ t.finance_today }}</span>
           <span class="notify-chip-value" id="notify-chip-summary">00:00</span>
         </div>
       </div>
@@ -438,8 +436,8 @@
         <div class="notify-card-head">
           <div class="notify-card-step">A</div>
           <div>
-            <h2 class="notify-card-title">Базовый режим</h2>
-            <p class="notify-card-copy">Здесь вы включаете отправку сводок и выбираете режим работы.</p>
+            <h2 class="notify-card-title">{{ t.notif_toggle_title }}</h2>
+            <p class="notify-card-copy">{{ t.notif_toggle_desc }}</p>
           </div>
         </div>
 
@@ -454,8 +452,8 @@
             >
             <span class="notify-toggle-ui" aria-hidden="true"></span>
             <span class="notify-toggle-copy">
-              <strong>Часовые уведомления</strong>
-              <span>Полностью включает или выключает все Telegram-отчёты для вашего аккаунта.</span>
+              <strong>{{ t.notif_toggle_title }}</strong>
+              <span>{{ t.notif_toggle_desc }}</span>
             </span>
           </label>
 
@@ -469,8 +467,8 @@
             >
             <span class="notify-toggle-ui" aria-hidden="true"></span>
             <span class="notify-toggle-copy">
-              <strong>24-часовой режим</strong>
-              <span>Интервалы считаются от 00:00, а дневная сводка закрепляется в полночь.</span>
+              <strong>{{ t.notif_24h_label }}</strong>
+              <span>{{ t.notif_24h_desc }}</span>
             </span>
           </label>
         </div>
@@ -483,20 +481,20 @@
           <div class="notify-card-head">
             <div class="notify-card-step">1</div>
             <div>
-              <h2 class="notify-card-title">Интервал отправки</h2>
-              <p class="notify-card-copy">Как часто приходит промежуточная статистика.</p>
+              <h2 class="notify-card-title">{{ t.notif_interval_label }}</h2>
+              <p class="notify-card-copy">{{ t.notif_toggle_desc }}</p>
             </div>
           </div>
 
           <div class="notify-field-grid">
             <div class="notify-field">
               <label class="notify-label" for="interval_hours">
-                <span>Интервал статистики</span>
+                <span>{{ t.notif_interval_label }}</span>
               </label>
               <select class="form-select notify-select" id="interval_hours" name="interval_hours">
                 {% for interval in interval_options %}
                   <option value="{{ interval }}" {% if interval == settings.interval_hours %}selected{% endif %}>
-                    Каждые {{ interval }} ч.
+                    {{ interval }} {{ t.common_hours }}
                   </option>
                 {% endfor %}
               </select>
@@ -504,7 +502,7 @@
 
             <div class="notify-field notify-field--half">
               <label class="notify-label" for="window_from_hour">
-                <span>Начало периода</span>
+                <span>{{ t.notif_window_from_label }}</span>
               </label>
               <select class="form-select notify-select" id="window_from_hour" name="window_from_hour">
                 {% for hour in hours %}
@@ -517,7 +515,7 @@
 
             <div class="notify-field notify-field--half">
               <label class="notify-label" for="window_to_hour">
-                <span>Конец периода</span>
+                <span>{{ t.notif_window_to_label }}</span>
               </label>
               <select class="form-select notify-select" id="window_to_hour" name="window_to_hour">
                 {% for hour in hours %}
@@ -533,10 +531,8 @@
     </div>
 
     <div class="notify-footer">
-      <p class="notify-footer-note">
-        Настройки применяются к вашим Telegram-уведомлениям сразу после сохранения.
-      </p>
-      <button class="btn btn-success notify-save" type="submit">Сохранить</button>
+      <p class="notify-footer-note">{{ t.notif_footer_note }}</p>
+      <button class="btn btn-success notify-save" type="submit">{{ t.notif_save_btn }}</button>
     </div>
   </form>
 </div>
@@ -621,15 +617,15 @@
   function syncAdvice() {
     const interval = parseInt(intervalSelect.value, 10);
     const summaryHour = dailySummaryHour();
-    const statusText = toggleEnabled.checked ? "Включено" : "Выключено";
+    const statusText = toggleEnabled.checked ? "{{ t.notif_enabled }}" : "{{ t.notif_disabled }}";
     const windowText = toggle24h.checked
-      ? "24 часа / весь день"
+      ? "{{ t.notif_24h_mode }}"
       : formatHour(readHour(fromSelect)) + "-" + (readHour(toSelect) === 0 ? "00:00" : formatHour(readHour(toSelect)));
 
     chipStatus.textContent = statusText;
-    chipInterval.textContent = "Каждые " + interval + " ч.";
+    chipInterval.textContent = interval + " {{ t.common_hours }}";
     chipWindow.textContent = windowText;
-    chipSummary.textContent = summaryHour === 0 ? "00:00" : formatHour(summaryHour) + " след. дня";
+    chipSummary.textContent = summaryHour === 0 ? "00:00" : formatHour(summaryHour);
   }
 
   function syncAll() {

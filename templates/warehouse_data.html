@@ -304,29 +304,26 @@
     </span>
     <div class="warehouse-head">
       <div>
-        <h1 class="warehouse-title">Импорт склада из Excel</h1>
-        <p class="warehouse-subtitle">
-          На этой странице можно скачать актуальный Excel-файл остатков, изменить колонку
-          <strong>Warehouse Quantity</strong> и загрузить файл обратно в систему.
-        </p>
+        <h1 class="warehouse-title">{{ t.wh_import_title }}</h1>
+        <p class="warehouse-subtitle">{{ t.wh_import_subtitle }}</p>
       </div>
       <div class="warehouse-actions">
-        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">Скачать шаблон Excel</a>
-        <a href="/groups" class="btn btn-outline-secondary warehouse-btn">Назад к товарам</a>
+        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">{{ t.wh_download_template }}</a>
+        <a href="/groups" class="btn btn-outline-secondary warehouse-btn">{{ t.wh_back_products }}</a>
       </div>
     </div>
 
     <div class="warehouse-stats">
       <div class="warehouse-stat">
-        <span class="warehouse-stat-label">Доступные SKU</span>
+        <span class="warehouse-stat-label">{{ t.wh_stat_skus }}</span>
         <span class="warehouse-stat-value">{{ summary.variant_count }}</span>
       </div>
       <div class="warehouse-stat">
-        <span class="warehouse-stat-label">Магазины в доступе</span>
+        <span class="warehouse-stat-label">{{ t.wh_stat_shops }}</span>
         <span class="warehouse-stat-value">{{ summary.shop_count }}</span>
       </div>
       <div class="warehouse-stat">
-        <span class="warehouse-stat-label">Суммарный склад</span>
+        <span class="warehouse-stat-label">{{ t.wh_stat_total }}</span>
         <span class="warehouse-stat-value">{{ summary.total_qty }}</span>
       </div>
     </div>
@@ -342,33 +339,30 @@
     <section class="warehouse-card">
       <div class="warehouse-card-body">
         <div>
-          <h2 class="warehouse-card-title">Загрузка Excel-файла</h2>
-          <p class="warehouse-card-copy">
-            Подходит файл формата <strong>.xlsx</strong>. Ваш текущий экспорт из этой страницы
-            совместим с импортом без изменения структуры.
-          </p>
+          <h2 class="warehouse-card-title">{{ t.wh_upload_title }}</h2>
+          <p class="warehouse-card-copy">{{ t.wh_upload_desc }}</p>
         </div>
 
         <ol class="warehouse-steps">
           <li class="warehouse-step">
             <span class="warehouse-step-index">1</span>
             <div>
-              <strong>Скачайте файл</strong>
-              <span>Сначала выгрузите текущие остатки через кнопку “Скачать шаблон Excel”.</span>
+              <strong>{{ t.wh_step1_title }}</strong>
+              <span>{{ t.wh_step1_desc }}</span>
             </div>
           </li>
           <li class="warehouse-step">
             <span class="warehouse-step-index">2</span>
             <div>
-              <strong>Измените количество</strong>
-              <span>Редактируйте только колонку <code>Warehouse Quantity</code>. SKU и Barcode нужны для точного сопоставления.</span>
+              <strong>{{ t.wh_step2_title }}</strong>
+              <span>{{ t.wh_step2_desc }}</span>
             </div>
           </li>
           <li class="warehouse-step">
             <span class="warehouse-step-index">3</span>
             <div>
-              <strong>Загрузите файл обратно</strong>
-              <span>Система обновит только найденные SKU из ваших доступных магазинов.</span>
+              <strong>{{ t.wh_step3_title }}</strong>
+              <span>{{ t.wh_step3_desc }}</span>
             </div>
           </li>
         </ol>
@@ -382,15 +376,11 @@
         </div>
 
         <form action="{{ url_for('warehouse_bp.warehouse_import') }}" method="post" enctype="multipart/form-data" class="warehouse-dropzone">
-          <p class="warehouse-dropzone-copy">
-            Загрузите Excel-файл со склада. Формат <code>warehouse_qty_*.xlsx</code> поддерживается напрямую.
-          </p>
+          <p class="warehouse-dropzone-copy">{{ t.wh_drop_desc }}</p>
           <input class="form-control warehouse-file" type="file" name="file" accept=".xlsx" required>
-          <p class="warehouse-file-note">
-            Поддерживается только <strong>.xlsx</strong>. Старый формат <strong>.xls</strong> не импортируется.
-          </p>
+          <p class="warehouse-file-note">{{ t.wh_file_note }}</p>
           <div class="mt-3">
-            <button type="submit" class="btn btn-success warehouse-submit">Импортировать остатки</button>
+            <button type="submit" class="btn btn-success warehouse-submit">{{ t.wh_import_btn }}</button>
           </div>
         </form>
       </div>
@@ -399,32 +389,30 @@
     <aside class="warehouse-card">
       <div class="warehouse-card-body">
         <div>
-          <h2 class="warehouse-card-title">Что делает импорт</h2>
-          <p class="warehouse-card-copy">
-            Импорт сверяет строки сначала по <strong>SKU</strong>, затем по <strong>Barcode</strong>, если SKU не найден.
-          </p>
+          <h2 class="warehouse-card-title">{{ t.wh_side_title }}</h2>
+          <p class="warehouse-card-copy">{{ t.wh_side_desc }}</p>
         </div>
 
         <div class="warehouse-side-list">
           <div class="warehouse-side-item">
-            <strong>Совместимый файл</strong>
-            <span>Ваш файл <code>warehouse_qty_*.xlsx</code> подходит, если в нём есть колонки SKU и Warehouse Quantity.</span>
+            <strong>{{ t.wh_compat_file }}</strong>
+            <span>{{ t.wh_compat_desc }}</span>
           </div>
           <div class="warehouse-side-item">
-            <strong>Что обновляется</strong>
-            <span>Меняется только локальное поле <strong>warehouse_quantity</strong> для найденных товаров.</span>
+            <strong>{{ t.wh_what_updates }}</strong>
+            <span>{{ t.wh_what_updates_desc }}</span>
           </div>
           <div class="warehouse-side-item">
-            <strong>Что не трогается</strong>
-            <span>Данные Uzum, продажи, цены и карточки товаров импортом склада не изменяются.</span>
+            <strong>{{ t.wh_unchanged }}</strong>
+            <span>{{ t.wh_unchanged_desc }}</span>
           </div>
           <div class="warehouse-side-item">
-            <strong>Ограничение доступа</strong>
-            <span>Импорт применяется только к магазинам и товарам, которые доступны текущему пользователю.</span>
+            <strong>{{ t.wh_access_limit }}</strong>
+            <span>{{ t.wh_access_desc }}</span>
           </div>
         </div>
 
-        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">Скачать текущие остатки</a>
+        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">{{ t.wh_download_current }}</a>
       </div>
     </aside>
   </div>

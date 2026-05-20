@@ -8,3 +8,6 @@ data/
 scripts/logs/
 scripts/scheduled_messages/
 data/app.db
+server.cfg
+.claude/
+*.xlsx

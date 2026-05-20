@@ -8,21 +8,40 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 import requests
+from urllib3.util.retry import Retry
 
 from config import HTTP_POOL_MAXSIZE, HTTP_USER_AGENT, HTTP_ACCEPT_LANGUAGE
 
 _http_local = threading.local()
 
 
+class AdditiveBackoffRetry(Retry):
+    """urllib3 Retry subclass that waits additively: 60s, 120s, 180s.
+
+    urllib3's built-in Retry only supports exponential backoff
+    (``backoff_factor * 2**(n-1)``). For Uzum we want real breathing room
+    between retries under 429/5xx, so this overrides ``get_backoff_time``
+    to return ``60 * attempt`` instead.
+    """
+
+    BACKOFF_MAX = 600  # raise above urllib3's 120s default so 180s isn't clipped
+
+    def get_backoff_time(self) -> float:
+        consecutive_errors = len(
+            [h for h in self.history if h.redirect_location is None]
+        )
+        if consecutive_errors <= 0:
+            return 0
+        return min(self.BACKOFF_MAX, 60.0 * consecutive_errors)
+
+
 def _get_http_session():
     """Per-thread requests session with connection pooling and auto-retry."""
     sess = getattr(_http_local, "session", None)
     if sess is None:
-        from urllib3.util import Retry
         sess = requests.Session()
-        retry_strategy = Retry(
+        retry_strategy = AdditiveBackoffRetry(
             total=3,
-            backoff_factor=1.0,
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET", "POST"],
             raise_on_status=False,

@@ -18,9 +18,11 @@ from config import (
     PAYME_USE_TEST,
 )
 from core.auth_helpers import _json_response
+from core.redis_client import revoke_user, unrevoke_user
 from core.subscriptions import (
     _apply_paid_subscription_plan,
     _get_or_create_subscription_settings,
+    _invalidate_user_ctx_cache,
     _subscription_plan_by_key,
 )
 from extensions import SessionLocal
@@ -444,6 +446,11 @@ def _payme_perform_transaction(params: dict, *, request_id):
         db.add(tx)
         db.add(order)
         db.commit()
+        # Subscription just granted — drop stale per-user ctx cache and
+        # clear any stale revoke blocklist entry so the user regains access
+        # immediately on their next request.
+        _invalidate_user_ctx_cache(int(order.user_id))
+        unrevoke_user(int(order.user_id))
         return _payme_result(_payme_perform_result(tx), request_id)
 
 
@@ -514,6 +521,11 @@ def _payme_cancel_transaction(params: dict, *, request_id):
         db.add(tx)
         db.add(order)
         db.commit()
+        # Chargeback rolled subscription back — drop stale per-user ctx cache
+        # and force the user out on their next request; the signed session
+        # might still say "active" until it expires.
+        _invalidate_user_ctx_cache(int(order.user_id))
+        revoke_user(int(order.user_id))
         return _payme_result(_payme_cancel_result(tx), request_id)
 
 

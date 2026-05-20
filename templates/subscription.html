@@ -279,6 +279,45 @@
     font-size: 0.8rem;
     font-weight: 600;
   }
+  .sub-code-section {
+    padding: 26px;
+  }
+  .sub-code-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .sub-code-input {
+    flex: 1;
+    height: 46px;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 12px;
+    padding: 0 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .sub-code-input:focus {
+    border-color: #2e90fa;
+    box-shadow: 0 0 0 3px rgba(46,144,250,.15);
+  }
+  .sub-code-submit {
+    height: 46px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 12px;
+    background: #101828;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .16s;
+  }
+  .sub-code-submit:hover { opacity: .85; }
   @media (max-width: 900px) {
     .sub-pay-layout {
       grid-template-columns: 1fr;
@@ -302,35 +341,35 @@
 
   <div class="sub-overview">
     <article class="sub-card sub-stat">
-      <small>Статус</small>
+      <small>{{ t.sub_stat_status }}</small>
       <strong>{{ subscription_status.label }}</strong>
       <p>
         {% if subscription_status.effective_end_at %}
-          Доступ открыт до {{ subscription_status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}.
+          {{ t.sub_access_until }} {{ subscription_status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}.
         {% else %}
-          Текущий доступ: {{ subscription_status.remaining_text }}.
+          {{ t.sub_current_access }} {{ subscription_status.remaining_text }}.
         {% endif %}
       </p>
     </article>
     <article class="sub-card sub-stat">
-      <small>Осталось</small>
+      <small>{{ t.sub_stat_remaining }}</small>
       <strong>{{ subscription_status.remaining_text }}</strong>
-      <p>Текущее оставшееся время по вашему аккаунту.</p>
+      <p>{{ t.sub_account_time }}</p>
     </article>
     <article class="sub-card sub-stat">
-      <small>Магазины</small>
+      <small>{{ t.sub_shops_stat }}</small>
       <strong>{{ shops_used }} / {{ shops_limit }}</strong>
-      <p>Лимит магазинов для одного аккаунта.</p>
+      <p>{{ t.sub_shops_limit_desc }}</p>
     </article>
   </div>
 
   <section class="sub-card sub-plans">
     <div class="sub-head">
       <div>
-        <h2>Тарифы</h2>
-        <p>Оплата проходит через Payme. После успешного платежа подписка активируется автоматически, без кодов.</p>
+        <h2>{{ t.sub_plans_h2 }}</h2>
+        <p>{{ t.sub_plans_desc }}</p>
       </div>
-      <div class="sub-pill">Payme → автоактивация</div>
+      <div class="sub-pill">{{ t.sub_payme_auto_pill }}</div>
     </div>
 
     <div class="sub-plan-grid" id="planCards">
@@ -339,30 +378,28 @@
         <article class="sub-plan" data-plan-card>
           <div class="sub-plan-top">
             {% if plan.discount_percent > 0 %}
-              <span class="sub-plan-badge">Скидка {{ plan.discount_percent }}%</span>
+              <span class="sub-plan-badge">{{ t.sub_plan_discount_label }} {{ plan.discount_percent }}%</span>
             {% else %}
-              <span class="sub-plan-badge sub-plan-badge--base">Базовый</span>
+              <span class="sub-plan-badge sub-plan-badge--base">{{ t.sub_plan_basic_label }}</span>
             {% endif %}
             {% if is_featured %}
-              <span class="sub-plan-star">Лучшая цена</span>
+              <span class="sub-plan-star">{{ t.sub_plan_best_price }}</span>
             {% endif %}
           </div>
 
           <div class="sub-plan-title">{{ plan.label }}</div>
           <div class="sub-plan-desc">
-            Доступ на {{ plan.months }} {{ "месяц" if plan.months == 1 else ("месяца" if plan.months < 5 else "месяцев") }}.
+            {{ t.sub_access_for }} {{ plan.months }} {{ t.sub_month_1 if plan.months == 1 else (t.sub_month_2_4 if plan.months < 5 else t.sub_month_5_plus) }}.
           </div>
 
-          <div class="sub-plan-price">{{ plan.price_sum_formatted }}<span>сум</span></div>
+          <div class="sub-plan-price">{{ plan.price_sum_formatted }}<span>{{ t.sub_currency }}</span></div>
           <div class="sub-plan-old">
             {% if plan.discount_percent > 0 %}
-              {{ plan.full_price_sum_formatted }} сум без скидки
+              {{ plan.full_price_sum_formatted }} {{ t.sub_no_discount_suffix }}
             {% endif %}
           </div>
 
-          <div class="sub-plan-note">
-            Оплата создаёт заказ в системе, Payme проводит платёж, а подписка продлевается автоматически.
-          </div>
+          <div class="sub-plan-note">{{ t.sub_plan_note }}</div>
 
           <button
             type="button"
@@ -370,8 +407,8 @@
             data-plan-button
             data-plan-key="{{ plan.key }}"
             data-plan-label="{{ plan.label }}"
-            data-plan-price="{{ plan.price_sum_formatted }} сум">
-            Выбрать тариф
+            data-plan-price="{{ plan.price_sum_formatted }} {{ t.sub_currency }}">
+            {{ t.sub_select_plan_btn }}
           </button>
         </article>
       {% endfor %}
@@ -382,57 +419,95 @@
     <section class="sub-card sub-pay-card" id="paymeCard">
       <div class="sub-head">
         <div>
-          <h2>Оплата через Payme</h2>
-          <p>Выберите тариф выше, затем откройте Payme. После подтверждения платёж активирует план автоматически.</p>
+          <h2>{{ t.sub_payment_h2 }}</h2>
+          <p>{{ t.sub_payment_desc }}</p>
         </div>
       </div>
 
       <div class="sub-selected">
         <div class="sub-selected-box">
           <span class="sub-selected-dot" id="selectedDot"></span>
-          <span class="sub-selected-label" id="selectedPlanLabel">Тариф ещё не выбран</span>
+          <span class="sub-selected-label" id="selectedPlanLabel">{{ t.sub_no_plan_yet }}</span>
         </div>
         <div class="sub-selected-hint" id="paymeStatusText">
           {% if payme_enabled %}
-            После нажатия мы создадим заказ и откроем страницу Payme.
+            {{ t.sub_payme_enabled_hint }}
           {% else %}
-            Payme пока не настроен в `.env`, поэтому кнопка оплаты отключена.
+            {{ t.sub_payme_not_configured }}
           {% endif %}
         </div>
-        <button type="button" class="sub-pay-btn" id="btnPaymeCheckout" disabled>Оплатить через Payme</button>
+        <button type="button" class="sub-pay-btn" id="btnPaymeCheckout" disabled>{{ t.sub_pay_payme_btn }}</button>
       </div>
     </section>
 
     <aside class="sub-card sub-help-card">
       <div class="sub-head">
         <div>
-          <h2>Как это работает</h2>
-          <p>Три коротких шага.</p>
+          <h2>{{ t.sub_how_works_h2 }}</h2>
+          <p>{{ t.sub_three_steps }}</p>
         </div>
       </div>
 
       <ol class="sub-steps">
         <li class="sub-step">
           <span class="sub-step-num">1</span>
-          <p>Выберите тариф и нажмите кнопку оплаты.</p>
+          <p>{{ t.sub_step1_pay }}</p>
         </li>
         <li class="sub-step">
           <span class="sub-step-num">2</span>
-          <p>Payme откроет платёжную страницу и проведёт оплату.</p>
+          <p>{{ t.sub_step2_pay }}</p>
         </li>
         <li class="sub-step">
           <span class="sub-step-num">3</span>
-          <p>После подтверждения платежа доступ продлится автоматически.</p>
+          <p>{{ t.sub_step3_pay }}</p>
         </li>
       </ol>
 
       <div class="sub-chips">
-        <span class="sub-chip">Пробный период: {{ subscription_settings.trial_days }} дн.</span>
-        <span class="sub-chip">Лимит магазинов: {{ shops_limit }}</span>
-        <span class="sub-chip">Свободно: {{ shops_left if shops_left is not none else "∞" }}</span>
+        <span class="sub-chip">{{ t.sub_trial_chip }} {{ subscription_settings.trial_days }} {{ t.common_days }}</span>
+        <span class="sub-chip">{{ t.sub_shops_limit_chip }} {{ shops_limit }}</span>
+        <span class="sub-chip">{{ t.sub_free_chip }} {{ shops_left if shops_left is not none else "∞" }}</span>
       </div>
     </aside>
   </div>
+
+  <section class="sub-card sub-code-section">
+    <div class="sub-head">
+      <div>
+        <h2>{{ t.sub_code_h2 }}</h2>
+        <p>{{ t.sub_code_desc }}</p>
+      </div>
+      <div class="sub-pill">{{ t.sub_code_from_admin }}</div>
+    </div>
+    <form method="post">
+      <div class="sub-code-input-row">
+        <input
+          type="text"
+          class="sub-code-input"
+          name="activation_code"
+          placeholder="XXXXXXXXXX"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false">
+        <button type="submit" class="sub-code-submit">{{ t.sub_activate_btn }}</button>
+      </div>
+    </form>
+    <ol class="sub-steps" style="margin-top:18px; padding-top:16px; border-top:1px solid #eaecf0;">
+      <li class="sub-step">
+        <span class="sub-step-num">1</span>
+        <p>{{ t.sub_code_step1 }}</p>
+      </li>
+      <li class="sub-step">
+        <span class="sub-step-num">2</span>
+        <p>{{ t.sub_code_step2 }}</p>
+      </li>
+      <li class="sub-step">
+        <span class="sub-step-num">3</span>
+        <p>{{ t.sub_code_step3 }}</p>
+      </li>
+    </ol>
+  </section>
 </div>
 
 <script>
@@ -453,7 +528,7 @@
       selectedDot.classList.add("active");
       if (paymeEnabled && selectedPlanKey) {
         payButton.disabled = false;
-        paymeStatusText.textContent = "Заказ будет создан сразу перед открытием Payme.";
+        paymeStatusText.textContent = "{{ t.sub_order_created_hint }}";
       }
       document.getElementById("paymeCard").scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -467,7 +542,7 @@
     });
     const data = await response.json();
     if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Не удалось создать заказ Payme.");
+      throw new Error(data.error || "{{ t.sub_order_error }}");
     }
     return data;
   }
@@ -490,22 +565,23 @@
   payButton.disabled = !paymeEnabled;
   payButton.addEventListener("click", async () => {
     if (!selectedPlanKey) {
-      paymeStatusText.textContent = "Сначала выберите тариф.";
+      paymeStatusText.textContent = "{{ t.sub_select_plan_first }}";
       return;
     }
 
     payButton.disabled = true;
-    payButton.textContent = "Подготовка заказа...";
-    paymeStatusText.textContent = "Создаём заказ и открываем Payme...";
+    payButton.textContent = "{{ t.sub_creating_order }}";
+    paymeStatusText.textContent = "{{ t.sub_opening_payme }}";
 
     try {
       const order = await createPaymeOrder(selectedPlanKey);
       submitPaymeCheckout(order);
     } catch (error) {
       payButton.disabled = false;
-      payButton.textContent = "Оплатить через Payme";
-      paymeStatusText.textContent = error?.message || "Не удалось открыть Payme.";
+      payButton.textContent = "{{ t.sub_pay_payme_btn }}";
+      paymeStatusText.textContent = error?.message || "{{ t.sub_payme_error }}";
     }
   });
+
 </script>
 {% endblock %}

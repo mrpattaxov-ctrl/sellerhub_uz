@@ -1,31 +1,37 @@
 """Admin routes extracted from app.py as a Flask Blueprint."""
 from __future__ import annotations
 
+import threading
+import time as _time
+from datetime import date, datetime, timedelta
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import delete, desc, select
+from sqlalchemy import delete, desc, func, select
+from sqlalchemy.exc import OperationalError
 from werkzeug.security import generate_password_hash
 
 from extensions import SessionLocal
 from models import (
-    FinanceHourlySnapshot,
-    FinanceOrder,
-    FinanceSyncLog,
+    ExpensesLedger,
+    PosActionLog,
     ProductGroup,
+    SalesLine,
     Shop,
+    ShopBackfillChunk,
+    ShopSyncState,
     SubscriptionCode,
     SubscriptionCodeActivation,
-    SyncJob,
     User,
     Variant,
     VariantSale,
-    WarehouseExpenseSnapshot,
 )
 from core.auth_helpers import (
     _current_user_is_admin,
     _json_response,
     _user_shop_ids,
 )
+from core.redis_client import revoke_user, unrevoke_user
 from core.subscriptions import (
     _admin_clear_user_subscription,
     _admin_set_user_subscription,
@@ -33,6 +39,8 @@ from core.subscriptions import (
     _ensure_user_trial_started,
     _generate_subscription_code,
     _get_or_create_subscription_settings,
+    _invalidate_settings_cache,
+    _invalidate_user_ctx_cache,
     _recalculate_subscription_for_user,
     _subscription_code_duration_label,
     _subscription_code_duration_rows,
@@ -42,6 +50,23 @@ from core.subscriptions import (
 )
 
 admin_bp = Blueprint("admin_bp", __name__)
+
+_app = None
+
+
+def init_admin_routes(app_module):
+    global _app
+    _app = app_module
+
+
+def _fire_finance_seed(uzum_id: str, shop_pk: int):
+    """Trigger a background finance seed for a newly added shop."""
+    def _run(uzum_id=uzum_id, shop_pk=shop_pk):
+        try:
+            _app._sync_finance_for_shop(uzum_id, shop_pk)
+        except Exception as e:
+            print(f"[AdminShop] Finance seed (variants) failed for {uzum_id}: {e}")
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: int | None = None):
@@ -121,6 +146,7 @@ def add_shop():
             elif not is_admin and existing.owner_id is None:
                 existing.owner_id = uid
             db.commit()
+            _fire_finance_seed(uzum_id, existing.id)
             return _json_response({"ok": True, "id": existing.id})
 
         limit_error = _shop_limit_error_response(db, resolved_owner)
@@ -129,7 +155,184 @@ def add_shop():
         s = Shop(uzum_id=uzum_id, name=name or f"Shop {uzum_id}", owner_id=resolved_owner)
         db.add(s)
         db.commit()
+        db.refresh(s)
+        _fire_finance_seed(uzum_id, s.id)
         return _json_response({"ok": True, "id": s.id})
+
+
+# ----------------------------
+# OpenAPI-token shop discovery + bulk attach
+# ----------------------------
+
+@admin_bp.post("/api/shops/openapi/discover")
+@login_required
+def discover_shops_via_openapi():
+    """Probe Uzum Seller OpenAPI /v1/shops with the user-supplied token.
+
+    Body: { "token": "<openapi token>" }  (optional — falls back to the
+    token saved on the user row)
+    Returns: { "shops": [{ "uzum_id", "name", "already_added", "owned_by_other" }] }
+
+    The browser MUST call this (and never Uzum directly) — Uzum's CORS
+    policy blocks cross-origin requests from the seller's browser.
+    """
+    from core.uzum_openapi import list_owned_shops
+
+    payload = request.get_json(force=True, silent=True) or {}
+    token = str(payload.get("token") or "").strip()
+
+    uid = int(current_user.get_id())
+
+    with SessionLocal() as db:
+        user = db.get(User, uid)
+        if user is None:
+            return _json_response({"error": "User not found"}, 404)
+        if not token:
+            token = (user.uzum_openapi_token or "").strip()
+        if not token:
+            return _json_response({"error": "OpenAPI token required"}, 400)
+
+        try:
+            shops = list_owned_shops(token)
+        except Exception as exc:
+            return _json_response({"error": f"Uzum OpenAPI error: {exc}"}, 400)
+
+        # Persist the token on first successful probe (or refresh it if changed)
+        if user.uzum_openapi_token != token:
+            user.uzum_openapi_token = token
+            db.commit()
+
+        # Annotate each shop with current ownership state
+        uzum_ids = [s["uzum_id"] for s in shops if s.get("uzum_id")]
+        existing_rows: dict[str, Shop] = {}
+        if uzum_ids:
+            for row in db.execute(select(Shop).where(Shop.uzum_id.in_(uzum_ids))).scalars():
+                existing_rows[row.uzum_id] = row
+
+        result = []
+        for s in shops:
+            uid_str = s["uzum_id"]
+            existing = existing_rows.get(uid_str)
+            already_added = existing is not None and existing.owner_id == uid
+            owned_by_other = (
+                existing is not None
+                and existing.owner_id is not None
+                and existing.owner_id != uid
+            )
+            result.append({
+                "uzum_id": uid_str,
+                "name": s.get("name") or "",
+                "already_added": already_added,
+                "owned_by_other": owned_by_other,
+            })
+
+    return _json_response({"shops": result})
+
+
+@admin_bp.post("/api/shops/openapi/attach")
+@login_required
+def attach_shops_via_openapi():
+    """Bulk-attach shops picked from the OpenAPI discovery list.
+
+    Body: { "shops": [{ "uzum_id": "...", "name": "..." }, ...] }
+    Returns: { "added": [...], "skipped": [{uzum_id, reason}], "shop_count": N }
+
+    Mirrors the single-shop add_shop() semantics: upserts the Shop row,
+    sets owner_id to the current user (or leaves an admin-owned shop
+    alone), respects the per-user shop limit, and fires a background
+    finance seed for each newly attached shop.
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+    items = payload.get("shops") or []
+    if not isinstance(items, list) or not items:
+        return _json_response({"error": "shops[] required"}, 400)
+
+    uid = int(current_user.get_id())
+    is_admin = _current_user_is_admin()
+
+    added: list[dict] = []
+    skipped: list[dict] = []
+    seeds: list[tuple[str, int]] = []
+
+    with SessionLocal() as db:
+        settings = _get_or_create_subscription_settings(db)
+        # Snapshot current count once; we'll decrement headroom as we add.
+        if not is_admin:
+            _, current_count, limit = _can_user_add_shop(
+                db, user_id=uid, settings=settings,
+            )
+            headroom = max(0, int(limit) - int(current_count))
+        else:
+            headroom = 10**9  # effectively unlimited for admins
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            uzum_id = str(item.get("uzum_id") or "").strip()
+            if not uzum_id:
+                continue
+            name = str(item.get("name") or "").strip()
+
+            existing = db.execute(
+                select(Shop).where(Shop.uzum_id == uzum_id)
+            ).scalar_one_or_none()
+
+            if existing is not None:
+                if existing.owner_id == uid:
+                    skipped.append({"uzum_id": uzum_id, "reason": "already_added"})
+                    continue
+                if existing.owner_id is not None and not is_admin:
+                    skipped.append({"uzum_id": uzum_id, "reason": "owned_by_other"})
+                    continue
+                # Claim an unowned shop (regular user) or leave admin-assignable
+                if headroom <= 0 and not is_admin:
+                    skipped.append({"uzum_id": uzum_id, "reason": "limit_reached"})
+                    continue
+                if existing.owner_id is None:
+                    existing.owner_id = uid
+                if name and not existing.name:
+                    existing.name = name
+                db.flush()
+                added.append({"uzum_id": uzum_id, "id": existing.id})
+                seeds.append((uzum_id, existing.id))
+                headroom -= 1
+                continue
+
+            if headroom <= 0 and not is_admin:
+                skipped.append({"uzum_id": uzum_id, "reason": "limit_reached"})
+                continue
+
+            shop = Shop(
+                uzum_id=uzum_id,
+                name=name or f"Shop {uzum_id}",
+                owner_id=uid if not is_admin else None,
+            )
+            db.add(shop)
+            db.flush()
+            added.append({"uzum_id": uzum_id, "id": shop.id})
+            seeds.append((uzum_id, shop.id))
+            headroom -= 1
+
+        db.commit()
+
+        # Updated shop count for the UI pill (regular users only)
+        if not is_admin:
+            _, current_count, limit = _can_user_add_shop(
+                db, user_id=uid, settings=settings,
+            )
+        else:
+            current_count, limit = 0, 0
+
+    for uzum_id, shop_pk in seeds:
+        _fire_finance_seed(uzum_id, shop_pk)
+
+    return _json_response({
+        "added": added,
+        "skipped": skipped,
+        "shop_count": current_count,
+        "shop_limit": limit,
+    })
+
 
 @admin_bp.post("/api/shops/<int:shop_id>/assign")
 @login_required
@@ -158,37 +361,73 @@ def assign_shop(shop_id: int):
 @admin_bp.delete("/api/shops/<int:shop_id>")
 @login_required
 def delete_shop(shop_id: int):
-    """Delete a shop. Users can only delete their own shops; admin can delete any unowned shop."""
+    """Delete a shop. Users can only delete their own shops; admin can delete any unowned shop.
+
+    Runs under a deadlock-retry loop: the cascade touches Variant/ProductGroup
+    while the background sales-ingest loops hold locks on the same rows
+    (sku->shop routing reads + sales_lines DELETE+INSERT). Postgres aborts
+    one side as the deadlock victim; we simply retry the whole transaction
+    on a fresh session. Also purges the new-pipeline tables
+    (sales_lines / expenses_ledger / shop_backfill_chunks / shop_sync_state)
+    keyed by int(Shop.uzum_id) so a deleted shop leaves no orphan rows.
+    """
     uid = int(current_user.get_id())
-    with SessionLocal() as db:
-        shop = db.get(Shop, shop_id)
-        if not shop:
-            return _json_response({"error": "Shop not found"}, 404)
-        # Permission: must own the shop (or be admin)
-        if not _current_user_is_admin() and shop.owner_id != uid:
-            return _json_response({"error": "Access denied"}, 403)
-        shop_uzum_id = str(shop.uzum_id or "").strip()
-        # Cascade delete: VariantSale -> Variant -> ProductGroup -> Shop
-        group_ids = db.execute(
-            select(ProductGroup.id).where(ProductGroup.shop_id == shop_id)
-        ).scalars().all()
-        if group_ids:
-            variant_ids = db.execute(
-                select(Variant.id).where(Variant.group_id.in_(group_ids))
-            ).scalars().all()
-            if variant_ids:
-                db.execute(delete(VariantSale).where(VariantSale.variant_id.in_(variant_ids)))
-                db.execute(delete(Variant).where(Variant.id.in_(variant_ids)))
-            db.execute(delete(ProductGroup).where(ProductGroup.id.in_(group_ids)))
-        if shop_uzum_id:
-            db.execute(delete(FinanceOrder).where(FinanceOrder.shop_id == shop_uzum_id))
-            db.execute(delete(FinanceSyncLog).where(FinanceSyncLog.shop_id == shop_uzum_id))
-            db.execute(delete(FinanceHourlySnapshot).where(FinanceHourlySnapshot.shop_id == shop_uzum_id))
-            db.execute(delete(WarehouseExpenseSnapshot).where(WarehouseExpenseSnapshot.shop_id == shop_uzum_id))
-            db.execute(delete(SyncJob).where(SyncJob.shop_id == shop_uzum_id))
-        db.delete(shop)
-        db.commit()
-    return _json_response({"ok": True})
+    max_attempts = 4
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with SessionLocal() as db:
+                shop = db.get(Shop, shop_id)
+                if not shop:
+                    return _json_response({"error": "Shop not found"}, 404)
+                # Permission: must own the shop (or be admin)
+                if not _current_user_is_admin() and shop.owner_id != uid:
+                    return _json_response({"error": "Access denied"}, 403)
+
+                # New-pipeline tables key on the Uzum shop id (int), not the
+                # local PK. Resolve it before the Shop row is deleted.
+                uzum_id_int = None
+                try:
+                    uzum_id_int = int(str(shop.uzum_id).strip())
+                except (TypeError, ValueError):
+                    uzum_id_int = None
+
+                # Cascade delete: VariantSale -> Variant -> ProductGroup -> Shop
+                group_ids = db.execute(
+                    select(ProductGroup.id).where(ProductGroup.shop_id == shop_id)
+                ).scalars().all()
+                if group_ids:
+                    variant_ids = db.execute(
+                        select(Variant.id).where(Variant.group_id.in_(group_ids))
+                    ).scalars().all()
+                    if variant_ids:
+                        db.execute(delete(VariantSale).where(VariantSale.variant_id.in_(variant_ids)))
+                        db.execute(delete(Variant).where(Variant.id.in_(variant_ids)))
+                    db.execute(delete(ProductGroup).where(ProductGroup.id.in_(group_ids)))
+
+                # pos_action_log has FK -> shops.id; clear it so the Shop
+                # delete doesn't fail with an IntegrityError.
+                db.execute(delete(PosActionLog).where(PosActionLog.shop_id == shop_id))
+
+                # Purge new-pipeline data so the deleted shop leaves no
+                # orphan rows (old code cleaned the legacy finance tables
+                # here; the retirement replaced them with these).
+                if uzum_id_int is not None:
+                    db.execute(delete(SalesLine).where(SalesLine.shop_id == uzum_id_int))
+                    db.execute(delete(ExpensesLedger).where(ExpensesLedger.shop_id == uzum_id_int))
+                    db.execute(delete(ShopBackfillChunk).where(ShopBackfillChunk.shop_id == uzum_id_int))
+                    db.execute(delete(ShopSyncState).where(ShopSyncState.shop_id == uzum_id_int))
+
+                db.delete(shop)
+                db.commit()
+            return _json_response({"ok": True})
+        except OperationalError as exc:
+            is_deadlock = "deadlock" in str(getattr(exc, "orig", exc)).lower()
+            if is_deadlock and attempt < max_attempts:
+                _time.sleep(0.2 * attempt)
+                continue
+            raise
+    return _json_response({"error": "Could not delete shop, please retry"}, 503)
 
 
 @admin_bp.get("/my-shops")
@@ -293,6 +532,7 @@ def admin_subscriptions_page():
                 settings.max_shops_per_user = max_shops_per_user
                 db.add(settings)
                 db.commit()
+                _invalidate_settings_cache()
                 flash("Настройки подписки сохранены.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 
@@ -382,6 +622,8 @@ def admin_subscriptions_page():
                     if user is not None:
                         _recalculate_subscription_for_user(db, user=user, settings=settings)
                 db.commit()
+                for uid in affected_user_ids:
+                    _invalidate_user_ctx_cache(uid)
                 flash(f"Код {code_value} удалён.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 
@@ -411,6 +653,12 @@ def admin_subscriptions_page():
                     settings=settings,
                 )
                 db.commit()
+                _invalidate_user_ctx_cache(user.id)
+                # A fresh subscription clears any stale revoke on this user.
+                # Their session keys remain stale until the gate's slow path
+                # refreshes them on their next request — which is fine since
+                # they're now authorized.
+                unrevoke_user(user.id)
                 flash(f"Подписка пользователя {user.username} обновлена.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 
@@ -426,6 +674,11 @@ def admin_subscriptions_page():
                     return redirect(url_for("admin_bp.admin_subscriptions_page"))
                 _admin_clear_user_subscription(db, user=user)
                 db.commit()
+                _invalidate_user_ctx_cache(user.id)
+                # Force the target user out on their next request — their
+                # signed session might still say "active" until they log in
+                # again, and the blocklist is how we close that window.
+                revoke_user(user.id)
                 flash(f"Подписка пользователя {user.username} удалена.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 

@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 
-from flask import request, redirect, url_for
+from flask import g, request, redirect, url_for
 from flask_login import current_user
 from sqlalchemy import select
 
@@ -116,18 +116,28 @@ def _uzum_auto_login() -> bool:
 
 def _user_shop_ids(user_id: int) -> list[int]:
     """Return shop DB IDs visible to the given user.
-    Admin sees their own + unassigned shops. Regular users see ONLY their own shops."""
+    Admin sees their own + unassigned shops. Regular users see ONLY their own shops.
+    Result is cached in Flask's g object so DB is hit at most once per request."""
+    cache_key = f"_shop_ids_{user_id}"
+    cached = getattr(g, cache_key, None)
+    if cached is not None:
+        return cached
+
     with SessionLocal() as db:
         user = db.get(User, user_id)
         if not user:
-            return []
-        if user.is_admin:
+            result: list[int] = []
+        elif user.is_admin:
             stmt = select(Shop).where(
                 (Shop.owner_id == user_id) | (Shop.owner_id == None)
             )
+            result = [s.id for s in db.execute(stmt).scalars().all()]
         else:
             stmt = select(Shop).where(Shop.owner_id == user_id)
-        return [s.id for s in db.execute(stmt).scalars().all()]
+            result = [s.id for s in db.execute(stmt).scalars().all()]
+
+    setattr(g, cache_key, result)
+    return result
 
 
 def _jwt_expires_in_seconds(token: str) -> int | None:

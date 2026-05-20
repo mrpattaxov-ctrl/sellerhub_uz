@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Юнит Экономика</title>
+  <title>{{ t.eco_title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
@@ -181,7 +181,11 @@
     .flatpickr-innerContainer { padding: 0 6px 6px; }
   </style>
 </head>
-<body>
+<body
+  data-is-admin="{{ '1' if current_user.is_authenticated and current_user.is_admin else '0' }}"
+  data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
+  data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
+  data-lang="{{ lang }}">
   <!-- Sidebar injected by uzum_ui.js -->
 
   <div class="p-4">
@@ -189,15 +193,15 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
       <div>
-        <h1 class="h3 mb-1 fw-semibold">Юнит Экономика</h1>
-        <p class="text-muted mb-0" id="periodLabel" style="font-size:13px;">Сводка по товарам</p>
+        <h1 class="h3 mb-1 fw-semibold">{{ t.eco_title }}</h1>
+        <p class="text-muted mb-0" id="periodLabel" style="font-size:13px;">{{ t.eco_summary }}</p>
       </div>
 
       <!-- Date picker -->
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <div class="date-range-wrapper" id="dateRangeWrapper">
           <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="text" id="dateRangeInput" placeholder="Выберите период" readonly>
+          <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
           <span class="arrow">▼</span>
         </div>
         <!-- hidden inputs used by loadData() — filled by JS -->
@@ -205,25 +209,25 @@
         <input type="hidden" id="dateTo">
         <button id="btnApply" style="padding:5px 16px; border-radius:8px; font-size:12px; font-weight:600;
           color:#fff; background:#0f172a; border:none; cursor:pointer; transition:all .2s; height:34px;">
-          <span id="btnApplyText">Показать</span>
+          <span id="btnApplyText">{{ t.detail_show_btn }}</span>
           <span id="btnApplySpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
         </button>
         <button id="btnThisMonth" style="padding:5px 14px; border-radius:8px; font-size:12px; font-weight:500;
-          color:#64748b; background:#f1f3f5; border:none; cursor:pointer; transition:all .2s; height:34px;">Этот месяц</button>
+          color:#64748b; background:#f1f3f5; border:none; cursor:pointer; transition:all .2s; height:34px;">{{ t.eco_this_month }}</button>
       </div>
     </div>
 
     <!-- Status bar -->
     <div id="statusBar">
       <div class="pulse-dot"></div>
-      <span id="statusText">Загружаем данные из Uzum…</span>
+      <span id="statusText">{{ t.eco_loading }}</span>
     </div>
     <!-- Cache info bar -->
     <div id="cacheBar" style="display:none; align-items:center; justify-content:space-between; gap:10px;
          background:#F9FAFB; border:1px solid #EAECF0; border-radius:10px; padding:9px 16px;
          font-size:12px; color:#667085; margin-bottom:16px;">
-      <span>🕒 Данные из кэша · Обновлено: <strong id="cacheTime">—</strong></span>
-      <span style="color:#98A2B3;">Нажмите «Обновить» для загрузки свежих данных из Uzum</span>
+      <span>🕒 <span id="cachePrefixText">{{ t.eco_cache_prefix }}</span> <strong id="cacheTime">—</strong></span>
+      <span style="color:#98A2B3;">{{ t.eco_cache_refresh_hint }}</span>
     </div>
 
     <!-- Summary Cards -->
@@ -249,15 +253,15 @@
         <table class="table mb-0">
           <thead>
             <tr>
-              <th style="width:32%;">Товар</th>
-              <th class="text-end">Остаток</th>
-              <th class="text-end">Себест. товаров</th>
-              <th class="text-end" style="border-left:1px solid #EAECF0;">Продажи</th>
-              <th class="text-end">Выручка</th>
-              <th class="text-end">Комиссия</th>
-              <th class="text-end">Логистика</th>
-              <th class="text-end">Себест. продаж</th>
-              <th class="text-end">Чист. прибыль</th>
+              <th style="width:32%;">{{ t.eco_col_product }}</th>
+              <th class="text-end">{{ t.eco_col_stock }}</th>
+              <th class="text-end">{{ t.eco_col_stock_cost }}</th>
+              <th class="text-end" style="border-left:1px solid #EAECF0;">{{ t.eco_col_sales }}</th>
+              <th class="text-end">{{ t.eco_col_revenue }}</th>
+              <th class="text-end">{{ t.eco_col_commission }}</th>
+              <th class="text-end">{{ t.eco_col_logistics }}</th>
+              <th class="text-end">{{ t.eco_col_sales_cost }}</th>
+              <th class="text-end">{{ t.eco_col_net_profit }}</th>
               <th class="text-end">ROI</th>
             </tr>
           </thead>
@@ -323,8 +327,26 @@
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
-  <script src="/static/uzum_ui.js"></script>
+  <script src="/static/uzum_ui.js?v=20260412b"></script>
   <script>
+    const _ET = {
+      loading: '{{ t.eco_loading }}',
+      showBtn: '{{ t.detail_show_btn }}',
+      cachePrefix: '{{ t.eco_cache_prefix }}',
+      cacheRefreshHint: '{{ t.eco_cache_refresh_hint }}',
+      noData: '{{ t.eco_no_data }}',
+      noSales: '{{ t.eco_no_sales_hint }}',
+      loadData: '{{ t.eco_load_data_btn }}',
+      errorLoading: '{{ t.eco_error_loading }}',
+      errorFetch: '{{ t.eco_error_fetch }}',
+      stockCostLabel: '{{ t.eco_card_stock_cost }}',
+      stockCostSub: '{{ t.eco_card_stock_sub }}',
+      stockCostInfo: '{{ t.eco_card_stock_info }}',
+      revenueLabel: '{{ t.eco_card_revenue }}',
+      commLabel: '{{ t.eco_card_commission }}',
+      profitLabel: '{{ t.eco_card_profit }}',
+      sumLabel: '{{ t.calc_sum_label }}',
+    };
     const CACHE_KEY_PREFIX = "eco_cache_";
 
     function cacheKey(df, dt) { return CACHE_KEY_PREFIX + df + "_" + dt; }
@@ -419,27 +441,27 @@
         <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.00s"><div class="card-stat">
           <div class="stat-head">
             <div class="stat-copy">
-              <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>Себестоимость товаров</div>
-              <div class="stat-subtitle">Uzum + Склад</div>
+              <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>${_ET.stockCostLabel}</div>
+              <div class="stat-subtitle">${_ET.stockCostSub}</div>
             </div>
             <div class="info-wrap">
-              <button type="button" class="info-btn" aria-label="Пояснение к себестоимости товаров" aria-expanded="false">i</button>
-              <div class="info-popover">Показывает общую себестоимость всех остатков: товары на складе Uzum + товары на вашем складе.</div>
+              <button type="button" class="info-btn" aria-label="${_ET.stockCostLabel}" aria-expanded="false">i</button>
+              <div class="info-popover">${_ET.stockCostInfo}</div>
             </div>
           </div>
-          <div class="stat-val">${fmt(totals.stock_cost)} <span style="font-size:14px;font-weight:500;color:#667085;">сум</span></div>
+          <div class="stat-val">${fmt(totals.stock_cost)} <span style="font-size:14px;font-weight:500;color:#667085;">${_ET.sumLabel}</span></div>
         </div></div>
         <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.05s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Выручка</div>
-          <div class="stat-val">${fmt(totals.sales_revenue)} <span style="font-size:14px;font-weight:500;color:#667085;">сум</span></div>
+          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>${_ET.revenueLabel}</div>
+          <div class="stat-val">${fmt(totals.sales_revenue)} <span style="font-size:14px;font-weight:500;color:#667085;">${_ET.sumLabel}</span></div>
         </div></div>
         <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.10s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Комиссия + Логистика</div>
-          <div class="stat-val" style="color:#B42318;">${fmt(totals.sales_commission + totals.sales_logistics)} <span style="font-size:14px;font-weight:500;">сум</span></div>
+          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>${_ET.commLabel}</div>
+          <div class="stat-val" style="color:#B42318;">${fmt(totals.sales_commission + totals.sales_logistics)} <span style="font-size:14px;font-weight:500;">${_ET.sumLabel}</span></div>
         </div></div>
         <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.15s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>Чистая прибыль</div>
-          <div class="stat-val" style="color:${pc};">${sign(totals.sales_profit)}${fmt(totals.sales_profit)} <span style="font-size:14px;font-weight:500;">сум</span></div>
+          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>${_ET.profitLabel}</div>
+          <div class="stat-val" style="color:${pc};">${sign(totals.sales_profit)}${fmt(totals.sales_profit)} <span style="font-size:14px;font-weight:500;">${_ET.sumLabel}</span></div>
         </div></div>`;
     }
 
@@ -458,9 +480,9 @@
       if (!items.length) {
         tbody.innerHTML = `<tr><td colspan="10"><div class="text-center py-5">
           <div style="font-size:40px;margin-bottom:12px;">📊</div>
-          <div style="font-size:15px;font-weight:600;color:#344054;">Нет данных за выбранный период</div>
-          <div style="font-size:13px;color:#667085;margin-top:4px;margin-bottom:16px;">Возможно, в этот период не было продаж</div>
-          <button onclick="fetchFresh(dateFromEl.value, dateToEl.value)" class="btn btn-outline-primary px-4">🔄 Загрузить данные</button>
+          <div style="font-size:15px;font-weight:600;color:#344054;">${_ET.noData}</div>
+          <div style="font-size:13px;color:#667085;margin-top:4px;margin-bottom:16px;">${_ET.noSales}</div>
+          <button onclick="fetchFresh(dateFromEl.value, dateToEl.value)" class="btn btn-outline-primary px-4">🔄 ${_ET.loadData}</button>
         </div></td></tr>`;
         return;
       }
@@ -492,7 +514,7 @@
       const txt = document.getElementById("btnApplyText");
       const sp  = document.getElementById("btnApplySpinner");
       btn.classList.toggle("btn-loading", loading);
-      txt.textContent  = loading ? "Загрузка…" : "Показать";
+      txt.textContent  = loading ? _ET.loading : _ET.showBtn;
       sp.style.display = loading ? "inline-block" : "none";
     }
 
@@ -513,7 +535,7 @@
     async function fetchFresh(df, dt) {
       setBtnRefreshLoading(true);
       hideCacheBar();
-      setStatus(`Загружаем свежие данные из Uzum за ${df} — ${dt}…`);
+      setStatus(`${_ET.loading} ${df} — ${dt}…`);
       showSkeletonCards();
       document.getElementById("ecoTbody").innerHTML =
         skeletonRow([75,55,65,55,65,65,65,65,65,40]) +
@@ -523,7 +545,7 @@
         skeletonRow([70,55,65,55,65,65,65,65,65,40]);
       try {
         const res = await fetch(`/api/economics/data?date_from=${df}&date_to=${dt}`);
-        if (!res.ok) throw new Error(`Сервер вернул ${res.status}`);
+        if (!res.ok) throw new Error(`${_ET.errorFetch} ${res.status}`);
         const payload = await res.json();
         saveCache(df, dt, payload);
         renderCards(payload.totals);
@@ -534,10 +556,10 @@
         document.getElementById("cardsRow").innerHTML = "";
         document.getElementById("ecoTbody").innerHTML = `<tr><td colspan="10"><div class="text-center py-5">
           <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
-          <div style="font-size:15px;font-weight:600;color:#B42318;">Ошибка загрузки</div>
+          <div style="font-size:15px;font-weight:600;color:#B42318;">${_ET.errorLoading}</div>
           <div style="font-size:13px;color:#667085;margin-top:4px;">${e.message}</div>
         </div></td></tr>`;
-        setStatus("Не удалось загрузить данные: " + e.message, true);
+        setStatus(_ET.errorLoading + ": " + e.message, true);
       } finally {
         setBtnRefreshLoading(false);
       }

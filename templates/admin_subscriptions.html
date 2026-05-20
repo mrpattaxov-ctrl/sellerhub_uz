@@ -174,41 +174,41 @@
   <section class="admin-sub-card admin-sub-hero">
     <div class="admin-sub-head">
       <div>
-        <div class="admin-sub-kicker">Подписки и лимиты</div>
-        <h1 style="font-size: clamp(2rem, 3vw, 2.7rem); margin-top: 14px;">Управление подписками</h1>
-        <p>Здесь настраиваются пробный период, цены, лимит магазинов и коды активации. Ниже сразу видно, у кого доступ активен, а у кого срок уже закончился.</p>
+        <div class="admin-sub-kicker">{{ t.admin_subs_kicker }}</div>
+        <h1 style="font-size: clamp(2rem, 3vw, 2.7rem); margin-top: 14px;">{{ t.admin_subs_title }}</h1>
+        <p>{{ t.admin_subs_manage_desc }}</p>
       </div>
       <div class="admin-sub-actions">
-        <a href="/admin/users" class="btn btn-outline-secondary">Пользователи</a>
-        <a href="/groups" class="btn btn-dark">К товарам</a>
+        <a href="/admin/users" class="btn btn-outline-secondary">{{ t.admin_to_users_btn }}</a>
+        <a href="/groups" class="btn btn-dark">{{ t.admin_to_products_btn }}</a>
       </div>
     </div>
 
     <div class="admin-sub-overview">
       <div class="admin-sub-overview-box">
-        <small>Платные</small>
+        <small>{{ t.admin_paid }}</small>
         <strong>{{ subscription_overview.paid_users }}</strong>
-        <p>Пользователи с уже оплаченной подпиской.</p>
+        <p>{{ t.admin_paid_desc }}</p>
       </div>
       <div class="admin-sub-overview-box">
-        <small>На пробе</small>
+        <small>{{ t.admin_trial_stat }}</small>
         <strong>{{ subscription_overview.trial_users }}</strong>
-        <p>Активны за счёт тестового периода.</p>
+        <p>{{ t.admin_trial_stat_desc }}</p>
       </div>
       <div class="admin-sub-overview-box">
-        <small>Истекли</small>
+        <small>{{ t.admin_expired_stat }}</small>
         <strong>{{ subscription_overview.expired_users }}</strong>
-        <p>Этим аккаунтам уже нужно продление.</p>
+        <p>{{ t.admin_expired_stat_desc }}</p>
       </div>
       <div class="admin-sub-overview-box">
-        <small>Активные коды</small>
+        <small>{{ t.admin_active_codes }}</small>
         <strong>{{ subscription_overview.active_codes }}</strong>
-        <p>Коды, которые ещё можно выдать пользователям.</p>
+        <p>{{ t.admin_active_codes_desc }}</p>
       </div>
       <div class="admin-sub-overview-box">
-        <small>Лимит магазинов</small>
+        <small>{{ t.admin_shop_limit_stat }}</small>
         <strong>{{ subscription_settings.max_shops_per_user }}</strong>
-        <p>Максимум на один аккаунт по текущим настройкам.</p>
+        <p>{{ t.admin_shop_limit_stat_desc }}</p>
       </div>
     </div>
   </section>
@@ -217,26 +217,26 @@
     <section class="admin-sub-card">
       <div class="admin-sub-head">
         <div>
-          <h2>Базовые настройки</h2>
-          <p>Меняйте пробный период, цену месяца и лимит магазинов. Цены тарифов пересчитываются автоматически ниже.</p>
+          <h2>{{ t.admin_basic_settings }}</h2>
+          <p>{{ t.admin_basic_settings_desc }}</p>
         </div>
       </div>
       <form method="post" class="row g-3 align-items-end">
         <input type="hidden" name="action" value="settings">
         <div class="col-md-4">
-          <label class="form-label">Пробный период, дней</label>
+          <label class="form-label">{{ t.admin_trial_days_label }}</label>
           <input class="form-control" type="number" min="0" name="trial_days" value="{{ subscription_settings.trial_days }}">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Цена за 1 месяц, сум</label>
+          <label class="form-label">{{ t.admin_price_month_label }}</label>
           <input class="form-control" type="number" min="0" step="1000" name="monthly_price_sum" value="{{ subscription_settings.monthly_price_sum }}">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Лимит магазинов</label>
+          <label class="form-label">{{ t.admin_shops_limit_label }}</label>
           <input class="form-control" type="number" min="1" name="max_shops_per_user" value="{{ subscription_settings.max_shops_per_user }}">
         </div>
         <div class="col-12">
-          <button class="btn btn-dark" type="submit">Сохранить настройки</button>
+          <button class="btn btn-dark" type="submit">{{ t.admin_save_settings_btn }}</button>
         </div>
       </form>
 
@@ -244,8 +244,8 @@
         {% for plan in subscription_plans %}
           <div class="admin-sub-plan-card">
             <small>{{ plan.label }}</small>
-            <strong>{{ plan.price_sum_formatted }} сум</strong>
-            <p>Скидка {{ plan.discount_percent }}% от базовой цены.</p>
+            <strong>{{ plan.price_sum_formatted }} {{ t.sub_currency }}</strong>
+            <p>{{ t.admin_discount_from }} {{ plan.discount_percent }}{{ t.admin_discount_suffix }}</p>
           </div>
         {% endfor %}
       </div>
@@ -254,14 +254,14 @@
     <section class="admin-sub-card">
       <div class="admin-sub-head">
         <div>
-          <h2>Создать код</h2>
-          <p>Код можно выдать после оплаты, как бонус или как промо-доступ.</p>
+          <h2>{{ t.admin_create_code_h2 }}</h2>
+          <p>{{ t.admin_create_code_desc }}</p>
         </div>
       </div>
       <form method="post" class="row g-3 align-items-end">
         <input type="hidden" name="action" value="create_code">
         <div class="col-12">
-          <label class="form-label">Срок действия</label>
+          <label class="form-label">{{ t.admin_validity_label }}</label>
           <select class="form-select" name="duration_key">
             {% for option in code_duration_options %}
               <option value="{{ option.key }}">{{ option.label }}</option>
@@ -269,15 +269,15 @@
           </select>
         </div>
         <div class="col-12">
-          <label class="form-label">Количество активаций</label>
+          <label class="form-label">{{ t.admin_activations_label }}</label>
           <input class="form-control" type="number" min="1" name="max_activations" value="1">
         </div>
         <div class="col-12">
-          <button class="btn btn-primary w-100" type="submit">Создать код</button>
+          <button class="btn btn-primary w-100" type="submit">{{ t.admin_create_code_h2 }}</button>
         </div>
       </form>
       <div class="admin-sub-note">
-        Сейчас в системе {{ subscription_overview.total_codes }} кодов. Пользователь может активировать код сам на странице подписки, без участия администратора в момент активации.
+        {{ t.admin_codes_count_note }} {{ subscription_overview.total_codes }} {{ t.admin_codes_count_suffix }}
       </div>
     </section>
   </div>
@@ -285,19 +285,19 @@
   <section class="admin-sub-card">
     <div class="admin-sub-head">
       <div>
-        <h2>Активные и созданные коды</h2>
-        <p>Список кодов, сроков и количества уже использованных активаций.</p>
+        <h2>{{ t.admin_codes_table_title }}</h2>
+        <p>{{ t.admin_codes_table_desc }}</p>
       </div>
     </div>
     <div class="table-responsive admin-sub-table">
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th>Код</th>
-            <th>Срок</th>
-            <th>Активации</th>
-            <th>Создан</th>
-            <th>Статус</th>
+            <th>{{ t.admin_code_col }}</th>
+            <th>{{ t.admin_validity_col }}</th>
+            <th>{{ t.admin_activations_col }}</th>
+            <th>{{ t.admin_created }}</th>
+            <th>{{ t.common_status }}</th>
           </tr>
         </thead>
         <tbody>
@@ -309,9 +309,9 @@
               <td>{{ row.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
               <td>
                 {% if row.is_active and row.used_count < row.max_activations %}
-                  <span class="admin-sub-state admin-sub-state--code-active">Активен</span>
+                  <span class="admin-sub-state admin-sub-state--code-active">{{ t.admin_code_active }}</span>
                 {% else %}
-                  <span class="admin-sub-state admin-sub-state--code-off">Закрыт</span>
+                  <span class="admin-sub-state admin-sub-state--code-off">{{ t.admin_code_closed }}</span>
                 {% endif %}
                 <div class="admin-code-actions mt-2">
                   <form method="post" class="admin-code-form">
@@ -322,52 +322,53 @@
                         <option value="{{ option.key }}" {% if option.key == row.duration_key %}selected{% endif %}>{{ option.label }}</option>
                       {% endfor %}
                     </select>
-                    <button class="btn btn-sm btn-outline-primary" type="submit">Сохранить</button>
+                    <button class="btn btn-sm btn-outline-primary" type="submit">{{ t.nav_save }}</button>
                   </form>
-                  <form method="post" onsubmit="return confirm('Удалить код {{ row.code }}?');">
+                  <form method="post" onsubmit="return confirm('{{ t.nav_delete }} {{ row.code }}?');">
                     <input type="hidden" name="action" value="delete_code">
                     <input type="hidden" name="code_id" value="{{ row.id }}">
-                    <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
+                    <button class="btn btn-sm btn-outline-danger" type="submit">{{ t.nav_delete }}</button>
                   </form>
                 </div>
               </td>
             </tr>
           {% else %}
             <tr>
-              <td colspan="5" class="text-center text-secondary py-4">Коды пока не созданы.</td>
+              <td colspan="5" class="text-center text-secondary py-4">{{ t.admin_no_codes }}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
   </section>
 
   <section class="admin-sub-card">
     <div class="admin-sub-head">
       <div>
-        <h2>Статус пользователей</h2>
-        <p>Отсюда видно, кто активен, кто сидит на пробе и кто уже заблокирован по сроку.</p>
+        <h2>{{ t.admin_users_status_title }}</h2>
+        <p>{{ t.admin_users_status_desc }}</p>
       </div>
-      <div class="admin-sub-chip">Всего продавцов: {{ subscription_overview.total_users }}</div>
+      <div class="admin-sub-chip">{{ t.admin_total_sellers }} {{ subscription_overview.total_users }}</div>
     </div>
     <div class="table-responsive admin-sub-table">
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th>Пользователь</th>
-            <th>Роль</th>
-            <th>Магазины</th>
-            <th>Статус</th>
-            <th>Осталось</th>
-            <th>Действует до</th>
-            <th>Действия</th>
+            <th>{{ t.common_user }}</th>
+            <th>{{ t.admin_role_col }}</th>
+            <th>{{ t.common_shops }}</th>
+            <th>{{ t.common_status }}</th>
+            <th>{{ t.admin_time_left_col }}</th>
+            <th>{{ t.admin_expires_col }}</th>
+            <th>{{ t.common_actions }}</th>
           </tr>
         </thead>
         <tbody>
           {% for row in user_rows %}
             <tr>
               <td><strong>{{ row.username }}</strong></td>
-              <td>{{ "Админ" if row.is_admin else "Пользователь" }}</td>
+              <td>{{ t.admin_role_admin if row.is_admin else t.admin_role_user }}</td>
               <td>{{ row.shop_count }}</td>
               <td>
                 {% if row.status.state == "admin" %}
@@ -383,7 +384,7 @@
               <td>{{ row.status.remaining_text }}</td>
               <td>
                 {% if row.status.is_unlimited %}
-                  Безлимит
+                  {{ t.sub_unlimited }}
                 {% elif row.status.effective_end_at %}
                   {{ row.status.effective_end_at.strftime("%Y-%m-%d %H:%M") }}
                 {% else %}
@@ -403,12 +404,12 @@
                           <option value="{{ option.key }}" {% if option.key == row.duration_key %}selected{% endif %}>{{ option.label }}</option>
                         {% endfor %}
                       </select>
-                      <button class="btn btn-sm btn-outline-primary" type="submit">Сохранить</button>
+                      <button class="btn btn-sm btn-outline-primary" type="submit">{{ t.nav_save }}</button>
                     </form>
-                    <form method="post" onsubmit="return confirm('Удалить подписку пользователя {{ row.username }}?');">
+                    <form method="post" onsubmit="return confirm('{{ t.nav_delete }}?');">
                       <input type="hidden" name="action" value="delete_user_subscription">
                       <input type="hidden" name="user_id" value="{{ row.id }}">
-                      <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
+                      <button class="btn btn-sm btn-outline-danger" type="submit">{{ t.nav_delete }}</button>
                     </form>
                   </div>
                 {% endif %}
@@ -423,18 +424,18 @@
   <section class="admin-sub-card">
     <div class="admin-sub-head">
       <div>
-        <h2>Последние активации</h2>
-        <p>Последние пользователи, которые уже активировали код и получили продление.</p>
+        <h2>{{ t.admin_last_activations }}</h2>
+        <p>{{ t.admin_last_activations_desc }}</p>
       </div>
     </div>
     <div class="table-responsive admin-sub-table">
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th>Пользователь</th>
-            <th>Код</th>
-            <th>Активирован</th>
-            <th>Действует до</th>
+            <th>{{ t.common_user }}</th>
+            <th>{{ t.admin_code_col }}</th>
+            <th>{{ t.admin_activated_at }}</th>
+            <th>{{ t.admin_expires_col }}</th>
           </tr>
         </thead>
         <tbody>
@@ -445,7 +446,7 @@
               <td>{{ row.activated_at.strftime("%Y-%m-%d %H:%M") }}</td>
               <td>
                 {% if row.was_unlimited %}
-                  Безлимит
+                  {{ t.sub_unlimited }}
                 {% elif row.applied_until %}
                   {{ row.applied_until.strftime("%Y-%m-%d %H:%M") }}
                 {% else %}
@@ -455,7 +456,7 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="4" class="text-center text-secondary py-4">Активаций пока не было.</td>
+              <td colspan="4" class="text-center text-secondary py-4">{{ t.admin_no_activations }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -463,4 +464,5 @@
     </div>
   </section>
 </div>
+
 {% endblock %}

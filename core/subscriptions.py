@@ -1,6 +1,7 @@
 """Subscription helpers: settings, status, code activation, and shop limits."""
 from __future__ import annotations
 
+import json
 import secrets
 import string
 from datetime import datetime, timedelta
@@ -8,6 +9,8 @@ from types import SimpleNamespace
 
 from sqlalchemy import func, select
 
+from core.redis_client import redis_client
+from core.swr import swr_get, swr_invalidate
 from extensions import SessionLocal
 from models import (
     Shop,
@@ -16,6 +19,84 @@ from models import (
     SubscriptionSettings,
     User,
 )
+
+# ── Redis-backed caches (Step 1 of project_scaling_roadmap_20k.md) ────
+# Single shared store across every Gunicorn worker + background worker; the
+# per-process dicts that used to live here are gone so 18 cache copies/user
+# collapse to 1. TTLs are enforced by Redis, not by Python.
+_SETTINGS_KEY = "settings:subscription"
+_SETTINGS_TTL_SECONDS: int = 1800  # 30 min (bumped from 5 min per roadmap)
+
+_CTX_KEY_PREFIX = "sub_ctx:"
+
+# Smart TTL branches (see project_scaling_roadmap_20k.md Step 0a).
+# 1h cap on future-expiry is a safety net until all mutation points are proven
+# to invalidate. Can be removed once audit is complete.
+_CTX_TTL_ADMIN_UNLIMITED: int = 86400   # 24h — admins/unlimited never expire
+_CTX_TTL_FUTURE_CAP: int = 3600         # 1h cap when subscription still valid
+_CTX_TTL_EXPIRED: int = 300             # 5min — expired users may pay soon
+
+
+def _invalidate_settings_cache() -> None:
+    """Call after admin saves subscription settings."""
+    swr_invalidate(_SETTINGS_KEY)
+
+
+def _invalidate_user_ctx_cache(user_id: int) -> None:
+    """Call after trial start or subscription change for a user."""
+    redis_client.delete(f"{_CTX_KEY_PREFIX}{int(user_id)}")
+
+
+# ── Flask-session subscription cache (Step 0 of project_scaling_roadmap_20k.md)
+# The hot-path gate reads three signed-session keys so a typical gated request
+# touches zero Postgres rows (plus one Redis SISMEMBER for force-revoke). We
+# store ISO-8601 UTC strings for the expiry so the cookie stays JSON-safe and
+# human-inspectable; plan/trial are plain strings/bools.
+SESSION_SUB_EXPIRES_KEY = "sub_expires_at"
+SESSION_SUB_PLAN_KEY = "sub_plan"
+SESSION_SUB_IS_TRIAL_KEY = "sub_is_trial"
+
+
+def write_session_subscription(session_obj, status: dict | None) -> None:
+    """Mirror a freshly-computed subscription ``status`` dict into the Flask session.
+
+    Call this everywhere ``_invalidate_user_ctx_cache`` is called (plus login)
+    so the next request can skip the DB. ``status`` is the dict returned by
+    ``_subscription_status_for_user`` (or the ``status`` sub-dict of the ctx).
+    Pass ``None`` to clear the keys (e.g. admin cancel path).
+
+    The expiry stored is ``effective_end_at`` in ISO-8601 UTC (the same field
+    the gate reads). Unlimited/admin states write ``None`` for expiry and rely
+    on ``sub_plan`` being ``"admin"`` / ``"unlimited"`` to short-circuit the
+    gate's expiry check.
+    """
+    if status is None:
+        session_obj.pop(SESSION_SUB_EXPIRES_KEY, None)
+        session_obj.pop(SESSION_SUB_PLAN_KEY, None)
+        session_obj.pop(SESSION_SUB_IS_TRIAL_KEY, None)
+        return
+
+    state = str(status.get("state") or "")
+    is_unlimited = bool(status.get("is_unlimited"))
+    effective_end_at = status.get("effective_end_at")
+
+    # effective_end_at may be a datetime (fresh from DB) or an ISO string
+    # (deserialized from Redis ctx cache). Normalize to ISO-8601 string.
+    if isinstance(effective_end_at, datetime):
+        expires_iso: str | None = effective_end_at.replace(microsecond=0).isoformat()
+    elif isinstance(effective_end_at, str) and effective_end_at:
+        expires_iso = effective_end_at
+    else:
+        expires_iso = None
+
+    session_obj[SESSION_SUB_EXPIRES_KEY] = expires_iso
+    session_obj[SESSION_SUB_PLAN_KEY] = state  # "trial" | "paid" | "admin" | "unlimited" | "expired" | "missing"
+    session_obj[SESSION_SUB_IS_TRIAL_KEY] = (state == "trial")
+    # is_unlimited is implicit in sub_plan == "unlimited" / "admin"; keep the
+    # plan field as the single source of truth to avoid drift.
+    if is_unlimited and state not in ("admin", "unlimited"):
+        # Defensive: if state ever disagrees with is_unlimited, prefer unlimited.
+        session_obj[SESSION_SUB_PLAN_KEY] = "unlimited"
 
 SUBSCRIPTION_PLAN_OPTIONS = (
     {"key": "1m", "label": "1 месяц", "months": 1, "duration_days": 30, "discount_percent": 0},
@@ -51,7 +132,29 @@ def _get_or_create_subscription_settings(db) -> SubscriptionSettings:
     return row
 
 
-def _subscription_settings_dict(row: SubscriptionSettings) -> dict:
+def _load_settings_for_cache() -> dict:
+    """Background-safe loader: opens its own SessionLocal session."""
+    with SessionLocal() as fresh_db:
+        row = _get_or_create_subscription_settings(fresh_db)
+        return _subscription_settings_dict(row)
+
+
+def _get_cached_subscription_settings(db) -> SubscriptionSettings | dict:
+    """Return SubscriptionSettings via a Redis-backed stale-while-revalidate cache."""
+    return swr_get(
+        _SETTINGS_KEY,
+        soft_ttl=_SETTINGS_TTL_SECONDS,
+        loader=_load_settings_for_cache,
+    )
+
+
+def _subscription_settings_dict(row: SubscriptionSettings | dict) -> dict:
+    if isinstance(row, dict):
+        return {
+            "trial_days": int(row.get("trial_days") or 0),
+            "monthly_price_sum": int(row.get("monthly_price_sum") or 0),
+            "max_shops_per_user": int(row.get("max_shops_per_user") or 0),
+        }
     return {
         "trial_days": int(row.trial_days or 0),
         "monthly_price_sum": int(row.monthly_price_sum or 0),
@@ -520,21 +623,52 @@ def _can_user_add_shop(
     return current_count < limit, current_count, limit
 
 
+def _compute_ctx_cache_ttl(status: dict) -> int:
+    """Per-user TTL derived from subscription state (Step 0a)."""
+    if status.get("is_unlimited") or status.get("state") == "admin":
+        return _CTX_TTL_ADMIN_UNLIMITED
+    effective_end_at = status.get("effective_end_at")
+    now = _utcnow()
+    if effective_end_at is not None and effective_end_at > now:
+        remaining_seconds = int((effective_end_at - now).total_seconds())
+        return min(max(1, remaining_seconds), _CTX_TTL_FUTURE_CAP)
+    return _CTX_TTL_EXPIRED
+
+
 def _get_subscription_context_for_user(user_id: int) -> dict:
+    uid = int(user_id)
+    cache_key = f"{_CTX_KEY_PREFIX}{uid}"
+
+    cached_raw = redis_client.get(cache_key)
+    if cached_raw:
+        try:
+            return json.loads(cached_raw)
+        except (TypeError, ValueError):
+            redis_client.delete(cache_key)
+
     with SessionLocal() as db:
-        user = db.get(User, int(user_id))
-        settings = _get_or_create_subscription_settings(db)
+        user = db.get(User, uid)
+        settings = _get_cached_subscription_settings(db)
         if user is not None and _ensure_user_trial_started(db, user):
             db.commit()
             db.refresh(user)
+            # Trial just started — bust this user's cache
+            _invalidate_user_ctx_cache(uid)
         status = _subscription_status_for_user(user, settings=settings)
         settings_dict = _subscription_settings_dict(settings)
-        shop_count = _user_shop_count(db, int(user_id))
+        shop_count = _user_shop_count(db, uid)
         max_shops = int(settings_dict.get("max_shops_per_user", 0) or 0)
-        return {
+        ctx = {
             "settings": settings_dict,
             "status": status,
             "plans": _subscription_plan_rows(settings=settings),
             "shop_count": shop_count,
             "shops_left": max(0, max_shops - shop_count) if max_shops > 0 else None,
         }
+
+    ttl = _compute_ctx_cache_ttl(status)
+    # default=str handles datetime values in status; templates only read string/int
+    # fields so the lossy datetime→ISO-string round-trip is safe.
+    redis_client.setex(cache_key, ttl, json.dumps(ctx, default=str))
+
+    return ctx

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+  <script>(function(){var t=localStorage.getItem('sh-theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
   <meta charset="UTF-8">
   <title>{{ t.eco_title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -179,6 +180,43 @@
     .flatpickr-day.startRange.endRange { border-radius: 6px !important; }
     .flatpickr-day.disabled { color: #D0D5DD !important; }
     .flatpickr-innerContainer { padding: 0 6px 6px; }
+
+    /* ── Dark mode ── */
+    [data-bs-theme="dark"] body { background-color:#0f1117 !important; color:#e2e8f0 !important; }
+    [data-bs-theme="dark"] .card-stat { background:#1a1d27 !important; border-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .stat-label { color:#64748b !important; }
+    [data-bs-theme="dark"] .stat-val { color:#e2e8f0 !important; }
+    [data-bs-theme="dark"] .stat-subtitle { color:#475569 !important; }
+    [data-bs-theme="dark"] .info-btn { border-color:#3a3f5c !important; background:#1a1d27 !important; color:#64748b !important; }
+    [data-bs-theme="dark"] .info-btn:hover { color:#e2e8f0 !important; background:#1e2130 !important; }
+    [data-bs-theme="dark"] .info-popover { background:#e2e8f0 !important; color:#0f1117 !important; }
+    [data-bs-theme="dark"] .table-card { background:#1a1d27 !important; border-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .table thead th { background:#1e2130 !important; color:#64748b !important; border-bottom-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .table tbody td { color:#e2e8f0 !important; border-bottom-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .table tbody tr:hover { background:#1e2130 !important; }
+    [data-bs-theme="dark"] .badge-roi.positive { background:#0a2318 !important; color:#4ade80 !important; }
+    [data-bs-theme="dark"] .badge-roi.neutral  { background:#1e2130 !important; color:#94a3b8 !important; }
+    [data-bs-theme="dark"] .badge-roi.negative { background:#2a0e0e !important; color:#f87171 !important; }
+    [data-bs-theme="dark"] .skeleton { background:linear-gradient(90deg,#1e2130 25%,#252a3f 50%,#1e2130 75%) !important; }
+    [data-bs-theme="dark"] #statusBar { background:#0f1e38 !important; border-color:#1e4080 !important; color:#60a5fa !important; }
+    [data-bs-theme="dark"] #statusBar.error { background:#2a0e0e !important; border-color:#7f1d1d !important; color:#f87171 !important; }
+    [data-bs-theme="dark"] #cacheBar { background:#1a1d27 !important; border-color:#2d3148 !important; color:#94a3b8 !important; }
+    [data-bs-theme="dark"] #cacheBar span { color:#64748b !important; }
+    [data-bs-theme="dark"] #btnThisMonth { background:#1e2130 !important; color:#94a3b8 !important; border:1px solid #3a3f5c !important; }
+    [data-bs-theme="dark"] #btnApply { background:#e2e8f0 !important; color:#0f1117 !important; }
+    [data-bs-theme="dark"] .date-range-wrapper { background:#1a1d27 !important; border-color:#3a3f5c !important; }
+    [data-bs-theme="dark"] .date-range-wrapper input { color:#e2e8f0 !important; }
+    [data-bs-theme="dark"] .flatpickr-calendar { background:#1a1d27 !important; border-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .flatpickr-month,
+    [data-bs-theme="dark"] .flatpickr-monthDropdown-months { color:#e2e8f0 !important; background:#1a1d27 !important; }
+    [data-bs-theme="dark"] .flatpickr-weekday { color:#64748b !important; background:#1a1d27 !important; }
+    [data-bs-theme="dark"] .flatpickr-day { color:#94a3b8 !important; }
+    [data-bs-theme="dark"] .flatpickr-day:hover { background:#1e2130 !important; border-color:#2d3148 !important; }
+    [data-bs-theme="dark"] .flatpickr-day.today { border-color:#3a3f5c !important; }
+    [data-bs-theme="dark"] .flatpickr-day.selected { background:#2e6da8 !important; color:#fff !important; }
+    [data-bs-theme="dark"] .flatpickr-day.inRange { background:#0f1e38 !important; color:#60a5fa !important; }
+    [data-bs-theme="dark"] .flatpickr-prev-month svg,
+    [data-bs-theme="dark"] .flatpickr-next-month svg { fill:#94a3b8 !important; }
   </style>
 </head>
 <body

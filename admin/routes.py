@@ -14,6 +14,8 @@ from werkzeug.security import generate_password_hash
 from extensions import SessionLocal
 from models import (
     ExpensesLedger,
+    FinanceHourlySnapshot,
+    FinanceOrder,
     PosActionLog,
     ProductGroup,
     SalesLine,
@@ -60,13 +62,34 @@ def init_admin_routes(app_module):
 
 
 def _fire_finance_seed(uzum_id: str, shop_pk: int):
-    """Trigger a background finance seed for a newly added shop."""
-    def _run(uzum_id=uzum_id, shop_pk=shop_pk):
+    """Trigger background finance work for a newly added shop.
+
+    Two daemon threads fire:
+      1. _sync_finance_for_shop  — fast 30-day seed for Variant
+         sales_30d_finance + avg_daily_sales (so Warehouse/POS reorder
+         logic works within seconds of attach).
+      2. _run_full_backfill_for_shop — slow first-sale-year → today
+         backfill into finance_orders, day-by-day. ~30 minutes for an
+         active shop. Runs sequentially; the user sees historical sales
+         appear progressively in the UI.
+
+    Both threads use the shop owner's per-user OpenAPI token. No queue,
+    no chunked machinery — just thread + sleep + fetch.
+    """
+    def _run_variant_seed(uzum_id=uzum_id, shop_pk=shop_pk):
         try:
             _app._sync_finance_for_shop(uzum_id, shop_pk)
         except Exception as e:
             print(f"[AdminShop] Finance seed (variants) failed for {uzum_id}: {e}")
-    threading.Thread(target=_run, daemon=True).start()
+
+    def _run_full_backfill(uzum_id=uzum_id, shop_pk=shop_pk):
+        try:
+            _app._run_full_backfill_for_shop(uzum_id, shop_pk)
+        except Exception as e:
+            print(f"[AdminShop] Full backfill failed for {uzum_id}: {e}")
+
+    threading.Thread(target=_run_variant_seed, daemon=True).start()
+    threading.Thread(target=_run_full_backfill, daemon=True).start()
 
 
 def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: int | None = None):
@@ -410,13 +433,19 @@ def delete_shop(shop_id: int):
                 db.execute(delete(PosActionLog).where(PosActionLog.shop_id == shop_id))
 
                 # Purge new-pipeline data so the deleted shop leaves no
-                # orphan rows (old code cleaned the legacy finance tables
-                # here; the retirement replaced them with these).
+                # orphan rows. shop_id columns mix conventions: SalesLine /
+                # ExpensesLedger / ShopBackfillChunk / ShopSyncState use
+                # int; FinanceOrder / FinanceHourlySnapshot use string
+                # (matches Shop.uzum_id varchar).
                 if uzum_id_int is not None:
                     db.execute(delete(SalesLine).where(SalesLine.shop_id == uzum_id_int))
                     db.execute(delete(ExpensesLedger).where(ExpensesLedger.shop_id == uzum_id_int))
                     db.execute(delete(ShopBackfillChunk).where(ShopBackfillChunk.shop_id == uzum_id_int))
                     db.execute(delete(ShopSyncState).where(ShopSyncState.shop_id == uzum_id_int))
+                uzum_id_str = (shop.uzum_id or "").strip()
+                if uzum_id_str:
+                    db.execute(delete(FinanceOrder).where(FinanceOrder.shop_id == uzum_id_str))
+                    db.execute(delete(FinanceHourlySnapshot).where(FinanceHourlySnapshot.shop_id == uzum_id_str))
 
                 db.delete(shop)
                 db.commit()

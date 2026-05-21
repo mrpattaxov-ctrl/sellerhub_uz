@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 
 from config import APP_TZ
 from extensions import SessionLocal
-from models import ExpensesLedger, SalesLine
+from models import ExpensesLedger, FinanceOrder, SalesLine
 
 # ── Aggregation granularity → date_trunc key ─────────────────────────
 # `sku` is the only non-date grouping supported here; combined modes (e.g.
@@ -50,6 +50,11 @@ _TRUNC_KEYS: dict[str, str] = {
 }
 
 _SUPPORTED_GROUP_BYS = frozenset({"hour", "day", "month", "sku"})
+
+# FinanceOrder is per-(shop, day, sku) — "hour" granularity is impossible
+# from it. read_sales_aggregated downgrades "hour" to "day" with a warning
+# rather than raising (no callers currently use "hour").
+_FINANCE_ORDER_GROUP_BYS = frozenset({"day", "month", "sku"})
 
 
 # ── Public helpers ───────────────────────────────────────────────────
@@ -211,26 +216,39 @@ def read_sales_aggregated(
             f"read_sales_aggregated: unsupported group_by={group_by!r}; "
             f"expected one of {sorted(_SUPPORTED_GROUP_BYS)}"
         )
-    shop_ids = _coerce_shop_ids(shop_id)
-    if not shop_ids:
+
+    # "hour" granularity is impossible from FinanceOrder (per-day aggregates).
+    # Downgrade silently to "day" — no caller currently uses "hour" here.
+    effective_group_by = "day" if group_by == "hour" else group_by
+
+    shop_ids_int = _coerce_shop_ids(shop_id)
+    if not shop_ids_int:
         return []
+    # FinanceOrder.shop_id is varchar — stringify ints for the IN clause.
+    shop_ids_str = [str(sid) for sid in shop_ids_int]
+
+    # Convert timestamp window to date window. FinanceOrder.period_from is
+    # a Date column. Right-open semantics preserved: `period_from <
+    # end_ts.date()` excludes the end day if the timestamp was midnight.
+    d_from = start_ts.date()
+    d_to_excl = end_ts.date()
 
     # Build the grouping columns list.
     bucket_col = None
     sku_col = None
     sku_title_col = None
-    group_cols: list = [SalesLine.shop_id]
+    group_cols: list = [FinanceOrder.shop_id]
 
-    if group_by == "sku":
-        sku_col = SalesLine.sku_id
-        sku_title_col = func.max(SalesLine.sku_title).label("sku_title")
-        group_cols.append(SalesLine.sku_id)
+    if effective_group_by == "sku":
+        sku_col = FinanceOrder.sku_id
+        sku_title_col = func.max(FinanceOrder.sku_title).label("sku_title")
+        group_cols.append(FinanceOrder.sku_id)
     else:
-        trunc_key = _TRUNC_KEYS[group_by]
-        bucket_col = func.date_trunc(trunc_key, SalesLine.created_at).label("bucket")
+        trunc_key = _TRUNC_KEYS[effective_group_by]
+        bucket_col = func.date_trunc(trunc_key, FinanceOrder.period_from).label("bucket")
         group_cols.append(bucket_col)
 
-    cols = [SalesLine.shop_id.label("shop_id")]
+    cols = [FinanceOrder.shop_id.label("shop_id")]
     if bucket_col is not None:
         cols.append(bucket_col)
     if sku_col is not None:
@@ -238,14 +256,14 @@ def read_sales_aggregated(
         cols.append(sku_title_col)
     cols.extend(
         [
-            func.coalesce(func.sum(SalesLine.qty), 0).label("qty_sum"),
-            func.coalesce(func.sum(SalesLine.qty_returns), 0).label("qty_returns_sum"),
-            func.coalesce(func.sum(SalesLine.revenue), 0).label("revenue_sum"),
-            func.coalesce(func.sum(SalesLine.seller_profit), 0).label("seller_profit_sum"),
-            func.coalesce(func.sum(SalesLine.commission), 0).label("commission_sum"),
-            func.coalesce(func.sum(SalesLine.logistics_fee), 0).label("logistics_sum"),
-            func.coalesce(func.sum(SalesLine.purchase_price), 0).label("purchase_price_sum"),
-            func.coalesce(func.sum(SalesLine.promo_amount), 0).label("promo_amount_sum"),
+            func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty_sum"),
+            func.coalesce(func.sum(FinanceOrder.amount_returns), 0).label("qty_returns_sum"),
+            func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("revenue_sum"),
+            func.coalesce(func.sum(FinanceOrder.seller_profit), 0).label("seller_profit_sum"),
+            func.coalesce(func.sum(FinanceOrder.commission), 0).label("commission_sum"),
+            func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("logistics_sum"),
+            func.coalesce(func.sum(FinanceOrder.purchase_price), 0).label("purchase_price_sum"),
+            func.coalesce(func.sum(FinanceOrder.seller_discount), 0).label("promo_amount_sum"),
             func.count().label("row_count"),
         ]
     )
@@ -255,9 +273,9 @@ def read_sales_aggregated(
         stmt = (
             select(*cols)
             .where(
-                SalesLine.shop_id.in_(shop_ids),
-                SalesLine.created_at >= start_ts,
-                SalesLine.created_at < end_ts,
+                FinanceOrder.shop_id.in_(shop_ids_str),
+                FinanceOrder.period_from >= d_from,
+                FinanceOrder.period_from < d_to_excl,
             )
             .group_by(*group_cols)
         )
@@ -268,8 +286,14 @@ def read_sales_aggregated(
 
     out: list[dict] = []
     for r in rows:
+        # shop_id round-trips as int in the return for backward compat —
+        # callers cast back to str when needed.
+        try:
+            shop_id_out = int(r.shop_id)
+        except (TypeError, ValueError):
+            shop_id_out = 0
         entry: dict = {
-            "shop_id": int(r.shop_id),
+            "shop_id": shop_id_out,
             "bucket": getattr(r, "bucket", None),
             "sku_id": getattr(r, "sku_id", None),
             "sku_title": getattr(r, "sku_title", None),

@@ -23,6 +23,7 @@ from core.time_helpers import (
     _recommended_window_lengths,
 )
 from core.http_client import _get_http_session, http_post_multipart
+from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_page
 from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
     _uzum_auto_login, _current_user_is_admin, admin_required, _user_shop_ids,
@@ -63,6 +64,8 @@ except ImportError:
 
 from models import (
     Base,
+    FinanceHourlySnapshot,
+    FinanceOrder,
     NotificationSettings,
     ProductGroup,
     Shop,
@@ -3173,6 +3176,450 @@ SHARD_BY_K = max(1, int(os.getenv("UZUM_SELLS_SHARD_BY_K", "200")))
 _BULK_CREATE_BETWEEN_CHUNKS_S = 65
 
 
+# ── OpenAPI primary path: per-shop, per-owner-token ──────────────────
+# When the shop's owner has a `User.uzum_openapi_token`, we route finance
+# fetches through /v1/finance/orders + /v1/finance/expenses (per-user, no
+# race bug, richer fields). Shops whose owner has no token fall back to
+# the legacy bulk SELLS_REPORT / EXPENSES_REPORT CSV pipeline below.
+#
+# The CSV pipeline stays exactly as it was — we just bolt the routing
+# wrapper on top so callers don't have to choose. See:
+#   - core/uzum_finance_openapi.py for the per-shop fetchers + normalizers
+#   - migration 20260520_0004 for the new sales_lines / expenses_ledger cols
+
+# ─────────────────────────────────────────────────────────────────────
+# Legacy-style finance pipeline (restored 2026-05-21).
+#
+# Daily aggregates per (shop, day, sku) → FinanceOrder, fetched from
+# OpenAPI /v1/finance/orders?group=true. Hourly cumulative snapshots →
+# FinanceHourlySnapshot, used by Telegram for delta-based "За час"
+# notifications. Backfill on shop attach runs in a single daemon thread
+# from first-sale-year → today (no chunk queue, no continuous tick).
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _ingest_finance_orders_for_day(
+    rows: list[dict],
+    shop_uzum_id: str,
+    period_day: date,
+) -> int:
+    """Idempotent DELETE+INSERT for a single (shop, day) into finance_orders.
+
+    Drops the date window's existing rows for this shop, then bulk-inserts
+    the fresh aggregates. Empty `rows` is allowed — that means the day had
+    no sales and we still wipe stale rows (handles a day going from N
+    products sold to 0 due to refunds after-the-fact).
+    """
+    shop_str = str(shop_uzum_id)
+    now_utc = datetime.utcnow()
+
+    payload: list[dict] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        sku_title = (r.get("sku_title") or "").strip()
+        if not sku_title:
+            continue
+        payload.append({
+            "shop_id":         shop_str,
+            "period_from":     period_day,
+            "period_to":       period_day,
+            "sku_title":       sku_title[:300],
+            "sku_id":          r.get("sku_id"),
+            "product_id":      r.get("product_id"),
+            "product_title":   r.get("product_title"),
+            "product_title_ru": r.get("product_title_ru"),
+            "image_url":       r.get("image_url"),
+            "characteristics": r.get("characteristics"),
+            "amount":          int(r.get("amount") or 0),
+            "amount_returns":  int(r.get("amount_returns") or 0),
+            "sell_price":      int(r.get("sell_price") or 0),
+            "purchase_price":  int(r.get("purchase_price") or 0),
+            "seller_discount": int(r.get("seller_discount") or 0),
+            "seller_profit":   int(r.get("seller_profit") or 0),
+            "commission":      int(r.get("commission") or 0),
+            "withdrawn_profit": int(r.get("withdrawn_profit") or 0),
+            "logistics_fee":   int(r.get("logistics_fee") or 0),
+            "synced_at":       now_utc,
+        })
+
+    with SessionLocal() as db:
+        with db.begin():
+            db.execute(
+                delete(FinanceOrder).where(
+                    FinanceOrder.shop_id == shop_str,
+                    FinanceOrder.period_from == period_day,
+                    FinanceOrder.period_to == period_day,
+                )
+            )
+            if payload:
+                db.execute(insert(FinanceOrder), payload)
+
+    return len(payload)
+
+
+def _refresh_finance_for_shop_day(
+    shop_uzum_id: str,
+    day_tashkent: date,
+    *,
+    token: str | None = None,
+) -> int:
+    """Fetch + ingest one day's aggregates. Holds shop_lock for the duration.
+
+    Returns the number of SKU rows written. Returns 0 (and logs) if no
+    OpenAPI token is available for the shop — caller decides what to do.
+    """
+    tok = token or _owner_openapi_token_for_shop(shop_uzum_id)
+    if not tok:
+        print(f"[FinanceFetch] no OpenAPI token for shop={shop_uzum_id} — skipping day {day_tashkent}")
+        return 0
+
+    if not shop_lock.try_acquire_shop_lock(str(shop_uzum_id)):
+        print(f"[FinanceFetch] lock contention shop={shop_uzum_id} day={day_tashkent} — skipping")
+        return 0
+    try:
+        from core import uzum_finance_openapi as _ufo
+        rows = _ufo.fetch_daily_aggregates_for_shop_day(
+            tok, shop_uzum_id, day_tashkent,
+        )
+        n = _ingest_finance_orders_for_day(rows, shop_uzum_id, day_tashkent)
+        return n
+    finally:
+        shop_lock.release_shop_lock(str(shop_uzum_id))
+
+
+def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
+    """Daemon-thread entrypoint for the initial backfill of a newly-added shop.
+
+    1. Detect first-sale year via yearly probes on /v1/finance/orders.
+    2. For each day from first-year Jan 1 → today, fetch group=true
+       aggregates and write to finance_orders. Parallel via a thread pool
+       (FINANCE_BACKFILL_PARALLELISM, default 32). Each thread works on a
+       different day so no (shop, day) collision — the per-shop Redis lock
+       is BYPASSED here (it would serialize the pool back down to 1).
+    3. Returns a summary dict.
+
+    Cost (~870 days, busy shop) with default parallelism=32: ~1-3 minutes
+    if Uzum doesn't throttle; longer if 429s + additive backoff kick in.
+    """
+    import os as _os
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Lock as _Lock
+    from core import uzum_finance_openapi as _ufo
+    from config import FINANCE_BACKFILL_START_DATE
+
+    summary = {
+        "shop_id": shop_uzum_id,
+        "first_year": None,
+        "days_attempted": 0,
+        "days_written": 0,
+        "rows_written": 0,
+        "errors": 0,
+    }
+
+    token = _owner_openapi_token_for_shop(shop_uzum_id)
+    if not token:
+        print(f"[FinanceBackfill] no OpenAPI token for shop={shop_uzum_id} — backfill SKIPPED")
+        summary["errors"] = 1
+        return summary
+
+    # Parse hard-floor fallback year from FINANCE_BACKFILL_START_DATE env var.
+    try:
+        fallback_year = int(str(FINANCE_BACKFILL_START_DATE).split("-")[0])
+    except (ValueError, IndexError):
+        fallback_year = 2022
+
+    try:
+        first_year = _ufo.detect_first_sale_year(
+            token, shop_uzum_id, fallback_year=fallback_year,
+        )
+    except Exception as e:
+        print(f"[FinanceBackfill] first-year probe failed shop={shop_uzum_id}: {e!r} — falling back to {fallback_year}")
+        first_year = fallback_year
+    summary["first_year"] = first_year
+
+    today_tashkent = _now_app_tz().date()
+    start_day = date(first_year, 1, 1)
+
+    try:
+        parallelism = int(_os.environ.get("FINANCE_BACKFILL_PARALLELISM", "32"))
+    except (TypeError, ValueError):
+        parallelism = 32
+    parallelism = max(1, min(parallelism, 64))
+
+    # Materialize the day list so the pool can fan out.
+    days: list[date] = []
+    cur = start_day
+    while cur <= today_tashkent:
+        days.append(cur)
+        cur += timedelta(days=1)
+
+    print(f"[FinanceBackfill] shop={shop_uzum_id} window=[{start_day}, {today_tashkent}] "
+          f"days={len(days)} parallelism={parallelism} starting…")
+
+    summary_lock = _Lock()
+
+    def _backfill_one_day(day: date) -> None:
+        try:
+            # Fetch + ingest directly, bypassing the per-shop Redis lock —
+            # each thread works on a distinct day so (shop, day) ingest
+            # writes don't collide. The hourly/nightly loops only touch
+            # today, no overlap with historical backfill days.
+            rows = _ufo.fetch_daily_aggregates_for_shop_day(
+                token, shop_uzum_id, day,
+            )
+            n = _ingest_finance_orders_for_day(rows, shop_uzum_id, day)
+            with summary_lock:
+                summary["days_attempted"] += 1
+                summary["rows_written"] += n
+                if n > 0:
+                    summary["days_written"] += 1
+        except Exception as exc:
+            with summary_lock:
+                summary["days_attempted"] += 1
+                summary["errors"] += 1
+            print(f"[FinanceBackfill] shop={shop_uzum_id} day={day} ERROR: {exc!r}")
+
+    with ThreadPoolExecutor(max_workers=parallelism,
+                            thread_name_prefix=f"backfill-{shop_uzum_id}") as pool:
+        # list(...) forces consumption so we wait for all futures.
+        list(pool.map(_backfill_one_day, days))
+
+    print(f"[FinanceBackfill] shop={shop_uzum_id} DONE: "
+          f"days_attempted={summary['days_attempted']} "
+          f"days_written={summary['days_written']} "
+          f"rows={summary['rows_written']} "
+          f"errors={summary['errors']}")
+    return summary
+
+
+def _save_hourly_snapshots(snap_hour_tashkent: datetime) -> None:
+    """Snapshot today's cumulative finance_orders totals at the HH:00 boundary.
+
+    Reads today's finance_orders rows and inserts ONE
+    FinanceHourlySnapshot per (shop, sku) holding the cumulative totals
+    as of `snap_hour_tashkent` (the boundary that just ticked). Pure DB
+    math, no API call. Delete snapshots older than 25 hours.
+
+    `snap_hour_tashkent` is naive Tashkent. We convert to naive UTC for
+    storage (legacy convention) so the snapshot is comparable across
+    Daylight-saving boundaries.
+    """
+    # Today in Tashkent = the day the just-closed hour belongs to. For
+    # the midnight tick (snap_hour = today 00:00) the just-closed hour
+    # is yesterday's 23:00 → 00:00, so use snap_hour - 1s to pick the day.
+    snapshot_day = (snap_hour_tashkent - timedelta(seconds=1)).date()
+
+    # Tashkent → UTC for the column (matches legacy schema).
+    snap_hour_utc = (
+        snap_hour_tashkent.replace(tzinfo=APP_TZ)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
+
+    with SessionLocal() as db:
+        snapshot_rows = db.execute(
+            select(FinanceOrder).where(
+                FinanceOrder.period_from == snapshot_day,
+                FinanceOrder.period_to == snapshot_day,
+            )
+        ).scalars().all()
+
+        cutoff = snap_hour_utc - timedelta(hours=25)
+        db.execute(
+            delete(FinanceHourlySnapshot)
+            .where(FinanceHourlySnapshot.snapshot_hour < cutoff)
+        )
+        # Re-running the hourly twice in the same hour shouldn't double-write.
+        db.execute(
+            delete(FinanceHourlySnapshot)
+            .where(FinanceHourlySnapshot.snapshot_hour == snap_hour_utc)
+        )
+
+        payload = []
+        for row in snapshot_rows:
+            payload.append({
+                "shop_id":        row.shop_id,
+                "sku_title":      row.sku_title,
+                "snapshot_hour":  snap_hour_utc,
+                "amount":         row.amount,
+                "sell_price":     row.sell_price,
+                "purchase_price": row.purchase_price,
+                "seller_profit":  row.seller_profit,
+                "commission":     row.commission,
+                "logistics_fee":  row.logistics_fee,
+            })
+        if payload:
+            db.execute(insert(FinanceHourlySnapshot), payload)
+        db.commit()
+
+    print(f"[FinanceSnapshot] saved {len(payload)} rows for snap_hour={snap_hour_tashkent.isoformat()} "
+          f"(UTC={snap_hour_utc.isoformat()})")
+
+
+def _hourly_finance_loop():
+    """Sleep until next HH:00 Tashkent; refresh today's finance for every shop.
+
+    Per HH:00 boundary:
+      1. For every active shop, call _refresh_finance_for_shop_day(today)
+         → fetches group=true aggregates for today and DELETE+INSERTs
+           finance_orders rows.
+      2. Save FinanceHourlySnapshot (cumulative-today totals per shop+sku
+         at this snap_hour).
+      3. Telegram hourly notifications — TODO wire up to read snapshot
+         delta (current hour row − previous hour row); for now we only
+         keep the data fresh and the existing Telegram code keeps reading
+         its prior sources until we migrate it.
+
+    No 5s tick: `time.sleep(seconds_until_next_HH:00)` and wake up
+    exactly when needed.
+    """
+    import time as _t
+
+    def _next_hour_target() -> datetime:
+        now = _now_app_tz()
+        nxt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        return nxt
+
+    next_hour = _next_hour_target()
+    while True:
+        try:
+            now = _now_app_tz()
+            sleep_seconds = (next_hour - now).total_seconds()
+            if sleep_seconds > 0:
+                _t.sleep(sleep_seconds)
+
+            snap_hour = _now_app_tz().replace(minute=0, second=0, microsecond=0)
+            today = snap_hour.date()
+            # The boundary we just crossed = snap_hour. The data we
+            # refresh is for the calendar day `today` (or `today-1d` if
+            # we just crossed midnight). We always refresh today's
+            # cumulative data — at midnight that means yesterday's full
+            # day is captured.
+            refresh_day = (snap_hour - timedelta(seconds=1)).date()
+
+            print(f"[FinanceHourly] tick snap_hour={snap_hour.isoformat()} day={refresh_day}")
+            shops = _active_shop_ids_for_sales()
+            for s in shops:
+                try:
+                    n = _refresh_finance_for_shop_day(s, refresh_day)
+                    print(f"[FinanceHourly] shop={s} day={refresh_day} rows={n}")
+                except Exception as e:
+                    print(f"[FinanceHourly] shop={s} day={refresh_day} ERROR: {e!r}")
+
+            # 2. Cumulative snapshot for delta math.
+            try:
+                _save_hourly_snapshots(snap_hour)
+            except Exception as e:
+                print(f"[FinanceHourly] _save_hourly_snapshots ERROR: {e!r}")
+
+            next_hour = _next_hour_target()
+        except Exception as e:
+            print(f"[FinanceHourly] unexpected error: {e!r}")
+            _t.sleep(60)
+            next_hour = _next_hour_target()
+
+
+def _nightly_finance_refetch_loop():
+    """Sleep until next 00:30 Tashkent; refetch last 45 days for every shop.
+
+    Re-aligns finance_orders with Uzum's truth — catches late status
+    flips, refunds, and price corrections that landed on past days.
+    Sequential per shop, day-by-day. shop_lock acquired per day inside
+    _refresh_finance_for_shop_day so the loop plays nicely with the
+    hourly tick if they overlap.
+    """
+    import time as _t
+
+    def _next_run_target() -> datetime:
+        now = _now_app_tz()
+        target = now.replace(hour=0, minute=30, second=0, microsecond=0)
+        if now >= target:
+            target += timedelta(days=1)
+        return target
+
+    next_run = _next_run_target()
+    while True:
+        try:
+            now = _now_app_tz()
+            sleep_seconds = (next_run - now).total_seconds()
+            if sleep_seconds > 0:
+                _t.sleep(sleep_seconds)
+
+            today_tashkent = _now_app_tz().date()
+            window_start = today_tashkent - timedelta(days=FINANCE_REFRESH_DAYS)
+            window_end = today_tashkent - timedelta(days=1)
+            print(f"[FinanceNightly] tick window=[{window_start}, {window_end}]")
+
+            shops = _active_shop_ids_for_sales()
+            for s in shops:
+                cur = window_start
+                while cur <= window_end:
+                    try:
+                        n = _refresh_finance_for_shop_day(s, cur)
+                        print(f"[FinanceNightly] shop={s} day={cur} rows={n}")
+                    except Exception as e:
+                        print(f"[FinanceNightly] shop={s} day={cur} ERROR: {e!r}")
+                    cur += timedelta(days=1)
+
+            next_run = _next_run_target()
+        except Exception as e:
+            print(f"[FinanceNightly] unexpected error: {e!r}")
+            _t.sleep(60)
+            next_run = _next_run_target()
+
+
+def _owner_openapi_token_for_shop(shop_uzum_id: str | int) -> str | None:
+    """Return User.uzum_openapi_token of the shop's owner, or None."""
+    try:
+        sid_str = str(shop_uzum_id).strip()
+    except Exception:
+        return None
+    if not sid_str:
+        return None
+    with SessionLocal() as db:
+        row = db.execute(
+            select(User.uzum_openapi_token)
+            .join(Shop, Shop.owner_id == User.id)
+            .where(Shop.uzum_id == sid_str)
+            .where(User.uzum_openapi_token.is_not(None))
+            .limit(1)
+        ).first()
+    if not row:
+        return None
+    tok = (row[0] or "").strip()
+    return tok or None
+
+
+def _fetch_sales_for_shop_window(
+    shop_uzum_id: str | int,
+    date_from_tashkent: datetime,
+    date_to_tashkent: datetime,
+) -> list[dict]:
+    """Single-shop sales fetch — OpenAPI primary, browser CSV fallback.
+
+    Returns canonical-key dicts (same shape as _SELLS_HEADER_MAP output) so
+    the existing _ingest_sales_lines_window function consumes both sources
+    uniformly. OpenAPI rows carry the extra keys `shop_id`, `product_image`,
+    `qty_cancelled` and `product_id` which the ingest writes to the new
+    sales_lines columns added in migration 20260520_0004.
+    """
+    token = _owner_openapi_token_for_shop(shop_uzum_id)
+    if token:
+        from core import uzum_finance_openapi as _ufo
+        try:
+            rows = _ufo.fetch_finance_orders_for_shop_window(
+                token, shop_uzum_id, date_from_tashkent, date_to_tashkent,
+            )
+            print(f"[SalesFetch] OpenAPI shop={shop_uzum_id} rows={len(rows)}")
+            return rows
+        except Exception as e:
+            print(f"[SalesFetch] OpenAPI failed shop={shop_uzum_id}: {e!r} — falling back to CSV")
+    return _fetch_sells_report_rows_for_shops(
+        [int(shop_uzum_id)], date_from_tashkent, date_to_tashkent,
+    )
+
+
 def _fetch_sells_report_rows_for_shops(
     shop_ids: list[int],
     date_from_tashkent: datetime,
@@ -3248,13 +3695,19 @@ def _run_hourly_bulk_chunk(
     hour_start: datetime,
     hour_end: datetime,
 ) -> bool:
-    """One bulk SELLS_REPORT call covering ``chunk_shop_ids`` for [hour_start, hour_end).
+    """Hourly fetch for ``chunk_shop_ids``, per-shop with OpenAPI primary.
 
-    Path C: a SINGLE create_report covers all shops in the chunk. We acquire
-    shop_lock per shop in the chunk (best-effort — drop shops we can't lock)
-    so concurrent loops/backfills don't double-write the same shop's window.
-    Returns True on success, False if locks couldn't be acquired or fetch/ingest failed.
+    Path C's bulk SELLS_REPORT was a workaround for the cross-wired-fileUrl
+    race specific to the shared admin token (see project_uzum_race_bug_fix).
+    Per-user OpenAPI tokens have their own rate-limit buckets per token, so
+    that race doesn't apply — we can fan out per-shop concurrently here.
+    Shops whose owner hasn't set an OpenAPI token transparently fall back
+    to per-shop SELLS_REPORT inside ``_fetch_sales_for_shop_window``.
+
+    Returns True if at least one shop's fetch+ingest succeeded.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     held: list[str] = []
     try:
         for sid in chunk_shop_ids:
@@ -3265,27 +3718,47 @@ def _run_hourly_bulk_chunk(
             print(f"[SalesHourly] chunk size={len(chunk_shop_ids)} skipped — no locks acquired")
             return False
 
-        held_ids_int = [int(s) for s in held]
-        try:
-            rows = _fetch_sells_report_rows_for_shops(held_ids_int, hour_start, hour_end)
-        except Exception as e:
-            print(f"[SalesHourly] chunk size={len(held)} fetch ERROR: {e}")
+        # Fan out per-shop fetches. Workers bounded so we don't stampede
+        # any single owner's 2-burst rate budget if many of their shops
+        # land in the same chunk.
+        all_rows: list[dict] = []
+        success_shops: list[str] = []
+
+        def _one(sid_str: str):
+            try:
+                return sid_str, _fetch_sales_for_shop_window(sid_str, hour_start, hour_end), None
+            except Exception as exc:
+                return sid_str, [], exc
+
+        max_workers = max(1, min(16, len(held)))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futs = [pool.submit(_one, s) for s in held]
+            for fut in as_completed(futs):
+                sid_str, rows, err = fut.result()
+                if err is not None:
+                    print(f"[SalesHourly] fetch ERROR shop={sid_str}: {err!r}")
+                    continue
+                success_shops.append(sid_str)
+                all_rows.extend(rows or [])
+
+        if not success_shops:
+            print(f"[SalesHourly] chunk size={len(held)} all fetches failed")
             return False
 
         try:
-            n = _ingest_sales_lines_window(rows, hour_start, hour_end)
+            n = _ingest_sales_lines_window(all_rows, hour_start, hour_end)
         except Exception as e:
-            print(f"[SalesHourly] chunk size={len(held)} ingest ERROR: {e}")
+            print(f"[SalesHourly] chunk size={len(success_shops)} ingest ERROR: {e}")
             return False
 
-        for sid_str in held:
+        for sid_str in success_shops:
             try:
                 _update_shop_sync_state(int(sid_str), last_hourly_at=datetime.utcnow())
             except Exception as e:
                 print(f"[SalesHourly] sync_state update failed shop={sid_str}: {e}")
 
         print(
-            f"[SalesHourly] chunk shops={len(held)} "
+            f"[SalesHourly] chunk shops={len(success_shops)} "
             f"window=[{hour_start.isoformat()},{hour_end.isoformat()}) rows={n}"
         )
         return True
@@ -3422,7 +3895,7 @@ def _run_nightly_refetch_for_shop(shop_id: str, today_tashkent: date) -> None:
         window_from = datetime.combine(start_day, dt_time(0, 0, 0))
         # End-of-day boundary for end_day — [start_day 00:00, today 00:00).
         window_to = datetime.combine(today_tashkent, dt_time(0, 0, 0))
-        rows = _fetch_sells_report_rows_for_shops([int(shop_id)], window_from, window_to)
+        rows = _fetch_sales_for_shop_window(shop_id, window_from, window_to)
         n = _ingest_sales_lines_window(rows, window_from, window_to)
         _update_shop_sync_state(int(shop_id), last_nightly_refetch_at=datetime.utcnow())
         print(f"[SalesNightly] shop={shop_id} window=[{window_from.date()},{end_day}] rows={n}")
@@ -3467,13 +3940,19 @@ def _ingest_expenses_window_for_shop(
     date_from_tashkent: datetime,
     date_to_tashkent: datetime,
 ) -> int:
-    """Fetch EXPENSES_REPORT for [from, to) Tashkent and UPSERT on (shop_id, operation_id).
+    """Fetch expenses for [from, to) Tashkent and UPSERT on (shop_id, operation_id).
+
+    Source selection:
+      * If the shop's owner has a `uzum_openapi_token`, fetch from
+        /v1/finance/expenses (per-user OpenAPI) and persist the extra
+        OpenAPI-only columns (date_created, date_updated, seller_id,
+        external_id, code) alongside the browser-matched fields.
+      * Otherwise fall back to the legacy EXPENSES_REPORT CSV pipeline.
 
     Stores ALL rows including Логистика and Возврат (coder rule §3).
     ``amount`` stays positive — direction lives in ``op_type`` (coder rule §10).
     """
     from decimal import Decimal, InvalidOperation
-    from core import uzum_reports as _ur
     from models import ExpensesLedger
 
     if date_from_tashkent >= date_to_tashkent:
@@ -3481,26 +3960,51 @@ def _ingest_expenses_window_for_shop(
 
     shop_id_int = int(shop_id)
 
-    def _to_ms(dt: datetime) -> int:
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=APP_TZ)
-        return int(dt.timestamp() * 1000)
+    # ── 1. Pick the source. OpenAPI primary, CSV fallback. ────────
+    rows: list[dict] = []
+    source_label = "csv"
+    token = _owner_openapi_token_for_shop(shop_id)
+    if token:
+        from core import uzum_finance_openapi as _ufo
+        try:
+            rows = _ufo.fetch_finance_expenses_for_shop_window(
+                token, shop_id_int, date_from_tashkent, date_to_tashkent,
+            )
+            source_label = "openapi"
+        except Exception as e:
+            print(f"[ExpensesIngest] OpenAPI failed shop={shop_id}: {e!r} — falling back to CSV")
+            rows = []
+            source_label = "csv"
 
-    request_id = _ur.create_report(
-        [shop_id_int],
-        "EXPENSES_REPORT",
-        _to_ms(date_from_tashkent),
-        _to_ms(date_to_tashkent) - 1,
-        token_getter=_get_admin_token,
-    )
-    file_url = _ur.wait_for_report(request_id, token_getter=_get_admin_token)
-    raw = _ur.download_csv(file_url, token_getter=_get_admin_token)
-    rows = _ur.parse_expenses_csv(raw)
+    if source_label == "csv":
+        from core import uzum_reports as _ur
+
+        def _to_ms(dt: datetime) -> int:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=APP_TZ)
+            return int(dt.timestamp() * 1000)
+
+        request_id = _ur.create_report(
+            [shop_id_int],
+            "EXPENSES_REPORT",
+            _to_ms(date_from_tashkent),
+            _to_ms(date_to_tashkent) - 1,
+            token_getter=_get_admin_token,
+        )
+        file_url = _ur.wait_for_report(request_id, token_getter=_get_admin_token)
+        raw = _ur.download_csv(file_url, token_getter=_get_admin_token)
+        rows = _ur.parse_expenses_csv(raw)
+
+    # ── 2. Coercion helpers — accept str (CSV) or already-typed (OpenAPI). ──
 
     def _parse_dt(val) -> datetime | None:
-        if not val:
+        if val is None:
             return None
+        if isinstance(val, datetime):
+            return val
         s = str(val).strip()
+        if not s:
+            return None
         for fmt in (
             "%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%d.%m.%Y",
             "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
@@ -3514,6 +4018,8 @@ def _ingest_expenses_window_for_shop(
     def _parse_int(val) -> int:
         if val is None:
             return 0
+        if isinstance(val, int):
+            return val
         s = str(val).strip().replace(" ", "").replace("\u00a0", "").replace(",", ".")
         if not s:
             return 0
@@ -3525,6 +4031,10 @@ def _ingest_expenses_window_for_shop(
     def _parse_dec(val) -> Decimal:
         if val is None:
             return Decimal("0")
+        if isinstance(val, Decimal):
+            return val
+        if isinstance(val, (int, float)):
+            return Decimal(str(val))
         s = str(val).strip().replace(" ", "").replace("\u00a0", "").replace(",", ".")
         if not s:
             return Decimal("0")
@@ -3535,13 +4045,12 @@ def _ingest_expenses_window_for_shop(
 
     now_utc = datetime.utcnow()
     n = 0
-    # UPSERT one-by-one: volume is small (one day per shop) and this keeps the
-    # code portable. A Postgres INSERT ... ON CONFLICT would be faster but is
-    # not worth the complexity here.
+    # UPSERT one-by-one: volume per (shop, window) is small. ON CONFLICT
+    # would be marginally faster but adds complexity not worth the win here.
     with SessionLocal() as db:
         with db.begin():
             for r in rows:
-                op_id = (r.get("operation_id") or "").strip()
+                op_id = str(r.get("operation_id") or "").strip()
                 if not op_id:
                     continue
                 charged = _parse_dt(r.get("charged_at"))
@@ -3554,13 +4063,20 @@ def _ingest_expenses_window_for_shop(
                 vals = dict(
                     charged_at=charged,
                     day=charged.date(),
-                    source=(r.get("source") or "")[:120] or None,
-                    service=(r.get("service") or "")[:300] or None,
-                    status=(r.get("status") or "")[:40] or None,
-                    op_type=(r.get("op_type") or "")[:40] or None,
+                    source=(str(r.get("source") or ""))[:120] or None,
+                    service=(str(r.get("service") or ""))[:300] or None,
+                    status=(str(r.get("status") or ""))[:40] or None,
+                    op_type=(str(r.get("op_type") or ""))[:40] or None,
                     unit_cost=_parse_dec(r.get("unit_cost")),
                     qty=_parse_int(r.get("qty")),
                     amount=amount,
+                    # New OpenAPI-only fields (None for CSV rows that
+                    # don't supply them).
+                    date_created=_parse_dt(r.get("date_created")),
+                    date_updated=_parse_dt(r.get("date_updated")),
+                    seller_id=(_parse_int(r.get("seller_id")) or None) if r.get("seller_id") is not None else None,
+                    external_id=(str(r.get("external_id") or ""))[:120] or None,
+                    code=(str(r.get("code") or ""))[:80] or None,
                     synced_at=now_utc,
                 )
                 existing = db.get(ExpensesLedger, (shop_id_int, op_id))
@@ -3570,6 +4086,8 @@ def _ingest_expenses_window_for_shop(
                     for k, v in vals.items():
                         setattr(existing, k, v)
                 n += 1
+    print(f"[ExpensesIngest] shop={shop_id} src={source_label} window=["
+          f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) rows={n}")
     return n
 
 
@@ -3784,8 +4302,8 @@ def _onboarding_backfill_loop():
             try:
                 window_from = datetime.combine(cs, dt_time(0, 0, 0))
                 window_to = datetime.combine(ce + timedelta(days=1), dt_time(0, 0, 0))
-                rows = _fetch_sells_report_rows_for_shops(
-                    [int(shop_id_str)], window_from, window_to
+                rows = _fetch_sales_for_shop_window(
+                    shop_id_str, window_from, window_to
                 )
                 n = _ingest_sales_lines_window(rows, window_from, window_to)
                 _mark_backfill_chunk(sid, cs, ce, status="done")
@@ -3949,16 +4467,47 @@ def _ingest_sales_lines_window(
 
         order_id = (r.get("order_id") or "").strip()
         sku_key = str(r.get("sku_id") or "").strip()
-        created = _parse_dt(r.get("created_at"))
+        # `created_at` may already be a datetime (OpenAPI normalizer pre-parses)
+        # or a string (CSV path). Accept either.
+        raw_created = r.get("created_at")
+        created = raw_created if isinstance(raw_created, datetime) else _parse_dt(raw_created)
         if not order_id or not sku_key or created is None:
             n_skipped_malformed += 1
             continue  # drop malformed rows; Uzum occasionally returns blanks.
 
-        # ── 3. Per-row route via SKU→shop catalog ─────────────────
-        shop_id_int = sku_to_shop.get(sku_key)
+        # ── 3. Per-row routing ────────────────────────────────────
+        # OpenAPI rows carry shop_id directly. The browser CSV doesn't, so
+        # we fall back to the SKU→shop catalog dict built above.
+        row_shop_id = r.get("shop_id")
+        if row_shop_id is not None:
+            try:
+                shop_id_int = int(row_shop_id)
+            except (TypeError, ValueError):
+                shop_id_int = None
+        else:
+            shop_id_int = sku_to_shop.get(sku_key)
         if shop_id_int is None:
             n_skipped_unknown_sku += 1
             continue
+
+        # received_at may also be a datetime (OpenAPI) or string (CSV).
+        raw_received = r.get("received_at")
+        received = (
+            raw_received if isinstance(raw_received, datetime)
+            else _parse_dt(raw_received)
+        )
+
+        # product_id: OpenAPI surfaces it directly; CSV path resolves via catalog.
+        raw_pid = r.get("product_id")
+        try:
+            row_pid = int(raw_pid) if raw_pid is not None else product_by_sku.get(sku_key)
+        except (TypeError, ValueError):
+            row_pid = product_by_sku.get(sku_key)
+
+        # New OpenAPI-only fields (None / 0 for CSV-sourced rows).
+        prod_image = r.get("product_image")
+        if not isinstance(prod_image, dict):
+            prod_image = None
 
         payload.append({
             "shop_id": shop_id_int,
@@ -3967,10 +4516,10 @@ def _ingest_sales_lines_window(
             "sku_title": (r.get("sku_title") or "")[:500] or None,
             "barcode": (r.get("barcode") or "")[:120] or None,
             "category": (r.get("category") or "")[:300] or None,
-            "product_id": product_by_sku.get(sku_key),
+            "product_id": row_pid,
             "status": (status or "")[:40] or None,
             "created_at": created,            # naive Tashkent — verbatim CSV.
-            "received_at": _parse_dt(r.get("received_at")),
+            "received_at": received,
             "qty": _parse_int(r.get("qty")),
             "qty_returns": _parse_int(r.get("qty_returns")),
             "revenue": _parse_dec(r.get("revenue")),
@@ -3980,6 +4529,8 @@ def _ingest_sales_lines_window(
             "promo_amount": _parse_dec(r.get("promo_amount")),
             "purchase_price": _parse_dec(r.get("purchase_price")),
             "logistics_fee": _parse_dec(r.get("logistics_fee")),
+            "product_image": prod_image,
+            "qty_cancelled": _parse_int(r.get("qty_cancelled")),
             "synced_at": now_utc,
         })
 
@@ -4460,8 +5011,8 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
         _end = datetime.combine(_today_tashkent + timedelta(days=1), dt_time(0, 0, 0))
         if shop_lock.try_acquire_shop_lock(shop_uzum_id):
             try:
-                sales_rows = _fetch_sells_report_rows_for_shops(
-                    [int(shop_uzum_id)], _start, _end
+                sales_rows = _fetch_sales_for_shop_window(
+                    shop_uzum_id, _start, _end
                 )
                 sales_lines_rows = _ingest_sales_lines_window(sales_rows, _start, _end)
                 print(f"[Sync] sales_lines ingest shop={shop_uzum_id} rows={sales_lines_rows} "
@@ -4480,6 +5031,459 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
         "total_products": product_counter,
         "sales_lines_rows": sales_lines_rows,
         "backfill_chunks_enqueued": backfill_chunks_enqueued,
+    }
+
+
+def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
+                                size: int = 100, max_pages: int = 500,
+                                fetch_uz_titles: bool = True) -> dict:
+    """OpenAPI-driven counterpart to :func:`_sync_products_for_shop`.
+
+    Uses the per-user seller-openapi token (NOT the admin api_key) against
+    GET /v1/product/shop/{shopId}. Populates the same Variant / ProductGroup
+    rows as the browser flow, plus the new columns added in migration
+    20260520_0002 (quantity_* breakdown, blocked / blocking_reason / ikpu,
+    product_title_ru / _uz).
+
+    Localization: when ``fetch_uz_titles`` is true we re-page the same shop
+    a second time with ``Accept-Language: uz`` and store the title into
+    ``product_title_uz``. The first pass uses ``Accept-Language: ru`` and
+    populates ``product_title_ru``. The OpenAPI swagger does not document
+    whether the server honors Accept-Language; if both passes return the
+    same string the columns will simply mirror each other.
+
+    Fields the OpenAPI endpoint does NOT return (viewers, conversion, roi,
+    feedbackQuantity, hasActiveDiscount, product-level rankInfo) are left
+    untouched on existing rows.
+    """
+    if not openapi_token:
+        raise RuntimeError("Uzum OpenAPI token is empty.")
+
+    # Ensure Shop record exists.
+    with SessionLocal() as db:
+        shop_obj = db.execute(
+            select(Shop).where(Shop.uzum_id == shop_uzum_id)
+        ).scalar_one_or_none()
+        is_new_shop = shop_obj is None
+        if is_new_shop:
+            shop_obj = Shop(uzum_id=shop_uzum_id,
+                            name=f"Shop {shop_uzum_id}",
+                            owner_id=None)
+            db.add(shop_obj)
+            db.commit()
+            db.refresh(shop_obj)
+        current_shop_pk = shop_obj.id
+
+    if is_new_shop:
+        import threading as _t
+        def _seed(uzum_id=shop_uzum_id, pk=current_shop_pk):
+            try:
+                _sync_finance_for_shop(uzum_id, pk)
+            except Exception as _e:
+                print(f"[OpenAPISync] Finance seed (variants) failed for {uzum_id}: {_e}")
+        _t.Thread(target=_seed, daemon=True).start()
+
+    print(f"[OpenAPISync] Fetching products for shop {shop_uzum_id} via OpenAPI ...")
+
+    # ── Pass 1: Russian titles + all numeric fields ─────────────────────────────
+    page = 0
+    total_products_amount = None
+    product_counter = 0
+    total_variants = 0
+    active_group_ids: set[int] = set()
+    # Track uzum_sku_id → product_title for the second (UZ) pass so we don't
+    # have to re-query the DB to find which Variant row to update.
+    sku_id_to_variant_pk: dict[str, int] = {}
+
+    with SessionLocal() as db:
+        while True:
+            try:
+                raw = _openapi_fetch_products_page(
+                    openapi_token, shop_uzum_id,
+                    page=page, size=size,
+                    accept_language="ru",
+                )
+            except Exception as e:
+                print(f"[OpenAPISync] page {page} (ru) error: {e}")
+                break
+
+            products = raw.get("productList") or []
+            if total_products_amount is None:
+                total_products_amount = raw.get("totalProductsAmount") or 0
+                print(f"[OpenAPISync] totalProductsAmount={total_products_amount}")
+
+            if not products:
+                break
+
+            for p in products:
+                prod_id = str(p.get("productId") or "").strip()
+                if not prod_id or prod_id in ("0", "0.0"):
+                    continue
+
+                product_counter += 1
+                title = p.get("title") or f"Product {prod_id}"
+                image = p.get("image") or p.get("previewImg") or None
+                if image and "images.uzum.uz" in image and "/t_" not in image:
+                    image = image.rstrip("/") + "/t_product_540_high.jpg"
+                p_category = p.get("category") or None
+
+                p_status_obj = p.get("status") or {}
+                p_status_val = (p_status_obj.get("value")
+                                if isinstance(p_status_obj, dict)
+                                else str(p_status_obj or "")).upper()
+                p_is_archived = p_status_val in ("ARCHIVE", "ARCHIVED", "BLOCKED", "REMOVED", "DELETED", "PERM_BANNED")
+
+                commission_dto = p.get("commissionDto") or {}
+                p_commission = (commission_dto.get("minCommission")
+                                or commission_dto.get("maxCommission")
+                                or p.get("commission"))
+
+                # ── Upsert ProductGroup ─────────────────────────────────────
+                group = db.execute(
+                    select(ProductGroup).where(
+                        ProductGroup.uzum_product_id == prod_id,
+                        ProductGroup.shop_id == current_shop_pk,
+                    )
+                ).scalar_one_or_none()
+
+                if group is None:
+                    group = ProductGroup(
+                        uzum_product_id=prod_id,
+                        name=title,
+                        image_url=image,
+                        shop_id=current_shop_pk,
+                        is_archived=p_is_archived,
+                        uzum_sort_order=product_counter,
+                    )
+                    db.add(group)
+                    db.flush()
+                else:
+                    group.name = title
+                    group.uzum_sort_order = product_counter
+                    group.is_archived = p_is_archived
+                    if image:
+                        group.image_url = image
+
+                if p_category is not None:
+                    group.category = p_category
+                if p_commission is not None:
+                    try: group.commission = int(p_commission)
+                    except Exception: pass
+                # NOTE: OpenAPI lacks viewers/conversion/roi/feedbackQuantity
+                # and product-level rankInfo — those fields keep their last
+                # browser-sync values.
+
+                if not p_is_archived:
+                    active_group_ids.add(group.id)
+
+                # ── Process nested SKUs ─────────────────────────────────────
+                existing_variants = db.execute(
+                    select(Variant).where(Variant.group_id == group.id)
+                ).scalars().all()
+                _v_by_uzum_id = {v.uzum_sku_id: v for v in existing_variants if v.uzum_sku_id}
+                _v_by_barcode = {v.barcode: v for v in existing_variants if v.barcode}
+                _v_by_sku = {v.sku: v for v in existing_variants if v.sku}
+
+                sku_list = p.get("skuList") or []
+                for s in sku_list:
+                    sku_title = str(s.get("skuFullTitle") or s.get("skuTitle") or "").strip()
+                    if not sku_title:
+                        continue
+
+                    barcode_raw = s.get("barcode")
+                    barcode = str(barcode_raw).strip() if barcode_raw is not None else None
+                    barcode = barcode or None
+                    uzum_sku_id = str(s.get("skuId") or "").strip() or None
+                    uz_qty = s.get("quantityActive")
+                    characteristics = str(s.get("characteristics") or "").strip() or None
+                    price = s.get("price")
+                    sku_image = s.get("previewImage") or None
+                    if sku_image and "images.uzum.uz" in sku_image and "/t_" not in sku_image:
+                        sku_image = sku_image.rstrip("/") + "/t_product_540_high.jpg"
+
+                    # SKU-level fields the browser sync also has
+                    s_turnover = s.get("turnover")
+                    s_qty_sold = s.get("quantitySold")
+                    s_qty_returned = s.get("quantityReturned")
+                    s_returned_pct = s.get("returnedPercentage")
+                    s_rank_info = s.get("rankInfo") or {}
+                    s_rank = s_rank_info.get("rank") or s_rank_info.get("rankValue") or None
+                    s_paid_storage = s.get("paidStorageAmount")
+                    s_paid_dim_group = s.get("paidStorageDimensionalGroup")
+                    s_paid_price_item = s.get("paidStoragePriceItem")
+
+                    # NEW OpenAPI-only fields
+                    s_product_title = (s.get("productTitle") or "").strip() or None
+                    s_purchase_price = s.get("purchasePrice")
+                    s_avgdsales = s.get("avgdsales")
+                    s_qty_created = s.get("quantityCreated")
+                    s_qty_fbs = s.get("quantityFbs")
+                    s_qty_additional = s.get("quantityAdditional")
+                    s_qty_archived = s.get("quantityArchived")
+                    s_qty_pending = s.get("quantityPending")
+                    s_qty_defected = s.get("quantityDefected")
+                    s_qty_missing = s.get("quantityMissing")
+                    s_blocked = s.get("blocked")
+                    s_blocking_reason = (s.get("blockingReason") or "").strip() or None
+                    s_block_reason_obj = s.get("skuBlockReason")
+                    s_ikpu = (s.get("ikpu") or "").strip() or None
+
+                    # Upsert Variant — match by uzum_sku_id, then barcode, then sku
+                    v = None
+                    if uzum_sku_id:
+                        v = _v_by_uzum_id.get(uzum_sku_id)
+                    if v is None and barcode:
+                        v = _v_by_barcode.get(barcode)
+                    if v is None:
+                        v = _v_by_sku.get(sku_title)
+                    if v is None:
+                        v = Variant(group_id=group.id, sku=sku_title)
+                        db.add(v)
+                        _v_by_sku[sku_title] = v
+                    else:
+                        v.sku = sku_title
+
+                    if uzum_sku_id:
+                        v.uzum_sku_id = uzum_sku_id
+                        _v_by_uzum_id[uzum_sku_id] = v
+                    if barcode:
+                        v.barcode = barcode
+                        _v_by_barcode[barcode] = v
+                    if sku_image:
+                        v.image_url = sku_image
+                    if characteristics:
+                        v.color = characteristics
+                    # OpenAPI status object lives at product-level only,
+                    # not per-SKU. Use blocked/archived booleans below.
+                    if uz_qty is not None:
+                        try: v.uzum_quantity = int(uz_qty)
+                        except Exception: pass
+                    if price is not None:
+                        try: v.price_sum = int(price)
+                        except Exception: pass
+
+                    # Browser-parity fields
+                    if s_turnover is not None:
+                        try: v.turnover = int(float(s_turnover))
+                        except Exception: pass
+                    if s_qty_sold is not None:
+                        try: v.quantity_sold = int(s_qty_sold)
+                        except Exception: pass
+                    if s_qty_returned is not None:
+                        try: v.quantity_returned = int(s_qty_returned)
+                        except Exception: pass
+                    if s_returned_pct is not None:
+                        try: v.returned_percentage = float(s_returned_pct)
+                        except Exception: pass
+                    if s_rank is not None:
+                        v.rank = str(s_rank)
+                    if s_paid_storage is not None:
+                        try: v.paid_storage_amount = int(s_paid_storage)
+                        except Exception: pass
+                    if s_paid_dim_group is not None:
+                        # OpenAPI returns an object here; stringify whatever
+                        # field looks most title-like for parity with the
+                        # browser flow which stored a plain string.
+                        if isinstance(s_paid_dim_group, dict):
+                            v.paid_storage_dimensional_group = str(
+                                s_paid_dim_group.get("title")
+                                or s_paid_dim_group.get("value")
+                                or s_paid_dim_group.get("name")
+                                or ""
+                            ) or None
+                        else:
+                            v.paid_storage_dimensional_group = str(s_paid_dim_group)
+                    if s_paid_price_item is not None:
+                        try: v.paid_storage_price_item = int(s_paid_price_item)
+                        except Exception: pass
+
+                    # NEW OpenAPI-only columns
+                    if s_product_title:
+                        v.product_title_ru = s_product_title
+                    if s_purchase_price is not None:
+                        try: v.purchase_price = int(s_purchase_price)
+                        except Exception: pass
+                    if s_avgdsales is not None:
+                        try: v.avg_daily_sales = float(s_avgdsales)
+                        except Exception: pass
+                    if s_qty_created is not None:
+                        try: v.quantity_created = int(s_qty_created)
+                        except Exception: pass
+                    if s_qty_fbs is not None:
+                        try: v.quantity_fbs = int(s_qty_fbs)
+                        except Exception: pass
+                    if s_qty_additional is not None:
+                        try: v.quantity_additional = int(s_qty_additional)
+                        except Exception: pass
+                    if s_qty_archived is not None:
+                        try: v.quantity_archived = int(s_qty_archived)
+                        except Exception: pass
+                    if s_qty_pending is not None:
+                        try: v.quantity_pending = int(s_qty_pending)
+                        except Exception: pass
+                    if s_qty_defected is not None:
+                        try: v.quantity_defected = int(s_qty_defected)
+                        except Exception: pass
+                    if s_qty_missing is not None:
+                        try: v.quantity_missing = int(s_qty_missing)
+                        except Exception: pass
+                    if s_blocked is not None:
+                        v.blocked = bool(s_blocked)
+                    if s_blocking_reason:
+                        v.blocking_reason = s_blocking_reason[:500]
+                    if s_block_reason_obj is not None:
+                        import json as _json_mod
+                        try:
+                            v.sku_block_reason = (
+                                _json_mod.dumps(s_block_reason_obj, ensure_ascii=False)
+                                if isinstance(s_block_reason_obj, (dict, list))
+                                else str(s_block_reason_obj)
+                            )
+                        except Exception:
+                            v.sku_block_reason = str(s_block_reason_obj)
+                    if s_ikpu:
+                        v.ikpu = s_ikpu
+
+                    # Map archived/blocked flags into status string so the
+                    # rest of the app (which reads Variant.status) keeps
+                    # working.
+                    if s_blocked:
+                        v.status = "BLOCKED"
+                    elif bool(s.get("archived")):
+                        v.status = "ARCHIVED"
+
+                    db.flush()
+                    if uzum_sku_id and v.id is not None:
+                        sku_id_to_variant_pk[uzum_sku_id] = v.id
+                    total_variants += 1
+
+            db.commit()
+
+            if len(products) < size:
+                break
+            if max_pages and page >= max_pages:
+                break
+            page += 1
+
+    # ── Pass 2: Uzbek titles only (cheap update — fills product_title_uz) ───────
+    uz_pages = 0
+    uz_updates = 0
+    if fetch_uz_titles and sku_id_to_variant_pk:
+        with SessionLocal() as db:
+            page = 0
+            while True:
+                try:
+                    raw = _openapi_fetch_products_page(
+                        openapi_token, shop_uzum_id,
+                        page=page, size=size,
+                        accept_language="uz",
+                    )
+                except Exception as e:
+                    print(f"[OpenAPISync] page {page} (uz) error: {e}")
+                    break
+
+                products = raw.get("productList") or []
+                if not products:
+                    break
+
+                uz_pages += 1
+                for p in products:
+                    for s in (p.get("skuList") or []):
+                        uzum_sku_id = str(s.get("skuId") or "").strip()
+                        if not uzum_sku_id:
+                            continue
+                        variant_pk = sku_id_to_variant_pk.get(uzum_sku_id)
+                        if not variant_pk:
+                            continue
+                        title_uz = (s.get("productTitle") or "").strip()
+                        if not title_uz:
+                            continue
+                        db.execute(
+                            update(Variant)
+                            .where(Variant.id == variant_pk)
+                            .values(product_title_uz=title_uz)
+                        )
+                        uz_updates += 1
+
+                db.commit()
+                if len(products) < size:
+                    break
+                if max_pages and page >= max_pages:
+                    break
+                page += 1
+
+    # ── Archive reconciliation ───────────────────────────────────────────────
+    print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
+    with SessionLocal() as db:
+        if active_group_ids:
+            active_list = list(active_group_ids)
+            db.execute(
+                update(ProductGroup)
+                .where(ProductGroup.id.in_(active_list))
+                .values(is_archived=False)
+            )
+            db.execute(
+                update(ProductGroup)
+                .where(ProductGroup.shop_id == current_shop_pk)
+                .where(~ProductGroup.id.in_(active_list))
+                .values(is_archived=True)
+            )
+        else:
+            print(f"[OpenAPISync] WARNING — no active products found for shop_pk={current_shop_pk}, "
+                  f"skipping archive reconciliation")
+        db.commit()
+
+    print(f"[OpenAPISync] Done for shop {shop_uzum_id}: "
+          f"{product_counter} products, {total_variants} variants, "
+          f"uz_updates={uz_updates}")
+
+    # ── sales_lines seed (mirrors the tail of _sync_products_for_shop) ──────────
+    # Without this block the Finance page stays empty for the new shop until
+    # the background backfill loop crawls forward to today — for a big shop
+    # that's hours. Synchronously fetch the last 45 days here so the page
+    # works immediately, and enqueue the chunked historical backfill so the
+    # loop drains 2022 → today on its own schedule.
+    sales_lines_rows = 0
+    backfill_chunks_enqueued = 0
+    try:
+        _today_tashkent = _now_app_tz().date()
+        try:
+            backfill_chunks_enqueued = _enqueue_backfill_chunks_for_shop(
+                int(shop_uzum_id), _today_tashkent
+            )
+            if backfill_chunks_enqueued:
+                print(f"[OpenAPISync] backfill enqueued shop={shop_uzum_id} "
+                      f"chunks={backfill_chunks_enqueued} (drained in background)")
+        except Exception as _e:
+            print(f"[OpenAPISync] backfill enqueue failed for shop={shop_uzum_id}: {_e}")
+
+        _start = datetime.combine(_today_tashkent - timedelta(days=45), dt_time(0, 0, 0))
+        _end = datetime.combine(_today_tashkent + timedelta(days=1), dt_time(0, 0, 0))
+        if shop_lock.try_acquire_shop_lock(shop_uzum_id):
+            try:
+                sales_rows = _fetch_sales_for_shop_window(
+                    shop_uzum_id, _start, _end
+                )
+                sales_lines_rows = _ingest_sales_lines_window(sales_rows, _start, _end)
+                print(f"[OpenAPISync] sales_lines ingest shop={shop_uzum_id} rows={sales_lines_rows} "
+                      f"window=[{_start}, {_end})")
+            finally:
+                shop_lock.release_shop_lock(shop_uzum_id)
+        else:
+            print(f"[OpenAPISync] sales_lines ingest skipped for shop={shop_uzum_id} — lock held by another loop")
+    except Exception as _e:
+        print(f"[OpenAPISync] sales_lines ingest failed for shop={shop_uzum_id}: {_e}")
+
+    return {
+        "pages_synced": page + 1,
+        "fetched": total_variants,
+        "active_groups": len(active_group_ids),
+        "total_products": product_counter,
+        "uz_pages_synced": uz_pages,
+        "uz_titles_updated": uz_updates,
+        "sales_lines_rows": sales_lines_rows,
+        "backfill_chunks_enqueued": backfill_chunks_enqueued,
+        "source": "openapi",
     }
 
 
@@ -4504,11 +5508,11 @@ def _sync_finance_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
     except (TypeError, ValueError):
         raise RuntimeError(f"Invalid shop uzum_id: {shop_uzum_id!r}")
 
-    # 1. ONE Uzum 4-step report call — replaces the legacy paginated
-    #    /finance/orders fetch. _fetch_sells_report_rows_for_shops handles
-    #    create → poll → download → parse internally.
-    rows = _fetch_sells_report_rows_for_shops(
-        [shop_id_int], window_from, window_to,
+    # 1. Per-shop fetch — OpenAPI primary (/v1/finance/orders), legacy
+    #    SELLS_REPORT CSV pipeline as fallback. The routing wrapper
+    #    handles source selection.
+    rows = _fetch_sales_for_shop_window(
+        shop_uzum_id, window_from, window_to,
     ) or []
 
     # 2. Write the rows to sales_lines so the Finance page is populated

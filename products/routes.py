@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update
 
 from extensions import SessionLocal
-from models import ProductGroup, Variant, VariantSale, Shop
+from models import ProductGroup, Variant, VariantSale, Shop, User
 from core.parsers import _safe_qty
 from core.sales_reads import (
     day_bounds_tashkent,
@@ -431,16 +431,48 @@ def _uzum_sync_inner():
         if not existing or existing.owner_id != uid:
             return _json_response({"error": "Access denied to this shop"}, 403)
 
-    if not _get_admin_token():
-        return _json_response({"error": "Uzum \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d."}, 401)
-
     size = int(payload.get("size") or 100)
     sync_all = bool(payload.get("sync_all", True))
     max_pages = int(payload.get("max_pages") or 500)
 
+    # Prefer the OpenAPI path when the requesting user has a personal
+    # uzum_openapi_token saved. The OpenAPI response carries richer fields
+    # (purchasePrice, avgdsales, ikpu, full quantity breakdown, blocked
+    # reasons, productTitle) that the browser/admin-token endpoint omits.
+    # Falls back to the admin-token browser sync for users who haven't
+    # connected an OpenAPI token yet, or whose token failed.
+    openapi_token = None
+    use_openapi = bool(payload.get("use_openapi", True))
+    if use_openapi:
+        try:
+            uid = int(current_user.get_id())
+            with SessionLocal() as _db:
+                u = _db.execute(select(User).where(User.id == uid)).scalar_one_or_none()
+                openapi_token = (u.uzum_openapi_token if u else None) or None
+        except Exception:
+            openapi_token = None
+
+    if openapi_token:
+        try:
+            result = _app._sync_products_via_openapi(
+                shop_id, openapi_token,
+                size=size, max_pages=max_pages,
+                fetch_uz_titles=bool(payload.get("fetch_uz_titles", True)),
+            )
+            return _json_response({"ok": True, "shop_id": shop_id, **result})
+        except Exception as e:
+            # Fall through to the admin-token browser sync. The OpenAPI
+            # token might have been revoked / rotated; we don't want a
+            # single user's bad token to break shop sync entirely.
+            import traceback; traceback.print_exc()
+            print(f"[uzum_sync] OpenAPI path failed for shop={shop_id}: {e!r} \u2014 falling back")
+
+    if not _get_admin_token():
+        return _json_response({"error": "Uzum \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d."}, 401)
+
     result = _app._sync_products_for_shop(shop_id,
                                      size=size, sync_all=sync_all, max_pages=max_pages)
-    return _json_response({"ok": True, "shop_id": shop_id, **result})
+    return _json_response({"ok": True, "shop_id": shop_id, "source": "browser", **result})
 
 
 @products_bp.post("/api/uzum/sync-finance")

@@ -11,10 +11,9 @@ from sqlalchemy import func, select
 
 from core.auth_helpers import _current_user_is_admin, _json_response, _user_shop_ids
 from core.http_client import http_json
-from core.sales_reads import day_bounds_tashkent
 from core.time_helpers import _today_app_tz
 from extensions import SessionLocal
-from models import ProductGroup, SalesLine, Shop, Variant
+from models import FinanceOrder, ProductGroup, Shop, Variant
 
 try:
     import openpyxl
@@ -128,10 +127,13 @@ def api_finance_data():
     lang = request.args.get("lang", "ru").strip()
 
     today = _today_app_tz()
+    # Empty/blank date_from means "no lower bound" — show all available
+    # history (matches the new UI default). date_to still defaults to today.
+    d_from: date | None
     try:
-        d_from = date.fromisoformat(raw_from) if raw_from else today.replace(day=1)
+        d_from = date.fromisoformat(raw_from) if raw_from else None
     except ValueError:
-        d_from = today.replace(day=1)
+        d_from = None
     try:
         d_to = date.fromisoformat(raw_to) if raw_to else today
     except ValueError:
@@ -154,61 +156,66 @@ def api_finance_data():
         if not target_shops:
             return _json_response({"items": [], "totals": {}})
 
-        # target_shops still holds Shop.uzum_id strings; SalesLine.shop_id is int.
-        target_shop_ints: list[int] = []
-        for sid in target_shops:
-            try:
-                target_shop_ints.append(int(sid))
-            except (TypeError, ValueError):
-                continue
-        if not target_shop_ints:
+        # FinanceOrder.shop_id is varchar (Shop.uzum_id convention). Keep
+        # as strings — no int coercion needed.
+        target_shop_strs = [str(sid).strip() for sid in target_shops if str(sid).strip()]
+        if not target_shop_strs:
             return _json_response({"items": [], "totals": {}})
 
-        # Tashkent window [d_from 00:00, d_to+1 00:00). sales_lines has
-        # per-order rows so a strict right-open window is the correct shape.
-        start_ts, _ = day_bounds_tashkent(d_from)
-        _, end_ts = day_bounds_tashkent(d_to)
-
+        # FinanceOrder is per-(shop, day, sku) daily aggregate. Filter by
+        # period_from BETWEEN d_from AND d_to (inclusive) — Date column, no
+        # tz math needed (the day boundary is already encoded in the row).
+        # d_from may be None → "no lower bound" → show all available history.
         where_clauses = [
-            SalesLine.shop_id.in_(target_shop_ints),
-            SalesLine.created_at >= start_ts,
-            SalesLine.created_at < end_ts,
+            FinanceOrder.shop_id.in_(target_shop_strs),
+            FinanceOrder.period_from <= d_to,
         ]
+        if d_from is not None:
+            where_clauses.append(FinanceOrder.period_from >= d_from)
         if sku_filter:
-            where_clauses.append(SalesLine.sku_title.contains(sku_filter))
+            where_clauses.append(FinanceOrder.sku_title.contains(sku_filter))
 
-        # Server-side GROUP BY — single query. `sales_lines` carries no
-        # product_title_ru / product_title / image_url / characteristics
-        # columns; those are resolved via a cheap Variant lookup below.
+        # Server-side GROUP BY — single query. FinanceOrder carries
+        # product_title_ru / product_title / image_url / characteristics on
+        # the row itself, so we MAX() them into the aggregate (no Variant
+        # lookup needed). Variant fallback below for any NULLs.
         stmt = (
             select(
-                SalesLine.sku_title.label("sku_title"),
-                func.max(SalesLine.product_id).label("product_id"),
-                func.max(SalesLine.shop_id).label("shop_id"),
-                func.max(SalesLine.sku_id).label("sku_id"),
-                func.coalesce(func.sum(SalesLine.qty), 0).label("amount"),
-                func.coalesce(func.sum(SalesLine.qty_returns), 0).label("amount_returns"),
-                func.coalesce(func.sum(SalesLine.revenue), 0).label("sell_price"),
-                func.coalesce(func.sum(SalesLine.commission), 0).label("commission"),
-                func.coalesce(func.sum(SalesLine.seller_profit), 0).label("seller_profit"),
-                func.coalesce(func.sum(SalesLine.purchase_price), 0).label("purchase_price"),
-                func.coalesce(func.sum(SalesLine.logistics_fee), 0).label("logistics_fee"),
-                func.coalesce(func.sum(SalesLine.promo_amount), 0).label("seller_discount"),
+                FinanceOrder.sku_title.label("sku_title"),
+                func.max(FinanceOrder.product_id).label("product_id"),
+                func.max(FinanceOrder.shop_id).label("shop_id"),
+                func.max(FinanceOrder.sku_id).label("sku_id"),
+                func.max(FinanceOrder.product_title).label("product_title"),
+                func.max(FinanceOrder.product_title_ru).label("product_title_ru"),
+                func.max(FinanceOrder.image_url).label("image_url"),
+                func.max(FinanceOrder.characteristics).label("characteristics"),
+                func.coalesce(func.sum(FinanceOrder.amount), 0).label("amount"),
+                func.coalesce(func.sum(FinanceOrder.amount_returns), 0).label("amount_returns"),
+                func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("sell_price"),
+                func.coalesce(func.sum(FinanceOrder.commission), 0).label("commission"),
+                func.coalesce(func.sum(FinanceOrder.seller_profit), 0).label("seller_profit"),
+                func.coalesce(func.sum(FinanceOrder.purchase_price), 0).label("purchase_price"),
+                func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("logistics_fee"),
+                func.coalesce(func.sum(FinanceOrder.seller_discount), 0).label("seller_discount"),
                 func.count().label("row_count"),
             )
             .where(*where_clauses)
-            .group_by(SalesLine.sku_title)
-            .order_by(func.sum(SalesLine.qty).desc())
+            .group_by(FinanceOrder.sku_title)
+            .order_by(func.sum(FinanceOrder.amount).desc())
         )
 
         rows = db.execute(stmt).all()
         total_row_count = sum(int(r.row_count or 0) for r in rows)
 
-        # Enrichment: resolve product_title_ru / product_title / image_url /
-        # characteristics via Variant lookup. Cheap — one IN-query per page.
-        sku_titles = [r.sku_title for r in rows if r.sku_title]
+        # Fallback enrichment for any sku_title whose FinanceOrder row had
+        # NULL product_title / image_url (defensive — backfill rows from
+        # OpenAPI usually carry these). Only looks up SKUs missing both.
+        missing_skus = [
+            r.sku_title for r in rows
+            if r.sku_title and not (r.product_title or r.image_url)
+        ]
         variant_meta: dict[str, dict] = {}
-        if sku_titles:
+        if missing_skus:
             var_rows = db.execute(
                 select(
                     Variant.sku,
@@ -218,7 +225,7 @@ def api_finance_data():
                     ProductGroup.name,
                 )
                 .join(ProductGroup, Variant.group_id == ProductGroup.id)
-                .where(Variant.sku.in_(sku_titles))
+                .where(Variant.sku.in_(missing_skus))
             ).all()
             for vr in var_rows:
                 bits: list[str] = []
@@ -235,17 +242,22 @@ def api_finance_data():
         items = []
         for r in rows:
             meta = variant_meta.get(r.sku_title, {})
-            product_title = meta.get("product_title", "")
-            # sales_lines doesn't split ru/uz titles — use Variant group name
-            # for both languages (the finance page shows whichever the user
-            # chose; SKU + characteristics carry the variant info).
+            # Per-language title — finance_orders has both ru + uz titles
+            # baked into the row. Fall through to Variant group name if
+            # both are NULL.
+            if lang == "uz":
+                product_title = r.product_title or r.product_title_ru or meta.get("product_title", "")
+            else:
+                product_title = r.product_title_ru or r.product_title or meta.get("product_title", "")
+            image_url = r.image_url or meta.get("image_url", "")
+            characteristics = r.characteristics or meta.get("characteristics", "")
             items.append({
                 "sku": r.sku_title,
                 "product_title": product_title,
                 "product_id": r.product_id,
-                "image_url": meta.get("image_url", ""),
+                "image_url": image_url,
                 "shop_id": str(r.shop_id) if r.shop_id is not None else "",
-                "characteristics": meta.get("characteristics", ""),
+                "characteristics": characteristics,
                 "amount": int(r.amount or 0),
                 "amount_returns": int(r.amount_returns or 0),
                 "sell_price": float(r.sell_price or 0),
@@ -278,7 +290,7 @@ def api_finance_data():
         labels["ru"]["refresh"] = labels["ru"]["refresh"].replace("30", str(_app.FINANCE_REFRESH_DAYS), 1)
 
         return _json_response({
-            "date_from": d_from.isoformat(),
+            "date_from": d_from.isoformat() if d_from else "",
             "date_to": d_to.isoformat(),
             "total_orders": total_row_count,
             "total_skus": len(items),

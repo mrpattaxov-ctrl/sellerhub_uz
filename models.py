@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, Numeric, Index, CheckConstraint, text as sql_text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from flask_login import UserMixin
 
@@ -96,6 +97,24 @@ class Variant(Base):
     paid_storage_amount: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
     paid_storage_dimensional_group: Mapped[str] = mapped_column(String(80), nullable=True)
     paid_storage_price_item: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
+
+    # ── Fields exclusive to the Seller OpenAPI /v1/product/shop/{shopId} ────────
+    # Populated only when sync runs via the per-user uzum_openapi_token path
+    # (see _sync_products_via_openapi). The browser/admin-token sync leaves
+    # these untouched.
+    product_title_ru: Mapped[str] = mapped_column(String(300), nullable=True)
+    product_title_uz: Mapped[str] = mapped_column(String(300), nullable=True)
+    quantity_created: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_fbs: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_additional: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_archived: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_pending: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_defected: Mapped[int] = mapped_column(Integer, nullable=True)
+    quantity_missing: Mapped[int] = mapped_column(Integer, nullable=True)
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=True)
+    blocking_reason: Mapped[str] = mapped_column(String(500), nullable=True)
+    sku_block_reason: Mapped[str] = mapped_column(Text, nullable=True)
+    ikpu: Mapped[str] = mapped_column(String(80), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -418,6 +437,17 @@ class SalesLine(Base):
     purchase_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
     logistics_fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
 
+    # ── OpenAPI-only fields (populated only when sales_lines ingest runs
+    # via /v1/finance/orders; NULL/0 for rows ingested via the browser CSV).
+    # product_image is the rich multi-resolution photo dict from OpenAPI
+    # (photoKey + {60..800px,original} → {high, low} URLs + color + flags).
+    # Stored verbatim so we don't lose data when Uzum adds new resolutions.
+    product_image: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # OpenAPI splits cancelled-count from sold-count (group=false `cancelled`
+    # field). Browser CSV encodes cancellations as their own status='Отменен'
+    # rows which we drop at ingest, so this stays 0 for the CSV path.
+    qty_cancelled: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+
     # Infra timestamp — naive UTC via datetime.utcnow().
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -461,6 +491,18 @@ class ExpensesLedger(Base):
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
     # ALWAYS positive; direction via op_type.
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
+
+    # ── OpenAPI-only fields (NULL for rows from the browser CSV path).
+    # dateCreated / dateUpdated are Uzum's audit stamps on the payment
+    # record itself — when the row was created in their system and last
+    # touched. charged_at (the existing column) is dateService.
+    date_created: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    date_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Seller ID (distinct from shop_id; one seller can own many shops).
+    seller_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Free-form identifiers Uzum returns for some payment types — verbatim.
+    external_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    code: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     # Infra timestamp — naive UTC.
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -521,3 +563,92 @@ class ShopSyncState(Base):
     last_hourly_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_nightly_refetch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_expenses_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Legacy-style finance shape, restored 2026-05-21.
+#
+# Schema returns to the original pre-Phase-1 layout: per-(shop, day, sku)
+# daily aggregates in `FinanceOrder` + hourly cumulative snapshots in
+# `FinanceHourlySnapshot`. Source changed from admin-token /finance/orders
+# (paginated GET) to per-user OpenAPI /v1/finance/orders?group=true (also
+# paginated GET — same shape, instant). The chunked-queue + per-line
+# sales_lines layer is being retired.
+#
+# Hourly Telegram notifications use snapshot delta math (no API call) —
+# DB-only diff of cumulative totals between two snapshot_hour rows.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class FinanceOrder(Base):
+    """Cached daily aggregates per (shop, day, sku) from /v1/finance/orders?group=true.
+
+    For SHRINKING-vs-GROWING totals: amount/sell_price/purchase_price are
+    fixed snapshots of the day's totals (not deltas vs. previous query —
+    DELETE+INSERT for the (shop_id, period_from, period_to) range makes
+    re-runs idempotent).
+    """
+    __tablename__ = "finance_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # String to match Shop.uzum_id convention (varchar in DB, even though
+    # values are numeric).
+    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    period_from: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    period_to: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    sku_title: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
+    sku_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    product_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # Russian title and Uzbek title (Uzum exposes both via Accept-Language).
+    product_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    product_title_ru: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(800), nullable=True)
+    # Size/colour string e.g. "20, Чёрный" — verbatim from
+    # SkuGroupedSellerItemDto.characteristics joined by ", ".
+    characteristics: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    amount_returns: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    sell_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    purchase_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    seller_discount: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    seller_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    commission: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    withdrawn_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    logistics_fee: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        # Idempotent DELETE+INSERT key.
+        Index("ix_finance_orders_shop_period", "shop_id", "period_from", "period_to"),
+        # Per-shop "today's data" lookup (snapshot delta + telegram).
+        Index("ix_finance_orders_shop_period_sku", "shop_id", "period_from", "sku_title"),
+    )
+
+
+class FinanceHourlySnapshot(Base):
+    """Cumulative snapshot of today's sales taken at every HH:00 boundary.
+
+    Hourly notification "За час" delta = current snapshot row totals minus
+    previous snapshot row totals (per shop, per sku). Pure DB math, no API
+    call. Retention 25h (a sliding window of yesterday-end + today).
+    """
+    __tablename__ = "finance_hourly_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sku_title: Mapped[str] = mapped_column(String(300), nullable=False)
+    # Naive UTC, matching legacy convention. snap_hour is the HH:00 mark in
+    # Tashkent converted to UTC before storage so subscription/checkpoint
+    # comparisons remain TZ-neutral.
+    snapshot_hour: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    sell_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    purchase_price: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    seller_profit: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    commission: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    logistics_fee: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+
+    __table_args__ = (
+        Index("ix_finance_hourly_shop_hour", "shop_id", "snapshot_hour"),
+    )

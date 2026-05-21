@@ -232,10 +232,13 @@ function esc(s) {
 // Init
 document.addEventListener('DOMContentLoaded', function() {
   const today = new Date().toISOString().slice(0,10);
-  const firstDay = today.slice(0,8) + '01';
-  document.getElementById('dateFrom').value = firstDay;
+  // Default to all-history. Empty date_from means "no lower bound" on the
+  // backend; user can narrow via the picker. date_to stays at today.
+  document.getElementById('dateFrom').value = '';
   document.getElementById('dateTo').value = today;
   applyLang();
+  // Auto-load so the user sees data immediately instead of an empty page.
+  loadData();
 });
 </script>
 {% endblock %}

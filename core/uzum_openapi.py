@@ -139,6 +139,175 @@ def _call_v1_shops(token: str) -> dict | list:
     )
 
 
+def fetch_products_page(token: str, shop_uzum_id: str | int, *,
+                        page: int, size: int = 100,
+                        accept_language: str | None = None,
+                        sort_by: str = "ID", order: str = "DESC",
+                        filter_: str = "ALL") -> dict:
+    """GET /v1/product/shop/{shopId}?page=...&size=...
+
+    Returns the parsed JSON body (``AllProducts`` schema). Raises
+    ``RuntimeError`` if every auth-header variant we know about is
+    rejected — same probing rules as :func:`_call_v1_shops`.
+
+    ``accept_language`` is passed through verbatim (``"ru"`` / ``"uz"``).
+    The OpenAPI swagger does not document a localization parameter, so
+    whether the API actually honors it is empirical — call twice and
+    diff the returned productTitle to find out.
+    """
+    token = _clean(token)
+    qs = (f"size={int(size)}&page={int(page)}"
+          f"&sortBy={sort_by}&order={order}&filter={filter_}")
+    url = f"{OPENAPI_BASE}/v1/product/shop/{shop_uzum_id}?{qs}"
+
+    last_status = 0
+    last_text = ""
+    last_label = ""
+
+    for label, builder in _AUTH_VARIANTS:
+        try:
+            headers = builder(token)
+        except Exception as e:
+            print(f"[UzumOpenAPI] header-builder error on {label}: {e}")
+            continue
+        if accept_language:
+            headers = {**headers, "Accept-Language": accept_language}
+        status, text, parsed = _try_request(
+            url, headers, debug_label=f"products[{shop_uzum_id} p={page} lang={accept_language or '-'}]/{label}"
+        )
+        if 200 <= status < 300 and isinstance(parsed, dict):
+            return parsed
+        last_status, last_text, last_label = status, text, label
+        if not _is_token_not_found(status, parsed):
+            break
+
+    raise RuntimeError(
+        f"Uzum OpenAPI rejected /v1/product/shop/{shop_uzum_id} "
+        f"(last={last_label}, HTTP {last_status}). Response: {last_text[:300]}"
+    )
+
+
+def fetch_finance_orders_page(token: str, shop_uzum_id: str | int, *,
+                              date_from_sec: int | None,
+                              date_to_sec: int | None,
+                              page: int = 0, size: int = 100,
+                              group: bool = False) -> dict:
+    """GET /v1/finance/orders — paginated per-line sales ledger.
+
+    Returns the parsed JSON body. Shape (verified live 2026-05-20):
+      {"orderItems": [ {...}, ... ], "totalElements": N}
+
+    NOTE: there is NO ``payload`` wrapper on this endpoint, unlike most other
+    OpenAPI endpoints. The bare ``FinanceOrderItemsDto`` sits at the root.
+
+    Date filter units
+    -----------------
+    Uzum's swagger says ``dateFrom``/``dateTo`` are Unix epoch **milliseconds**.
+    They lie — the API actually expects **seconds**. Passing ms returns
+    ``totalElements=0`` cleanly with HTTP 200. Always pass seconds here;
+    callers convert from Tashkent-naive datetimes via ``int(dt.timestamp())``
+    after attaching tzinfo.
+
+    Pass ``None`` for either bound to omit it (the API then returns
+    unfiltered data, ordered by ``date`` desc).
+
+    Field-name surprise: the swagger says ``sellerPrice`` for unit price but
+    the real response key is ``sellPrice``. See ``_openapi_order_to_canonical``.
+
+    Other params
+    ------------
+    ``group=False`` → ``SellerOrderItemDto[]`` (per-order-line; primary mode
+    for ``sales_lines`` ingest).
+    ``group=True``  → ``ProductGroupedSellerItem[]`` (per-product rollup
+    with embedded SKU breakdown including ``skuId``, ``characteristics`` and
+    ``sellerDiscountAmount`` — useful for summary reports).
+    """
+    token = _clean(token)
+    qs_parts = [f"shopIds={int(shop_uzum_id)}",
+                f"page={int(page)}", f"size={int(size)}",
+                f"group={'true' if group else 'false'}"]
+    if date_from_sec is not None:
+        qs_parts.append(f"dateFrom={int(date_from_sec)}")
+    if date_to_sec is not None:
+        qs_parts.append(f"dateTo={int(date_to_sec)}")
+    url = f"{OPENAPI_BASE}/v1/finance/orders?{'&'.join(qs_parts)}"
+
+    last_status = 0
+    last_text = ""
+    last_label = ""
+
+    for label, builder in _AUTH_VARIANTS:
+        try:
+            headers = builder(token)
+        except Exception as e:
+            print(f"[UzumOpenAPI] header-builder error on {label}: {e}")
+            continue
+        status, text, parsed = _try_request(
+            url, headers,
+            debug_label=f"finance.orders[{shop_uzum_id} p={page} group={group}]/{label}"
+        )
+        if 200 <= status < 300 and isinstance(parsed, dict):
+            return parsed
+        last_status, last_text, last_label = status, text, label
+        if not _is_token_not_found(status, parsed):
+            break
+
+    raise RuntimeError(
+        f"Uzum OpenAPI rejected /v1/finance/orders shop={shop_uzum_id} "
+        f"(last={last_label}, HTTP {last_status}). Response: {last_text[:300]}"
+    )
+
+
+def fetch_finance_expenses_page(token: str, shop_uzum_id: str | int, *,
+                                date_from_sec: int | None,
+                                date_to_sec: int | None,
+                                page: int = 0, size: int = 100) -> dict:
+    """GET /v1/finance/expenses — paginated per-operation expenses ledger.
+
+    Returns the parsed JSON body. Shape (verified live 2026-05-20):
+      {"payload": {"payments": [ {...}, ... ], "totalElements": N},
+       "timestamp": "...", "trace": "..."}
+
+    Unlike ``/v1/finance/orders`` this endpoint DOES use the ``payload``
+    wrapper. Caller reads ``parsed["payload"]["payments"]``.
+
+    Same seconds-not-ms quirk applies — pass epoch seconds.
+    """
+    token = _clean(token)
+    qs_parts = [f"shopIds={int(shop_uzum_id)}",
+                f"page={int(page)}", f"size={int(size)}"]
+    if date_from_sec is not None:
+        qs_parts.append(f"dateFrom={int(date_from_sec)}")
+    if date_to_sec is not None:
+        qs_parts.append(f"dateTo={int(date_to_sec)}")
+    url = f"{OPENAPI_BASE}/v1/finance/expenses?{'&'.join(qs_parts)}"
+
+    last_status = 0
+    last_text = ""
+    last_label = ""
+
+    for label, builder in _AUTH_VARIANTS:
+        try:
+            headers = builder(token)
+        except Exception as e:
+            print(f"[UzumOpenAPI] header-builder error on {label}: {e}")
+            continue
+        status, text, parsed = _try_request(
+            url, headers,
+            debug_label=f"finance.expenses[{shop_uzum_id} p={page}]/{label}"
+        )
+        if 200 <= status < 300 and isinstance(parsed, dict):
+            return parsed
+        last_status, last_text, last_label = status, text, label
+        if not _is_token_not_found(status, parsed):
+            break
+
+    raise RuntimeError(
+        f"Uzum OpenAPI rejected /v1/finance/expenses shop={shop_uzum_id} "
+        f"(last={last_label}, HTTP {last_status}). Response: {last_text[:300]}"
+    )
+
+
 def list_owned_shops(token: str) -> list[dict]:
     """Call /v1/shops and return a normalized list of owned shops.
 

@@ -20,23 +20,18 @@ http_json = None
 _json_response = None
 _get_admin_token = None
 _today_app_tz = None
-fetch_finance_sales_map = None
-fetch_warehouse_expenses = None
 find_first_array = None
 
 
 def init_debug_routes(app_module):
     """Bind references from the main app module. Called once after app is created."""
     global SessionLocal, http_json, _json_response
-    global _get_admin_token, _today_app_tz, fetch_finance_sales_map
-    global fetch_warehouse_expenses, find_first_array
+    global _get_admin_token, _today_app_tz, find_first_array
     SessionLocal = app_module.SessionLocal
     http_json = app_module.http_json
     _json_response = app_module._json_response
     _get_admin_token = app_module._get_admin_token
     _today_app_tz = app_module._today_app_tz
-    fetch_finance_sales_map = app_module.fetch_finance_sales_map
-    fetch_warehouse_expenses = app_module.fetch_warehouse_expenses
     find_first_array = app_module.find_first_array
 
 debug_bp = Blueprint("debug_bp", __name__, url_prefix="/debug")
@@ -164,7 +159,6 @@ def debug_expenses():
         "today_range": f"{_today_start.strftime('%Y-%m-%d %H:%M')} to {_today_end.strftime('%Y-%m-%d %H:%M')}",
         "today_payments": today_items,
         "all_warehouse_payments": debug_items,
-        "parsed_result": fetch_warehouse_expenses(shop_ids, api_key=api_key),
     })
 
 
@@ -230,13 +224,11 @@ def debug_finance():
 
     result["raw_api_response"] = raw_response
 
-    # -- 2. Run the full finance fetch and show resulting sales_map --
+    # -- 2. (Retired) Browser-token sales_map has been removed along with
+    #       the legacy fetch_finance_sales_map. The raw API dump above is
+    #       kept for inspection.
     sales_map = None
-    sales_map_error = None
-    try:
-        sales_map = fetch_finance_sales_map(shop_id, api_key=token, days=days)
-    except Exception as e:
-        sales_map_error = str(e)
+    sales_map_error = "fetch_finance_sales_map retired — use finance_orders DB or OpenAPI directly"
 
     result["sales_map_error"] = sales_map_error
     result["sales_map_total_keys"] = len(sales_map) if sales_map else 0

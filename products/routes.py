@@ -408,13 +408,11 @@ def uzum_sync():
 @login_required
 @admin_required
 def uzum_sync_all():
-    """Discover all seller shops automatically and sync all of them."""
-    try:
-        result = _app._sync_all_seller_shops()
-        return _json_response({"ok": True, **result})
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        return _json_response({"error": str(e)}, 500)
+    """Disabled — bulk admin shop sync was retired with the legacy browser pipeline."""
+    return _json_response({
+        "error": "Массовая синхронизация всех магазинов отключена. "
+                 "Синхронизируйте магазины по отдельности через OpenAPI токен."
+    }, 410)
 
 
 def _uzum_sync_inner():
@@ -435,140 +433,102 @@ def _uzum_sync_inner():
     sync_all = bool(payload.get("sync_all", True))
     max_pages = int(payload.get("max_pages") or 500)
 
-    # Prefer the OpenAPI path when the requesting user has a personal
-    # uzum_openapi_token saved. The OpenAPI response carries richer fields
-    # (purchasePrice, avgdsales, ikpu, full quantity breakdown, blocked
-    # reasons, productTitle) that the browser/admin-token endpoint omits.
-    # Falls back to the admin-token browser sync for users who haven't
-    # connected an OpenAPI token yet, or whose token failed.
+    # OpenAPI-only path. The legacy browser/admin-token products sync has been
+    # retired; users must connect a personal Uzum OpenAPI token to sync.
     openapi_token = None
-    use_openapi = bool(payload.get("use_openapi", True))
-    if use_openapi:
-        try:
-            uid = int(current_user.get_id())
-            with SessionLocal() as _db:
-                u = _db.execute(select(User).where(User.id == uid)).scalar_one_or_none()
-                openapi_token = (u.uzum_openapi_token if u else None) or None
-        except Exception:
-            openapi_token = None
+    try:
+        uid = int(current_user.get_id())
+        with SessionLocal() as _db:
+            u = _db.execute(select(User).where(User.id == uid)).scalar_one_or_none()
+            openapi_token = (u.uzum_openapi_token if u else None) or None
+    except Exception:
+        openapi_token = None
 
-    if openapi_token:
-        try:
-            result = _app._sync_products_via_openapi(
-                shop_id, openapi_token,
-                size=size, max_pages=max_pages,
-                fetch_uz_titles=bool(payload.get("fetch_uz_titles", True)),
-            )
-            return _json_response({"ok": True, "shop_id": shop_id, **result})
-        except Exception as e:
-            # Fall through to the admin-token browser sync. The OpenAPI
-            # token might have been revoked / rotated; we don't want a
-            # single user's bad token to break shop sync entirely.
-            import traceback; traceback.print_exc()
-            print(f"[uzum_sync] OpenAPI path failed for shop={shop_id}: {e!r} \u2014 falling back")
+    if not openapi_token:
+        return _json_response({"error": "Uzum OpenAPI \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d \u0432 \u043f\u0440\u043e\u0444\u0438\u043b\u0435."}, 401)
 
-    if not _get_admin_token():
-        return _json_response({"error": "Uzum \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d."}, 401)
-
-    result = _app._sync_products_for_shop(shop_id,
-                                     size=size, sync_all=sync_all, max_pages=max_pages)
-    return _json_response({"ok": True, "shop_id": shop_id, "source": "browser", **result})
+    try:
+        result = _app._sync_products_via_openapi(
+            shop_id, openapi_token,
+            size=size, max_pages=max_pages,
+            fetch_uz_titles=bool(payload.get("fetch_uz_titles", True)),
+        )
+        return _json_response({"ok": True, "shop_id": shop_id, **result})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return _json_response({"error": f"\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044f \u043d\u0435 \u0443\u0434\u0430\u043b\u0430\u0441\u044c: {e!s}"}, 500)
 
 
 @products_bp.post("/api/uzum/sync-finance")
 @login_required
 def uzum_sync_finance():
+    """Refresh per-variant 30-day averages from the local finance_orders cache.
+
+    Reads aggregated SKU stats from finance_orders (kept fresh by the hourly +
+    nightly finance loops \u2014 no Uzum API call here). Updates each variant's
+    sales_30d_finance / avg_daily_sales / purchase_price / sell_price_uzum /
+    commission_per_unit / logistics_per_unit. Inserts today's VariantSale rows
+    for economics date-range queries.
+    """
     try:
         payload = request.get_json(force=True, silent=True) or {}
         shop_id = str(payload.get("shop_id") or "").strip()
-        api_key = _get_admin_token()
-
         if not shop_id:
             return _json_response({"error": "shop_id missing"}, 400)
 
         with SessionLocal() as db:
-            # Ensure shop exists
             shop_obj = db.execute(select(Shop).where(Shop.uzum_id == shop_id)).scalar_one_or_none()
             if not shop_obj:
-                 return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
+                return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
 
-            # Fetch 30-day sales via the SELLS_REPORT pipeline (one Uzum
-            # /documents/v2 call replaces the legacy paginated /finance/orders).
             today = _today_app_tz()
-            window_from = datetime.combine(today - timedelta(days=30), dt_time(0, 0, 0))
-            window_to   = datetime.combine(today + timedelta(days=1),  dt_time(0, 0, 0))
+            start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
+            _, end_ts = day_bounds_tashkent(today)
 
             try:
-                rows = _app._fetch_sells_report_rows_for_shops(
-                    [int(shop_id)], window_from, window_to,
-                ) or []
-            except Exception:
-                return _json_response({"error": "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u043e \u043f\u0440\u043e\u0434\u0430\u0436\u0430\u0445 (\u043e\u0448\u0438\u0431\u043a\u0430 API). \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 ID \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430."}, 500)
-
-            # Seed sales_lines for this 30-day window so the Finance page is
-            # populated immediately. Failure here must not abort the variant
-            # update \u2014 the next HH:00 hourly bulk will catch up.
-            try:
-                _app._ingest_sales_lines_window(rows, window_from, window_to)
+                agg_rows = read_sales_aggregated(
+                    shop_obj.uzum_id,
+                    start_ts,
+                    end_ts,
+                    group_by="sku",
+                    session=db,
+                )
             except Exception as e:
-                print(f"[ProductsSync] sales_lines seed failed for shop={shop_id}: {e!r}")
+                return _json_response({"error": f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u043e\u0447\u0438\u0442\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435: {e!s}"}, 500)
 
-            # Aggregate per SKU, dropping cancelled rows. Build the same
-            # {sku: {qty, price, sell_price, commission, logistics}} shape
-            # the variant loop below expects (per-unit values, int).
-            agg: dict[str, dict[str, float]] = {}
-            for r in rows:
-                if (r.get("status") or "").strip() == "\u041e\u0442\u043c\u0435\u043d\u0435\u043d":
-                    continue
-                sku = str(r.get("sku_id") or "").strip()
-                if not sku:
-                    continue
-                try:
-                    q = int(r.get("qty") or 0)
-                except (TypeError, ValueError):
-                    q = 0
-                if q <= 0:
-                    continue
-                a = agg.setdefault(sku, {
-                    "qty": 0,
-                    "purchase_price_total": 0.0,
-                    "revenue_total": 0.0,
-                    "commission_total": 0.0,
-                    "logistics_total": 0.0,
-                })
-                a["qty"] += q
-                try:
-                    a["purchase_price_total"] += float(r.get("purchase_price") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["revenue_total"] += float(r.get("revenue") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["commission_total"] += float(r.get("commission") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["logistics_total"] += float(r.get("logistics_fee") or 0)
-                except (TypeError, ValueError):
-                    pass
-
+            # Build {sku_key: {qty, price, sell_price, commission, logistics}} from
+            # the aggregated FinanceOrder rows. read_sales_aggregated already sums
+            # across the 30-day window per sku_title \u2014 we just convert totals to
+            # per-unit averages here.
             sales_map: dict[str, dict] = {}
-            for sku, a in agg.items():
-                qty = int(a["qty"])
-                if qty <= 0:
+            unique_skus = 0
+            for row in agg_rows:
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                if not title or qty <= 0:
                     continue
-                sales_map[sku] = {
-                    "qty": qty,
-                    "price":      int(a["purchase_price_total"] / qty) if a["purchase_price_total"] > 0 else 0,
-                    "sell_price": int(a["revenue_total"]         / qty) if a["revenue_total"]         > 0 else 0,
-                    "commission": int(a["commission_total"]      / qty) if a["commission_total"]      > 0 else 0,
-                    "logistics":  int(a["logistics_total"]       / qty) if a["logistics_total"]       > 0 else 0,
+                rev  = int(row.get("revenue_sum") or 0)
+                cost = int(row.get("purchase_price_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                entry = {
+                    "qty":        qty,
+                    "price":      cost // qty if cost > 0 else 0,
+                    "sell_price": rev  // qty if rev  > 0 else 0,
+                    "commission": comm // qty if comm > 0 else 0,
+                    "logistics":  logi // qty if logi > 0 else 0,
                 }
+                sales_map[title] = entry
+                sales_map[title.upper()] = entry
+                sid = row.get("sku_id")
+                if sid:
+                    sales_map[str(sid)] = entry
+                unique_skus += 1
 
             # Update ALL variants in DB for this shop
-            variants = db.execute(select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)).scalars().all()
+            variants = db.execute(
+                select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)
+            ).scalars().all()
             updated_count = 0
             _today = date.today()
 
@@ -583,6 +543,8 @@ def uzum_sync_finance():
             for v in variants:
                 sku_key = (v.sku or "").strip()
                 data = sales_map.get(sku_key) or sales_map.get(sku_key.upper())
+                if data is None and v.uzum_sku_id:
+                    data = sales_map.get(str(v.uzum_sku_id))
                 if data is None and v.barcode:
                     bc_key = v.barcode.strip()
                     data = sales_map.get(bc_key) or sales_map.get(bc_key.upper())
@@ -599,14 +561,13 @@ def uzum_sync_finance():
                 if data and data.get("logistics", 0) > 0:
                     v.logistics_per_unit = int(data["logistics"])
 
-                # Insert today's VariantSale so economics date-range queries work
                 if qty_val > 0:
                     db.add(VariantSale(variant_id=v.id, date=_today, qty_sold=qty_val))
                 updated_count += 1
 
             db.commit()
 
-        return _json_response({"ok": True, "updated": updated_count, "sales_records": len(sales_map)})
+        return _json_response({"ok": True, "updated": updated_count, "sales_records": unique_skus})
     except Exception as e:
         return _json_response({"error": f"\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430: {str(e)}"}, 500)
 

@@ -1,45 +1,24 @@
 """Per-shop OpenAPI finance fetchers + row normalizers.
 
-Bridges the new ``/v1/finance/orders`` and ``/v1/finance/expenses`` endpoints
-to the existing ``sales_lines`` / ``expenses_ledger`` ingest pipeline.
+Bridges ``/v1/finance/orders`` and ``/v1/finance/expenses`` to the
+``finance_orders`` / ``expenses_ledger`` ingest pipeline. Module exports:
 
-Design choice
--------------
-The downstream ingest functions (``_ingest_sales_lines_window``,
-``_ingest_expenses_window_for_shop``) accept ROW DICTS keyed by the canonical
-field names produced by the RU→canonical CSV header map. To minimise blast
-radius this module produces dicts with the *exact same keys* so the ingest
-functions don't have to grow a separate code path — they keep parsing the
-same canonical schema regardless of source.
-
-Additions on top of the CSV shape
----------------------------------
-OpenAPI exposes three fields the CSV never had. We pass them along as extra
-keys; the ingest function picks them up and writes them to the corresponding
-new columns (see migration 20260520_0004):
-
-  * ``shop_id``  — int. CSV never carried this (one report per shop run).
-                   With OpenAPI it's right on the row, so we skip the SKU→
-                   shop catalog lookup downstream.
-  * ``product_image`` — JSON-serializable dict. The raw ``productImage``
-                   object Uzum returns. Saved verbatim in
-                   ``sales_lines.product_image``.
-  * ``qty_cancelled`` — int. The OpenAPI ``cancelled`` field. CSV encoded
-                   cancellations as their own ``Отменен`` rows that we drop
-                   at ingest, so this stays 0 in the CSV path.
-
-For expenses, additions: ``date_created``, ``date_updated``, ``seller_id``,
-``external_id``, ``code``. ``op_type`` is translated from the OpenAPI enum
-``OUTCOME``/``INCOME`` to the Russian strings the downstream notification
-code already understands (``"Оплата"``/``"Возврат"``).
+- ``fetch_daily_aggregates_for_shop_day`` — group=true; one call per day
+  returning per-(shop, day, sku) rollups. Feeds ``_ingest_finance_orders_for_day``.
+- ``fetch_orders_ungrouped_for_window`` + ``aggregate_line_items_to_finance_orders``
+  — group=false line-item fetch + client-side roll-up, used by the
+  quarter-chunked backfill (one call per quarter rather than per day).
+- ``fetch_finance_expenses_for_shop_window`` — paginated expense fetch.
+  Feeds ``_ingest_expenses_window_for_shop``.
+- ``detect_first_sale_year`` — yearly probe used to bound the backfill.
 
 Status mapping
 --------------
-OpenAPI orders return a status enum:
-  TO_WITHDRAW, PROCESSING, CANCELED, PARTIALLY_CANCELLED.
-The ingest pipeline drops rows where ``status == "Отменен"``. We translate
-``CANCELED`` (and only CANCELED — PARTIALLY_CANCELLED still has surviving
-items) to ``"Отменен"`` so the existing filter rule applies unchanged.
+OpenAPI orders return a status enum: TO_WITHDRAW, PROCESSING, CANCELED,
+PARTIALLY_CANCELLED. ``CANCELED`` (and only CANCELED — PARTIALLY_CANCELLED
+still has surviving items) is translated to the RU label ``"Отменен"`` so
+the downstream drop-at-ingest filter applies unchanged. Expense type enum
+``OUTCOME``/``INCOME`` maps to ``"Оплата"``/``"Возврат"``.
 
 Date semantics
 --------------
@@ -51,7 +30,8 @@ Pagination
 ----------
 We walk pages until either (a) the API returns fewer rows than requested, or
 (b) we hit a safety cap. ``size=100`` is the sweet spot Uzum's rate-limit
-(2 burst / 2/sec replenish / 100k/day) tolerates well.
+(2 burst / 2/sec replenish / 100k/day) tolerates well. The process-wide
+``core.http_client.TokenBucket`` enforces the actual pacing.
 """
 from __future__ import annotations
 
@@ -98,14 +78,40 @@ def _epoch_ms_to_tashkent_naive(ms: int | None) -> datetime | None:
     )
 
 
+def _parse_uzum_date_field(val) -> datetime | None:
+    """Parse a Uzum date field that may be epoch-ms int OR ISO-ish string.
+
+    The expenses swagger documents ``date-time`` (ISO string) but live
+    responses return ``dateService`` / ``dateCreated`` / ``dateUpdated``
+    as integer epoch-milliseconds (verified 2026-05-23 against shop 10945:
+    ``dateService=1779515968928`` = 2026-05-23 05:59:28 UTC). Accept both
+    shapes so the parser is robust to whichever form the API returns —
+    pure-digit strings are treated as stringified ms-epoch.
+    """
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return _epoch_ms_to_tashkent_naive(val)
+    s = str(val).strip()
+    if not s:
+        return None
+    # Stringified integer (e.g. "1779515968928") → ms-epoch path.
+    if s.lstrip("-").isdigit():
+        try:
+            return _epoch_ms_to_tashkent_naive(int(s))
+        except (TypeError, ValueError):
+            return None
+    return _parse_isoish_to_tashkent_naive(s)
+
+
 def _parse_isoish_to_tashkent_naive(s: str | None) -> datetime | None:
     """Parse Uzum-returned ISO-ish date-time strings to naive Tashkent.
 
-    Uzum returns either ``"2026-05-20T05:56:29.767541974"`` (no tz, microsecond
-    overflow) or ``"2026-05-20T05:56:29Z"``. They appear to be UTC for
-    ``dateCreated``/``dateUpdated``/``dateService`` per the swagger
-    ``format: date-time``. We parse, treat as UTC, then convert to Tashkent
-    naive so it's directly comparable to the rest of the column.
+    Uzum may return ``"2026-05-20T05:56:29.767541974"`` (no tz, microsecond
+    overflow) or ``"2026-05-20T05:56:29Z"`` for some date-time fields.
+    Treat naive parses as UTC, convert to Tashkent naive so it's directly
+    comparable to the rest of the column. For fields that may also arrive
+    as integer epoch-ms, use ``_parse_uzum_date_field`` instead.
     """
     if not s:
         return None
@@ -244,11 +250,11 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
     type_enum = _coerce_str(row.get("type")).strip().upper()
     op_type_ru = _EXPENSE_TYPE_RU.get(type_enum, type_enum or None)
 
-    charged_at = _parse_isoish_to_tashkent_naive(row.get("dateService"))
+    charged_at = _parse_uzum_date_field(row.get("dateService"))
     # If dateService is missing, fall back to dateCreated so we still get
     # the row stored — the day bucket is computed from charged_at downstream.
     if charged_at is None:
-        charged_at = _parse_isoish_to_tashkent_naive(row.get("dateCreated"))
+        charged_at = _parse_uzum_date_field(row.get("dateCreated"))
     if charged_at is None:
         return None
 
@@ -269,8 +275,8 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
         "op_type":      op_type_ru,
 
         # ── New OpenAPI-only fields ─────────────────────────────────
-        "date_created": _parse_isoish_to_tashkent_naive(row.get("dateCreated")),
-        "date_updated": _parse_isoish_to_tashkent_naive(row.get("dateUpdated")),
+        "date_created": _parse_uzum_date_field(row.get("dateCreated")),
+        "date_updated": _parse_uzum_date_field(row.get("dateUpdated")),
         "seller_id":    _coerce_int(row.get("sellerId")) or None,
         "external_id":  _coerce_str(row.get("externalId")) or None,
         "code":         _coerce_str(row.get("code")) or None,
@@ -278,63 +284,6 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
 
 
 # ── Per-shop paginated fetchers ──────────────────────────────────────
-
-def fetch_finance_orders_for_shop_window(
-    token: str,
-    shop_uzum_id: str | int,
-    date_from_tashkent: datetime,
-    date_to_tashkent: datetime,
-    *,
-    size: int = _PAGE_SIZE_DEFAULT,
-) -> list[dict]:
-    """Walk /v1/finance/orders pages for the given window, return canonical rows.
-
-    Window is **inclusive** on dateFrom and exclusive-ish on dateTo (we shave
-    1 second off dateTo because Uzum's filter is inclusive on both sides;
-    matches the convention the CSV path uses).
-    """
-    if date_from_tashkent >= date_to_tashkent:
-        return []
-    if not token:
-        raise RuntimeError("fetch_finance_orders_for_shop_window: empty token")
-
-    shop_int = int(shop_uzum_id)
-    date_from_sec = _tashkent_naive_to_epoch_sec(date_from_tashkent)
-    date_to_sec = _tashkent_naive_to_epoch_sec(date_to_tashkent) - 1
-
-    out: list[dict] = []
-    page = 0
-    while page < _MAX_PAGES:
-        try:
-            body = _api.fetch_finance_orders_page(
-                token, shop_int,
-                date_from_sec=date_from_sec, date_to_sec=date_to_sec,
-                page=page, size=size, group=False,
-            )
-        except Exception as e:
-            print(f"[FinanceOpenAPI] orders fetch failed shop={shop_int} page={page}: {e}")
-            raise
-        items = body.get("orderItems") if isinstance(body, dict) else None
-        items = items if isinstance(items, list) else []
-        if page == 0:
-            total = body.get("totalElements") if isinstance(body, dict) else None
-            print(f"[FinanceOpenAPI] orders shop={shop_int} window=["
-                  f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) "
-                  f"totalElements={total}")
-
-        for raw in items:
-            if not isinstance(raw, Mapping):
-                continue
-            canon = _openapi_order_to_canonical(raw, shop_int)
-            if canon is not None:
-                out.append(canon)
-
-        if len(items) < size:
-            break
-        page += 1
-        time.sleep(_BETWEEN_PAGE_SLEEP_S)
-
-    return out
 
 
 # ── Aggregated path (group=true) — feeds FinanceOrder ───────────────
@@ -742,9 +691,16 @@ def fetch_finance_expenses_for_shop_window(
     date_from_tashkent: datetime,
     date_to_tashkent: datetime,
     *,
-    size: int = _PAGE_SIZE_DEFAULT,
+    size: int = 2000,
 ) -> list[dict]:
-    """Walk /v1/finance/expenses pages for the window, return canonical rows."""
+    """Walk /v1/finance/expenses pages for the window, return canonical rows.
+
+    Page size: ``size=2000`` (Uzum's tested ceiling — verified live 2026-05-23
+    that sizes 100/250/500/1000/2000 all returned the full requested page in
+    ~1s). For a 53K-row backfill this is ~27 pages vs ~540 at size=100. The
+    daily loop's single-day windows stay well under 2000 rows so the bigger
+    default has no cost there.
+    """
     if date_from_tashkent >= date_to_tashkent:
         return []
     if not token:

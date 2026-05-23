@@ -18,9 +18,7 @@ from models import (
     FinanceOrder,
     PosActionLog,
     ProductGroup,
-    SalesLine,
     Shop,
-    ShopBackfillChunk,
     ShopSyncState,
     SubscriptionCode,
     SubscriptionCodeActivation,
@@ -64,32 +62,50 @@ def init_admin_routes(app_module):
 def _fire_finance_seed(uzum_id: str, shop_pk: int):
     """Trigger background finance work for a newly added shop.
 
-    Two daemon threads fire:
-      1. _sync_finance_for_shop  — fast 30-day seed for Variant
-         sales_30d_finance + avg_daily_sales (so Warehouse/POS reorder
-         logic works within seconds of attach).
-      2. _run_full_backfill_for_shop — slow first-sale-year → today
-         backfill into finance_orders, day-by-day. ~30 minutes for an
-         active shop. Runs sequentially; the user sees historical sales
-         appear progressively in the UI.
+    Fires one orchestrator daemon thread that runs two backfills in
+    parallel and then sends a post-backfill summary:
 
-    Both threads use the shop owner's per-user OpenAPI token. No queue,
-    no chunked machinery — just thread + sleep + fetch.
+      1. ``_run_full_backfill_for_shop`` — quarter-chunked OpenAPI sales
+         backfill into ``finance_orders`` (~1-2 min for a 2-year shop).
+      2. ``_run_full_expenses_backfill_for_shop`` — year-chunked OpenAPI
+         expenses backfill into ``expenses_ledger`` (~30s-2 min depending
+         on volume). Same TokenBucket queue, so we don't exceed Uzum's rate.
+      3. After BOTH finish, ``_send_post_backfill_summary`` posts a
+         Telegram message to the shop owner with yesterday's sales +
+         expenses, so the operator can verify both pipelines populated.
+
+    Variant.avg_daily_sales / sales_30d_finance stay at 0 until the user
+    clicks "Sync Finance" (POST /api/uzum/sync-finance), which reads the
+    populated finance_orders.
     """
-    def _run_variant_seed(uzum_id=uzum_id, shop_pk=shop_pk):
+    def _safe_call(fn, label, *args):
         try:
-            _app._sync_finance_for_shop(uzum_id, shop_pk)
+            fn(*args)
         except Exception as e:
-            print(f"[AdminShop] Finance seed (variants) failed for {uzum_id}: {e}")
+            print(f"[AdminShop] {label} failed for {args[0] if args else '?'}: {e}")
 
-    def _run_full_backfill(uzum_id=uzum_id, shop_pk=shop_pk):
-        try:
-            _app._run_full_backfill_for_shop(uzum_id, shop_pk)
-        except Exception as e:
-            print(f"[AdminShop] Full backfill failed for {uzum_id}: {e}")
+    def _orchestrate(uzum_id=uzum_id, shop_pk=shop_pk):
+        t_sales = threading.Thread(
+            target=lambda: _safe_call(_app._run_full_backfill_for_shop,
+                                      "sales backfill", uzum_id, shop_pk),
+            daemon=True,
+            name=f"backfill-sales-{uzum_id}",
+        )
+        t_expenses = threading.Thread(
+            target=lambda: _safe_call(_app._run_full_expenses_backfill_for_shop,
+                                      "expenses backfill", uzum_id, shop_pk),
+            daemon=True,
+            name=f"backfill-expenses-{uzum_id}",
+        )
+        t_sales.start()
+        t_expenses.start()
+        t_sales.join()
+        t_expenses.join()
+        _safe_call(_app._send_post_backfill_summary,
+                   "post-backfill summary", uzum_id, shop_pk)
 
-    threading.Thread(target=_run_variant_seed, daemon=True).start()
-    threading.Thread(target=_run_full_backfill, daemon=True).start()
+    threading.Thread(target=_orchestrate, daemon=True,
+                     name=f"backfill-orchestrate-{uzum_id}").start()
 
 
 def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: int | None = None):
@@ -388,11 +404,11 @@ def delete_shop(shop_id: int):
 
     Runs under a deadlock-retry loop: the cascade touches Variant/ProductGroup
     while the background sales-ingest loops hold locks on the same rows
-    (sku->shop routing reads + sales_lines DELETE+INSERT). Postgres aborts
-    one side as the deadlock victim; we simply retry the whole transaction
-    on a fresh session. Also purges the new-pipeline tables
-    (sales_lines / expenses_ledger / shop_backfill_chunks / shop_sync_state)
-    keyed by int(Shop.uzum_id) so a deleted shop leaves no orphan rows.
+    (sku->shop routing reads). Postgres may abort one side as the deadlock
+    victim under contention; we simply retry the whole transaction on a
+    fresh session. Also purges the cached finance tables (finance_orders /
+    finance_hourly_snapshots / expenses_ledger / shop_sync_state) so a
+    deleted shop leaves no orphan rows.
     """
     uid = int(current_user.get_id())
     max_attempts = 4
@@ -432,15 +448,12 @@ def delete_shop(shop_id: int):
                 # delete doesn't fail with an IntegrityError.
                 db.execute(delete(PosActionLog).where(PosActionLog.shop_id == shop_id))
 
-                # Purge new-pipeline data so the deleted shop leaves no
-                # orphan rows. shop_id columns mix conventions: SalesLine /
-                # ExpensesLedger / ShopBackfillChunk / ShopSyncState use
-                # int; FinanceOrder / FinanceHourlySnapshot use string
-                # (matches Shop.uzum_id varchar).
+                # Purge cached finance data so the deleted shop leaves no
+                # orphan rows. shop_id columns mix conventions: ExpensesLedger
+                # / ShopSyncState use int; FinanceOrder / FinanceHourlySnapshot
+                # use string (matches Shop.uzum_id varchar).
                 if uzum_id_int is not None:
-                    db.execute(delete(SalesLine).where(SalesLine.shop_id == uzum_id_int))
                     db.execute(delete(ExpensesLedger).where(ExpensesLedger.shop_id == uzum_id_int))
-                    db.execute(delete(ShopBackfillChunk).where(ShopBackfillChunk.shop_id == uzum_id_int))
                     db.execute(delete(ShopSyncState).where(ShopSyncState.shop_id == uzum_id_int))
                 uzum_id_str = (shop.uzum_id or "").strip()
                 if uzum_id_str:

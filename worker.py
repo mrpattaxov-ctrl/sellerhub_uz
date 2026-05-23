@@ -40,27 +40,23 @@ t4.start()
 threads.append(t4)
 print("[Worker] Started: Telegram bot")
 
-# Phase 1 sales/expenses Reports API loops. Disable via NEW_SALES_REPORTS_LOOPS=0.
+# Legacy-style finance pipeline loops (restored 2026-05-21, sales_lines pipeline
+# fully retired 2026-05-23). Disable via NEW_SALES_REPORTS_LOOPS=0.
 if os.environ.get("NEW_SALES_REPORTS_LOOPS", "1").strip().lower() not in ("0", "false", "no"):
-    t5 = threading.Thread(target=_app._hourly_sales_reports_loop, daemon=True, name="sales-reports-hourly")
+    t5 = threading.Thread(target=_app._hourly_finance_loop, daemon=True, name="finance-hourly")
     t5.start()
     threads.append(t5)
-    print("[Worker] Started: sales reports hourly loop")
+    print("[Worker] Started: finance hourly loop (group=true today refresh + snapshot)")
 
-    t6 = threading.Thread(target=_app._nightly_refetch_loop, daemon=True, name="sales-nightly-refetch")
+    t6 = threading.Thread(target=_app._nightly_finance_refetch_loop, daemon=True, name="finance-nightly-refetch")
     t6.start()
     threads.append(t6)
-    print("[Worker] Started: sales nightly refetch loop")
+    print("[Worker] Started: finance nightly refetch loop (last 45 days)")
 
     t7 = threading.Thread(target=_app._daily_expenses_loop, daemon=True, name="expenses-daily")
     t7.start()
     threads.append(t7)
     print("[Worker] Started: daily expenses loop")
-
-    t8 = threading.Thread(target=_app._onboarding_backfill_loop, daemon=True, name="sales-onboarding-backfill")
-    t8.start()
-    threads.append(t8)
-    print("[Worker] Started: sales onboarding backfill loop")
 
 _app._start_auto_login_scheduler()
 print("[Worker] Started: auto-login scheduler")

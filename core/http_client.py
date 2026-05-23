@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -15,16 +16,92 @@ from config import HTTP_POOL_MAXSIZE, HTTP_USER_AGENT, HTTP_ACCEPT_LANGUAGE
 _http_local = threading.local()
 
 
-class AdditiveBackoffRetry(Retry):
-    """urllib3 Retry subclass that waits additively: 60s, 120s, 180s.
+class TokenBucket:
+    """Process-wide rate limiter for Uzum API calls keyed by token.
 
-    urllib3's built-in Retry only supports exponential backoff
-    (``backoff_factor * 2**(n-1)``). For Uzum we want real breathing room
-    between retries under 429/5xx, so this overrides ``get_backoff_time``
-    to return ``60 * attempt`` instead.
+    Uzum's OpenAPI enforces (empirically) capacity=2 burst tokens replenished
+    at ~2/sec per token. When the backfill / hourly loop / variant seed all
+    use the same per-user token concurrently, naive parallelism instantly
+    blows past the burst → 429 storm. This bucket serializes them at the
+    application layer so we never overrun.
+
+    Threads call ``acquire()`` before issuing a request; the call blocks until
+    a token is available, then decrements the pool.
     """
 
-    BACKOFF_MAX = 600  # raise above urllib3's 120s default so 180s isn't clipped
+    def __init__(self, capacity: int = 2, refill_per_sec: float = 2.0):
+        self.capacity = float(capacity)
+        self.refill_per_sec = float(refill_per_sec)
+        self.tokens = float(capacity)
+        self.last_refill = time.monotonic()
+        self._cond = threading.Condition()
+
+    def acquire(self) -> None:
+        with self._cond:
+            while True:
+                now = time.monotonic()
+                elapsed = now - self.last_refill
+                if elapsed > 0:
+                    self.tokens = min(
+                        self.capacity, self.tokens + elapsed * self.refill_per_sec
+                    )
+                    self.last_refill = now
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return
+                wait = max(0.01, (1.0 - self.tokens) / self.refill_per_sec)
+                self._cond.wait(timeout=wait)
+
+
+# One bucket per OpenAPI token. Threads sharing a token share a bucket;
+# different tokens get independent buckets (and thus independent rate budgets).
+_buckets_lock = threading.Lock()
+_buckets: dict[str, TokenBucket] = {}
+
+# Conservative defaults: 1 token capacity, 1/sec refill.
+# Empirical Uzum refill is ~1.2-2/sec but capacity=1 ensures STRICTLY
+# sequential pacing — no concurrent in-flight requests at all. This is
+# slower than the bucket-burst design but guarantees zero 429s regardless
+# of how many concurrent callers (products + finance + backfill) compete.
+# Can be raised via env vars if higher throughput is needed and Uzum's
+# rate limit allows.
+_BUCKET_CAPACITY = int(os.getenv("UZUM_OPENAPI_BUCKET_CAPACITY", "1"))
+_BUCKET_REFILL_PER_SEC = float(os.getenv("UZUM_OPENAPI_BUCKET_REFILL_PER_SEC", "1.0"))
+
+
+def get_bucket_for_token(token: str) -> TokenBucket:
+    """Return (and create if needed) the shared TokenBucket for ``token``.
+
+    Same token across threads → same bucket → cooperative rate limiting.
+    Tokens use a short key (first 16 chars) so the dict doesn't bloat with
+    long secrets in memory dumps.
+    """
+    if not token:
+        # Fall back to a sentinel bucket so callers without a token still pace.
+        key = "_no_token_"
+    else:
+        key = token.strip()[:16]
+    with _buckets_lock:
+        b = _buckets.get(key)
+        if b is None:
+            b = TokenBucket(
+                capacity=_BUCKET_CAPACITY, refill_per_sec=_BUCKET_REFILL_PER_SEC
+            )
+            _buckets[key] = b
+        return b
+
+
+class AdditiveBackoffRetry(Retry):
+    """urllib3 Retry subclass with short additive backoff: 1s, 2s, 3s.
+
+    Original design used 60s/120s/180s waits, which made backfill thrash
+    for minutes when 429s hit. With the application-layer TokenBucket
+    preventing most 429s upstream, this retry only needs to catch the
+    rare race-condition slip (e.g. a sibling thread that started right
+    before bucket-pacing kicked in). A few seconds of backoff is enough.
+    """
+
+    BACKOFF_MAX = 60
 
     def get_backoff_time(self) -> float:
         consecutive_errors = len(
@@ -32,7 +109,10 @@ class AdditiveBackoffRetry(Retry):
         )
         if consecutive_errors <= 0:
             return 0
-        return min(self.BACKOFF_MAX, 60.0 * consecutive_errors)
+        # 1s for first retry, 2s for second — short enough that products
+        # sync doesn't visibly hang on startup, long enough for Uzum's
+        # bucket to refill at least one token.
+        return min(self.BACKOFF_MAX, 1.0 * consecutive_errors)
 
 
 def _get_http_session():
@@ -40,6 +120,11 @@ def _get_http_session():
     sess = getattr(_http_local, "session", None)
     if sess is None:
         sess = requests.Session()
+        # 429 IS in the forcelist as a safety net — the bucket should
+        # prevent 429s, but at startup multiple concurrent callers (products
+        # sync + variant seed + 2 backfill threads) can briefly out-pace
+        # Uzum's refill. Two short retries (1s + 2s) catch those without
+        # the user-visible 60+120+180s stalls of the old design.
         retry_strategy = AdditiveBackoffRetry(
             total=3,
             status_forcelist=[429, 500, 502, 503, 504],

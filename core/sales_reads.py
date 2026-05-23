@@ -240,9 +240,16 @@ def read_sales_aggregated(
     group_cols: list = [FinanceOrder.shop_id]
 
     if effective_group_by == "sku":
-        sku_col = FinanceOrder.sku_id
-        sku_title_col = func.max(FinanceOrder.sku_title).label("sku_title")
-        group_cols.append(FinanceOrder.sku_id)
+        # Group by sku_title (always populated, matches Variant.sku) rather
+        # than sku_id (Integer, nullable). The group=false backfill path
+        # cannot populate sku_id because Uzum's line item response omits
+        # skuId — only skuTitle is present. Grouping by sku_id would
+        # collapse every NULL-sku_id row into a single synthetic group,
+        # showing the user one giant "SKU" with the sum of all sales.
+        # sku_id is still returned via MAX() for callers that want it.
+        sku_col = FinanceOrder.sku_title
+        sku_id_col = func.max(FinanceOrder.sku_id).label("sku_id")
+        group_cols.append(FinanceOrder.sku_title)
     else:
         trunc_key = _TRUNC_KEYS[effective_group_by]
         bucket_col = func.date_trunc(trunc_key, FinanceOrder.period_from).label("bucket")
@@ -252,8 +259,8 @@ def read_sales_aggregated(
     if bucket_col is not None:
         cols.append(bucket_col)
     if sku_col is not None:
-        cols.append(sku_col.label("sku_id"))
-        cols.append(sku_title_col)
+        cols.append(sku_col.label("sku_title"))
+        cols.append(sku_id_col)
     cols.extend(
         [
             func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty_sum"),

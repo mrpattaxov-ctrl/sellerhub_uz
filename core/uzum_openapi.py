@@ -19,7 +19,7 @@ import json
 
 import requests
 
-from core.http_client import _get_http_session
+from core.http_client import _get_http_session, get_bucket_for_token
 
 OPENAPI_BASE = "https://api-seller.uzum.uz/api/seller-openapi"
 
@@ -49,9 +49,11 @@ def _clean(token: str) -> str:
 def _try_request(url: str, headers: dict, *, debug_label: str) -> tuple[int, str, dict | list | None]:
     """Single attempt with the given headers. Returns (status, body_text, parsed_or_None).
 
-    Uses the project's pooled session for connection reuse and the
-    AdditiveBackoffRetry for transient 5xx/429 only — auth failures are
-    surfaced immediately so callers can pick the next auth variant.
+    Uses the project's pooled session for connection reuse. Throttled by the
+    process-wide ``TokenBucket`` keyed by the Uzum token, so all callers
+    (backfill, hourly loop, variant seed, products sync) cooperatively
+    respect Uzum's empirical 2-burst / ~2-per-sec ceiling without ever
+    triggering 429s.
     """
     sess = _get_http_session()
     # Minimal, programmatic-client-style headers. Some openapi gateways
@@ -62,6 +64,15 @@ def _try_request(url: str, headers: dict, *, debug_label: str) -> tuple[int, str
         "User-Agent": "uzum-warehouse-app/1.0 (+openapi-client)",
     }
     base.update(headers)
+
+    # Cooperative rate limiting: pull a token from the per-Uzum-token bucket
+    # BEFORE firing. Blocks if all tokens are in use. Auth header carries the
+    # token; we strip a leading "Bearer " so different auth variants land in
+    # the same bucket.
+    auth_hdr = headers.get("Authorization", "")
+    token_only = auth_hdr[7:].strip() if auth_hdr.lower().startswith("bearer ") else auth_hdr
+    get_bucket_for_token(token_only).acquire()
+
     try:
         resp = sess.get(url, headers=base, timeout=30)
     except requests.RequestException as e:

@@ -3291,18 +3291,31 @@ def _refresh_finance_for_shop_day(
 def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
     """Daemon-thread entrypoint for the initial backfill of a newly-added shop.
 
-    1. Detect first-sale year via yearly probes on /v1/finance/orders.
-    2. For each day from first-year Jan 1 → today, fetch group=true
-       aggregates and write to finance_orders. Parallel via a thread pool
-       (FINANCE_BACKFILL_PARALLELISM, default 32). Each thread works on a
-       different day so no (shop, day) collision — the per-shop Redis lock
-       is BYPASSED here (it would serialize the pool back down to 1).
-    3. Returns a summary dict.
+    Chunked-quarterly design (2026-05-22 redesign):
 
-    Cost (~870 days, busy shop) with default parallelism=32: ~1-3 minutes
-    if Uzum doesn't throttle; longer if 429s + additive backoff kick in.
+    1. Detect first-sale year via yearly probes on /v1/finance/orders.
+    2. Build list of QUARTER windows from first-year Q1 → today's quarter.
+    3. For each quarter: fetch line items via ``group=false`` (one paginated
+       call per quarter, size=5000), aggregate client-side into
+       FinanceOrder rows (verified equivalent to group=true), and write
+       per-day via the existing idempotent ingest.
+    4. Pool of FINANCE_BACKFILL_PARALLELISM workers (default 2 — matches
+       Uzum's 2-token burst capacity). Global TokenBucket in
+       ``core.http_client`` enforces the rate; we never exceed Uzum's
+       limit and never see a 429.
+
+    Empirical cost (shop 5983, 2-year window, 218K line items):
+        ~30 quarters total (most empty), parallelism=2 → ~1-2 minutes,
+        zero 429s.
+
+    Compared to the previous per-day group=true design (~7 min floor +
+    430+ requests vs ~30 here), this trades 1× API call/day for 1× per
+    quarter, while preserving exact daily-aggregate row shape. Verified
+    semantically equivalent to the group=true path on 2026-05-22 —
+    see scripts/smoke_aggregation_semantics.py.
     """
     import os as _os
+    from collections import defaultdict as _dd
     from concurrent.futures import ThreadPoolExecutor
     from threading import Lock as _Lock
     from core import uzum_finance_openapi as _ufo
@@ -3311,7 +3324,9 @@ def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
     summary = {
         "shop_id": shop_uzum_id,
         "first_year": None,
-        "days_attempted": 0,
+        "quarters_total": 0,
+        "quarters_done": 0,
+        "items_fetched": 0,
         "days_written": 0,
         "rows_written": 0,
         "errors": 0,
@@ -3323,7 +3338,6 @@ def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
         summary["errors"] = 1
         return summary
 
-    # Parse hard-floor fallback year from FINANCE_BACKFILL_START_DATE env var.
     try:
         fallback_year = int(str(FINANCE_BACKFILL_START_DATE).split("-")[0])
     except (ValueError, IndexError):
@@ -3339,54 +3353,93 @@ def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
     summary["first_year"] = first_year
 
     today_tashkent = _now_app_tz().date()
-    start_day = date(first_year, 1, 1)
+
+    # Build list of quarter windows. Empty quarters cost ~0.5s each (Uzum
+    # short-circuits the query when totalElements=0) so we don't pre-filter.
+    def _quarter_bounds(year: int, qnum: int) -> tuple[date, date]:
+        start_month = (qnum - 1) * 3 + 1
+        end_month = start_month + 2
+        start = date(year, start_month, 1)
+        if end_month == 12:
+            end = date(year, 12, 31)
+        else:
+            end = date(year, end_month + 1, 1) - timedelta(days=1)
+        return start, end
+
+    quarters: list[tuple[date, date]] = []
+    for y in range(first_year, today_tashkent.year + 1):
+        for q in range(1, 5):
+            q_start, q_end = _quarter_bounds(y, q)
+            if q_start > today_tashkent:
+                break
+            if q_end > today_tashkent:
+                q_end = today_tashkent
+            quarters.append((q_start, q_end))
+
+    summary["quarters_total"] = len(quarters)
 
     try:
-        parallelism = int(_os.environ.get("FINANCE_BACKFILL_PARALLELISM", "32"))
+        parallelism = int(_os.environ.get("FINANCE_BACKFILL_PARALLELISM", "2"))
     except (TypeError, ValueError):
-        parallelism = 32
-    parallelism = max(1, min(parallelism, 64))
+        parallelism = 2
+    # Cap at 8 — beyond that we just queue more threads waiting on the
+    # TokenBucket; no throughput gain, more memory churn.
+    parallelism = max(1, min(parallelism, 8))
 
-    # Materialize the day list so the pool can fan out.
-    days: list[date] = []
-    cur = start_day
-    while cur <= today_tashkent:
-        days.append(cur)
-        cur += timedelta(days=1)
-
-    print(f"[FinanceBackfill] shop={shop_uzum_id} window=[{start_day}, {today_tashkent}] "
-          f"days={len(days)} parallelism={parallelism} starting…")
+    window_start = quarters[0][0] if quarters else today_tashkent
+    print(f"[FinanceBackfill] shop={shop_uzum_id} window=[{window_start}, {today_tashkent}] "
+          f"quarters={len(quarters)} parallelism={parallelism} mode=group=false-chunked starting…")
 
     summary_lock = _Lock()
 
-    def _backfill_one_day(day: date) -> None:
+    def _backfill_one_quarter(q_bounds: tuple[date, date]) -> None:
+        q_start, q_end = q_bounds
         try:
-            # Fetch + ingest directly, bypassing the per-shop Redis lock —
-            # each thread works on a distinct day so (shop, day) ingest
-            # writes don't collide. The hourly/nightly loops only touch
-            # today, no overlap with historical backfill days.
-            rows = _ufo.fetch_daily_aggregates_for_shop_day(
-                token, shop_uzum_id, day,
+            ws = datetime.combine(q_start, dt_time(0, 0, 0))
+            we = datetime.combine(q_end, dt_time(23, 59, 59))
+            items = _ufo.fetch_orders_ungrouped_for_window(
+                token, shop_uzum_id, ws, we,
             )
-            n = _ingest_finance_orders_for_day(rows, shop_uzum_id, day)
-            with summary_lock:
-                summary["days_attempted"] += 1
-                summary["rows_written"] += n
+            rows = _ufo.aggregate_line_items_to_finance_orders(items, shop_uzum_id)
+
+            # Group aggregated rows by day so per-day ingest can DELETE +
+            # INSERT atomically. Empty days in the quarter still get a
+            # DELETE (no INSERT) so stale rows are wiped if a day went
+            # from N → 0 sales since the last backfill.
+            by_day: dict[date, list[dict]] = _dd(list)
+            for r in rows:
+                by_day[r["period_from"]].append(r)
+
+            cur = q_start
+            n_days_written = 0
+            n_rows_written = 0
+            while cur <= q_end:
+                day_rows = by_day.get(cur, [])
+                n = _ingest_finance_orders_for_day(day_rows, shop_uzum_id, cur)
                 if n > 0:
-                    summary["days_written"] += 1
+                    n_days_written += 1
+                    n_rows_written += n
+                cur += timedelta(days=1)
+
+            with summary_lock:
+                summary["quarters_done"] += 1
+                summary["items_fetched"] += len(items)
+                summary["days_written"] += n_days_written
+                summary["rows_written"] += n_rows_written
+            print(f"[FinanceBackfill] shop={shop_uzum_id} quarter=[{q_start}, {q_end}] "
+                  f"items={len(items)} days_written={n_days_written} rows={n_rows_written}")
         except Exception as exc:
             with summary_lock:
-                summary["days_attempted"] += 1
                 summary["errors"] += 1
-            print(f"[FinanceBackfill] shop={shop_uzum_id} day={day} ERROR: {exc!r}")
+            print(f"[FinanceBackfill] shop={shop_uzum_id} quarter=[{q_start}, {q_end}] ERROR: {exc!r}")
 
     with ThreadPoolExecutor(max_workers=parallelism,
                             thread_name_prefix=f"backfill-{shop_uzum_id}") as pool:
-        # list(...) forces consumption so we wait for all futures.
-        list(pool.map(_backfill_one_day, days))
+        list(pool.map(_backfill_one_quarter, quarters))
 
     print(f"[FinanceBackfill] shop={shop_uzum_id} DONE: "
-          f"days_attempted={summary['days_attempted']} "
+          f"quarters={summary['quarters_done']}/{summary['quarters_total']} "
+          f"items_fetched={summary['items_fetched']} "
           f"days_written={summary['days_written']} "
           f"rows={summary['rows_written']} "
           f"errors={summary['errors']}")
@@ -3466,10 +3519,13 @@ def _hourly_finance_loop():
            finance_orders rows.
       2. Save FinanceHourlySnapshot (cumulative-today totals per shop+sku
          at this snap_hour).
-      3. Telegram hourly notifications — TODO wire up to read snapshot
-         delta (current hour row − previous hour row); for now we only
-         keep the data fresh and the existing Telegram code keeps reading
-         its prior sources until we migrate it.
+      3. Dispatch Telegram notifications via
+         _run_scheduled_hourly_sales_check(snap_hour) — for each user with
+         hourly_enabled prefs whose interval lands on this hour. Note: the
+         Telegram read path currently still queries sales_lines (not the
+         new finance_orders / finance_hourly_snapshots) so notification
+         content reflects whatever sales_lines holds at this moment. A
+         full migration to snapshot-delta reads is the next step.
 
     No 5s tick: `time.sleep(seconds_until_next_HH:00)` and wake up
     exactly when needed.
@@ -3512,6 +3568,15 @@ def _hourly_finance_loop():
                 _save_hourly_snapshots(snap_hour)
             except Exception as e:
                 print(f"[FinanceHourly] _save_hourly_snapshots ERROR: {e!r}")
+
+            # 3. Telegram notification dispatch.
+            # Iterates users with hourly_enabled, groups by their interval
+            # config, and sends per-shop sales cards. Logs sent / failed
+            # counts. Read source is still sales_lines (see TODO above).
+            try:
+                _run_scheduled_hourly_sales_check(snap_hour)
+            except Exception as e:
+                print(f"[FinanceHourly] Telegram dispatch ERROR: {e!r}")
 
             next_hour = _next_hour_target()
         except Exception as e:

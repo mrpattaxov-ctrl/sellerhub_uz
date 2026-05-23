@@ -553,6 +553,189 @@ def detect_first_sale_year(
     return current_year
 
 
+# ── Ungrouped + client-side aggregation backfill path ───────────────
+#
+# Why this exists: the per-day group=true approach makes 1 API call per
+# day. For a 2-year backfill that's 800+ calls, which at Uzum's 2-req/sec
+# rate limit takes 7+ minutes minimum. The group=false path can fetch a
+# much larger window per call (50k+ items per page at size=5000), and
+# Uzum's per-call latency depends mainly on the WINDOW SIZE, not the page
+# size — once the query is computed, returning 5000 rows costs almost
+# the same as returning 100.
+#
+# Chunking by quarter (rather than one huge 2-year call) is the sweet
+# spot — Uzum's query cost scales with window size (54s for full 2-year
+# vs ~3-7s for a quarter). Quarters keep each call fast and let us
+# parallelize across quarters.
+#
+# Aggregation correctness was verified 2026-05-22 against group=true
+# for shop=5983 day=2026-05-20: 216/216 SKUs match exactly across
+# amount, amountReturns, sellerProfit, commission, purchasePrice,
+# logisticDeliveryFee, sellerDiscountAmount, withdrawnProfit, sellPrice.
+# See scripts/smoke_aggregation_semantics.py for the test.
+
+_LARGE_PAGE_SIZE_DEFAULT = 5000
+
+
+def fetch_orders_ungrouped_for_window(
+    token: str,
+    shop_uzum_id: str | int,
+    date_from_tashkent: datetime,
+    date_to_tashkent: datetime,
+    *,
+    size: int = _LARGE_PAGE_SIZE_DEFAULT,
+) -> list[dict]:
+    """Walk /v1/finance/orders pages with ``group=false`` for the given window.
+
+    Returns RAW line item dicts (one per order), not aggregated. Pair with
+    :func:`aggregate_line_items_to_finance_orders` to produce FinanceOrder
+    rows for ingest.
+
+    Uzum's ``dateFrom``/``dateTo`` are SECONDS (swagger says ms, swagger
+    lies). Window is inclusive on both ends.
+    """
+    if date_from_tashkent >= date_to_tashkent:
+        return []
+    if not token:
+        raise RuntimeError("fetch_orders_ungrouped_for_window: empty token")
+
+    shop_int = int(shop_uzum_id)
+    from_sec = _tashkent_naive_to_epoch_sec(date_from_tashkent)
+    to_sec = _tashkent_naive_to_epoch_sec(date_to_tashkent) - 1
+
+    out: list[dict] = []
+    page = 0
+    while page < _MAX_PAGES:
+        try:
+            body = _api.fetch_finance_orders_page(
+                token, shop_int,
+                date_from_sec=from_sec, date_to_sec=to_sec,
+                page=page, size=size, group=False,
+            )
+        except Exception as e:
+            print(f"[FinanceOpenAPI] ungrouped fetch failed "
+                  f"shop={shop_int} window=[{date_from_tashkent.isoformat()},"
+                  f"{date_to_tashkent.isoformat()}) page={page}: {e}")
+            raise
+
+        items = body.get("orderItems") if isinstance(body, dict) else None
+        items = items if isinstance(items, list) else []
+        if page == 0:
+            total = body.get("totalElements") if isinstance(body, dict) else None
+            print(f"[FinanceOpenAPI] ungrouped shop={shop_int} window=["
+                  f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) "
+                  f"totalElements={total} size={size}")
+
+        out.extend(it for it in items if isinstance(it, Mapping))
+
+        if len(items) < size:
+            break
+        page += 1
+        # No between-page sleep — global TokenBucket in core.http_client
+        # throttles cooperatively across all callers.
+
+    return out
+
+
+def aggregate_line_items_to_finance_orders(
+    line_items: Iterable[Mapping],
+    shop_uzum_id: str | int,
+) -> list[dict]:
+    """Group raw line items by (sku_title, day_tashkent) → FinanceOrder dicts.
+
+    Output shape matches :func:`_openapi_grouped_sku_to_finance_order` so it
+    feeds directly into ``_ingest_finance_orders_for_day``.
+
+    Verified field-by-field against the group=true aggregated response for
+    shop=5983 day=2026-05-20: 216/216 SKUs match across all numeric fields
+    AND across cancelled/return-only edge cases.
+
+    Aggregation rules (from the verification):
+      * amount / amountReturns / sellerProfit / commission /
+        logisticDeliveryFee / sellerDiscountAmount / withdrawnProfit
+            → direct sum across line items.
+      * sellPrice (per-unit) → sum(sellPrice × amount) gives REVENUE.
+      * purchasePrice (per-unit cost basis) → sum(purchasePrice × amount).
+        Return-only rows (amount=0) naturally contribute 0.
+
+    All statuses (PROCESSING / TO_WITHDRAW / CANCELED /
+    PARTIALLY_CANCELLED) are INCLUDED — Uzum's group=true aggregates them
+    all, so we must too to match exactly.
+    """
+    shop_str = str(shop_uzum_id)
+
+    # Per-(sku_title, day) accumulator
+    groups: dict[tuple[str, "date"], dict] = {}
+
+    for item in line_items:
+        if not isinstance(item, Mapping):
+            continue
+        sku_title = _coerce_str(item.get("skuTitle")).strip()
+        if not sku_title:
+            continue
+        day_dt = _epoch_ms_to_tashkent_naive(item.get("date"))
+        if day_dt is None:
+            continue
+        day = day_dt.date()
+
+        key = (sku_title, day)
+        g = groups.get(key)
+        if g is None:
+            g = {
+                "shop_id":          shop_str,
+                "period_from":      day,
+                "period_to":        day,
+                "sku_title":        sku_title[:300],
+                "sku_id":           None,  # group=false omits skuId
+                "product_id":       _coerce_int(item.get("productId")) or None,
+                "product_title":    None,
+                "product_title_ru": None,
+                "image_url":        None,
+                "characteristics":  None,  # group=false has no chars array
+                "amount":           0,
+                "amount_returns":   0,
+                "sell_price":       0,
+                "purchase_price":   0,
+                "seller_discount":  0,
+                "seller_profit":    0,
+                "commission":       0,
+                "withdrawn_profit": 0,
+                "logistics_fee":    0,
+            }
+            groups[key] = g
+
+        # Lazily fill descriptive fields from the first item that has them;
+        # PROCESSING rows sometimes carry null productTitle.
+        if not g["product_title"]:
+            pt = _coerce_str(item.get("productTitle"))
+            if pt:
+                g["product_title"] = pt[:500]
+        if not g["image_url"]:
+            url = _pick_image_url(item.get("productImage"))
+            if url:
+                g["image_url"] = url[:800]
+        if not g["product_id"]:
+            pid = _coerce_int(item.get("productId"))
+            if pid:
+                g["product_id"] = pid
+
+        qty          = _coerce_int(item.get("amount"))
+        sp_per_unit  = _coerce_int(item.get("sellPrice"))
+        pp_per_unit  = _coerce_int(item.get("purchasePrice"))
+
+        g["amount"]           += qty
+        g["amount_returns"]   += _coerce_int(item.get("amountReturns"))
+        g["sell_price"]       += sp_per_unit * qty
+        g["purchase_price"]   += pp_per_unit * qty
+        g["seller_discount"]  += _coerce_int(item.get("sellerDiscountAmount"))
+        g["seller_profit"]    += _coerce_int(item.get("sellerProfit"))
+        g["commission"]       += _coerce_int(item.get("commission"))
+        g["withdrawn_profit"] += _coerce_int(item.get("withdrawnProfit"))
+        g["logistics_fee"]    += _coerce_int(item.get("logisticDeliveryFee"))
+
+    return list(groups.values())
+
+
 def fetch_finance_expenses_for_shop_window(
     token: str,
     shop_uzum_id: str | int,

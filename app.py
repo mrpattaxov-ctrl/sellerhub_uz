@@ -3731,6 +3731,95 @@ def _discover_seller_shops(api_key: str) -> list[str]:
 def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                                 size: int = 100, max_pages: int = 500,
                                 fetch_uz_titles: bool = False) -> dict:
+    """Per-shop locked wrapper around :func:`_sync_products_via_openapi_impl`.
+
+    Acquires the Redis-backed per-shop sync lock (``core.shop_lock``) so two
+    concurrent calls for the same shop can't race on product_groups /
+    variants inserts and produce duplicates. The second concurrent caller
+    sees the lock held, logs once, and returns a no-op result. Different
+    shops use different lock keys so they still run in parallel.
+
+    Lock TTL is 300s (set in ``core/shop_lock.py``) as a crash-safety
+    ceiling — the ``finally`` block is the happy-path release. Outside
+    callers should treat this function as idempotent under concurrency.
+    """
+    if not openapi_token:
+        raise RuntimeError("Uzum OpenAPI token is empty.")
+
+    from core.shop_lock import try_acquire_shop_lock, release_shop_lock, is_shop_active
+    import time as _time
+    _lock_key = str(shop_uzum_id)
+    if not try_acquire_shop_lock(_lock_key):
+        # Another worker (typically the add-shop orchestrator's background
+        # thread) is already running this sync. Don't redo the work — wait
+        # for it to finish, then return the current DB counts so the UI
+        # shows accurate "Товаров: N, вариантов: M" instead of "undefined".
+        print(
+            f"[OpenAPISync] shop {shop_uzum_id} already syncing in another "
+            f"worker — waiting up to 180s for completion, then returning DB counts."
+        )
+        deadline = _time.time() + 180
+        while is_shop_active(_lock_key) and _time.time() < deadline:
+            _time.sleep(2)
+        # Whether the other sync finished or we timed out, read what's in the
+        # DB right now so the UI gets a real number instead of a placeholder.
+        return _read_products_sync_counts_from_db(shop_uzum_id)
+    try:
+        return _sync_products_via_openapi_impl(
+            shop_uzum_id, openapi_token,
+            size=size, max_pages=max_pages,
+            fetch_uz_titles=fetch_uz_titles,
+        )
+    finally:
+        release_shop_lock(_lock_key)
+
+
+def _read_products_sync_counts_from_db(shop_uzum_id: str) -> dict:
+    """Return a result dict matching ``_sync_products_via_openapi_impl``'s
+    shape but populated from the current DB state. Used by the lock wrapper
+    when another sync is already running, so the caller (typically the
+    bulk-attach UI) still gets meaningful ``total_products`` and ``fetched``
+    numbers instead of zeros / undefined.
+    """
+    from sqlalchemy import func
+    try:
+        with SessionLocal() as db:
+            shop_row = db.execute(
+                select(Shop).where(Shop.uzum_id == str(shop_uzum_id))
+            ).scalar_one_or_none()
+            if shop_row is None:
+                groups_count = 0
+                variants_count = 0
+            else:
+                groups_count = db.execute(
+                    select(func.count()).select_from(ProductGroup)
+                    .where(ProductGroup.shop_id == shop_row.id)
+                ).scalar() or 0
+                variants_count = db.execute(
+                    select(func.count()).select_from(Variant)
+                    .join(ProductGroup, ProductGroup.id == Variant.group_id)
+                    .where(ProductGroup.shop_id == shop_row.id)
+                ).scalar() or 0
+    except Exception as e:
+        print(f"[OpenAPISync] DB count fallback failed for shop {shop_uzum_id}: {e!r}")
+        groups_count = 0
+        variants_count = 0
+    return {
+        "skipped": True,
+        "reason": "already_syncing",
+        "pages_synced": 0,
+        "fetched": int(variants_count),
+        "active_groups": int(groups_count),
+        "total_products": int(groups_count),
+        "uz_pages_synced": 0,
+        "uz_titles_updated": 0,
+        "source": "openapi",
+    }
+
+
+def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
+                                     size: int = 100, max_pages: int = 500,
+                                     fetch_uz_titles: bool = False) -> dict:
     """OpenAPI-driven counterpart to :func:`_sync_products_for_shop`.
 
     Uses the per-user seller-openapi token (NOT the admin api_key) against

@@ -10,6 +10,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
 from core.auth_helpers import _current_user_is_admin, _json_response, _user_shop_ids
+from core.uzum_skulist import normalize_uzum_image_url
 from core.http_client import http_json
 from core.time_helpers import _today_app_tz
 from extensions import SessionLocal
@@ -249,7 +250,7 @@ def api_finance_data():
                 product_title = r.product_title or r.product_title_ru or meta.get("product_title", "")
             else:
                 product_title = r.product_title_ru or r.product_title or meta.get("product_title", "")
-            image_url = r.image_url or meta.get("image_url", "")
+            image_url = normalize_uzum_image_url(r.image_url or meta.get("image_url", "")) or ""
             characteristics = r.characteristics or meta.get("characteristics", "")
             items.append({
                 "sku": r.sku_title,

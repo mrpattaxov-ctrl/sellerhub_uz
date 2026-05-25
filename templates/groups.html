@@ -97,7 +97,7 @@
   <div class="col-12 col-sm-6 col-lg-4 col-xxl-3">
     <a class="card h-100 d-block text-decoration-none {% if current_status == 'archived' %}opacity-75{% endif %}" href="/groups/{{ g.id }}">
       {% if g.image_url %}
-      <img src="{{ g.image_url }}" class="card-img-top" alt="" style="object-fit:cover; height: 180px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <img src="{{ g.image_url | uzum540 }}" class="card-img-top" alt="" style="object-fit:cover; height: 180px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
       <div class="card-img-top bg-light" style="height: 180px; display: none;"></div>
       {% else %}
       <div class="card-img-top bg-light" style="height: 180px;"></div>

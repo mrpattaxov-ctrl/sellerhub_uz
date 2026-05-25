@@ -12,6 +12,7 @@ from sqlalchemy import select, func, delete, update
 from extensions import SessionLocal
 from models import ProductGroup, Variant, VariantSale, Shop, User
 from core.parsers import _safe_qty
+from core.uzum_skulist import normalize_uzum_image_url
 from core.sales_reads import (
     day_bounds_tashkent,
     read_sales_aggregated,
@@ -351,7 +352,7 @@ def economics_data_api():
             roi = round(g_sales_profit / g_sales_cost * 100, 1) if g_sales_cost > 0 else 0
 
             items.append({
-                "id": g.id, "name": g.name, "image_url": g.image_url or "",
+                "id": g.id, "name": g.name, "image_url": normalize_uzum_image_url(g.image_url) or "",
                 "stock_qty": g_stock_qty, "stock_cost": g_stock_cost,
                 "sales_qty": g_sales_qty, "sales_revenue": g_sales_rev,
                 "sales_cost": g_sales_cost, "sales_commission": g_commission,
@@ -451,7 +452,7 @@ def _uzum_sync_inner():
         result = _app._sync_products_via_openapi(
             shop_id, openapi_token,
             size=size, max_pages=max_pages,
-            fetch_uz_titles=bool(payload.get("fetch_uz_titles", True)),
+            fetch_uz_titles=bool(payload.get("fetch_uz_titles", False)),
         )
         return _json_response({"ok": True, "shop_id": shop_id, **result})
     except Exception as e:
@@ -661,6 +662,8 @@ def group_sales_range(group_id: int):
 @login_required
 def get_group_variants_api(group_id: int):
     with SessionLocal() as db:
+        group = db.get(ProductGroup, group_id)
+        group_img = group.image_url if group else None
         variants = db.execute(
             select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
         ).scalars().all()
@@ -673,7 +676,7 @@ def get_group_variants_api(group_id: int):
             items.append({
                 "id": v.id,
                 "sku": v.sku,
-                "image_url": v.image_url,
+                "image_url": normalize_uzum_image_url(v.image_url or group_img),
                 "sales_30d": s30,
                 "need_60d": need
             })
@@ -759,7 +762,7 @@ def invoice_restock_page():
                         "restock_qty": restock,
                         "price": price,
                         "total_price": restock * price,
-                        "image_url": v.image_url or g.image_url
+                        "image_url": normalize_uzum_image_url(v.image_url or g.image_url)
                     })
 
         # Sort by SKU to keep variants together

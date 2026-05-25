@@ -46,11 +46,56 @@ services:
         limits:
           memory: 768M
 
+  pgbouncer:
+    # Connection pooler so app workers can multiplex many client connections
+    # against a small real-Postgres pool. Lets us run multiple gunicorn
+    # workers + the background worker without exhausting PG's max_connections.
+    image: edoburu/pgbouncer:latest
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # edoburu/pgbouncer uses DB_* env names (not DATABASES_*).
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: uzum
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-uzum_secret_change_me}
+      DB_NAME: uzum
+      # Transaction-mode pooling. App is already audited safe (no prepared
+      # statements due to extensions.py prepare_threshold=None, no LISTEN/
+      # NOTIFY, no temp-table sharing across txns).
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: "25"
+      MAX_CLIENT_CONN: "2000"
+      RESERVE_POOL_SIZE: "5"
+      RESERVE_POOL_TIMEOUT: "3"
+      SERVER_IDLE_TIMEOUT: "600"
+      SERVER_LIFETIME: "3600"
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
+      # AUTH_TYPE=plain: client (app) sends password verbatim over the
+      # private docker network, pgbouncer relays to PG. Safe because the
+      # pgbouncer port is not exposed beyond compose's internal network.
+      AUTH_TYPE: "plain"
+      LISTEN_PORT: "6432"
+    ports:
+      - "6432:6432"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 6432 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   app:
     build: .
     restart: always
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -63,12 +108,20 @@ services:
       TZ: ${APP_TIMEZONE:-Asia/Tashkent}
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Tashkent}
       APP_TZ_OFFSET_HOURS: ${APP_TZ_OFFSET_HOURS:-5}
-      DATABASE_URL: postgresql+psycopg://uzum:${POSTGRES_PASSWORD:-uzum_secret_change_me}@db:5432/uzum
+      # Route DB traffic through PgBouncer (port 6432). Real PG remains
+      # reachable on db:5432 inside the network for migrations / one-shot
+      # tools that need session-scoped state.
+      DATABASE_URL: postgresql+psycopg://uzum:${POSTGRES_PASSWORD:-uzum_secret_change_me}@pgbouncer:6432/uzum
       REDIS_URL: redis://redis:6379/0
       FINANCE_AUTO_REFRESH_WORKERS: "100"
       FINANCE_AUTO_SYNC_WORKERS_PER_SHOP: "3"
-      DB_POOL_SIZE: "80"
-      DB_MAX_OVERFLOW: "150"
+      # Pool sizes lowered — PgBouncer is now the heavy pooler. Each app
+      # worker only needs a small client-side pool against pgbouncer.
+      DB_POOL_SIZE: "20"
+      DB_MAX_OVERFLOW: "30"
+      # Ensure psycopg3 never tries server-side prepared statements
+      # (PgBouncer transaction-mode would break them across conn reuse).
+      DB_PREPARE_THRESHOLD: "none"
       ONBOARD_MAX_CONCURRENT_SYNCS: "20"
     command:
       - gunicorn

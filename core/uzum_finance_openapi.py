@@ -507,9 +507,9 @@ def detect_first_sale_year(
 # Why this exists: the per-day group=true approach makes 1 API call per
 # day. For a 2-year backfill that's 800+ calls, which at Uzum's 2-req/sec
 # rate limit takes 7+ minutes minimum. The group=false path can fetch a
-# much larger window per call (50k+ items per page at size=5000), and
+# much larger window per call (10k items per page at size=10000), and
 # Uzum's per-call latency depends mainly on the WINDOW SIZE, not the page
-# size — once the query is computed, returning 5000 rows costs almost
+# size — once the query is computed, returning 10000 rows costs almost
 # the same as returning 100.
 #
 # Chunking by quarter (rather than one huge 2-year call) is the sweet
@@ -523,7 +523,10 @@ def detect_first_sale_year(
 # logisticDeliveryFee, sellerDiscountAmount, withdrawnProfit, sellPrice.
 # See scripts/smoke_aggregation_semantics.py for the test.
 
-_LARGE_PAGE_SIZE_DEFAULT = 5000
+# 10000 is Uzum's hard cap on /v1/finance/orders (size=11000 → HTTP 400
+# "Illegal argument", probed live 2026-05-25). At size=5000 a 100k-row
+# quarter took 22 pages; at 10000 it takes 11.
+_LARGE_PAGE_SIZE_DEFAULT = 10000
 
 
 def fetch_orders_ungrouped_for_window(
@@ -691,15 +694,15 @@ def fetch_finance_expenses_for_shop_window(
     date_from_tashkent: datetime,
     date_to_tashkent: datetime,
     *,
-    size: int = 2000,
+    size: int = 10000,
 ) -> list[dict]:
     """Walk /v1/finance/expenses pages for the window, return canonical rows.
 
-    Page size: ``size=2000`` (Uzum's tested ceiling — verified live 2026-05-23
-    that sizes 100/250/500/1000/2000 all returned the full requested page in
-    ~1s). For a 53K-row backfill this is ~27 pages vs ~540 at size=100. The
-    daily loop's single-day windows stay well under 2000 rows so the bigger
-    default has no cost there.
+    Page size: ``size=10000`` (re-probed live 2026-05-25; sizes up to 15000
+    returned full pages in ~1-4s with no 400). Matches the orders endpoint
+    so both finance pipes paginate at the same cap. For a 53K-row backfill
+    this is ~6 pages vs ~27 at size=2000. The daily loop's single-day
+    windows stay well under 10000 rows so the bigger default has no cost.
     """
     if date_from_tashkent >= date_to_tashkent:
         return []

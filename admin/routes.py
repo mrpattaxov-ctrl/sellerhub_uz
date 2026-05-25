@@ -62,27 +62,59 @@ def init_admin_routes(app_module):
 def _fire_finance_seed(uzum_id: str, shop_pk: int):
     """Trigger background finance work for a newly added shop.
 
-    Fires one orchestrator daemon thread that runs two backfills in
-    parallel and then sends a post-backfill summary:
+    Fires one orchestrator daemon thread that runs three jobs in parallel
+    and then sends a post-backfill summary:
 
       1. ``_run_full_backfill_for_shop`` — quarter-chunked OpenAPI sales
          backfill into ``finance_orders`` (~1-2 min for a 2-year shop).
       2. ``_run_full_expenses_backfill_for_shop`` — year-chunked OpenAPI
          expenses backfill into ``expenses_ledger`` (~30s-2 min depending
-         on volume). Same TokenBucket queue, so we don't exceed Uzum's rate.
-      3. After BOTH finish, ``_send_post_backfill_summary`` posts a
+         on volume).
+      3. ``_sync_products_via_openapi`` — products sync that ALSO fans out
+         to the admin-token ``/sku-list`` endpoint to populate per-SKU
+         ``Variant.image_url`` (POS/invoice/print/variants page all read
+         this). Skipped silently if the shop owner has no OpenAPI token.
+      4. After all finish, ``_send_post_backfill_summary`` posts a
          Telegram message to the shop owner with yesterday's sales +
          expenses, so the operator can verify both pipelines populated.
 
-    Variant.avg_daily_sales / sales_30d_finance stay at 0 until the user
-    clicks "Sync Finance" (POST /api/uzum/sync-finance), which reads the
-    populated finance_orders.
+    All three jobs share the same TokenBucket so we don't exceed Uzum's
+    rate even when bursting on add-shop. Variant.avg_daily_sales /
+    sales_30d_finance stay at 0 until the user clicks "Sync Finance"
+    (POST /api/uzum/sync-finance), which reads the populated finance_orders.
     """
     def _safe_call(fn, label, *args):
         try:
             fn(*args)
         except Exception as e:
             print(f"[AdminShop] {label} failed for {args[0] if args else '?'}: {e}")
+
+    def _run_products_burst(uzum_id=uzum_id, shop_pk=shop_pk):
+        owner_token = ""
+        try:
+            with SessionLocal() as db:
+                shop_row = db.get(Shop, shop_pk)
+                if shop_row and shop_row.owner_id:
+                    owner = db.get(User, int(shop_row.owner_id))
+                    if owner:
+                        owner_token = (owner.uzum_openapi_token or "").strip()
+        except Exception as e:
+            print(f"[AdminShop] products burst owner-token lookup failed for {uzum_id}: {e}")
+            return
+        if not owner_token:
+            print(f"[AdminShop] products burst skipped for shop {uzum_id}: owner has no OpenAPI token")
+            return
+        # Products sync first (creates the Variant rows). Then /sku-list to
+        # populate per-SKU image URLs. The products sync deliberately does
+        # NOT write image_url anymore (see app.py::_sync_products_via_openapi),
+        # so this is the only path that touches variant images on add-shop.
+        _safe_call(_app._sync_products_via_openapi,
+                   "products burst", uzum_id, owner_token)
+        try:
+            from core.uzum_skulist import refresh_sku_images_for_shop
+            refresh_sku_images_for_shop(uzum_id, shop_pk)
+        except Exception as e:
+            print(f"[AdminShop] sku-list image refresh failed for shop {uzum_id}: {e}")
 
     def _orchestrate(uzum_id=uzum_id, shop_pk=shop_pk):
         t_sales = threading.Thread(
@@ -97,10 +129,17 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
             daemon=True,
             name=f"backfill-expenses-{uzum_id}",
         )
+        t_products = threading.Thread(
+            target=_run_products_burst,
+            daemon=True,
+            name=f"backfill-products-{uzum_id}",
+        )
         t_sales.start()
         t_expenses.start()
+        t_products.start()
         t_sales.join()
         t_expenses.join()
+        t_products.join()
         _safe_call(_app._send_post_backfill_summary,
                    "post-backfill summary", uzum_id, shop_pk)
 

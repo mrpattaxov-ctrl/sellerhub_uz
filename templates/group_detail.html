@@ -76,7 +76,7 @@
 <!-- Product header -->
 <div class="product-header-card">
   {% if group.image_url %}
-    <img src="{{ group.image_url }}" alt="" loading="eager" width="72" height="72" fetchpriority="high">
+    <img src="{{ group.image_url | uzum540 }}" alt="" loading="eager" width="72" height="72" fetchpriority="high">
   {% else %}
     <div class="no-img"></div>
   {% endif %}

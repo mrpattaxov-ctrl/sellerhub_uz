@@ -206,6 +206,12 @@ _ensure_common_db_indexes()
 app = Flask(__name__)
 CORS(app)
 app.secret_key = SECRET_KEY
+
+# Force every Uzum CDN image URL emitted to a template to the 540 rendition.
+# Templates use {{ url | uzum540 }} so even rows still holding a low-res URL
+# from a pre-fix sync display sharply without needing a re-sync.
+from core.uzum_skulist import normalize_uzum_image_url as _uzum540
+app.jinja_env.filters["uzum540"] = lambda u: _uzum540(u) or ""
 # Persistent login: by default Flask issues a browser-session cookie that
 # is deleted when the browser fully closes, so users had to re-login after
 # quitting the browser. Making the session permanent with a 30-day lifetime
@@ -2842,7 +2848,7 @@ def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
     1. Detect first-sale year via yearly probes on /v1/finance/orders.
     2. Build list of QUARTER windows from first-year Q1 → today's quarter.
     3. For each quarter: fetch line items via ``group=false`` (one paginated
-       call per quarter, size=5000), aggregate client-side into
+       call per quarter, size=10000 — Uzum's hard cap), aggregate client-side into
        FinanceOrder rows (verified equivalent to group=true), and write
        per-day via the existing idempotent ingest.
     4. Pool of FINANCE_BACKFILL_PARALLELISM workers (default 2 — matches
@@ -2996,7 +3002,7 @@ def _run_full_expenses_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dic
     """Daemon-thread entrypoint for the initial EXPENSES backfill of a new shop.
 
     Year-chunked, parallelism=2 (mirrors the sales backfill design). Each
-    year is one paginated /v1/finance/expenses fetch (size=2000,
+    year is one paginated /v1/finance/expenses fetch (size=10000,
     TokenBucket-paced) + one chunked PostgreSQL ON CONFLICT UPSERT.
     Writes go to ``expenses_ledger`` — same table as the daily loop, keyed
     by (shop_id, operation_id) so re-runs are idempotent.
@@ -3724,7 +3730,7 @@ def _discover_seller_shops(api_key: str) -> list[str]:
 
 def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                                 size: int = 100, max_pages: int = 500,
-                                fetch_uz_titles: bool = True) -> dict:
+                                fetch_uz_titles: bool = False) -> dict:
     """OpenAPI-driven counterpart to :func:`_sync_products_for_shop`.
 
     Uses the per-user seller-openapi token (NOT the admin api_key) against
@@ -3736,9 +3742,10 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
     Localization: when ``fetch_uz_titles`` is true we re-page the same shop
     a second time with ``Accept-Language: uz`` and store the title into
     ``product_title_uz``. The first pass uses ``Accept-Language: ru`` and
-    populates ``product_title_ru``. The OpenAPI swagger does not document
-    whether the server honors Accept-Language; if both passes return the
-    same string the columns will simply mirror each other.
+    populates ``product_title_ru``. Default is False — pass 2 doubles the
+    products-sync API calls and was a frequent 429 source during concurrent
+    multi-shop attaches (the per-worker TokenBucket can't coordinate across
+    gunicorn workers). Set to True explicitly if a caller needs UZ titles.
 
     Fields the OpenAPI endpoint does NOT return (viewers, conversion, roi,
     feedbackQuantity, hasActiveDiscount, product-level rankInfo) are left
@@ -3885,9 +3892,15 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                     uz_qty = s.get("quantityActive")
                     characteristics = str(s.get("characteristics") or "").strip() or None
                     price = s.get("price")
-                    sku_image = s.get("previewImage") or None
-                    if sku_image and "images.uzum.uz" in sku_image and "/t_" not in sku_image:
-                        sku_image = sku_image.rstrip("/") + "/t_product_540_high.jpg"
+                    # NOTE: previewImage from the OpenAPI products feed is
+                    # deliberately NOT written here — it frequently returns
+                    # a generic per-product thumbnail that clobbers the
+                    # better per-color URL set by the browser /sku-list
+                    # endpoint. Variant.image_url is owned exclusively by
+                    # core.uzum_skulist.refresh_sku_images_for_shop, which
+                    # runs once on add-shop (and can be re-triggered
+                    # manually). Re-syncing products must never overwrite
+                    # images.
 
                     # SKU-level fields the browser sync also has
                     s_turnover = s.get("turnover")
@@ -3937,8 +3950,8 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                     if barcode:
                         v.barcode = barcode
                         _v_by_barcode[barcode] = v
-                    if sku_image:
-                        v.image_url = sku_image
+                    # v.image_url intentionally left untouched — see note
+                    # above. Images are owned by the /sku-list fetcher.
                     if characteristics:
                         v.color = characteristics
                     # OpenAPI status object lives at product-level only,
@@ -4124,6 +4137,12 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
     print(f"[OpenAPISync] Done for shop {shop_uzum_id}: "
           f"{product_counter} products, {total_variants} variants, "
           f"uz_updates={uz_updates}")
+
+    # Per-SKU image enrichment is NOT triggered from here. Images are owned
+    # by core.uzum_skulist.refresh_sku_images_for_shop, called once on
+    # add-shop (see admin/routes.py::_fire_finance_seed). Keeping it out of
+    # the products sync means re-syncing products never overwrites a good
+    # per-SKU URL with a generic one.
 
     return {
         "pages_synced": page + 1,

@@ -56,37 +56,144 @@ class TokenBucket:
 # One bucket per OpenAPI token. Threads sharing a token share a bucket;
 # different tokens get independent buckets (and thus independent rate budgets).
 _buckets_lock = threading.Lock()
-_buckets: dict[str, TokenBucket] = {}
+_buckets: dict[str, "TokenBucket | RedisTokenBucket"] = {}
 
 # Conservative defaults: 1 token capacity, 1/sec refill.
-# Empirical Uzum refill is ~1.2-2/sec but capacity=1 ensures STRICTLY
-# sequential pacing — no concurrent in-flight requests at all. This is
-# slower than the bucket-burst design but guarantees zero 429s regardless
-# of how many concurrent callers (products + finance + backfill) compete.
-# Can be raised via env vars if higher throughput is needed and Uzum's
-# rate limit allows.
+# With the Redis-backed bucket (default), ALL gunicorn workers and the
+# background worker container coordinate on one shared bucket — so 1.5/sec
+# refill is safe even with --workers 4. The old in-process bucket capped
+# at the single-worker rate × N workers, which bursted Uzum and caused 429s.
 _BUCKET_CAPACITY = int(os.getenv("UZUM_OPENAPI_BUCKET_CAPACITY", "1"))
 _BUCKET_REFILL_PER_SEC = float(os.getenv("UZUM_OPENAPI_BUCKET_REFILL_PER_SEC", "1.0"))
+# Set UZUM_OPENAPI_BUCKET_BACKEND=process to force the in-process bucket
+# (debugging only — defeats the cross-worker coordination point).
+_BUCKET_BACKEND = os.getenv("UZUM_OPENAPI_BUCKET_BACKEND", "redis").strip().lower()
 
 
-def get_bucket_for_token(token: str) -> TokenBucket:
-    """Return (and create if needed) the shared TokenBucket for ``token``.
+# Atomic token-bucket script. Stores ``tokens`` (float remaining) and
+# ``last`` (wall-clock seconds of last refill) in a Redis hash. Returns
+# integer milliseconds to wait before retrying — 0 means the caller
+# acquired a token. Pure Lua: no client-side races even with N workers.
+_REDIS_BUCKET_LUA = """
+local capacity = tonumber(ARGV[1])
+local refill   = tonumber(ARGV[2])
+local now      = tonumber(ARGV[3])
 
-    Same token across threads → same bucket → cooperative rate limiting.
+local state = redis.call('HMGET', KEYS[1], 'tokens', 'last')
+local tokens = tonumber(state[1]) or capacity
+local last   = tonumber(state[2]) or now
+
+local elapsed = now - last
+if elapsed > 0 then
+  tokens = math.min(capacity, tokens + elapsed * refill)
+  last = now
+end
+
+if tokens >= 1.0 then
+  tokens = tokens - 1.0
+  redis.call('HMSET', KEYS[1], 'tokens', tostring(tokens), 'last', tostring(last))
+  redis.call('EXPIRE', KEYS[1], 300)
+  return 0
+end
+
+local wait_ms = math.ceil(((1.0 - tokens) / refill) * 1000)
+redis.call('HMSET', KEYS[1], 'tokens', tostring(tokens), 'last', tostring(last))
+redis.call('EXPIRE', KEYS[1], 300)
+return wait_ms
+"""
+
+
+class RedisTokenBucket:
+    """Cluster-wide token bucket backed by Redis (Lua-atomic).
+
+    Implements the same ``acquire()`` contract as ``TokenBucket`` but the
+    state lives in Redis, so all gunicorn workers — and any background
+    worker process — share one budget per Uzum token. Eliminates the
+    per-process bursting that causes 429s when multiple workers fan out
+    fetches at the same instant.
+
+    Falls back to a process-local ``TokenBucket`` when Redis is unreachable.
+    The fallback is deliberately permissive (don't block syncs on a Redis
+    hiccup) but emits a one-line warning so the operator notices.
+    """
+
+    def __init__(self, redis_key: str, capacity: float, refill_per_sec: float):
+        self.key = redis_key
+        self.capacity = float(capacity)
+        self.refill = float(refill_per_sec)
+        self._script_sha: str | None = None
+        # Lazily constructed in-process fallback used only when Redis errors.
+        self._fallback: TokenBucket | None = None
+        self._fallback_lock = threading.Lock()
+
+    def _get_script_sha(self, client) -> str:
+        if self._script_sha is None:
+            self._script_sha = client.script_load(_REDIS_BUCKET_LUA)
+        return self._script_sha
+
+    def _eval(self, client) -> int:
+        now = time.time()
+        try:
+            sha = self._get_script_sha(client)
+            return int(client.evalsha(sha, 1, self.key, self.capacity, self.refill, now))
+        except Exception:
+            # NOSCRIPT or other transient — reload and try once more.
+            self._script_sha = None
+            sha = self._get_script_sha(client)
+            return int(client.evalsha(sha, 1, self.key, self.capacity, self.refill, now))
+
+    def _ensure_fallback(self) -> TokenBucket:
+        with self._fallback_lock:
+            if self._fallback is None:
+                self._fallback = TokenBucket(
+                    capacity=self.capacity, refill_per_sec=self.refill
+                )
+            return self._fallback
+
+    def acquire(self) -> None:
+        from core.redis_client import redis_client
+        # Cap the loop so a buggy Redis can't pin a thread forever.
+        for _ in range(200):
+            try:
+                wait_ms = self._eval(redis_client)
+            except Exception as e:
+                # Redis unreachable — log once-ish and degrade to in-process.
+                print(f"[RedisTokenBucket] Redis error, falling back to in-process: {e!r}")
+                self._ensure_fallback().acquire()
+                return
+            if wait_ms <= 0:
+                return
+            # Cap per-iteration sleep so we recheck Redis frequently (in case
+            # another worker just released tokens).
+            time.sleep(min(wait_ms / 1000.0, 1.0))
+        # Safety bailout — never block forever.
+        print(f"[RedisTokenBucket] WARNING bailing after 200 iters for key={self.key}")
+
+
+def get_bucket_for_token(token: str) -> "TokenBucket | RedisTokenBucket":
+    """Return (and create if needed) the shared bucket for ``token``.
+
+    Backend selected by ``UZUM_OPENAPI_BUCKET_BACKEND`` env (default: redis).
     Tokens use a short key (first 16 chars) so the dict doesn't bloat with
     long secrets in memory dumps.
     """
     if not token:
-        # Fall back to a sentinel bucket so callers without a token still pace.
         key = "_no_token_"
     else:
         key = token.strip()[:16]
     with _buckets_lock:
         b = _buckets.get(key)
         if b is None:
-            b = TokenBucket(
-                capacity=_BUCKET_CAPACITY, refill_per_sec=_BUCKET_REFILL_PER_SEC
-            )
+            if _BUCKET_BACKEND == "redis":
+                b = RedisTokenBucket(
+                    redis_key=f"uzum_bucket:{key}",
+                    capacity=_BUCKET_CAPACITY,
+                    refill_per_sec=_BUCKET_REFILL_PER_SEC,
+                )
+            else:
+                b = TokenBucket(
+                    capacity=_BUCKET_CAPACITY, refill_per_sec=_BUCKET_REFILL_PER_SEC
+                )
             _buckets[key] = b
         return b
 

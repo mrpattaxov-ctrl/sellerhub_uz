@@ -5,218 +5,396 @@
   <meta charset="UTF-8">
   <title>{{ t.eco_title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
   <style>
-    body { background-color:#F9FAFB; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; color:#101828; }
-
-    /* ── Cards ── */
-    .card-stat {
-      position:relative;
-      background:#fff; border:1px solid #EAECF0;
-      box-shadow:0 1px 2px rgba(16,24,40,.05);
-      border-radius:12px; padding:20px; height:100%;
-      transition:transform .2s, box-shadow .2s;
+    :root {
+      --bg: #f3f4f6;
+      --surface: #ffffff;
+      --surface-2: #f9fafb;
+      --line: #e5e7eb;
+      --line-2: #eef0f3;
+      --ink: #0f172a;
+      --ink-2: #334155;
+      --muted: #64748b;
+      --faint: #94a3b8;
+      --brand: #4169e1;
+      --brand-2: #6486e7;
+      --brand-soft: #eaeffb;
+      --green: #10b981;
+      --green-2: #34d399;
+      --red: #ef4444;
+      --red-2: #f87171;
+      --amber: #f59e0b;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.04);
+      --shadow-md: 0 1px 3px rgba(15,23,42,.06), 0 6px 22px rgba(15,23,42,.06);
+      --radius: 16px;
+      --radius-sm: 10px;
     }
-    .card-stat:hover { transform:translateY(-2px); box-shadow:0 4px 6px -2px rgba(16,24,40,.05),0 12px 16px -4px rgba(16,24,40,.1); }
-    .stat-label { font-size:13px; font-weight:500; color:#667085; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-    .stat-icon  { font-size:16px; }
-    .stat-val   { font-size:22px; font-weight:700; color:#101828; letter-spacing:-.02em; margin-top:2px; }
-    .stat-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; }
-    .stat-copy { min-width:0; }
-    .stat-copy .stat-label { margin-bottom:2px; }
-    .stat-subtitle { font-size:11px; font-weight:600; color:#98A2B3; letter-spacing:.02em; }
-    .info-wrap { position:relative; flex-shrink:0; }
-    .info-btn {
-      width:24px; height:24px; border-radius:999px;
-      border:1px solid #D0D5DD; background:#fff; color:#667085;
-      display:inline-flex; align-items:center; justify-content:center;
-      font-size:12px; font-weight:700; cursor:pointer;
-      transition:border-color .2s, color .2s, background .2s;
-      padding:0;
-    }
-    .info-btn:hover,
-    .info-btn:focus-visible {
-      border-color:#98A2B3; color:#101828; background:#F9FAFB; outline:none;
-    }
-    .info-popover {
-      position:absolute; top:calc(100% + 8px); right:0; width:240px;
-      background:#101828; color:#fff; border-radius:10px; padding:10px 12px;
-      font-size:12px; line-height:1.45; box-shadow:0 12px 24px rgba(16,24,40,.18);
-      display:none; z-index:20; text-align:left;
-    }
-    .info-popover::before {
-      content:""; position:absolute; top:-6px; right:8px;
-      border-left:6px solid transparent; border-right:6px solid transparent;
-      border-bottom:6px solid #101828;
-    }
-    .info-wrap.open .info-popover { display:block; }
-
-    /* ── Table ── */
-    .table-card { background:#fff; border:1px solid #EAECF0; box-shadow:0 1px 2px rgba(16,24,40,.05); border-radius:12px; overflow:hidden; }
-    .table thead th { background:#F9FAFB; color:#667085; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:12px 20px; border-bottom:1px solid #EAECF0; white-space:nowrap; }
-    .table tbody td { padding:14px 20px; vertical-align:middle; color:#101828; font-size:13px; border-bottom:1px solid #EAECF0; }
-    .table tbody tr:last-child td { border-bottom:none; }
-    .table tbody tr { transition:background .15s; }
-    .table tbody tr:hover { background:#F9FAFB; }
-    .table-img { width:44px; height:58px; object-fit:cover; border-radius:8px; border:1px solid #EAECF0; }
-    .text-success-custom { color:#027A48; }
-    .badge-roi { padding:3px 10px; border-radius:99px; font-weight:600; font-size:12px; display:inline-flex; align-items:center; }
-    .badge-roi.positive { background:#ECFDF3; color:#027A48; }
-    .badge-roi.neutral  { background:#F2F4F7; color:#344054; }
-    .badge-roi.negative { background:#FEF3F2; color:#B42318; }
-
-    /* ── Skeleton shimmer ── */
-    @keyframes shimmer {
-      0%   { background-position: -600px 0; }
-      100% { background-position:  600px 0; }
-    }
-    .skeleton {
-      background: linear-gradient(90deg, #EAECF0 25%, #F2F4F7 50%, #EAECF0 75%);
-      background-size: 600px 100%;
-      animation: shimmer 1.4s infinite linear;
-      border-radius: 6px;
-    }
-    .skel-label { height:12px; width:55%; margin-bottom:10px; }
-    .skel-val   { height:28px; width:80%; }
-    .skel-img   { width:44px; height:58px; border-radius:8px; flex-shrink:0; }
-    .skel-text  { height:13px; border-radius:4px; }
-    .skel-cell  { height:13px; border-radius:4px; width:70%; margin-left:auto; }
-
-    /* ── Status bar ── */
-    #statusBar {
-      display:none; align-items:center; gap:10px;
-      background:#EFF8FF; border:1px solid #B2DDFF;
-      border-radius:10px; padding:10px 16px;
-      font-size:13px; color:#175CD3; margin-bottom:16px;
-    }
-    #statusBar.show { display:flex; }
-    #statusBar.error { background:#FEF3F2; border-color:#FECDCA; color:#B42318; }
-    .pulse-dot {
-      width:8px; height:8px; border-radius:50%; background:currentColor;
-      animation:pulse-dot 1s infinite;
-      flex-shrink:0;
-    }
-    @keyframes pulse-dot {
-      0%,100% { opacity:1; transform:scale(1); }
-      50%      { opacity:.4; transform:scale(.7); }
+    [data-bs-theme="dark"] {
+      --bg: #0b0d12;
+      --surface: #141821;
+      --surface-2: #181c25;
+      --line: #232838;
+      --line-2: #1d2230;
+      --ink: #e6edf6;
+      --ink-2: #c2cad6;
+      --muted: #7c8597;
+      --faint: #4a5568;
+      --brand-soft: rgba(99,102,241,.14);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+      --shadow-md: 0 1px 3px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.45);
     }
 
-    /* ── Fade-in ── */
-    .fade-in { animation: fadeIn .35s ease both; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Arial, sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
 
-    /* ── Apply button loading state ── */
-    .btn-loading { pointer-events:none; opacity:.7; }
+    .eco-wrap { padding: 28px 32px; max-width: 1500px; }
 
-    /* ── Flatpickr overrides ── */
+    /* ── Header ────────────────────────────────────────── */
+    .eco-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .eco-title-block { display: flex; align-items: center; gap: 12px; }
+    .eco-title-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--brand); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 18px; letter-spacing: -.02em;
+      box-shadow: var(--shadow-sm);
+    }
+    .eco-h1 { font-size: 26px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+    .eco-subline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .eco-subline .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
+    .eco-back-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 10px;
+      border: 1px solid var(--line); background: var(--surface);
+      color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all .15s; text-decoration: none;
+      box-shadow: var(--shadow-sm);
+    }
+    .eco-back-btn:hover { color: var(--ink); border-color: var(--ink-2); background: var(--surface-2); }
+    .eco-back-btn svg { flex-shrink: 0; }
+
+    /* ── Period controls ───────────────────────────────── */
+    .period-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .period-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pchip {
+      padding: 8px 14px; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--line);
+      color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all .15s;
+    }
+    .pchip:hover { border-color: var(--ink-2); color: var(--ink); }
+    .pchip.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-sm); }
+
     .date-range-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-      background: #fff;
-      border: 1.5px solid #D0D5DD;
-      border-radius: 10px;
-      padding: 0 12px;
-      gap: 8px;
-      height: 34px;
-      cursor: pointer;
-      transition: border-color .2s, box-shadow .2s;
-      min-width: 220px;
+      position: relative; display: flex; align-items: center;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; padding: 0 12px; gap: 8px; height: 38px;
+      cursor: pointer; transition: border-color .15s; min-width: 240px;
     }
-    .date-range-wrapper:hover  { border-color: #667085; }
-    .date-range-wrapper:focus-within { border-color: #2E90FA; box-shadow: 0 0 0 3px rgba(46,144,250,.15); }
-    .date-range-wrapper .cal-icon { color: #667085; font-size: 15px; flex-shrink:0; }
+    .date-range-wrapper:hover { border-color: var(--ink-2); }
     .date-range-wrapper input {
       border: none; outline: none; background: transparent;
-      font-size: 12px; font-weight: 500; color: #101828;
-      cursor: pointer; width: 100%;
+      font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; width: 100%;
     }
-    .date-range-wrapper .arrow { color: #98A2B3; font-size:10px; flex-shrink:0; }
+    .date-range-wrapper .cal-icon { color: var(--muted); flex-shrink: 0; }
 
-    .date-range-wrapper .flatpickr-calendar {
-      position: absolute !important;
-      top: calc(100% + 6px) !important;
-      left: 0 !important;
-      right: auto !important;
+    /* ── Cache bar ─────────────────────────────────────── */
+    .cache-bar {
+      display: none; align-items: center; justify-content: space-between;
+      gap: 12px; background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; padding: 12px 18px;
+      font-size: 13px; color: var(--muted); margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
     }
-    .flatpickr-calendar {
-      border-radius: 12px !important;
-      box-shadow: 0 8px 24px rgba(16,24,40,.12) !important;
-      border: 1px solid #EAECF0 !important;
-      font-family: inherit !important;
-      font-size: 12px !important;
+    .cache-bar.show { display: flex; }
+    .cache-bar-left { display: flex; align-items: center; gap: 10px; }
+    .refresh-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 10px;
+      background: var(--brand-soft); color: var(--brand);
+      border: none; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all .15s;
     }
-    .flatpickr-months { padding: 4px 0 2px; }
-    .flatpickr-month  { color: #101828 !important; height: 28px !important; }
-    .flatpickr-current-month .flatpickr-monthDropdown-months,
-    .flatpickr-current-month input.cur-year {
-      font-weight: 600 !important; font-size: 12px !important; color: #101828 !important;
+    .refresh-btn:hover { background: var(--brand); color: #fff; }
+    .refresh-btn.loading { opacity: .65; pointer-events: none; }
+
+    /* ── Status bar ───────────────────────────────────── */
+    .status-bar {
+      display: none; align-items: center; gap: 10px;
+      background: #eff8ff; border: 1px solid #b2ddff;
+      border-radius: 10px; padding: 10px 16px;
+      font-size: 13px; color: #175cd3; margin-bottom: 16px;
     }
-    .flatpickr-prev-month, .flatpickr-next-month { padding: 4px 8px !important; }
-    .flatpickr-prev-month svg, .flatpickr-next-month svg { width: 12px !important; height: 12px !important; fill: #667085 !important; }
-    .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #101828 !important; }
-    .flatpickr-weekday { color: #667085 !important; font-weight: 600 !important; font-size: 10px !important; }
-    .flatpickr-day { border-radius: 6px !important; font-size: 11px !important; color: #344054; height: 30px !important; line-height: 30px !important; }
-    .flatpickr-day:hover { background: #F2F4F7 !important; border-color: #F2F4F7 !important; }
-    .flatpickr-day.today { border-color: #D0D5DD !important; font-weight: 600; }
+    .status-bar.show { display: flex; }
+    .status-bar.error { background: #fef3f2; border-color: #fecdca; color: #b42318; }
+    [data-bs-theme="dark"] .status-bar { background: rgba(46,144,250,.10); border-color: rgba(46,144,250,.25); color: #60a5fa; }
+    [data-bs-theme="dark"] .status-bar.error { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); color: #f87171; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse-dot 1s infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.7); } }
+
+    /* ── Hero stat cards ───────────────────────────────── */
+    .hero-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 16px;
+    }
+    @media (max-width: 1100px) { .hero-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px)  { .hero-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+    }
+    .stat-card.featured {
+      background: #4169e1;
+      border-color: transparent; color: #fff;
+    }
+    .stat-card.featured .stat-label,
+    .stat-card.featured .stat-sub,
+    .stat-card.featured .stat-mini-label { color: rgba(255,255,255,.78) !important; }
+    .stat-card.featured .stat-val,
+    .stat-card.featured .stat-mini-val { color: #fff !important; }
+    .stat-card.featured .stat-divider { background: rgba(255,255,255,.18) !important; }
+
+    .stat-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .stat-head-icon {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .stat-card .stat-head-icon { background: var(--brand-soft); color: var(--brand); }
+    .stat-card.featured .stat-head-icon { background: rgba(255,255,255,.18); color: #fff; }
+    .stat-label { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .stat-sub   { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .stat-val   { font-size: 26px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; line-height: 1.15; }
+    .stat-val .ccy { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+    .stat-card.featured .stat-val .ccy { color: rgba(255,255,255,.7); }
+    .stat-val.red   { color: var(--red); }
+    .stat-val.green { color: var(--green); }
+
+    .delta-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+      margin-top: 8px;
+    }
+    .delta-pill.up   { background: rgba(16,185,129,.12); color: var(--green); }
+    .delta-pill.down { background: rgba(239,68,68,.12);  color: var(--red); }
+
+    .stat-divider {
+      height: 1px; background: var(--line);
+      margin: 14px -20px 12px;
+    }
+    .mini-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mini-cell { min-width: 0; }
+    .stat-mini-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 2px; }
+    .stat-mini-val   { font-size: 14px; font-weight: 700; color: var(--ink); }
+
+    /* breakdown list (revenue/expenses/profit by shop) */
+    .breakdown-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .breakdown-row  { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .breakdown-row .bd-name { color: var(--muted); flex-shrink: 0; min-width: 64px; display: flex; align-items: center; gap: 6px; }
+    .breakdown-row .bd-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .breakdown-row .bd-bar  { flex: 1; height: 6px; border-radius: 99px; background: var(--line-2); position: relative; overflow: hidden; }
+    .breakdown-row .bd-bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+    .breakdown-row .bd-val  { color: var(--ink-2); font-weight: 600; min-width: 50px; text-align: right; }
+    .stat-card.featured .breakdown-row .bd-name,
+    .stat-card.featured .breakdown-row .bd-val { color: rgba(255,255,255,.85); }
+    .stat-card.featured .breakdown-row .bd-bar { background: rgba(255,255,255,.18); }
+
+    /* ── Inline small stat cards ───────────────────────── */
+    .mini-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 0; margin-bottom: 16px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 4px; box-shadow: var(--shadow-sm);
+    }
+    @media (max-width: 900px) { .mini-grid { grid-template-columns: repeat(2, 1fr); } }
+    .mini-stat { padding: 16px 18px; position: relative; }
+    .mini-stat + .mini-stat::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--line); }
+    @media (max-width: 900px) {
+      .mini-stat + .mini-stat::before { display: none; }
+    }
+    .mini-stat .ms-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+    .mini-stat .ms-val   { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
+    .mini-stat .ms-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Two-col split (warehouse + daily) ─────────────── */
+    .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 1000px) { .split-grid { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 18px; }
+    .panel-title { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+    .panel-title .pt-icon { width: 24px; height: 24px; border-radius: 7px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+    .panel-sub   { font-size: 12px; color: var(--muted); }
+
+    /* warehouse cards */
+    .wh-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .wh-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; position: relative; }
+    .wh-card.highlight { background: var(--brand-soft); border-color: transparent; }
+    .wh-icon { position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 8px; background: var(--surface); color: var(--muted); display: flex; align-items: center; justify-content: center; }
+    .wh-card.highlight .wh-icon { background: var(--brand); color: #fff; }
+    .wh-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+    .wh-val { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
+    .wh-val .unit { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+    .wh-cost { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .wh-split-bar { height: 8px; border-radius: 99px; background: var(--line-2); overflow: hidden; display: flex; margin-bottom: 8px; }
+    .wh-split-bar .ws-fill-uzum { background: var(--brand); }
+    .wh-split-bar .ws-fill-wh   { background: var(--green); }
+    .wh-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+    .wh-legend .ldot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+
+    .wh-tip {
+      margin-top: 14px; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.22);
+      border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--ink-2); line-height: 1.45;
+    }
+    .wh-tip b { color: var(--amber); }
+
+    /* daily sales line chart */
+    .chart-svg { width: 100%; height: 220px; display: block; }
+    .chart-line { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .chart-area { fill: url(#blueFill); opacity: .22; }
+    .chart-axis { fill: var(--muted); font-size: 10px; font-family: inherit; }
+    .chart-grid { stroke: var(--line); stroke-dasharray: 3 3; }
+    .chart-hot { fill: transparent; cursor: pointer; }
+    .chart-dot { fill: var(--brand); stroke: #fff; stroke-width: 2; opacity: 0; pointer-events: none; transition: opacity .15s; }
+    .chart-cursor { stroke: var(--brand); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; pointer-events: none; transition: opacity .15s; }
+
+    /* tooltip */
+    .eco-tooltip {
+      position: fixed; z-index: 50; pointer-events: none;
+      background: var(--surface); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: var(--shadow-md);
+      padding: 10px 12px; font-size: 12px; min-width: 160px;
+      opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s;
+    }
+    .eco-tooltip.show { opacity: 1; transform: translateY(0); }
+    .eco-tooltip .tt-title { font-weight: 700; color: var(--ink); margin-bottom: 6px; font-size: 12px; }
+    .eco-tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-top: 4px; }
+    .eco-tooltip .tt-name { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .eco-tooltip .tt-dot  { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .eco-tooltip .tt-val  { font-weight: 700; color: var(--ink); }
+
+    /* ── Dynamics card (12-month) ──────────────────────── */
+    .dyn-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
+    .dyn-toggle { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+    .dyn-toggle button {
+      padding: 6px 14px; border-radius: 7px; border: none; background: transparent;
+      color: var(--muted); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s;
+    }
+    .dyn-toggle button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); font-weight: 600; }
+    .dyn-chart-wrap { height: 340px; padding-top: 8px; }
+    .bar-shape { transition: opacity .15s; cursor: pointer; }
+    .bar-shape:hover { opacity: .85; }
+    .bar-label { fill: var(--ink); font-size: 11px; font-weight: 600; font-family: inherit; text-anchor: middle; }
+    .bar-month { fill: var(--muted); font-size: 11px; font-family: inherit; text-anchor: middle; }
+
+    /* ── Products table ───────────────────────────────── */
+    .table-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+    .table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .table-title { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+    .table-count { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+    .table-tools { display: flex; gap: 8px; align-items: center; }
+    .search-input {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface-2); border: 1px solid var(--line);
+      border-radius: 10px; padding: 0 12px; height: 36px; min-width: 240px;
+    }
+    .search-input input {
+      border: none; outline: none; background: transparent; flex: 1;
+      font-size: 13px; color: var(--ink);
+    }
+    .search-input svg { color: var(--muted); flex-shrink: 0; }
+    .export-btn {
+      padding: 8px 14px; border-radius: 10px; background: var(--surface-2);
+      border: 1px solid var(--line); color: var(--ink-2);
+      font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex;
+      align-items: center; gap: 6px; transition: all .15s;
+    }
+    .export-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+
+    .eco-table { width: 100%; border-collapse: collapse; }
+    .eco-table thead th {
+      padding: 14px 18px; text-align: right;
+      background: transparent; color: var(--muted);
+      font-weight: 600; font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+      border-bottom: 1px solid var(--line); white-space: nowrap;
+    }
+    .eco-table thead th:first-child { text-align: left; }
+    .eco-table tbody td {
+      padding: 16px 18px; vertical-align: middle;
+      color: var(--ink); font-size: 13px;
+      border-bottom: 1px solid var(--line-2); text-align: right;
+    }
+    .eco-table tbody td:first-child { text-align: left; }
+    .eco-table tbody tr:last-child td { border-bottom: none; }
+    .eco-table tbody tr { transition: background .12s; }
+    .eco-table tbody tr:hover { background: var(--surface-2); }
+    .eco-table tbody tr.totals-row { background: var(--surface-2); font-weight: 600; }
+    .eco-table tbody tr.totals-row td { color: var(--ink); border-bottom: none; }
+
+    .prod-cell { display: flex; align-items: center; gap: 12px; min-width: 240px; }
+    .prod-img {
+      width: 40px; height: 40px; flex-shrink: 0;
+      border-radius: 10px; object-fit: cover; background: var(--surface-2);
+      border: 1px solid var(--line);
+    }
+    .prod-img-fallback { width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .prod-name { font-weight: 500; font-size: 13px; color: var(--ink); line-height: 1.35; }
+    .prod-id   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .stock-cell .qty-main { font-weight: 700; font-size: 14px; color: var(--ink); }
+    .stock-cell .qty-split { display: flex; justify-content: flex-end; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .stock-cell .qty-split .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+    .num-muted  { color: var(--muted); }
+    .num-bold   { font-weight: 700; }
+    .num-red    { color: var(--red); }
+    .num-green  { color: var(--green); font-weight: 700; }
+    .num-strong { font-weight: 700; color: var(--ink); }
+
+    .roi-pill { display: inline-block; padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .roi-pill.pos { background: rgba(16,185,129,.14); color: var(--green); }
+    .roi-pill.neg { background: rgba(239,68,68,.14);  color: var(--red);   }
+    .roi-pill.neu { background: var(--line-2);         color: var(--muted); }
+
+    /* ── Skeleton shimmer ────────────────────────────── */
+    @keyframes shimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+    .skeleton { background: linear-gradient(90deg, var(--line) 25%, var(--line-2) 50%, var(--line) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; border-radius: 6px; }
+    .skel-label { height: 12px; width: 55%; margin-bottom: 10px; }
+    .skel-val   { height: 28px; width: 80%; }
+
+    .fade-in { animation: fadeIn .35s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* ── Flatpickr (carry over key styles) ──────────── */
+    .flatpickr-calendar { border-radius: 12px !important; box-shadow: var(--shadow-md) !important; border: 1px solid var(--line) !important; font-family: inherit !important; font-size: 12px !important; }
     .flatpickr-day.selected,
     .flatpickr-day.startRange,
-    .flatpickr-day.endRange {
-      background: #2E90FA !important;
-      border-color: #2E90FA !important;
-      color: #fff !important;
-      font-weight: 600;
-    }
-    .flatpickr-day.inRange {
-      background: #EFF8FF !important;
-      border-color: #EFF8FF !important;
-      color: #175CD3 !important;
-      border-radius: 0 !important;
-      box-shadow: -5px 0 0 #EFF8FF, 5px 0 0 #EFF8FF !important;
-    }
-    .flatpickr-day.startRange { border-radius: 6px 0 0 6px !important; }
-    .flatpickr-day.endRange   { border-radius: 0 6px 6px 0 !important; }
-    .flatpickr-day.startRange.endRange { border-radius: 6px !important; }
-    .flatpickr-day.disabled { color: #D0D5DD !important; }
-    .flatpickr-innerContainer { padding: 0 6px 6px; }
-
-    /* ── Dark mode ── */
-    [data-bs-theme="dark"] body { background-color:#0f1117 !important; color:#e2e8f0 !important; }
-    [data-bs-theme="dark"] .card-stat { background:#1a1d27 !important; border-color:#2d3148 !important; }
-    [data-bs-theme="dark"] .stat-label { color:#64748b !important; }
-    [data-bs-theme="dark"] .stat-val { color:#e2e8f0 !important; }
-    [data-bs-theme="dark"] .stat-subtitle { color:#475569 !important; }
-    [data-bs-theme="dark"] .info-btn { border-color:#3a3f5c !important; background:#1a1d27 !important; color:#64748b !important; }
-    [data-bs-theme="dark"] .info-btn:hover { color:#e2e8f0 !important; background:#1e2130 !important; }
-    [data-bs-theme="dark"] .info-popover { background:#e2e8f0 !important; color:#0f1117 !important; }
-    [data-bs-theme="dark"] .table-card { background:#1a1d27 !important; border-color:#2d3148 !important; }
-    [data-bs-theme="dark"] .table thead th { background:#1e2130 !important; color:#64748b !important; border-bottom-color:#2d3148 !important; }
-    [data-bs-theme="dark"] .table tbody td { color:#e2e8f0 !important; border-bottom-color:#2d3148 !important; }
-    [data-bs-theme="dark"] .table tbody tr:hover { background:#1e2130 !important; }
-    [data-bs-theme="dark"] .badge-roi.positive { background:#0a2318 !important; color:#4ade80 !important; }
-    [data-bs-theme="dark"] .badge-roi.neutral  { background:#1e2130 !important; color:#94a3b8 !important; }
-    [data-bs-theme="dark"] .badge-roi.negative { background:#2a0e0e !important; color:#f87171 !important; }
-    [data-bs-theme="dark"] .skeleton { background:linear-gradient(90deg,#1e2130 25%,#252a3f 50%,#1e2130 75%) !important; }
-    [data-bs-theme="dark"] #statusBar { background:#0f1e38 !important; border-color:#1e4080 !important; color:#60a5fa !important; }
-    [data-bs-theme="dark"] #statusBar.error { background:#2a0e0e !important; border-color:#7f1d1d !important; color:#f87171 !important; }
-    [data-bs-theme="dark"] #cacheBar { background:#1a1d27 !important; border-color:#2d3148 !important; color:#94a3b8 !important; }
-    [data-bs-theme="dark"] #cacheBar span { color:#64748b !important; }
-    [data-bs-theme="dark"] #btnThisMonth { background:#1e2130 !important; color:#94a3b8 !important; border:1px solid #3a3f5c !important; }
-    [data-bs-theme="dark"] #btnApply { background:#e2e8f0 !important; color:#0f1117 !important; }
-    [data-bs-theme="dark"] .date-range-wrapper { background:#1a1d27 !important; border-color:#3a3f5c !important; }
-    [data-bs-theme="dark"] .date-range-wrapper input { color:#e2e8f0 !important; }
-    [data-bs-theme="dark"] .flatpickr-calendar { background:#1a1d27 !important; border-color:#2d3148 !important; }
+    .flatpickr-day.endRange { background: var(--brand) !important; border-color: var(--brand) !important; color: #fff !important; }
+    .flatpickr-day.inRange { background: var(--brand-soft) !important; border-color: var(--brand-soft) !important; color: var(--brand) !important; }
+    [data-bs-theme="dark"] .flatpickr-calendar { background: var(--surface) !important; border-color: var(--line) !important; }
     [data-bs-theme="dark"] .flatpickr-month,
-    [data-bs-theme="dark"] .flatpickr-monthDropdown-months { color:#e2e8f0 !important; background:#1a1d27 !important; }
-    [data-bs-theme="dark"] .flatpickr-weekday { color:#64748b !important; background:#1a1d27 !important; }
-    [data-bs-theme="dark"] .flatpickr-day { color:#94a3b8 !important; }
-    [data-bs-theme="dark"] .flatpickr-day:hover { background:#1e2130 !important; border-color:#2d3148 !important; }
-    [data-bs-theme="dark"] .flatpickr-day.today { border-color:#3a3f5c !important; }
-    [data-bs-theme="dark"] .flatpickr-day.selected { background:#2e6da8 !important; color:#fff !important; }
-    [data-bs-theme="dark"] .flatpickr-day.inRange { background:#0f1e38 !important; color:#60a5fa !important; }
-    [data-bs-theme="dark"] .flatpickr-prev-month svg,
-    [data-bs-theme="dark"] .flatpickr-next-month svg { fill:#94a3b8 !important; }
+    [data-bs-theme="dark"] .flatpickr-monthDropdown-months { color: var(--ink) !important; background: var(--surface) !important; }
+    [data-bs-theme="dark"] .flatpickr-weekday { color: var(--muted) !important; background: var(--surface) !important; }
+    [data-bs-theme="dark"] .flatpickr-day { color: var(--ink-2) !important; }
+    [data-bs-theme="dark"] .flatpickr-day:hover { background: var(--surface-2) !important; border-color: var(--line) !important; }
   </style>
 </head>
 <body
@@ -224,436 +402,805 @@
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
   data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
   data-lang="{{ lang }}">
-  <!-- Sidebar injected by uzum_ui.js -->
 
-  <div class="p-4">
+  <div class="eco-wrap">
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
-      <div>
-        <h1 class="h3 mb-1 fw-semibold">{{ t.eco_title }}</h1>
-        <p class="text-muted mb-0" id="periodLabel" style="font-size:13px;">{{ t.eco_summary }}</p>
-      </div>
-
-      <!-- Date picker -->
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <div class="date-range-wrapper" id="dateRangeWrapper">
-          <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
-          <span class="arrow">▼</span>
+    <!-- ── Header ─────────────────────────────── -->
+    <div class="eco-header">
+      <div class="eco-title-block">
+        <div class="eco-title-icon">u</div>
+        <div>
+          <h1 class="eco-h1">{{ t.eco_title }}</h1>
+          <div class="eco-subline" id="subline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="periodLabel">—</span>
+            <span class="dot"></span>
+            <span id="productsCount">0 товаров</span>
+          </div>
         </div>
-        <!-- hidden inputs used by loadData() — filled by JS -->
-        <input type="hidden" id="dateFrom">
-        <input type="hidden" id="dateTo">
-        <button id="btnApply" style="padding:5px 16px; border-radius:8px; font-size:12px; font-weight:600;
-          color:#fff; background:#0f172a; border:none; cursor:pointer; transition:all .2s; height:34px;">
-          <span id="btnApplyText">{{ t.detail_show_btn }}</span>
-          <span id="btnApplySpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
-        </button>
-        <button id="btnThisMonth" style="padding:5px 14px; border-radius:8px; font-size:12px; font-weight:500;
-          color:#64748b; background:#f1f3f5; border:none; cursor:pointer; transition:all .2s; height:34px;">{{ t.eco_this_month }}</button>
       </div>
+      <a href="/groups" class="eco-back-btn" id="backBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <span>Назад</span>
+      </a>
     </div>
 
-    <!-- Status bar -->
-    <div id="statusBar">
+    <!-- ── Period quick picks + date range ──── -->
+    <div class="period-row">
+      <div class="period-chips" id="periodChips">
+        <button class="pchip" data-period="today">Сегодня</button>
+        <button class="pchip" data-period="week">Неделя</button>
+        <button class="pchip active" data-period="thisMonth">{{ t.eco_this_month }}</button>
+        <button class="pchip" data-period="lastMonth">Прошлый месяц</button>
+        <button class="pchip" data-period="last30">30 дней</button>
+        <button class="pchip" data-period="thisYear">Этот год</button>
+      </div>
+      <div class="date-range-wrapper" id="dateRangeWrapper">
+        <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
+        <span style="color: var(--muted); font-size: 10px;">▼</span>
+      </div>
+      <input type="hidden" id="dateFrom">
+      <input type="hidden" id="dateTo">
+    </div>
+
+    <!-- ── Cache info bar ─────────────────────── -->
+    <div class="cache-bar" id="cacheBar">
+      <div class="cache-bar-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>{{ t.eco_cache_prefix }} <strong id="cacheTime" style="color: var(--ink-2);">—</strong></span>
+      </div>
+      <button class="refresh-btn" id="refreshBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span id="refreshBtnText">Обновить из Uzum</span>
+      </button>
+    </div>
+
+    <!-- ── Status bar ─────────────────────────── -->
+    <div class="status-bar" id="statusBar">
       <div class="pulse-dot"></div>
       <span id="statusText">{{ t.eco_loading }}</span>
     </div>
-    <!-- Cache info bar -->
-    <div id="cacheBar" style="display:none; align-items:center; justify-content:space-between; gap:10px;
-         background:#F9FAFB; border:1px solid #EAECF0; border-radius:10px; padding:9px 16px;
-         font-size:12px; color:#667085; margin-bottom:16px;">
-      <span>🕒 <span id="cachePrefixText">{{ t.eco_cache_prefix }}</span> <strong id="cacheTime">—</strong></span>
-      <span style="color:#98A2B3;">{{ t.eco_cache_refresh_hint }}</span>
+
+    <!-- ── Hero stat cards ────────────────────── -->
+    <div class="hero-grid" id="heroGrid">
+      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="row g-3 mb-4" id="cardsRow">
-      <!-- skeleton cards -->
-      <div class="col-12 col-md-6 col-xl-3"><div class="card-stat">
-        <div class="skeleton skel-label"></div><div class="skeleton skel-val"></div>
-      </div></div>
-      <div class="col-12 col-md-6 col-xl-3"><div class="card-stat">
-        <div class="skeleton skel-label"></div><div class="skeleton skel-val"></div>
-      </div></div>
-      <div class="col-12 col-md-6 col-xl-3"><div class="card-stat">
-        <div class="skeleton skel-label"></div><div class="skeleton skel-val"></div>
-      </div></div>
-      <div class="col-12 col-md-6 col-xl-3"><div class="card-stat">
-        <div class="skeleton skel-label"></div><div class="skeleton skel-val"></div>
-      </div></div>
+    <!-- ── Small inline stats ─────────────────── -->
+    <div class="mini-grid" id="miniGrid">
+      <div class="mini-stat"><div class="ms-label">Заказов</div><div class="ms-val" id="msOrders">—</div><div class="ms-sub" id="msOrdersSub">—</div></div>
+      <div class="mini-stat"><div class="ms-label">Средний чек</div><div class="ms-val" id="msAov">—</div><div class="ms-sub">за заказ</div></div>
+      <div class="mini-stat"><div class="ms-label">Себестоимость продаж</div><div class="ms-val" id="msCost">—</div><div class="ms-sub">за период</div></div>
+      <div class="mini-stat"><div class="ms-label">Активных SKU</div><div class="ms-val" id="msSku">—</div><div class="ms-sub">в обороте</div></div>
     </div>
 
-    <!-- Table -->
-    <div class="table-card">
-      <div class="table-responsive">
-        <table class="table mb-0">
+    <!-- ── Split: warehouses + daily sales ────── -->
+    <div class="split-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+            <span>Остатки по складам</span>
+          </div>
+          <span class="panel-sub">Количество и сумма «заморозки»</span>
+        </div>
+        <div class="wh-grid">
+          <div class="wh-card">
+            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+            <div class="wh-label">Склад Uzum</div>
+            <div class="wh-val"><span id="whUzumQty">—</span><span class="unit">шт</span></div>
+            <div class="wh-cost">≈ <span id="whUzumCost">—</span></div>
+          </div>
+          <div class="wh-card">
+            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3"/></svg></div>
+            <div class="wh-label">Свой склад</div>
+            <div class="wh-val"><span id="whOwnQty">—</span><span class="unit">шт</span></div>
+            <div class="wh-cost">≈ <span id="whOwnCost">—</span></div>
+          </div>
+          <div class="wh-card highlight">
+            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="wh-label">Всего</div>
+            <div class="wh-val"><span id="whAllQty">—</span><span class="unit">шт</span></div>
+            <div class="wh-cost">≈ <span id="whAllCost">—</span></div>
+          </div>
+        </div>
+        <div class="wh-split-bar">
+          <div class="ws-fill-uzum" id="whFillUzum" style="width: 50%;"></div>
+          <div class="ws-fill-wh"   id="whFillWh"   style="width: 50%;"></div>
+        </div>
+        <div class="wh-legend">
+          <span><span class="ldot" style="background: var(--brand);"></span>Склад Uzum — <strong id="whPctUzum">—</strong></span>
+          <span><span class="ldot" style="background: var(--green);"></span>Свой склад — <strong id="whPctWh">—</strong></span>
+        </div>
+        <div class="wh-tip" id="whTip">
+          💡 <b>Совет:</b> данные о темпе продаж появятся после загрузки.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+            <span>Продажи по дням</span>
+          </div>
+          <span class="panel-sub" id="dailyOrdersLabel">— заказов</span>
+        </div>
+        <div id="dailyChartHost"></div>
+      </div>
+    </div>
+
+    <!-- ── 12-month dynamics ────────────────────── -->
+    <div class="dyn-card">
+      <div class="panel-head" style="margin-bottom: 14px;">
+        <div class="panel-title">
+          <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+          <span>Динамика за 12 месяцев</span>
+        </div>
+        <div class="dyn-toggle">
+          <button class="active" data-dyn="revenue">Выручка</button>
+          <button data-dyn="profit">Прибыль</button>
+        </div>
+      </div>
+      <div class="dyn-chart-wrap" id="dynChartHost"></div>
+    </div>
+
+    <!-- ── Products table ───────────────────────── -->
+    <div class="table-panel">
+      <div class="table-head">
+        <div class="table-title">
+          <span>Товары</span>
+          <span class="table-count" id="tableCount">0</span>
+        </div>
+        <div class="table-tools">
+          <div class="search-input">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="productSearch" placeholder="Поиск по названию или ID">
+          </div>
+          <button class="export-btn" id="exportBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Экспорт</span>
+          </button>
+        </div>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="eco-table">
           <thead>
             <tr>
-              <th style="width:32%;">{{ t.eco_col_product }}</th>
-              <th class="text-end">{{ t.eco_col_stock }}</th>
-              <th class="text-end">{{ t.eco_col_stock_cost }}</th>
-              <th class="text-end" style="border-left:1px solid #EAECF0;">{{ t.eco_col_sales }}</th>
-              <th class="text-end">{{ t.eco_col_revenue }}</th>
-              <th class="text-end">{{ t.eco_col_commission }}</th>
-              <th class="text-end">{{ t.eco_col_logistics }}</th>
-              <th class="text-end">{{ t.eco_col_sales_cost }}</th>
-              <th class="text-end">{{ t.eco_col_net_profit }}</th>
-              <th class="text-end">ROI</th>
+              <th style="width: 30%;">{{ t.eco_col_product }}</th>
+              <th>{{ t.eco_col_stock }}<div style="font-weight: 400; font-size: 9px; text-transform: none; color: var(--faint); margin-top: 2px; letter-spacing: 0;">Uzum / Свой</div></th>
+              <th>Себест. остатка</th>
+              <th>Продано</th>
+              <th>{{ t.eco_col_revenue }}</th>
+              <th>{{ t.eco_col_commission }}</th>
+              <th>{{ t.eco_col_logistics }}</th>
+              <th>{{ t.eco_col_sales_cost }}</th>
+              <th>{{ t.eco_col_net_profit }}</th>
+              <th>ROI</th>
             </tr>
           </thead>
           <tbody id="ecoTbody">
-            <!-- skeleton rows -->
-            <tr class="skel-row"><td colspan="10" style="padding:0;">
-              <div style="display:grid;grid-template-columns:32% repeat(9,1fr);gap:0;">
-                <div style="padding:16px 20px;display:flex;align-items:center;gap:12px;">
-                  <div class="skeleton skel-img"></div>
-                  <div style="flex:1;"><div class="skeleton skel-text" style="width:80%;margin-bottom:6px;"></div><div class="skeleton skel-text" style="width:40%;"></div></div>
-                </div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell" style="width:40px;border-radius:99px;"></div></div>
-              </div>
-            </td></tr>
-            <tr class="skel-row"><td colspan="10" style="padding:0;">
-              <div style="display:grid;grid-template-columns:32% repeat(9,1fr);gap:0;">
-                <div style="padding:16px 20px;display:flex;align-items:center;gap:12px;">
-                  <div class="skeleton skel-img"></div>
-                  <div style="flex:1;"><div class="skeleton skel-text" style="width:70%;margin-bottom:6px;"></div><div class="skeleton skel-text" style="width:35%;"></div></div>
-                </div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell" style="width:40px;border-radius:99px;"></div></div>
-              </div>
-            </td></tr>
-            <tr class="skel-row"><td colspan="10" style="padding:0;">
-              <div style="display:grid;grid-template-columns:32% repeat(9,1fr);gap:0;">
-                <div style="padding:16px 20px;display:flex;align-items:center;gap:12px;">
-                  <div class="skeleton skel-img"></div>
-                  <div style="flex:1;"><div class="skeleton skel-text" style="width:90%;margin-bottom:6px;"></div><div class="skeleton skel-text" style="width:30%;"></div></div>
-                </div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell"></div></div>
-                <div style="padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;"><div class="skeleton skel-cell" style="width:40px;border-radius:99px;"></div></div>
-              </div>
-            </td></tr>
+            <tr><td colspan="10" style="text-align: center; padding: 40px 20px; color: var(--muted);">{{ t.eco_loading }}</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-  </div><!-- /p-4 -->
+  </div><!-- /eco-wrap -->
+
+  <div class="eco-tooltip" id="ecoTooltip"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
-  <script src="/static/uzum_ui.js?v=20260412b"></script>
+  <script src="/static/uzum_ui.js?v=20260526a"></script>
   <script>
     const _ET = {
       loading: '{{ t.eco_loading }}',
-      showBtn: '{{ t.detail_show_btn }}',
       cachePrefix: '{{ t.eco_cache_prefix }}',
-      cacheRefreshHint: '{{ t.eco_cache_refresh_hint }}',
       noData: '{{ t.eco_no_data }}',
       noSales: '{{ t.eco_no_sales_hint }}',
       loadData: '{{ t.eco_load_data_btn }}',
       errorLoading: '{{ t.eco_error_loading }}',
       errorFetch: '{{ t.eco_error_fetch }}',
-      stockCostLabel: '{{ t.eco_card_stock_cost }}',
-      stockCostSub: '{{ t.eco_card_stock_sub }}',
-      stockCostInfo: '{{ t.eco_card_stock_info }}',
-      revenueLabel: '{{ t.eco_card_revenue }}',
-      commLabel: '{{ t.eco_card_commission }}',
-      profitLabel: '{{ t.eco_card_profit }}',
-      sumLabel: '{{ t.calc_sum_label }}',
     };
-    const CACHE_KEY_PREFIX = "eco_cache_";
-
+    const CACHE_KEY_PREFIX = "eco_cache_v2_";
     function cacheKey(df, dt) { return CACHE_KEY_PREFIX + df + "_" + dt; }
+    function saveCache(df, dt, payload) { try { localStorage.setItem(cacheKey(df,dt), JSON.stringify({payload, ts:Date.now()})); } catch(e){} }
+    function loadCache(df, dt) { try { const raw = localStorage.getItem(cacheKey(df,dt)); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
 
-    function saveCache(df, dt, payload) {
-      try {
-        localStorage.setItem(cacheKey(df, dt), JSON.stringify({ payload, ts: Date.now() }));
-      } catch(e) {}
+    const fmt = (n) => Math.round(n || 0).toLocaleString("ru-RU");
+    const fmtCompact = (n) => {
+      const abs = Math.abs(n||0);
+      if (abs >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' млн';
+      if (abs >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'к';
+      return Math.round(n||0).toString();
+    };
+    const fmtCcy = (n) => fmt(n) + ' сум';
+    const sign  = (v) => v > 0 ? '+' : '';
+    const profitColor = (v) => v >= 0 ? 'var(--green)' : 'var(--red)';
+
+    // ── Tooltip ───────────────────────────────
+    const tipEl = () => document.getElementById("ecoTooltip");
+    function showTip(html, clientX, clientY){
+      const el = tipEl();
+      el.innerHTML = html;
+      el.classList.add("show");
+      // Position: prefer right of cursor, flip if it would overflow
+      const W = window.innerWidth, H = window.innerHeight;
+      el.style.left = "0px"; el.style.top = "0px"; // measure first
+      const r = el.getBoundingClientRect();
+      let x = clientX + 14;
+      let y = clientY - r.height - 12;
+      if (x + r.width > W - 8) x = clientX - r.width - 14;
+      if (y < 8) y = clientY + 14;
+      el.style.left = x + "px"; el.style.top = y + "px";
+    }
+    function hideTip(){ tipEl().classList.remove("show"); }
+
+    function toISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+    function parseLocal(iso){ const [y,m,d] = iso.split("-").map(Number); return new Date(y,m-1,d); }
+
+    function ruDate(iso){
+      const d = parseLocal(iso);
+      return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
     }
 
-    function loadCache(df, dt) {
-      try {
-        const raw = localStorage.getItem(cacheKey(df, dt));
-        return raw ? JSON.parse(raw) : null;
-      } catch(e) { return null; }
-    }
-
-    function fmt(n) { return Math.round(n).toLocaleString("ru-RU"); }
-
-    function roiBadge(roi) {
-      const r = Math.round(roi);
-      if (roi > 0) return `<span class="badge-roi positive">+${r}%</span>`;
-      if (roi < 0) return `<span class="badge-roi negative">${r}%</span>`;
-      return `<span class="badge-roi neutral">0%</span>`;
-    }
-    function profitColor(v) { return v >= 0 ? "#027A48" : "#B42318"; }
-    function sign(v)        { return v > 0 ? "+" : ""; }
-
-    function thisMonthDates() {
+    // ── Period presets ──────────────────────────
+    function periodRange(key){
       const now = new Date();
-      const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,"0");
-      return { from:`${y}-${m}-01`, to:`${y}-${m}-${String(now.getDate()).padStart(2,"0")}` };
+      const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+      const todayIso = toISO(now);
+      switch(key){
+        case "today":     return { from: todayIso, to: todayIso };
+        case "week": {
+          const dow = (now.getDay() + 6) % 7; // Mon=0
+          const start = new Date(y, m, d - dow);
+          return { from: toISO(start), to: todayIso };
+        }
+        case "thisMonth": return { from: toISO(new Date(y, m, 1)), to: todayIso };
+        case "lastMonth": {
+          const start = new Date(y, m-1, 1);
+          const end   = new Date(y, m, 0);
+          return { from: toISO(start), to: toISO(end) };
+        }
+        case "last30":    return { from: toISO(new Date(y, m, d - 29)), to: todayIso };
+        case "thisYear":  return { from: toISO(new Date(y, 0, 1)), to: todayIso };
+      }
+      return { from: toISO(new Date(y, m, 1)), to: todayIso };
     }
 
-    function toISO(d) {
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    }
-
-    function setStatus(msg, isError=false) {
+    // ── Status / cache bars ────────────────────
+    function setStatus(msg, isError=false){
       const bar = document.getElementById("statusBar");
-      bar.className = "show" + (isError ? " error" : "");
+      bar.classList.add("show");
+      bar.classList.toggle("error", isError);
       document.getElementById("statusText").textContent = msg;
     }
-    function hideStatus() { document.getElementById("statusBar").className = ""; }
+    function hideStatus(){ document.getElementById("statusBar").classList.remove("show"); }
 
-    function showCacheBar(ts) {
+    function showCacheBar(ts){
       const d = new Date(ts);
-      const timeStr = d.toLocaleString("ru-RU", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" });
-      document.getElementById("cacheTime").textContent = timeStr;
-      document.getElementById("cacheBar").style.display = "flex";
+      document.getElementById("cacheTime").textContent =
+        d.toLocaleString("ru-RU", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+      document.getElementById("cacheBar").classList.add("show");
     }
-    function hideCacheBar() { document.getElementById("cacheBar").style.display = "none"; }
+    function hideCacheBar(){ document.getElementById("cacheBar").classList.remove("show"); }
 
-    function showSkeletonCards() {
-      document.getElementById("cardsRow").innerHTML = `
-        <div class="col-12 col-md-6 col-xl-3"><div class="card-stat"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div></div>
-        <div class="col-12 col-md-6 col-xl-3"><div class="card-stat"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div></div>
-        <div class="col-12 col-md-6 col-xl-3"><div class="card-stat"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div></div>
-        <div class="col-12 col-md-6 col-xl-3"><div class="card-stat"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div></div>`;
+    function setBtnRefreshLoading(loading){
+      const btn = document.getElementById("refreshBtn");
+      btn.classList.toggle("loading", loading);
+      document.getElementById("refreshBtnText").textContent = loading ? _ET.loading : "Обновить из Uzum";
     }
 
-    function closeInfoPopovers() {
-      document.querySelectorAll(".info-wrap.open").forEach((wrap) => {
-        wrap.classList.remove("open");
-        const btn = wrap.querySelector(".info-btn");
-        if (btn) btn.setAttribute("aria-expanded", "false");
+    // ── Hero cards renderer ──────────────────────
+    function renderHero(totals){
+      const grid = document.getElementById("heroGrid");
+      const stockQty   = totals.stock_qty | 0;
+      const stockCost  = totals.stock_cost | 0;
+      const uzCost     = totals.stock_cost_uzum | 0;
+      const whCost     = totals.stock_cost_warehouse | 0;
+      const revenue    = totals.sales_revenue | 0;
+      const expenses   = (totals.sales_commission|0) + (totals.sales_logistics|0) + (totals.sales_cost|0);
+      const commission = totals.sales_commission|0;
+      const logistics  = totals.sales_logistics|0;
+      const cogs       = totals.sales_cost|0;
+      const profit     = totals.sales_profit|0;
+      const expensesPct = revenue > 0 ? Math.round(expenses / revenue * 100) : 0;
+      const marginPct   = revenue > 0 ? (profit / revenue * 100) : 0;
+
+      const breakdownExpenses = [
+        { name: "Комиссия", value: commission, color: "var(--red)"  },
+        { name: "Логистика",value: logistics,  color: "var(--red-2)" },
+        { name: "Себест.",  value: cogs,       color: "var(--amber)" },
+      ];
+      const maxExp = Math.max(1, ...breakdownExpenses.map(x => x.value));
+
+      grid.innerHTML = `
+        <div class="stat-card featured fade-in">
+          <div class="stat-head">
+            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+            <span class="stat-label">Вложено в товар</span>
+          </div>
+          <div class="stat-sub">Всего на складах · ${fmt(stockQty)} шт</div>
+          <div class="stat-val">${fmt(stockCost)} <span class="ccy">сум</span></div>
+          <div class="stat-divider"></div>
+          <div class="mini-pair">
+            <div class="mini-cell">
+              <div class="stat-mini-label">На складе Uzum</div>
+              <div class="stat-mini-val">${fmtCompact(uzCost)} сум</div>
+            </div>
+            <div class="mini-cell">
+              <div class="stat-mini-label">Свой склад</div>
+              <div class="stat-mini-val">${fmtCompact(whCost)} сум</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card fade-in" style="animation-delay:.05s">
+          <div class="stat-head">
+            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+            <span class="stat-label">${'{{ t.eco_card_revenue }}'}</span>
+          </div>
+          <div class="stat-sub">За выбранный период</div>
+          <div class="stat-val">${fmt(revenue)} <span class="ccy">сум</span></div>
+        </div>
+
+        <div class="stat-card fade-in" style="animation-delay:.10s">
+          <div class="stat-head">
+            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>
+            <span class="stat-label">Общие расходы</span>
+          </div>
+          <div class="stat-sub">${expensesPct}% от выручки</div>
+          <div class="stat-val red">${fmt(expenses)} <span class="ccy">сум</span></div>
+          <div class="breakdown-list" style="margin-top: 10px;">
+            ${breakdownExpenses.map(it => `
+              <div class="breakdown-row">
+                <span class="bd-name"><span class="bd-dot" style="background:${it.color};"></span>${it.name}</span>
+                <span class="bd-bar"><span style="width:${Math.round(it.value/maxExp*100)}%; background:${it.color};"></span></span>
+                <span class="bd-val">${fmtCompact(it.value)}</span>
+              </div>`).join("")}
+          </div>
+        </div>
+
+        <div class="stat-card fade-in" style="animation-delay:.15s">
+          <div class="stat-head">
+            <span class="stat-head-icon" style="background:rgba(16,185,129,.14); color: var(--green);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+            <span class="stat-label">${'{{ t.eco_card_profit }}'}</span>
+          </div>
+          <div class="stat-sub">Маржа · ${marginPct.toFixed(1)}%</div>
+          <div class="stat-val ${profit >= 0 ? 'green' : 'red'}">${sign(profit)}${fmt(profit)} <span class="ccy">сум</span></div>
+        </div>
+      `;
+    }
+
+    function renderMini(totals){
+      const orders = totals.sales_qty|0;
+      const rev    = totals.sales_revenue|0;
+      const cost   = totals.sales_cost|0;
+      const skus   = totals.active_skus|0;
+      const df = document.getElementById("dateFrom").value;
+      const dt = document.getElementById("dateTo").value;
+      let days = 1;
+      try {
+        const a = parseLocal(df), b = parseLocal(dt);
+        days = Math.max(1, Math.round((b-a)/86400000) + 1);
+      } catch(e) {}
+      const perDay = Math.round(orders / days);
+      const aov    = orders > 0 ? Math.round(rev / orders) : 0;
+      document.getElementById("msOrders").textContent = fmt(orders);
+      document.getElementById("msOrdersSub").textContent = `${fmt(perDay)} в день`;
+      document.getElementById("msAov").textContent    = fmt(aov) + " сум";
+      document.getElementById("msCost").textContent   = fmtCompact(cost) + " сум";
+      document.getElementById("msSku").textContent    = fmt(skus);
+    }
+
+    function renderWarehouses(totals){
+      const uzQty = totals.stock_qty_uzum|0;
+      const whQty = totals.stock_qty_warehouse|0;
+      const total = uzQty + whQty;
+      const uzCost = totals.stock_cost_uzum|0;
+      const whCost = totals.stock_cost_warehouse|0;
+      document.getElementById("whUzumQty").textContent = fmt(uzQty);
+      document.getElementById("whOwnQty").textContent  = fmt(whQty);
+      document.getElementById("whAllQty").textContent  = fmt(total);
+      document.getElementById("whUzumCost").textContent = fmtCompact(uzCost) + " сум";
+      document.getElementById("whOwnCost").textContent  = fmtCompact(whCost) + " сум";
+      document.getElementById("whAllCost").textContent  = fmtCompact(uzCost+whCost) + " сум";
+      const pctU = total > 0 ? Math.round(uzQty/total*100) : 0;
+      const pctW = total > 0 ? 100 - pctU : 0;
+      document.getElementById("whFillUzum").style.width = pctU + "%";
+      document.getElementById("whFillWh").style.width   = pctW + "%";
+      document.getElementById("whPctUzum").textContent  = pctU + "%";
+      document.getElementById("whPctWh").textContent    = pctW + "%";
+
+      // Tip: how many days at current sell rate
+      const dailySold = (totals.sales_qty|0) / Math.max(1, ((parseLocal(document.getElementById("dateTo").value) -
+                          parseLocal(document.getElementById("dateFrom").value))/86400000 + 1));
+      const tipEl = document.getElementById("whTip");
+      if (dailySold > 0 && total > 0) {
+        const daysLeft = Math.round(total / dailySold);
+        tipEl.innerHTML = `💡 <b>Совет:</b> при текущем темпе продаж этого хватит примерно на <b>~${daysLeft} дней</b>. Подумайте о пополнении заранее.`;
+      } else {
+        tipEl.innerHTML = `💡 <b>Совет:</b> в выбранном периоде продаж не зафиксировано — оценка темпа невозможна.`;
+      }
+    }
+
+    // ── Daily sales chart (SVG line) ───────────
+    function renderDailyChart(series){
+      const host = document.getElementById("dailyChartHost");
+      const W = 600, H = 220, PAD_L = 40, PAD_R = 10, PAD_T = 14, PAD_B = 26;
+      const innerW = W - PAD_L - PAD_R;
+      const innerH = H - PAD_T - PAD_B;
+      const points = (series || []);
+      const maxRev = Math.max(1, ...points.map(p => p.revenue || 0));
+      const stepX  = points.length > 1 ? innerW / (points.length - 1) : innerW;
+      const yScale = (v) => PAD_T + innerH - (v / maxRev) * innerH;
+
+      const pathD = points.map((p,i) => `${i===0?'M':'L'} ${PAD_L + i*stepX} ${yScale(p.revenue)}`).join(' ');
+      const areaD = pathD + ` L ${PAD_L + (points.length-1)*stepX} ${PAD_T+innerH} L ${PAD_L} ${PAD_T+innerH} Z`;
+
+      const ticks = 4;
+      const yLabels = [];
+      for (let i = 0; i <= ticks; i++) {
+        const v = maxRev * (ticks - i) / ticks;
+        const y = PAD_T + (innerH * i) / ticks;
+        yLabels.push({ v, y });
+      }
+      const xLabels = [];
+      if (points.length) {
+        const showIdx = new Set();
+        const n = points.length;
+        showIdx.add(0); showIdx.add(n-1);
+        for (let k = 1; k < 6; k++) showIdx.add(Math.floor(k*n/6));
+        for (const idx of showIdx) xLabels.push({ idx, day: parseLocal(points[idx].date).getDate() });
+      }
+
+      // Build hot-zones: one invisible rect per data point that catches hover
+      const hotSlot = points.length > 1 ? stepX : innerW;
+      const hots = points.map((p, i) => {
+        const cx = PAD_L + i*stepX;
+        const cy = yScale(p.revenue);
+        const hotX = Math.max(PAD_L, cx - hotSlot/2);
+        const hotW = Math.min(W - PAD_R - hotX, hotSlot);
+        return { p, i, cx, cy, hotX, hotW };
+      });
+
+      host.innerHTML = `
+        <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" id="dailySvg">
+          <defs>
+            <linearGradient id="blueFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%"  stop-color="#4169e1" stop-opacity=".35"/>
+              <stop offset="100%" stop-color="#4169e1" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${yLabels.map(l => `
+            <line class="chart-grid" x1="${PAD_L}" x2="${W-PAD_R}" y1="${l.y}" y2="${l.y}"/>
+            <text class="chart-axis" x="${PAD_L-6}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
+          `).join("")}
+          ${points.length > 1 ? `<path class="chart-area" d="${areaD}"/>` : ""}
+          ${points.length > 1 ? `<path class="chart-line" d="${pathD}"/>` : ""}
+          ${xLabels.map(l => `<text class="chart-axis" x="${PAD_L + l.idx*stepX}" y="${H-8}" text-anchor="middle">${l.day}</text>`).join("")}
+          <line class="chart-cursor" id="dailyCursor" x1="0" x2="0" y1="${PAD_T}" y2="${PAD_T+innerH}"/>
+          <circle class="chart-dot" id="dailyDot" r="5" cx="0" cy="0"/>
+          ${hots.map(h => `<rect class="chart-hot" x="${h.hotX}" y="${PAD_T}" width="${h.hotW}" height="${innerH}" data-idx="${h.i}" data-cx="${h.cx}" data-cy="${h.cy}"/>`).join("")}
+        </svg>
+      `;
+      document.getElementById("dailyOrdersLabel").textContent =
+        fmt((currentData?.totals?.sales_qty)||0) + " заказов";
+
+      // Wire hover
+      const svg = document.getElementById("dailySvg");
+      const dot = document.getElementById("dailyDot");
+      const cursor = document.getElementById("dailyCursor");
+      svg.querySelectorAll(".chart-hot").forEach(hot => {
+        hot.addEventListener("mousemove", (e) => {
+          const idx = +hot.dataset.idx;
+          const cx  = +hot.dataset.cx;
+          const cy  = +hot.dataset.cy;
+          const p   = points[idx];
+          dot.setAttribute("cx", cx);
+          dot.setAttribute("cy", cy);
+          dot.style.opacity = "1";
+          cursor.setAttribute("x1", cx);
+          cursor.setAttribute("x2", cx);
+          cursor.style.opacity = "1";
+          showTip(`
+            <div class="tt-title">${ruDate(p.date)}</div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:var(--brand);"></span>Выручка</span><span class="tt-val">${fmt(p.revenue)} сум</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:var(--muted);"></span>Заказов</span><span class="tt-val">${fmt(p.qty||0)}</span></div>
+          `, e.clientX, e.clientY);
+        });
+        hot.addEventListener("mouseleave", () => {
+          dot.style.opacity = "0";
+          cursor.style.opacity = "0";
+          hideTip();
+        });
       });
     }
 
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".info-btn");
-      if (btn) {
-        const wrap = btn.closest(".info-wrap");
-        const shouldOpen = wrap && !wrap.classList.contains("open");
-        closeInfoPopovers();
-        if (wrap && shouldOpen) {
-          wrap.classList.add("open");
-          btn.setAttribute("aria-expanded", "true");
-        }
-        return;
+    // ── 12-month dynamics chart ─────────────────
+    let dynMode = "revenue"; // or "profit"
+    function renderDynChart(){
+      const host = document.getElementById("dynChartHost");
+      const data = (currentData?.monthly_dynamics) || [];
+      const W = 1200, H = 340, PAD_L = 60, PAD_R = 20, PAD_T = 30, PAD_B = 36;
+      const innerW = W - PAD_L - PAD_R, innerH = H - PAD_T - PAD_B;
+
+      const vals = data.map(d => Math.max(0, d[dynMode]|0));
+      const maxV = Math.max(1, ...vals);
+      const niceMax = Math.ceil(maxV / Math.pow(10, Math.max(0, String(maxV).length-2))) * Math.pow(10, Math.max(0, String(maxV).length-2));
+      const ticks = 4;
+      const yLabels = [];
+      for (let i = 0; i <= ticks; i++) {
+        const v = niceMax * (ticks - i) / ticks;
+        const y = PAD_T + (innerH * i) / ticks;
+        yLabels.push({ v, y });
       }
-      if (!e.target.closest(".info-wrap")) closeInfoPopovers();
-    });
+      const barCount = Math.max(1, data.length);
+      const slotW = innerW / barCount;
+      const barW  = Math.min(60, slotW * 0.62);
+      const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeInfoPopovers();
-    });
+      const color = dynMode === "revenue" ? "#4169e1" : "#10b981";
 
-    function renderCards(totals) {
-      const pc = profitColor(totals.sales_profit);
-      document.getElementById("cardsRow").innerHTML = `
-        <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.00s"><div class="card-stat">
-          <div class="stat-head">
-            <div class="stat-copy">
-              <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>${_ET.stockCostLabel}</div>
-              <div class="stat-subtitle">${_ET.stockCostSub}</div>
-            </div>
-            <div class="info-wrap">
-              <button type="button" class="info-btn" aria-label="${_ET.stockCostLabel}" aria-expanded="false">i</button>
-              <div class="info-popover">${_ET.stockCostInfo}</div>
-            </div>
-          </div>
-          <div class="stat-val">${fmt(totals.stock_cost)} <span style="font-size:14px;font-weight:500;color:#667085;">${_ET.sumLabel}</span></div>
-        </div></div>
-        <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.05s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>${_ET.revenueLabel}</div>
-          <div class="stat-val">${fmt(totals.sales_revenue)} <span style="font-size:14px;font-weight:500;color:#667085;">${_ET.sumLabel}</span></div>
-        </div></div>
-        <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.10s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>${_ET.commLabel}</div>
-          <div class="stat-val" style="color:#B42318;">${fmt(totals.sales_commission + totals.sales_logistics)} <span style="font-size:14px;font-weight:500;">${_ET.sumLabel}</span></div>
-        </div></div>
-        <div class="col-12 col-md-6 col-xl-3 fade-in" style="animation-delay:.15s"><div class="card-stat">
-          <div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>${_ET.profitLabel}</div>
-          <div class="stat-val" style="color:${pc};">${sign(totals.sales_profit)}${fmt(totals.sales_profit)} <span style="font-size:14px;font-weight:500;">${_ET.sumLabel}</span></div>
-        </div></div>`;
+      // Highlight max bar with a label
+      const maxIdx = vals.indexOf(Math.max(...vals));
+
+      host.innerHTML = `
+        <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:100%;" id="dynSvg">
+          ${yLabels.map(l => `
+            <line class="chart-grid" x1="${PAD_L}" x2="${W-PAD_R}" y1="${l.y}" y2="${l.y}"/>
+            <text class="chart-axis" x="${PAD_L-8}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
+          `).join("")}
+          ${data.map((d, i) => {
+            const v = vals[i];
+            const h = niceMax > 0 ? (v / niceMax) * innerH : 0;
+            const x = PAD_L + i*slotW + (slotW - barW)/2;
+            const y = PAD_T + innerH - h;
+            const monthNum = parseInt(d.month.split("-")[1], 10);
+            const monthLbl = months[(monthNum-1+12)%12];
+            const showLbl = i === maxIdx && v > 0;
+            return `
+              <rect class="bar-shape" x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" ry="6" fill="${color}" data-idx="${i}"/>
+              ${showLbl ? `<text class="bar-label" x="${x+barW/2}" y="${y-8}">${fmtCompact(v)}</text>` : ""}
+              <text class="bar-month" x="${x+barW/2}" y="${H-12}">${monthLbl}</text>
+              <rect class="chart-hot" x="${PAD_L + i*slotW}" y="${PAD_T}" width="${slotW}" height="${innerH}" data-idx="${i}"/>
+            `;
+          }).join("")}
+        </svg>
+      `;
+
+      // Wire hover for bars
+      const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+      const svg = document.getElementById("dynSvg");
+      svg.querySelectorAll(".chart-hot").forEach(hot => {
+        hot.addEventListener("mousemove", (e) => {
+          const idx = +hot.dataset.idx;
+          const d = data[idx];
+          if (!d) return;
+          const [yr, mo] = d.month.split("-").map(Number);
+          const monthLbl = monthNames[mo-1] + " " + yr;
+          // Highlight the active bar
+          svg.querySelectorAll(".bar-shape").forEach(b => b.style.opacity = b.dataset.idx == idx ? "1" : ".55");
+          showTip(`
+            <div class="tt-title">${monthLbl}</div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#4169e1;"></span>Выручка</span><span class="tt-val">${fmt(d.revenue||0)} сум</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#10b981;"></span>Прибыль</span><span class="tt-val">${fmt(d.profit||0)} сум</span></div>
+          `, e.clientX, e.clientY);
+        });
+        hot.addEventListener("mouseleave", () => {
+          svg.querySelectorAll(".bar-shape").forEach(b => b.style.opacity = "1");
+          hideTip();
+        });
+      });
     }
 
-    function skeletonRow(widths) {
-      const cells = widths.map((w,i) => `
-        <div style="padding:16px 20px;display:flex;align-items:center;${i>0?'justify-content:flex-end;':'gap:12px;'}">
-          ${i===0
-            ? `<div class="skeleton skel-img"></div><div style="flex:1;"><div class="skeleton skel-text" style="width:${w}%;margin-bottom:6px;"></div><div class="skeleton skel-text" style="width:35%;"></div></div>`
-            : `<div class="skeleton skel-cell" style="width:${w}px;${i===9?'border-radius:99px;':''}"></div>`}
-        </div>`).join("");
-      return `<tr class="skel-row"><td colspan="10" style="padding:0;"><div style="display:grid;grid-template-columns:32% repeat(9,1fr);">${cells}</div></td></tr>`;
-    }
-
-    function renderRows(items) {
+    // ── Products table ──────────────────────────
+    let allItems = [];
+    function renderTable(items){
+      allItems = items || [];
+      const totals = currentData?.totals || {};
       const tbody = document.getElementById("ecoTbody");
-      if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="10"><div class="text-center py-5">
-          <div style="font-size:40px;margin-bottom:12px;">📊</div>
-          <div style="font-size:15px;font-weight:600;color:#344054;">${_ET.noData}</div>
-          <div style="font-size:13px;color:#667085;margin-top:4px;margin-bottom:16px;">${_ET.noSales}</div>
-          <button onclick="fetchFresh(dateFromEl.value, dateToEl.value)" class="btn btn-outline-primary px-4">🔄 ${_ET.loadData}</button>
-        </div></td></tr>`;
+      const q = (document.getElementById("productSearch").value || "").trim().toLowerCase();
+      const filtered = !q ? allItems : allItems.filter(it =>
+        (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q)
+      );
+      document.getElementById("tableCount").textContent = filtered.length;
+      document.getElementById("productsCount").textContent = filtered.length + " товаров";
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 50px 20px;">
+          <div style="font-size: 36px; margin-bottom: 12px;">📊</div>
+          <div style="font-size: 15px; font-weight: 600; color: var(--ink-2);">${_ET.noData}</div>
+          <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">${_ET.noSales}</div>
+        </td></tr>`;
         return;
       }
-      tbody.innerHTML = items.map((item, i) => `
-        <tr class="fade-in" style="animation-delay:${Math.min(i*.03,.3)}s">
-          <td><div class="d-flex align-items-center gap-3" style="min-width:240px;">
-            ${item.image_url
-              ? `<img src="${item.image_url}" class="table-img" loading="lazy">`
-              : `<div class="table-img d-flex align-items-center justify-content-center bg-light text-muted" style="font-size:10px;">No img</div>`}
-            <div>
-              <div style="font-weight:500;line-height:1.4;margin-bottom:2px;">${item.name}</div>
-              <div style="font-size:11px;color:#667085;">ID: ${item.id}</div>
-            </div>
-          </div></td>
-          <td class="text-end" style="font-weight:500;">${item.stock_qty}</td>
-          <td class="text-end" style="color:#667085;">${fmt(item.stock_cost)}</td>
-          <td class="text-end" style="font-weight:600;border-left:1px solid #EAECF0;">${item.sales_qty}</td>
-          <td class="text-end" style="color:#667085;">${fmt(item.sales_revenue)}</td>
-          <td class="text-end text-danger">${fmt(item.sales_commission)}</td>
-          <td class="text-end text-danger">${fmt(item.sales_logistics)}</td>
-          <td class="text-end" style="color:#667085;">${fmt(item.sales_cost)}</td>
-          <td class="text-end" style="font-weight:700;color:${profitColor(item.sales_profit)};">${sign(item.sales_profit)}${fmt(item.sales_profit)}</td>
-          <td class="text-end">${roiBadge(item.roi)}</td>
-        </tr>`).join("");
+
+      const rows = filtered.map((item, i) => {
+        const roi = Math.round(item.roi || 0);
+        const roiCls = roi > 0 ? "pos" : roi < 0 ? "neg" : "neu";
+        const roiTxt = roi > 0 ? `${roi}%` : `${roi}%`;
+        const profitCls = (item.sales_profit||0) >= 0 ? "num-green" : "num-red";
+        const profitSign = (item.sales_profit||0) > 0 ? "+" : "";
+        return `
+          <tr class="fade-in" style="animation-delay:${Math.min(i*.025,.3)}s">
+            <td>
+              <div class="prod-cell">
+                ${item.image_url
+                  ? `<img src="${item.image_url}" class="prod-img" loading="lazy" alt="">`
+                  : `<div class="prod-img-fallback">📦</div>`}
+                <div>
+                  <div class="prod-name">${item.name || "—"}</div>
+                  <div class="prod-id">ID: ${item.id}</div>
+                </div>
+              </div>
+            </td>
+            <td class="stock-cell">
+              <div class="qty-main">${fmt(item.stock_qty)}</div>
+              <div class="qty-split"><span><span class="dot" style="background:var(--brand);"></span>${fmt(item.stock_qty_uzum||0)}</span><span><span class="dot" style="background:var(--green);"></span>${fmt(item.stock_qty_warehouse||0)}</span></div>
+            </td>
+            <td class="num-muted">${fmt(item.stock_cost)}</td>
+            <td class="num-bold">${fmt(item.sales_qty)}</td>
+            <td class="num-muted">${fmt(item.sales_revenue)}</td>
+            <td class="num-red">${fmt(item.sales_commission)}</td>
+            <td class="num-red">${fmt(item.sales_logistics)}</td>
+            <td class="num-muted">${fmt(item.sales_cost)}</td>
+            <td class="${profitCls}">${profitSign}${fmt(item.sales_profit)}</td>
+            <td><span class="roi-pill ${roiCls}">${roiTxt}</span></td>
+          </tr>`;
+      }).join("");
+
+      // Totals row
+      const totalProfit = totals.sales_profit||0;
+      const totalCogs = totals.sales_cost||0;
+      const totalRoi = totalCogs > 0 ? Math.round(totalProfit/totalCogs*100) : 0;
+      const totalRoiCls = totalRoi > 0 ? "pos" : totalRoi < 0 ? "neg" : "neu";
+      const totalRow = `
+        <tr class="totals-row">
+          <td style="padding-left: 22px;">Итого</td>
+          <td class="num-strong">${fmt(totals.stock_qty)}</td>
+          <td class="num-strong">${fmt(totals.stock_cost)}</td>
+          <td class="num-strong">${fmt(totals.sales_qty)}</td>
+          <td class="num-strong">${fmt(totals.sales_revenue)}</td>
+          <td class="num-red num-strong">${fmt(totals.sales_commission)}</td>
+          <td class="num-red num-strong">${fmt(totals.sales_logistics)}</td>
+          <td class="num-strong">${fmt(totalCogs)}</td>
+          <td class="${(totalProfit>=0?'num-green':'num-red')}">${(totalProfit>0?'+':'')}${fmt(totalProfit)}</td>
+          <td><span class="roi-pill ${totalRoiCls}">${totalRoi}%</span></td>
+        </tr>`;
+
+      tbody.innerHTML = rows + totalRow;
     }
 
-    function setBtnRefreshLoading(loading) {
-      const btn = document.getElementById("btnApply");
-      const txt = document.getElementById("btnApplyText");
-      const sp  = document.getElementById("btnApplySpinner");
-      btn.classList.toggle("btn-loading", loading);
-      txt.textContent  = loading ? _ET.loading : _ET.showBtn;
-      sp.style.display = loading ? "inline-block" : "none";
+    // ── Export to CSV ───────────────────────────
+    function exportCSV(){
+      if (!allItems.length) return;
+      const headers = ["ID","Товар","Остаток","Uzum","Свой","Себест.остатка","Продано","Выручка","Комиссия","Логистика","Себест.продаж","Чист.прибыль","ROI%"];
+      const rows = allItems.map(it => [
+        it.id, `"${(it.name||"").replace(/"/g,'""')}"`,
+        it.stock_qty, it.stock_qty_uzum||0, it.stock_qty_warehouse||0,
+        it.stock_cost, it.sales_qty, it.sales_revenue,
+        it.sales_commission, it.sales_logistics, it.sales_cost,
+        it.sales_profit, Math.round(it.roi||0),
+      ].join(";"));
+      const csv = "﻿" + [headers.join(";"), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `eco_${document.getElementById("dateFrom").value}_${document.getElementById("dateTo").value}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
-    // Show cached data instantly — no API call
-    function renderFromCache(df, dt) {
+    // ── Master state ────────────────────────────
+    let currentData = null;
+    function renderAll(payload){
+      currentData = payload;
+      renderHero(payload.totals);
+      renderMini(payload.totals);
+      renderWarehouses(payload.totals);
+      renderDailyChart(payload.daily_series || []);
+      renderDynChart();
+      renderTable(payload.items || []);
+      const df = document.getElementById("dateFrom").value;
+      const dt = document.getElementById("dateTo").value;
+      document.getElementById("periodLabel").textContent = `${ruDate(df)} — ${ruDate(dt)}`;
+    }
+
+    function renderFromCache(df, dt){
       const cached = loadCache(df, dt);
-      if (cached) {
-        document.getElementById("periodLabel").textContent = `${df} — ${dt}`;
-        renderCards(cached.payload.totals);
-        renderRows(cached.payload.items);
-        showCacheBar(cached.ts);
-        return true;
-      }
+      if (cached) { renderAll(cached.payload); showCacheBar(cached.ts); return true; }
       return false;
     }
 
-    // Fetch fresh data from API and save to cache
-    async function fetchFresh(df, dt) {
+    async function fetchFresh(df, dt){
       setBtnRefreshLoading(true);
       hideCacheBar();
       setStatus(`${_ET.loading} ${df} — ${dt}…`);
-      showSkeletonCards();
-      document.getElementById("ecoTbody").innerHTML =
-        skeletonRow([75,55,65,55,65,65,65,65,65,40]) +
-        skeletonRow([60,55,65,55,65,65,65,65,65,40]) +
-        skeletonRow([80,55,65,55,65,65,65,65,65,40]) +
-        skeletonRow([65,55,65,55,65,65,65,65,65,40]) +
-        skeletonRow([70,55,65,55,65,65,65,65,65,40]);
       try {
         const res = await fetch(`/api/economics/data?date_from=${df}&date_to=${dt}`);
         if (!res.ok) throw new Error(`${_ET.errorFetch} ${res.status}`);
         const payload = await res.json();
         saveCache(df, dt, payload);
-        renderCards(payload.totals);
-        renderRows(payload.items);
+        renderAll(payload);
         showCacheBar(Date.now());
         hideStatus();
       } catch(e) {
-        document.getElementById("cardsRow").innerHTML = "";
-        document.getElementById("ecoTbody").innerHTML = `<tr><td colspan="10"><div class="text-center py-5">
-          <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
-          <div style="font-size:15px;font-weight:600;color:#B42318;">${_ET.errorLoading}</div>
-          <div style="font-size:13px;color:#667085;margin-top:4px;">${e.message}</div>
-        </div></td></tr>`;
         setStatus(_ET.errorLoading + ": " + e.message, true);
       } finally {
         setBtnRefreshLoading(false);
       }
     }
 
+    // ── Wire-up ────────────────────────────────
     const dateFromEl = document.getElementById("dateFrom");
     const dateToEl   = document.getElementById("dateTo");
 
-    // Always use browser's local date for defaults
-    const { from: initFrom, to: initTo } = thisMonthDates();
-    dateFromEl.value = initFrom;
-    dateToEl.value   = initTo;
+    const init = periodRange("thisMonth");
+    dateFromEl.value = init.from;
+    dateToEl.value   = init.to;
 
     const fp = flatpickr("#dateRangeInput", {
-      mode: "range",
-      locale: "ru",
-      dateFormat: "d M Y",
-      showMonths: 1,
-      disableMobile: true,
-      static: true,
+      mode: "range", locale: "ru", dateFormat: "d M Y",
+      showMonths: 1, disableMobile: true, static: true,
       appendTo: document.getElementById("dateRangeWrapper"),
-      onChange(selectedDates) {
+      onChange(selectedDates){
         if (selectedDates.length === 2) {
           dateFromEl.value = toISO(selectedDates[0]);
           dateToEl.value   = toISO(selectedDates[1]);
+          // Clear active chip when manually picking
+          document.querySelectorAll(".pchip").forEach(c => c.classList.remove("active"));
+          if (!renderFromCache(dateFromEl.value, dateToEl.value)) fetchFresh(dateFromEl.value, dateToEl.value);
+          else fetchFresh(dateFromEl.value, dateToEl.value); // refresh quietly too
         }
       },
     });
-    // Set initial date using Date objects to avoid parsing issues with locale
-    function parseLocal(iso) {
-      const [y, m, d] = iso.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    }
-    fp.setDate([parseLocal(initFrom), parseLocal(initTo)], true);
+    fp.setDate([parseLocal(init.from), parseLocal(init.to)], true);
+    document.getElementById("dateRangeWrapper").addEventListener("click", (e) => {
+      if (e.target.tagName !== "INPUT") fp.open();
+    });
 
-    document.getElementById("dateRangeWrapper").addEventListener("click", () => fp.open());
+    document.querySelectorAll(".pchip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".pchip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        const { from, to } = periodRange(chip.dataset.period);
+        dateFromEl.value = from; dateToEl.value = to;
+        fp.setDate([parseLocal(from), parseLocal(to)], false);
+        if (!renderFromCache(from, to)) fetchFresh(from, to);
+      });
+    });
 
-    // "Показать" — always fetch fresh from API
-    document.getElementById("btnApply").addEventListener("click", () => {
-      if (!dateFromEl.value || !dateToEl.value) { fp.open(); return; }
+    document.getElementById("refreshBtn").addEventListener("click", () => {
       fetchFresh(dateFromEl.value, dateToEl.value);
     });
 
-    document.getElementById("btnThisMonth").addEventListener("click", () => {
-      const { from, to } = thisMonthDates();
-      dateFromEl.value = from;
-      dateToEl.value   = to;
-      fp.setDate([parseLocal(from), parseLocal(to)], false);
-      document.getElementById("periodLabel").textContent = `${from} — ${to}`;
-      if (!renderFromCache(from, to)) fetchFresh(from, to);
+    document.getElementById("productSearch").addEventListener("input", () => {
+      if (currentData) renderTable(currentData.items || []);
     });
 
-    // On page open: show cache instantly — no API call
-    document.getElementById("periodLabel").textContent = `${initFrom} — ${initTo}`;
-    if (!renderFromCache(initFrom, initTo)) {
-      fetchFresh(initFrom, initTo); // first ever visit
+    document.getElementById("exportBtn").addEventListener("click", exportCSV);
+
+    document.querySelectorAll(".dyn-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".dyn-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        dynMode = btn.dataset.dyn;
+        renderDynChart();
+      });
+    });
+
+    // Initial render: cache instantly, then fetch
+    document.getElementById("periodLabel").textContent = `${ruDate(init.from)} — ${ruDate(init.to)}`;
+    if (!renderFromCache(init.from, init.to)) {
+      fetchFresh(init.from, init.to);
+    } else {
+      // also kick a silent refresh
+      fetchFresh(init.from, init.to);
     }
   </script>
 </body>

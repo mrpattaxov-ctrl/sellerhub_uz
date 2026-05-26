@@ -301,6 +301,9 @@ def economics_data_api():
         # `period_from >= date_from AND period_to <= date_to` — the new path
         # is the equivalent right-open `created_at` window.
         per_shop_sales: dict[tuple[str, str], dict] = {}
+        daily_revenue: dict[str, int] = {}
+        daily_profit_proxy: dict[str, int] = {}  # revenue - commission - logistics (no per-day cost)
+        daily_qty: dict[str, int] = {}
         if shop_uzum_ids:
             start_ts, _ = day_bounds_tashkent(date_from)
             _, end_ts = day_bounds_tashkent(date_to)
@@ -328,6 +331,27 @@ def economics_data_api():
                 if row.get("sku_id"):
                     per_shop_sales[(sid, str(row["sku_id"]))] = entry
 
+            # Daily breakdown for "Продажи по дням" chart
+            day_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                start_ts,
+                end_ts,
+                group_by="day",
+                session=db,
+            )
+            for row in day_rows:
+                bucket = row.get("bucket")
+                if bucket is None:
+                    continue
+                bkey = bucket.date().isoformat() if hasattr(bucket, "date") else str(bucket)
+                rev = int(row.get("revenue_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                qty = int(row.get("qty_sum") or 0)
+                daily_revenue[bkey] = daily_revenue.get(bkey, 0) + rev
+                daily_profit_proxy[bkey] = daily_profit_proxy.get(bkey, 0) + (rev - comm - logi)
+                daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
+
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
         if allowed_shop_ids:
             stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
@@ -338,17 +362,30 @@ def economics_data_api():
         items = []
         t_stock_cost = t_stock_qty = t_sales_rev = 0
         t_sales_qty  = t_sales_profit = t_commission = t_logistics = 0
+        t_sales_cost = 0
+        t_stock_qty_uzum = t_stock_qty_wh = 0
+        t_stock_cost_uzum = t_stock_cost_wh = 0
+        active_skus = 0
 
         for g in groups:
             g_stock_qty = g_stock_cost = g_sales_qty = 0
+            g_stock_qty_uzum = g_stock_qty_wh = 0
+            g_stock_cost_uzum = g_stock_cost_wh = 0
             g_sales_rev = g_sales_cost = g_commission = g_logistics = 0
+            g_active_skus = 0
             g_uzum_id = shop_id_to_uzum.get(g.shop_id, "")
 
             for v in g.variants:
                 cost      = v.purchase_price or 0
-                stock_qty = (v.uzum_quantity or 0) + (v.warehouse_quantity or 0)
-                g_stock_qty  += stock_qty
-                g_stock_cost += stock_qty * cost
+                qty_uzum  = v.uzum_quantity or 0
+                qty_wh    = v.warehouse_quantity or 0
+                stock_qty = qty_uzum + qty_wh
+                g_stock_qty       += stock_qty
+                g_stock_qty_uzum  += qty_uzum
+                g_stock_qty_wh    += qty_wh
+                g_stock_cost      += stock_qty * cost
+                g_stock_cost_uzum += qty_uzum * cost
+                g_stock_cost_wh   += qty_wh * cost
 
                 fin = None
                 for key in [v.sku, (v.sku or "").upper(), v.barcode,
@@ -363,6 +400,9 @@ def economics_data_api():
                 total_comm      = fin.get("commission",  0) if fin else 0
                 total_logi      = fin.get("logistics",   0) if fin else 0
 
+                if sq > 0:
+                    g_active_skus += 1
+
                 g_sales_qty  += sq
                 g_sales_rev  += total_sell
                 g_sales_cost += sq * cost
@@ -375,26 +415,101 @@ def economics_data_api():
             items.append({
                 "id": g.id, "name": g.name, "image_url": normalize_uzum_image_url(g.image_url) or "",
                 "stock_qty": g_stock_qty, "stock_cost": g_stock_cost,
+                "stock_qty_uzum": g_stock_qty_uzum, "stock_qty_warehouse": g_stock_qty_wh,
+                "stock_cost_uzum": g_stock_cost_uzum, "stock_cost_warehouse": g_stock_cost_wh,
                 "sales_qty": g_sales_qty, "sales_revenue": g_sales_rev,
                 "sales_cost": g_sales_cost, "sales_commission": g_commission,
                 "sales_logistics": g_logistics, "sales_profit": g_sales_profit,
                 "roi": roi,
             })
-            t_stock_cost   += g_stock_cost;  t_stock_qty    += g_stock_qty
-            t_sales_rev    += g_sales_rev;   t_sales_qty    += g_sales_qty
-            t_sales_profit += g_sales_profit; t_commission   += g_commission
-            t_logistics    += g_logistics
+            t_stock_cost      += g_stock_cost;       t_stock_qty       += g_stock_qty
+            t_stock_qty_uzum  += g_stock_qty_uzum;   t_stock_qty_wh    += g_stock_qty_wh
+            t_stock_cost_uzum += g_stock_cost_uzum;  t_stock_cost_wh   += g_stock_cost_wh
+            t_sales_rev       += g_sales_rev;        t_sales_qty       += g_sales_qty
+            t_sales_profit    += g_sales_profit;     t_commission      += g_commission
+            t_logistics       += g_logistics;        t_sales_cost      += g_sales_cost
+            active_skus       += g_active_skus
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
+
+        # Build daily series (one bucket per day in range, zero-fill gaps)
+        daily_series = []
+        d = date_from
+        while d <= date_to:
+            k = d.isoformat()
+            daily_series.append({
+                "date": k,
+                "revenue": daily_revenue.get(k, 0),
+                "profit": daily_profit_proxy.get(k, 0),
+                "qty": daily_qty.get(k, 0),
+            })
+            d += timedelta(days=1)
+
+        # 12-month dynamics (revenue + profit-proxy) ending at date_to's month
+        monthly_dynamics = []
+        if shop_uzum_ids:
+            # Build a 12-month window ending at the month containing date_to
+            anchor = date(date_to.year, date_to.month, 1)
+            # Start 11 months before anchor
+            y, m = anchor.year, anchor.month
+            for _ in range(11):
+                m -= 1
+                if m == 0:
+                    m = 12; y -= 1
+            m_start = date(y, m, 1)
+            # End is first day of month AFTER anchor
+            ay, am = anchor.year, anchor.month + 1
+            if am == 13:
+                am = 1; ay += 1
+            m_end_excl = date(ay, am, 1)
+            start_ts_m, _ = day_bounds_tashkent(m_start)
+            end_ts_m, _   = day_bounds_tashkent(m_end_excl)
+            month_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                start_ts_m,
+                end_ts_m,
+                group_by="month",
+                session=db,
+            )
+            monthly_map: dict[str, dict] = {}
+            for row in month_rows:
+                bucket = row.get("bucket")
+                if bucket is None:
+                    continue
+                mkey = f"{bucket.year:04d}-{bucket.month:02d}"
+                rev = int(row.get("revenue_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                prev = monthly_map.setdefault(mkey, {"revenue": 0, "profit": 0})
+                prev["revenue"] += rev
+                prev["profit"]  += rev - comm - logi
+            # Walk months chronologically and zero-fill
+            cy, cm = m_start.year, m_start.month
+            for _ in range(12):
+                mkey = f"{cy:04d}-{cm:02d}"
+                entry = monthly_map.get(mkey, {"revenue": 0, "profit": 0})
+                monthly_dynamics.append({
+                    "month": mkey,
+                    "revenue": entry["revenue"],
+                    "profit":  entry["profit"],
+                })
+                cm += 1
+                if cm == 13:
+                    cm = 1; cy += 1
 
         return _json_response({
             "items": items,
             "totals": {
                 "stock_cost": t_stock_cost, "stock_qty": t_stock_qty,
+                "stock_qty_uzum": t_stock_qty_uzum, "stock_qty_warehouse": t_stock_qty_wh,
+                "stock_cost_uzum": t_stock_cost_uzum, "stock_cost_warehouse": t_stock_cost_wh,
                 "sales_revenue": t_sales_rev, "sales_qty": t_sales_qty,
                 "sales_profit": t_sales_profit, "sales_commission": t_commission,
-                "sales_logistics": t_logistics,
+                "sales_logistics": t_logistics, "sales_cost": t_sales_cost,
+                "active_skus": active_skus,
             },
+            "daily_series":    daily_series,
+            "monthly_dynamics": monthly_dynamics,
         })
 
 @products_bp.get("/calculator")

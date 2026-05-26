@@ -195,8 +195,10 @@ def group_detail(group_id: int):
         if not _current_user_is_admin() and group.shop_id not in allowed_shop_ids:
             return render_template("not_found.html", message="Product not found"), 404
 
+        # Sort variants by color first (groups same color together), then SKU.
         variants = db.execute(
-            select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
+            select(Variant).where(Variant.group_id == group_id)
+            .order_by(func.lower(func.coalesce(Variant.color, "")), func.lower(Variant.sku))
         ).scalars().all()
 
         # 30d sales from sales_lines (Tashkent window [today-30, today+1)).
@@ -204,6 +206,7 @@ def group_detail(group_id: int):
         # equivalent is `created_at >= today-30d 00:00 AND created_at < today+1d 00:00`.
         shop = db.get(Shop, group.shop_id)
         sales_30d_map: dict[int, int] = {}
+        cost_map: dict[int, int] = {}
         if shop:
             today = _today_app_tz()
             start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
@@ -220,17 +223,27 @@ def group_detail(group_id: int):
             # which matches `Variant.sku` — NOT the numeric `Variant.uzum_sku_id`.
             by_title: dict[str, int] = {}
             by_sku_id: dict[str, int] = {}
+            cost_by_title: dict[str, int] = {}
+            cost_by_sku_id: dict[str, int] = {}
             for row in agg_rows:
                 title = (row.get("sku_title") or "").strip()
                 qty = int(row.get("qty_sum") or 0)
+                cost_sum = int(row.get("purchase_price_sum") or 0)
+                cost_unit = cost_sum // qty if qty > 0 and cost_sum > 0 else 0
                 if title:
                     by_title[title] = qty
                     by_title[title.upper()] = qty
+                    if cost_unit > 0:
+                        cost_by_title[title] = cost_unit
+                        cost_by_title[title.upper()] = cost_unit
                 sid = row.get("sku_id")
                 if sid:
                     sid_s = str(sid)
                     by_sku_id[sid_s] = qty
                     by_sku_id[sid_s.upper()] = qty
+                    if cost_unit > 0:
+                        cost_by_sku_id[sid_s] = cost_unit
+                        cost_by_sku_id[sid_s.upper()] = cost_unit
             for v in variants:
                 vsku = v.sku or ""
                 matched = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
@@ -240,8 +253,16 @@ def group_detail(group_id: int):
                     matched = by_title.get(vsku) or by_title.get(vsku.upper()) or 0
                 sales_30d_map[v.id] = matched
 
+                cost = cost_by_sku_id.get(vsku) or cost_by_sku_id.get(vsku.upper()) or 0
+                if cost == 0 and v.uzum_sku_id:
+                    cost = cost_by_sku_id.get(v.uzum_sku_id, 0)
+                if cost == 0:
+                    cost = cost_by_title.get(vsku) or cost_by_title.get(vsku.upper()) or 0
+                if cost > 0:
+                    cost_map[v.id] = cost
+
     return render_template("group_detail.html", group=group, variants=variants,
-                           sales_30d_map=sales_30d_map)
+                           sales_30d_map=sales_30d_map, cost_map=cost_map)
 
 
 @products_bp.get("/economics")
@@ -656,6 +677,222 @@ def group_sales_range(group_id: int):
 
     return _json_response({"sales": result, "days": days_label,
                            "date_from": date_from_str, "date_to": date_to_str})
+
+
+@products_bp.get("/api/groups/<int:group_id>/daily-stats")
+@login_required
+def group_daily_stats(group_id: int):
+    """Per-day sales + revenue + delta-vs-prev-period + per-variant daily series.
+
+    Used by the redesigned group detail page (hero bar chart + per-row sparklines).
+    """
+    from models import FinanceOrder
+
+    date_from_raw = (request.args.get("date_from") or "").strip()
+    date_to_raw   = (request.args.get("date_to")   or "").strip()
+    today = _today_app_tz()
+
+    if date_from_raw and date_to_raw:
+        try:
+            d_from = date.fromisoformat(date_from_raw)
+            d_to   = date.fromisoformat(date_to_raw)
+        except ValueError:
+            return _json_response({"error": "Invalid date format. Use YYYY-MM-DD."}, 400)
+        if d_to < d_from:
+            d_from, d_to = d_to, d_from
+        days = (d_to - d_from).days + 1
+        days = max(1, min(days, 365))
+    else:
+        try:
+            days = int(request.args.get("days", "30"))
+        except ValueError:
+            days = 30
+        days = max(1, min(days, 365))
+        d_to = today
+        d_from = today - timedelta(days=days - 1)
+
+    with SessionLocal() as db:
+        group = db.get(ProductGroup, group_id)
+        if not group:
+            return _json_response({"error": "Group not found"}, 404)
+
+        uid = int(current_user.get_id())
+        if not _current_user_is_admin() and group.shop_id not in _user_shop_ids(uid):
+            return _json_response({"error": "Access denied"}, 403)
+
+        shop = db.get(Shop, group.shop_id)
+        if not shop:
+            return _json_response({"error": "Shop not found"}, 404)
+
+        variants = db.execute(
+            select(Variant).where(Variant.group_id == group_id)
+        ).scalars().all()
+        # Lookup keyed by UPPER(sku) and by uzum_sku_id — match the lenient
+        # matching the page-load 30d code uses (different casing/whitespace
+        # in FinanceOrder.sku_title vs Variant.sku is common).
+        sku_to_vid: dict[str, int] = {}
+        for v in variants:
+            if v.sku:
+                sku_to_vid[v.sku.strip().upper()] = v.id
+            if v.uzum_sku_id:
+                sku_to_vid[str(v.uzum_sku_id).strip().upper()] = v.id
+
+        # Previous-period window = same length immediately before d_from
+        d_from_prev = d_from - timedelta(days=days)
+
+        # Daily aggregate for the whole shop, filtered in Python (lenient match
+        # by sku_title or sku_id). Bounded by one shop × N days.
+        if variants:
+            rows = db.execute(
+                select(
+                    FinanceOrder.period_from.label("d"),
+                    FinanceOrder.sku_title.label("sku"),
+                    FinanceOrder.sku_id.label("sid"),
+                    func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty"),
+                    func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("rev"),
+                    func.coalesce(func.sum(FinanceOrder.commission), 0).label("comm"),
+                    func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("log"),
+                    func.coalesce(func.sum(FinanceOrder.purchase_price), 0).label("cost"),
+                )
+                .where(
+                    FinanceOrder.shop_id == str(shop.uzum_id),
+                    FinanceOrder.period_from >= d_from,
+                    FinanceOrder.period_from <= d_to,
+                )
+                .group_by(FinanceOrder.period_from, FinanceOrder.sku_title, FinanceOrder.sku_id)
+            ).all()
+        else:
+            rows = []
+
+        # Build day list (chronological, oldest → today)
+        day_list = [d_from + timedelta(days=i) for i in range(days)]
+        day_index = {d: i for i, d in enumerate(day_list)}
+
+        group_daily = [0] * days
+        group_revenue = 0
+        group_commission = 0
+        group_logistics = 0
+        group_cost = 0
+        per_variant_daily: dict[int, list[int]] = {v.id: [0] * days for v in variants}
+        per_variant_qty:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_comm: dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_rev:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_log:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_cost: dict[int, int] = {v.id: 0 for v in variants}
+
+        for r in rows:
+            idx = day_index.get(r.d)
+            if idx is None:
+                continue
+            vid = sku_to_vid.get((r.sku or "").strip().upper())
+            if vid is None and r.sid is not None:
+                vid = sku_to_vid.get(str(r.sid).strip().upper())
+            if vid is None:
+                continue  # row belongs to a different group, skip
+            qty = int(r.qty or 0)
+            rev = int(r.rev or 0)
+            comm = int(r.comm or 0)
+            logf = int(r.log or 0)
+            cost = int(r.cost or 0)
+            group_daily[idx] += qty
+            group_revenue += rev
+            group_commission += comm
+            group_logistics += logf
+            group_cost += cost
+            per_variant_daily[vid][idx] += qty
+            per_variant_qty[vid] += qty
+            per_variant_comm[vid] += comm
+            per_variant_rev[vid] += rev
+            per_variant_log[vid] += logf
+            per_variant_cost[vid] += cost
+
+        total_sales = sum(group_daily)
+        avg_check = (group_revenue // total_sales) if total_sales > 0 else 0
+
+        # Previous period total (for delta %): same lenient match
+        if variants:
+            prev_rows = db.execute(
+                select(
+                    FinanceOrder.sku_title.label("sku"),
+                    FinanceOrder.sku_id.label("sid"),
+                    func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty"),
+                )
+                .where(
+                    FinanceOrder.shop_id == str(shop.uzum_id),
+                    FinanceOrder.period_from >= d_from_prev,
+                    FinanceOrder.period_from < d_from,
+                )
+                .group_by(FinanceOrder.sku_title, FinanceOrder.sku_id)
+            ).all()
+            prev_total = 0
+            for r in prev_rows:
+                vid = sku_to_vid.get((r.sku or "").strip().upper())
+                if vid is None and r.sid is not None:
+                    vid = sku_to_vid.get(str(r.sid).strip().upper())
+                if vid is not None:
+                    prev_total += int(r.qty or 0)
+        else:
+            prev_total = 0
+
+        if prev_total > 0:
+            delta_pct = round((total_sales - prev_total) * 100.0 / prev_total)
+        elif total_sales > 0:
+            delta_pct = 100
+        else:
+            delta_pct = 0
+
+    # Per-variant averages for the period:
+    #   - commission_avg = commission ÷ units sold (avg сум per unit)
+    #   - commission_pct = commission ÷ sell_price × 100 (effective rate %,
+    #     normalized for price variation across days)
+    per_variant_comm_avg: dict[int, int] = {
+        vid: (per_variant_comm[vid] // per_variant_qty[vid]) if per_variant_qty[vid] > 0 else 0
+        for vid in per_variant_comm
+    }
+    per_variant_comm_pct: dict[int, float] = {
+        vid: round(per_variant_comm[vid] * 100.0 / per_variant_rev[vid], 1) if per_variant_rev[vid] > 0 else 0.0
+        for vid in per_variant_comm
+    }
+    # Profit = revenue − commission − logistics − cost-of-goods (purchase_price
+    # as reported by Uzum's finance API). Storage cost is not subtracted here
+    # since it's not allocated per-order in finance_orders.
+    group_profit = group_revenue - group_commission - group_logistics - group_cost
+    profit_pct = round(group_profit * 100.0 / group_revenue, 1) if group_revenue > 0 else 0.0
+    per_variant_profit: dict[int, int] = {
+        vid: per_variant_rev[vid] - per_variant_comm[vid] - per_variant_log[vid] - per_variant_cost[vid]
+        for vid in per_variant_rev
+    }
+    per_variant_profit_pct: dict[int, float] = {
+        vid: round(per_variant_profit[vid] * 100.0 / per_variant_rev[vid], 1) if per_variant_rev[vid] > 0 else 0.0
+        for vid in per_variant_rev
+    }
+
+    return _json_response({
+        "days": days,
+        "date_from": d_from.isoformat(),
+        "date_to":   d_to.isoformat(),
+        "total_sales": total_sales,
+        "total_revenue": group_revenue,
+        "total_commission": group_commission,
+        "total_logistics": group_logistics,
+        "total_cost":      group_cost,
+        "total_profit":    group_profit,
+        "profit_pct":      profit_pct,
+        "avg_check": avg_check,
+        "delta_pct": delta_pct,
+        "group_daily": group_daily,
+        "day_labels": [d.isoformat() for d in day_list],
+        "per_variant_daily": per_variant_daily,
+        "per_variant_commission": per_variant_comm,        # total сум in period
+        "per_variant_commission_avg": per_variant_comm_avg,  # avg сум/шт
+        "per_variant_commission_pct": per_variant_comm_pct,  # effective rate %
+        "per_variant_revenue": per_variant_rev,
+        "per_variant_logistics": per_variant_log,
+        "per_variant_cost":      per_variant_cost,
+        "per_variant_profit":    per_variant_profit,
+        "per_variant_profit_pct": per_variant_profit_pct,
+        "per_variant_qty": per_variant_qty,
+    })
 
 
 @products_bp.get("/api/groups/<int:group_id>/variants")

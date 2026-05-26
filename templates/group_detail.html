@@ -1,236 +1,1088 @@
 {% extends "base.html" %}
 {% block content %}
 
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <style>
-  #sku-table-wrapper { overflow-x: auto !important; overflow-y: auto; max-height: 75vh; -webkit-overflow-scrolling: touch; }
-  #sku-table-wrapper .table thead th { padding: 10px 14px; font-size: 0.7rem; }
-  #sku-table-wrapper .table tbody td  { padding: 10px 14px; font-size: 0.8rem; white-space: nowrap; }
-  .product-header-card {
-    display: flex; align-items: center; gap: 16px;
-    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
-    padding: 16px; margin-bottom: 1rem;
+  /* ─────────────────────────────────────────────────────────────────
+     Two themes, driven by the global [data-bs-theme] on <html>.
+     light → Uzum Market (violet brand)   dark → Трейдер (trading desk)
+     ───────────────────────────────────────────────────────────────── */
+  [data-bs-theme="light"] .gd-scope, .gd-scope {
+    --gd-bg:#f5f3fb; --gd-surface:#ffffff; --gd-surface-2:#faf8ff;
+    --gd-line:#ece6f7; --gd-line-2:#f3eefb;
+    --gd-ink:#13092e; --gd-ink-2:#3a2d67; --gd-muted:#6b5e94; --gd-faint:#a89dc8;
+    --gd-accent:#7000ff; --gd-accent-soft:#ede0ff;
+    --gd-green:#0d8a4a; --gd-green-soft:#dbf3e3;
+    --gd-amber:#d97706; --gd-amber-soft:#fdf2e3;
+    --gd-red:#d92d20; --gd-red-soft:#fde4e2;
+    --gd-shadow-sm:0 1px 2px rgba(70,36,168,.06);
+    --gd-shadow-md:0 1px 2px rgba(70,36,168,.08), 0 6px 22px rgba(70,36,168,.07);
+    --gd-radius:12px;
+    --gd-input-bg:#f1ebfd;
+    --gd-row-hover:#faf7ff;
+    --gd-uzum-tint:#f1eaff;
+    --gd-wh-tint:#e6f5fc;
+    --gd-solid-bg:#13092e; --gd-solid-fg:#ffffff;
+    --gd-bar:#7000ff;
   }
-  .product-header-card img      { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; }
-  .product-header-card .no-img  { width:72px; height:72px; background:#f2f4f7; border-radius:8px; flex-shrink:0; }
-  /* Modern pill toggle for day presets */
-  .days-toggle {
-    display: inline-flex; background: #f1f3f5; border-radius: 10px;
-    padding: 3px; gap: 2px;
+  [data-bs-theme="dark"] .gd-scope {
+    --gd-bg:#0a0d14; --gd-surface:#131722; --gd-surface-2:#161b27;
+    --gd-line:#222838; --gd-line-2:#1b2030;
+    --gd-ink:#f0f3fa; --gd-ink-2:#c9cdd9; --gd-muted:#787b86; --gd-faint:#4d5160;
+    --gd-accent:#a78bfa; --gd-accent-soft:rgba(167,139,250,.16);
+    --gd-green:#26a69a; --gd-green-soft:rgba(38,166,154,.18);
+    --gd-amber:#ffb74d; --gd-amber-soft:rgba(255,183,77,.16);
+    --gd-red:#ef5350; --gd-red-soft:rgba(239,83,80,.18);
+    --gd-shadow-sm:0 1px 2px rgba(0,0,0,.4);
+    --gd-shadow-md:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.45);
+    --gd-radius:8px;
+    --gd-input-bg:#161b27;
+    --gd-row-hover:#171c28;
+    --gd-uzum-tint:rgba(167,139,250,.08);
+    --gd-wh-tint:rgba(14,165,233,.10);
+    --gd-solid-bg:#a78bfa; --gd-solid-fg:#0a0d14;
+    --gd-bar:#a78bfa;
   }
-  .preset-btn {
-    padding: 6px 14px; border-radius: 8px; font-size: .8rem;
-    font-weight: 500; color: #64748b; background: transparent;
-    border: none; cursor: pointer; transition: all .2s;
-  }
-  .preset-btn:hover { color: #334155; background: #e2e8f0; }
-  .preset-btn.active {
-    background: #fff; color: #0f172a; font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
-  }
-  .apply-btn {
-    padding: 6px 18px; border-radius: 8px; font-size: .8rem;
-    font-weight: 600; color: #fff; background: #0f172a;
-    border: none; cursor: pointer; transition: all .2s;
-  }
-  .apply-btn:hover { background: #334155; }
-  .apply-btn:active { transform: scale(0.97); }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .spin-icon { display:inline-block; animation:spin 0.8s linear infinite; }
 
-  /* ── Flatpickr date range picker (same as economics page) ── */
-  .date-range-wrapper {
-    position: relative; display: flex; align-items: center;
-    background: #fff; border: 1.5px solid #D0D5DD; border-radius: 10px;
-    padding: 0 12px; gap: 8px; height: 32px; cursor: pointer;
-    transition: border-color .2s, box-shadow .2s; min-width: 220px;
+  .gd-scope {
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-feature-settings:"ss01","cv11";
+    color:var(--gd-ink); background:var(--gd-bg);
+    padding:4px 0 24px;
   }
-  .date-range-wrapper:hover       { border-color: #667085; }
-  .date-range-wrapper:focus-within{ border-color: #2E90FA; box-shadow: 0 0 0 3px rgba(46,144,250,.15); }
-  .date-range-wrapper .cal-icon   { color: #667085; font-size: 14px; flex-shrink: 0; }
-  .date-range-wrapper input       { border:none; outline:none; background:transparent; font-size:12px; font-weight:500; color:#101828; cursor:pointer; width:100%; }
-  .date-range-wrapper .arrow      { color:#98A2B3; font-size:10px; flex-shrink:0; }
+  .gd-scope * { box-sizing:border-box; }
+  .gd-scope .mono { font-family:'Geist Mono','SF Mono',Menlo,monospace; font-feature-settings:"tnum"; }
+  .gd-scope .tnum { font-variant-numeric:tabular-nums; }
 
-  .flatpickr-calendar { border-radius:14px !important; box-shadow:0 12px 32px rgba(16,24,40,.14) !important; border:1px solid #EAECF0 !important; font-family:inherit !important; }
-  .flatpickr-months { padding:6px 0 4px; }
-  .flatpickr-month  { color:#101828 !important; }
-  .flatpickr-current-month .flatpickr-monthDropdown-months,
-  .flatpickr-current-month input.cur-year { font-weight:600 !important; font-size:14px !important; color:#101828 !important; }
-  .flatpickr-prev-month svg, .flatpickr-next-month svg { fill:#667085 !important; }
-  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill:#101828 !important; }
-  .flatpickr-weekday  { color:#667085 !important; font-weight:600 !important; font-size:11px !important; }
-  .flatpickr-day      { border-radius:8px !important; font-size:13px !important; color:#344054; }
-  .flatpickr-day:hover{ background:#F2F4F7 !important; border-color:#F2F4F7 !important; }
-  .flatpickr-day.today{ border-color:#D0D5DD !important; font-weight:600; }
-  .flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange {
-    background:#2E90FA !important; border-color:#2E90FA !important; color:#fff !important; font-weight:600;
+  /* Breadcrumb strip */
+  .gd-breadcrumb {
+    display:flex; align-items:center; gap:14px;
+    padding:14px 20px; margin-bottom:14px;
+    background:var(--gd-surface); border:.5px solid var(--gd-line);
+    border-radius:var(--gd-radius);
   }
-  .flatpickr-day.inRange { background:#EFF8FF !important; border-color:#EFF8FF !important; color:#175CD3 !important; border-radius:0 !important; box-shadow:-5px 0 0 #EFF8FF,5px 0 0 #EFF8FF !important; }
-  .flatpickr-day.startRange { border-radius:8px 0 0 8px !important; }
-  .flatpickr-day.endRange   { border-radius:0 8px 8px 0 !important; }
-  .flatpickr-day.startRange.endRange { border-radius:8px !important; }
-  .flatpickr-day.disabled   { color:#D0D5DD !important; }
-  .flatpickr-innerContainer { padding:0 8px 10px; }
+  .gd-back-btn {
+    appearance:none; display:inline-flex; align-items:center; gap:6px;
+    padding:7px 11px 7px 9px; border-radius:8px; font-size:13px; font-weight:500;
+    background:var(--gd-surface); border:.5px solid var(--gd-line);
+    color:var(--gd-ink-2); cursor:pointer; text-decoration:none;
+  }
+  .gd-back-btn:hover { background:var(--gd-surface-2); color:var(--gd-ink); }
+  .gd-bc-divider { width:1px; height:22px; background:var(--gd-line); }
+  .gd-bc-nav { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--gd-muted); }
+  .gd-bc-nav .gd-bc-cur { color:var(--gd-ink); }
+  .gd-bc-nav .gd-sep { color:var(--gd-faint); }
+
+  /* Product card */
+  .gd-product {
+    display:flex; align-items:center; gap:18px;
+    background:var(--gd-surface); border:.5px solid var(--gd-line);
+    border-radius:var(--gd-radius); box-shadow:var(--gd-shadow-sm);
+    padding:20px 22px; margin-bottom:14px;
+  }
+  .gd-thumb {
+    width:74px; height:74px; border-radius:14px;
+    background:var(--gd-surface-2); border:.5px solid var(--gd-line);
+    overflow:hidden; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .gd-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .gd-no-img { color:var(--gd-faint); font-size:26px; }
+  .gd-product h1 {
+    margin:0 0 5px; font-size:22px; font-weight:600; letter-spacing:-.01em;
+    color:var(--gd-ink); line-height:1.2;
+  }
+  .gd-meta { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--gd-muted); flex-wrap:wrap; }
+  .gd-meta .gd-id-val { color:var(--gd-ink-2); }
+
+  /* Stat strip */
+  .gd-stats { display:flex; gap:12px; margin-bottom:14px; align-items:stretch; flex-wrap:wrap; }
+  .gd-stat {
+    flex:1 1 0; min-width:220px;
+    background:var(--gd-surface); border:.5px solid var(--gd-line);
+    border-radius:var(--gd-radius); padding:16px 18px;
+    display:flex; flex-direction:column; gap:8px;
+    box-shadow:var(--gd-shadow-sm);
+  }
+  .gd-stat--hero { flex:2.2 1 0; min-width:360px; padding:14px 18px 12px; }
+  .gd-stat-label {
+    font-size:12px; font-weight:500; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--gd-muted);
+  }
+  .gd-stat-value { font-size:36px; font-weight:600; letter-spacing:-.02em; color:var(--gd-ink); line-height:1; }
+  .gd-stat-value--accent { color:var(--gd-red); }
+  .gd-stat-sub { font-size:13px; color:var(--gd-muted); }
+  .gd-stat-row { display:flex; gap:14px; font-size:12.5px; color:var(--gd-muted); }
+  .gd-stat-row .num { color:var(--gd-ink); font-weight:600; }
+
+  .gd-storage-cost {
+    display:inline-flex; align-items:center; gap:6px;
+    margin-top:8px; padding-top:8px;
+    border-top:.5px dashed var(--gd-line);
+    font-size:11.5px; color:var(--gd-muted);
+    white-space:nowrap;
+  }
+  .gd-storage-cost-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--gd-red); opacity:.85; flex-shrink:0;
+  }
+  .gd-storage-cost-label { color:var(--gd-muted); }
+  .gd-storage-cost-val   {
+    color:var(--gd-red); font-weight:600; font-size:12.5px;
+    margin-left:2px;
+  }
+  .gd-storage-cost-unit  { color:var(--gd-faint); }
+
+  .gd-delta-pill {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:2px 8px; border-radius:6px; font-size:12px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .gd-delta-up   { background:var(--gd-green-soft); color:var(--gd-green); }
+  .gd-delta-down { background:var(--gd-red-soft);   color:var(--gd-red); }
+
+  .gd-stat-money { font-size:13px; color:var(--gd-muted); }
+  .gd-stat-money .num { color:var(--gd-ink-2); }
+
+  .gd-stat-profit {
+    display:inline-flex; align-items:center; gap:6px;
+    margin-top:4px; padding:4px 10px;
+    border-radius:6px;
+    font-size:12.5px; color:var(--gd-muted);
+    white-space:nowrap;
+    background:var(--gd-green-soft);
+    width:fit-content;
+  }
+  .gd-stat-profit.is-loss { background:var(--gd-red-soft); }
+  .gd-stat-profit-icon {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--gd-green); flex-shrink:0;
+  }
+  .gd-stat-profit.is-loss .gd-stat-profit-icon { background:var(--gd-red); }
+  .gd-stat-profit-label { color:var(--gd-ink-2); }
+  .gd-stat-profit-val {
+    color:var(--gd-green); font-weight:600; font-size:13px;
+    margin-left:2px;
+  }
+  .gd-stat-profit.is-loss .gd-stat-profit-val { color:var(--gd-red); }
+  .gd-stat-profit-pct {
+    color:var(--gd-green); font-weight:600; font-size:11.5px;
+    padding:0 6px; border-radius:4px;
+    background:rgba(0,0,0,.04);
+  }
+  [data-bs-theme="dark"] .gd-stat-profit-pct { background:rgba(255,255,255,.08); }
+  .gd-stat-profit.is-loss .gd-stat-profit-pct { color:var(--gd-red); }
+
+  /* Hero bar chart */
+  .gd-hero-chart-wrap { margin-top:auto; position:relative; }
+  .gd-hero-chart {
+    width:100%; height:88px; display:block; overflow:visible;
+  }
+  .gd-hero-chart rect.bar { cursor:pointer; transition:opacity .12s; }
+  .gd-hero-chart rect.bar:hover { opacity:.78; }
+  .gd-hero-chart rect.hot { fill:var(--gd-amber); }
+  .gd-chart-axis {
+    display:flex; justify-content:space-between; padding:0 2px;
+    font-size:11px; color:var(--gd-faint); margin-top:2px;
+  }
+  .gd-tooltip {
+    position:absolute; pointer-events:none;
+    background:var(--gd-ink); color:var(--gd-surface);
+    padding:6px 9px; border-radius:7px;
+    font-size:12px; font-weight:500; white-space:nowrap;
+    transform:translate(-50%,-100%); margin-top:-6px;
+    box-shadow:0 4px 14px rgba(0,0,0,.18);
+    opacity:0; transition:opacity .12s;
+    z-index:5;
+  }
+  .gd-tooltip.is-show { opacity:1; }
+  .gd-tooltip .gd-tt-qty { font-variant-numeric:tabular-nums; }
+  .gd-tooltip .gd-tt-date { color:var(--gd-faint); margin-left:6px; font-weight:400; }
+
+  .gd-need-btn {
+    appearance:none; border:0; background:var(--gd-solid-bg); color:var(--gd-solid-fg);
+    padding:5px 10px; border-radius:6px;
+    font-size:11.5px; font-weight:500; cursor:pointer; font-family:inherit;
+    white-space:nowrap;
+  }
+  .gd-need-btn:hover { filter:brightness(1.05); }
+
+  /* Card wrapper */
+  .gd-card {
+    background:var(--gd-surface); border:.5px solid var(--gd-line);
+    border-radius:var(--gd-radius); box-shadow:var(--gd-shadow-md); overflow:hidden;
+  }
+
+  /* Toolbar */
+  .gd-toolbar {
+    display:flex; align-items:center; gap:10px; padding:12px 16px;
+    background:var(--gd-surface); border-bottom:.5px solid var(--gd-line); flex-wrap:wrap;
+  }
+  .gd-toolbar-title { font-size:13px; font-weight:600; color:var(--gd-ink); }
+  .gd-count-pill {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:22px; height:20px; padding:0 6px;
+    background:var(--gd-surface-2); border-radius:6px;
+    font-size:11.5px; font-weight:500; color:var(--gd-muted); font-variant-numeric:tabular-nums;
+  }
+  .gd-sep-v { width:1px; height:22px; background:var(--gd-line); margin:0 4px; }
+
+  .gd-seg {
+    display:inline-flex; padding:3px; background:var(--gd-surface-2);
+    border-radius:9px; border:.5px solid var(--gd-line);
+  }
+  .gd-seg-btn {
+    appearance:none; border:0; background:transparent;
+    padding:5px 12px; border-radius:7px; font-size:12.5px; font-weight:500;
+    color:var(--gd-muted); cursor:pointer; transition:all .15s;
+    white-space:nowrap; font-family:inherit;
+  }
+  .gd-seg-btn.active {
+    background:var(--gd-surface); color:var(--gd-ink);
+    font-weight:600; box-shadow:var(--gd-shadow-sm);
+  }
+
+  .gd-search { position:relative; display:inline-flex; align-items:center; }
+  .gd-search svg { position:absolute; left:10px; color:var(--gd-faint); pointer-events:none; }
+  .gd-search input {
+    appearance:none; width:240px; height:32px; padding:0 12px 0 32px;
+    background:var(--gd-input-bg); border:.5px solid transparent; border-radius:8px;
+    font-size:12.5px; outline:none; color:var(--gd-ink); font-family:inherit;
+  }
+  .gd-search input:focus { border-color:var(--gd-accent); box-shadow:0 0 0 3px var(--gd-accent-soft); }
+
+  .gd-btn {
+    appearance:none; display:inline-flex; align-items:center; gap:6px;
+    padding:0 12px; height:32px; border-radius:8px; font-size:12.5px; font-weight:500;
+    background:var(--gd-surface); color:var(--gd-ink); border:.5px solid var(--gd-line);
+    cursor:pointer; font-family:inherit; box-shadow:var(--gd-shadow-sm);
+  }
+  .gd-btn:hover { background:var(--gd-surface-2); }
+  .gd-btn svg { color:var(--gd-muted); }
+
+  /* Date range picker (compact) */
+  .gd-daterange {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:0 12px; height:32px;
+    background:var(--gd-surface); border:.5px solid var(--gd-line); border-radius:8px;
+    cursor:pointer; font-size:12.5px; color:var(--gd-ink-2);
+    box-shadow:var(--gd-shadow-sm); transition:border-color .15s;
+  }
+  .gd-daterange:hover { border-color:var(--gd-accent); }
+  .gd-daterange.is-active {
+    border-color:var(--gd-accent);
+    box-shadow:var(--gd-shadow-sm), 0 0 0 3px var(--gd-accent-soft);
+  }
+  .gd-daterange svg { color:var(--gd-muted); flex-shrink:0; }
+  .gd-daterange input {
+    border:0; outline:0; background:transparent; color:inherit;
+    font:inherit; min-width:130px; cursor:pointer;
+    text-align:center; padding:0;
+  }
+  .gd-daterange input::placeholder { color:var(--gd-faint); }
+  .gd-dr-clear {
+    appearance:none; border:0; background:transparent; padding:0;
+    color:var(--gd-faint); cursor:pointer; display:none; line-height:0;
+    width:16px; height:16px; align-items:center; justify-content:center;
+    border-radius:4px;
+  }
+  .gd-dr-clear:hover { color:var(--gd-red); background:var(--gd-red-soft); }
+  .gd-daterange.is-active .gd-dr-clear { display:inline-flex; }
+
+  /* Dark-theme flatpickr */
+  [data-bs-theme="dark"] .flatpickr-calendar {
+    background:#131722 !important; border-color:#222838 !important;
+    box-shadow:0 12px 32px rgba(0,0,0,.5) !important;
+  }
+  [data-bs-theme="dark"] .flatpickr-month,
+  [data-bs-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+  [data-bs-theme="dark"] .flatpickr-current-month input.cur-year { color:#f0f3fa !important; }
+  [data-bs-theme="dark"] .flatpickr-weekday { color:#787b86 !important; }
+  [data-bs-theme="dark"] .flatpickr-day { color:#c9cdd9 !important; }
+  [data-bs-theme="dark"] .flatpickr-day:hover { background:#1b2030 !important; border-color:#1b2030 !important; }
+  [data-bs-theme="dark"] .flatpickr-day.selected,
+  [data-bs-theme="dark"] .flatpickr-day.startRange,
+  [data-bs-theme="dark"] .flatpickr-day.endRange {
+    background:#a78bfa !important; border-color:#a78bfa !important; color:#0a0d14 !important;
+  }
+  [data-bs-theme="dark"] .flatpickr-day.inRange { background:rgba(167,139,250,.18) !important; border-color:rgba(167,139,250,.18) !important; color:#f0f3fa !important; }
+  [data-bs-theme="dark"] .flatpickr-prev-month svg,
+  [data-bs-theme="dark"] .flatpickr-next-month svg { fill:#787b86 !important; }
+
+  /* Table: scrollable horizontally, with checkbox + SKU pinned to the left */
+  .gd-table-wrap { overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; }
+  .gd-thead, .gd-row {
+    display:grid;
+    /* Column tracks + min-width are driven by --gd-cols / --gd-min on .gd-scope,
+       so the settings panel can rebuild them when columns are hidden. */
+    grid-template-columns: var(--gd-cols, 40px minmax(280px,1.3fr) 100px 90px 110px 130px 130px 130px 140px 200px 110px 44px);
+    min-width: var(--gd-min, 1540px);
+    padding:0 16px;
+  }
+
+  /* Sticky-left: 1st column (checkbox), 2nd column (SKU + thumb + status) */
+  .gd-thead > div:nth-child(1),
+  .gd-row   > div:nth-child(1) {
+    position:sticky; left:16px; z-index:2;
+  }
+  .gd-thead > div:nth-child(2),
+  .gd-row   > div:nth-child(2) {
+    position:sticky; left:56px; z-index:2;
+    box-shadow:1px 0 0 0 var(--gd-line-2);
+  }
+  /* Backgrounds so sticky cells aren't transparent over scrolling cells */
+  .gd-thead > div:nth-child(1),
+  .gd-thead > div:nth-child(2) {
+    background:var(--gd-surface-2); z-index:4;
+  }
+  .gd-row > div:nth-child(1),
+  .gd-row > div:nth-child(2) {
+    background:var(--gd-surface);
+  }
+  .gd-row:hover > div:nth-child(1),
+  .gd-row:hover > div:nth-child(2) {
+    background:var(--gd-row-hover);
+  }
+  .gd-money {
+    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:13px; color:var(--gd-ink); white-space:nowrap;
+  }
+  .gd-money.is-zero { color:var(--gd-faint); }
+  .gd-money-sub { font-size:11px; color:var(--gd-faint); font-weight:400; margin-left:3px; }
+  .gd-thead {
+    background:var(--gd-surface-2); border-bottom:.5px solid var(--gd-line);
+    font-size:11.5px; font-weight:500; color:var(--gd-muted);
+    letter-spacing:.04em; text-transform:uppercase;
+    position:sticky; top:0; z-index:3;
+  }
+  .gd-th { display:flex; align-items:center; gap:5px; padding:12px 8px; user-select:none; }
+  .gd-th--uzum, .gd-th--fbs, .gd-th--wh { padding-left:10px; padding-right:12px; }
+  .gd-th--uzum { background:var(--gd-uzum-tint); }
+  .gd-th--fbs  { background:var(--gd-uzum-tint); justify-content:flex-end; }
+  .gd-th--wh   { background:var(--gd-wh-tint); justify-content:flex-end; }
+  .gd-th--right { justify-content:flex-end; }
+  .gd-th--center { justify-content:center; }
+  .gd-th-sort { opacity:.4; }
+  .gd-th[data-sort-active="1"] .gd-th-sort { opacity:1; }
+  .gd-th[data-sortable="1"] { cursor:pointer; }
+
+  .gd-row {
+    background:var(--gd-surface);
+    border-bottom:.5px solid var(--gd-line-2);
+    transition:background .12s; color:var(--gd-ink);
+  }
+  .gd-row:hover { background:var(--gd-row-hover); }
+  .gd-row:hover .gd-cell--uzum,
+  .gd-row:hover .gd-cell--fbs,
+  .gd-row:hover .gd-cell--wh { filter:brightness(.985); }
+
+  .gd-cell { display:flex; align-items:center; padding:13px 8px; min-width:0; }
+  .gd-cell--right { justify-content:flex-end; }
+  .gd-cell--center { justify-content:center; }
+  .gd-cell--uzum, .gd-cell--fbs, .gd-cell--wh { padding-left:10px; padding-right:12px; transition:filter .12s; justify-content:flex-end; }
+  .gd-cell--uzum { background:var(--gd-uzum-tint); }
+  .gd-cell--fbs  { background:var(--gd-uzum-tint); }
+  .gd-cell--wh   { background:var(--gd-wh-tint); }
+  .gd-cell--sku  { gap:12px; padding-right:10px; }
+
+  .gd-checkbox {
+    width:15px; height:15px; cursor:pointer;
+    accent-color:var(--gd-accent);
+  }
+
+  .gd-row-thumb {
+    width:44px; height:44px; border-radius:8px;
+    background:var(--gd-surface-2); border:.5px solid var(--gd-line);
+    overflow:hidden; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .gd-row-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .gd-row-thumb .gd-no-img { color:var(--gd-faint); font-size:18px; }
+
+  .gd-sku {
+    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-size:13.5px; font-weight:500; color:var(--gd-ink); white-space:nowrap;
+  }
+  .gd-row-meta {
+    display:flex; align-items:center; gap:8px; margin-top:4px;
+    font-size:12.5px; color:var(--gd-muted);
+  }
+  .gd-color-dot { display:inline-flex; align-items:center; gap:5px; }
+  .gd-color-dot span:first-child {
+    width:9px; height:9px; border-radius:50%;
+    border:.5px solid rgba(0,0,0,.12);
+  }
+  .gd-size-val { color:var(--gd-ink-2); font-weight:500; }
+
+  /* Status pill */
+  .gd-pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:2px 8px 2px 6px; border-radius:999px;
+    font-size:12px; font-weight:500; white-space:nowrap;
+  }
+  .gd-pill-dot { width:6px; height:6px; border-radius:50%; }
+  .gd-pill--ok    { background:var(--gd-green-soft); color:var(--gd-green); }
+  .gd-pill--ok    .gd-pill-dot { background:var(--gd-green); }
+  .gd-pill--low   { background:var(--gd-amber-soft); color:var(--gd-amber); }
+  .gd-pill--low   .gd-pill-dot { background:var(--gd-amber); }
+  .gd-pill--out   { background:var(--gd-red-soft);   color:var(--gd-red); }
+  .gd-pill--out   .gd-pill-dot { background:var(--gd-red); }
+  .gd-pill--stale { background:var(--gd-surface-2);  color:var(--gd-muted); }
+  .gd-pill--stale .gd-pill-dot { background:var(--gd-faint); }
+
+  .gd-stock {
+    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:15px; font-weight:600; color:var(--gd-ink);
+  }
+  .gd-stock.is-zero { color:var(--gd-red); }
+
+  .gd-barcode {
+    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:12.5px; color:var(--gd-ink-2); letter-spacing:.02em;
+  }
+
+  /* Sales cell: mini chart + number */
+  .gd-sales-cell { gap:12px; padding-left:12px; padding-right:8px; justify-content:flex-end; }
+  .gd-sparkline { width:112px; height:24px; display:block; flex-shrink:0; cursor:pointer; overflow:visible; }
+  .gd-sparkline rect.bar { transition:opacity .12s; }
+  .gd-sparkline:hover rect.bar { opacity:.78; }
+  .gd-sales-num {
+    font-variant-numeric:tabular-nums;
+    font-size:15px; font-weight:600; color:var(--gd-ink);
+    min-width:28px; text-align:right;
+  }
+
+  .gd-need { display:inline-flex; align-items:center; gap:5px; font-variant-numeric:tabular-nums; font-weight:600; font-size:13px; }
+  .gd-need-ok  { color:var(--gd-green); }
+  .gd-need-bad { padding:2px 8px; border-radius:6px; background:var(--gd-red-soft); color:var(--gd-red); }
+  .gd-need-mid { padding:2px 8px; border-radius:6px; background:var(--gd-amber-soft); color:var(--gd-amber); }
+
+  .gd-action-btn {
+    appearance:none; width:28px; height:28px; padding:0;
+    border:.5px solid transparent; background:transparent; border-radius:7px;
+    display:inline-flex; align-items:center; justify-content:center;
+    cursor:pointer; color:var(--gd-muted);
+  }
+  .gd-action-btn:hover { background:var(--gd-surface-2); color:var(--gd-ink); }
+
+  /* Settings drawer */
+  .gd-settings-backdrop {
+    position:fixed; inset:0; z-index:90;
+    background:rgba(15,9,46,.38);
+    opacity:0; pointer-events:none;
+    transition:opacity .18s ease-out;
+  }
+  [data-bs-theme="dark"] .gd-settings-backdrop { background:rgba(0,0,0,.55); }
+  .gd-settings-backdrop.is-open { opacity:1; pointer-events:auto; }
+  .gd-settings-panel {
+    position:fixed; top:0; right:0; bottom:0; width:420px; max-width:96vw;
+    background:var(--gd-surface); color:var(--gd-ink);
+    border-left:.5px solid var(--gd-line);
+    box-shadow:-12px 0 32px rgba(15,9,46,.16);
+    transform:translateX(100%); transition:transform .22s ease-out;
+    display:flex; flex-direction:column;
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  .gd-settings-backdrop.is-open .gd-settings-panel { transform:translateX(0); }
+  .gd-settings-head { padding:22px 24px 14px; }
+  .gd-settings-title { margin:0; font-size:20px; font-weight:600; letter-spacing:-.01em; }
+  .gd-settings-body { flex:1; overflow-y:auto; padding:6px 24px 20px; }
+  .gd-settings-section {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 0 8px; font-size:13px; color:var(--gd-muted);
+  }
+  .gd-settings-show-all {
+    appearance:none; background:transparent; border:0; padding:0;
+    color:var(--gd-accent); font-size:13px; font-weight:500; cursor:pointer;
+    font-family:inherit;
+  }
+  .gd-settings-show-all:hover { text-decoration:underline; }
+  .gd-settings-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 0; border-top:.5px solid var(--gd-line-2);
+    font-size:14.5px; color:var(--gd-ink);
+  }
+  .gd-settings-row:first-child { border-top:0; }
+  .gd-settings-row.is-locked .gd-settings-toggle { cursor:not-allowed; color:var(--gd-muted); }
+  .gd-settings-row.is-draggable { cursor:grab; }
+  .gd-settings-row.is-draggable:active { cursor:grabbing; }
+  .gd-settings-row.is-dragging { opacity:.45; }
+  .gd-settings-row.drag-over { background:var(--gd-accent-soft); border-radius:6px; }
+  .gd-settings-grip { color:var(--gd-faint); flex-shrink:0; }
+  .gd-settings-row.is-draggable:hover .gd-settings-grip { color:var(--gd-muted); }
+  .gd-settings-grip-placeholder { display:inline-block; width:14px; height:14px; flex-shrink:0; }
+  .gd-settings-label { display:inline-flex; align-items:center; gap:8px; }
+  .gd-settings-q {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:15px; height:15px; border-radius:50%;
+    background:var(--gd-surface-2); color:var(--gd-muted);
+    font-size:10px; font-weight:600; cursor:help;
+  }
+  .gd-settings-toggle {
+    appearance:none; background:transparent; border:0; padding:6px;
+    color:var(--gd-muted); cursor:pointer; border-radius:8px;
+    display:inline-flex; align-items:center; justify-content:center;
+    transition:background .12s, color .12s;
+  }
+  .gd-settings-toggle:hover { background:var(--gd-surface-2); color:var(--gd-ink); }
+  .gd-settings-toggle.is-hidden { color:var(--gd-faint); }
+  .gd-settings-foot {
+    display:flex; gap:8px; justify-content:flex-end;
+    padding:16px 24px; border-top:.5px solid var(--gd-line);
+  }
+  .gd-settings-btn {
+    appearance:none; padding:9px 18px; border-radius:8px;
+    font-size:13.5px; font-weight:500; cursor:pointer;
+    border:.5px solid var(--gd-line); background:var(--gd-surface-2); color:var(--gd-ink);
+    font-family:inherit;
+  }
+  .gd-settings-btn:hover { background:var(--gd-surface); }
+  .gd-settings-btn--primary {
+    background:var(--gd-accent); color:#fff; border-color:var(--gd-accent);
+  }
+  .gd-settings-btn--primary:hover { filter:brightness(1.08); }
+
+  .gd-footer {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; background:var(--gd-surface-2);
+    border-top:.5px solid var(--gd-line);
+    font-size:13.5px; color:var(--gd-muted);
+  }
+  .gd-footer .num { color:var(--gd-ink); font-weight:500; font-variant-numeric:tabular-nums; }
+  .gd-footer .num.warn { color:var(--gd-red); font-weight:600; font-family:'Geist Mono',monospace; }
+
+  .gd-loading { color:var(--gd-accent); font-size:13px; }
+  @keyframes gd-spin { to { transform:rotate(360deg); } }
+  .gd-spin { display:inline-block; animation:gd-spin .8s linear infinite; }
+  .gd-empty { padding:40px 16px; text-align:center; color:var(--gd-muted); font-size:14px; }
+
+  /* Flatpickr in dark theme */
+  .gd-scope[data-gd-theme="trader"] ~ .flatpickr-calendar,
+  body[data-bs-theme="dark"] .flatpickr-calendar {
+    background:#131722 !important; border-color:#222838 !important;
+    box-shadow:0 12px 32px rgba(0,0,0,.5) !important;
+  }
 </style>
 
-<!-- Product header -->
-<div class="product-header-card">
-  {% if group.image_url %}
-    <img src="{{ group.image_url | uzum540 }}" alt="" loading="eager" width="72" height="72" fetchpriority="high">
-  {% else %}
-    <div class="no-img"></div>
-  {% endif %}
-  <div class="flex-grow-1" style="min-width:0;">
-    <h5 class="mb-1 fw-semibold text-truncate">{{ group.name }}</h5>
-    <div class="text-secondary small">
-      Uzum ID: {{ group.uzum_product_id or "—" }} &nbsp;·&nbsp; {{ t.common_category }}: {{ group.category or "—" }}
-    </div>
+<div class="gd-scope" id="gdScope">
+
+  <div class="gd-tooltip" id="rowTooltip" style="position:fixed;">
+    <span class="gd-tt-qty">0 шт.</span><span class="gd-tt-date">—</span>
   </div>
-  <a href="/groups" class="btn btn-outline-secondary btn-sm flex-shrink-0">{{ t.detail_back_link }}</a>
-</div>
 
-<!-- SKU card -->
-<div class="card">
-  <div class="card-body p-0">
 
-    <!-- Controls -->
-    <div class="px-3 pt-3 pb-2">
-      <div class="d-flex align-items-center justify-content-between mb-2">
-        <div>
-          <span class="fw-semibold">{{ t.detail_sku_table }}</span>
-          <span class="text-secondary small ms-2">{{ variants | length }} {{ t.detail_variants }}</span>
-        </div>
-        <span id="loadingIndicator" class="text-primary small" style="display:none;">
-          <span class="spin-icon">⟳</span> {{ t.common_loading }}
+  <!-- Breadcrumb -->
+  <div class="gd-breadcrumb">
+    <a href="/groups" class="gd-back-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Назад</span>
+    </a>
+    <span class="gd-bc-divider"></span>
+    <nav class="gd-bc-nav">
+      <span>Каталог</span>
+      <span class="gd-sep">/</span>
+      <span class="gd-bc-cur">{{ group.name }}</span>
+    </nav>
+  </div>
+
+  <!-- Product card with style switcher -->
+  <div class="gd-product">
+    <div class="gd-thumb">
+      {% if group.image_url %}
+        <img src="{{ group.image_url | uzum540 }}" alt="" loading="eager" width="74" height="74" fetchpriority="high">
+      {% else %}<span class="gd-no-img">⌬</span>{% endif %}
+    </div>
+    <div style="min-width:0; flex:1;">
+      <h1>{{ group.name }}</h1>
+      <div class="gd-meta">
+        <span>Uzum ID: <span class="mono gd-id-val">{{ group.uzum_product_id or "—" }}</span></span>
+        {% if group.category %}<span style="color:var(--gd-faint)">·</span><span>{{ group.category }}</span>{% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Stat strip -->
+  <div class="gd-stats">
+    <!-- Hero -->
+    <div class="gd-stat gd-stat--hero">
+      <div class="gd-stat-label" id="statSalesLabel">Продажи за 30 дн.</div>
+      <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+        <span class="gd-stat-value tnum" id="statSalesValue">0</span>
+        <span class="gd-stat-sub">шт.</span>
+        <span class="gd-delta-pill gd-delta-up" id="statDelta" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="statDeltaVal">0%</span>
         </span>
       </div>
-
-      <div class="d-flex flex-wrap gap-2 align-items-center">
-        <div class="days-toggle">
-          <button class="preset-btn" data-days="7">7 {{ t.detail_days_short }}</button>
-          <button class="preset-btn" data-days="10">10 {{ t.detail_days_short }}</button>
-          <button class="preset-btn" data-days="15">15 {{ t.detail_days_short }}</button>
-          <button class="preset-btn active" data-days="30">30 {{ t.detail_days_short }}</button>
-          <button class="preset-btn" data-days="60">60 {{ t.detail_days_short }}</button>
-          <button class="preset-btn" data-days="90">90 {{ t.detail_days_short }}</button>
+      <div class="gd-stat-money">
+        <span class="num tnum" id="statRevenue">0 сум</span>
+        <span> · ср. чек </span>
+        <span class="num tnum" id="statAvgCheck">0 сум</span>
+      </div>
+      <div class="gd-stat-profit" id="statProfitWrap" style="display:none;">
+        <span class="gd-stat-profit-icon"></span>
+        <span class="gd-stat-profit-label">Прибыль</span>
+        <span class="gd-stat-profit-val tnum mono" id="statProfit">0 сум</span>
+        <span class="gd-stat-profit-pct tnum" id="statProfitPct">0%</span>
+      </div>
+      <div class="gd-hero-chart-wrap" id="heroChartWrap">
+        <svg class="gd-hero-chart" id="heroChart" viewBox="0 0 600 88" preserveAspectRatio="none"></svg>
+        <div class="gd-tooltip" id="chartTooltip">
+          <span class="gd-tt-qty">0 шт.</span><span class="gd-tt-date">—</span>
         </div>
-        <div class="date-range-wrapper" id="dateRangeWrapper">
-          <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
-          <span class="arrow">▼</span>
+        <div class="gd-chart-axis" id="heroAxis">
+          <span>−30д</span><span>−15д</span><span>сегодня</span>
         </div>
-        <input type="hidden" id="dateFrom">
-        <input type="hidden" id="dateTo">
-        <button class="apply-btn" id="btnApply">{{ t.detail_show_btn }}</button>
       </div>
     </div>
 
-    <!-- Table: SKU | Color/Size | Status | Uzum | Warehouse | Barcode | Sales -->
-    <div id="sku-table-wrapper">
-      <table class="table table-hover align-middle mb-0">
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th class="text-center">{{ t.detail_color }} / {{ t.detail_size }}</th>
-            <th class="text-center">{{ t.common_status }}</th>
-            <th class="text-center" style="background-color:#e6e6fa;">Uzum</th>
-            <th class="text-center" style="background-color:#e0ffff;">{{ t.detail_wh_qty }}</th>
-            <th class="text-center">{{ t.detail_barcode }}</th>
-            <th class="text-center" id="salesHeader">{{ t.detail_sales_label }} 30 {{ t.detail_days_short }}</th>
-          </tr>
-        </thead>
-        <tbody id="skuTbody">
-          {% for v in variants %}
-          {% set s30 = sales_30d_map.get(v.id, 0) %}
-          {% set wh  = v.warehouse_quantity or 0 %}
-          <tr data-vid="{{ v.id }}" data-wh="{{ wh }}" data-s30="{{ s30 }}">
-            <td class="fw-semibold">{{ v.sku }}</td>
-            <td class="text-center text-muted">
-              {%- if v.color and v.size -%}{{ v.color }} / {{ v.size }}
-              {%- elif v.color -%}{{ v.color }}
-              {%- elif v.size  -%}{{ v.size }}
-              {%- else -%}—{%- endif -%}
-            </td>
-            <td class="text-center">
-              {% if v.status %}<span class="badge bg-light text-dark border">{{ v.status }}</span>
-              {% else %}<span class="text-muted">—</span>{% endif %}
-            </td>
-            <td class="text-center fw-semibold" style="background-color:#e6e6fa;">{{ v.uzum_quantity }}</td>
-            <td class="text-center fw-semibold stock-cell" style="background-color:#e0ffff;">
-              {%- if s30 > 0 -%}
-                {%- if wh < s30 / 2 %}<span class="text-danger">{{ wh }}</span>
-                {%- elif wh < s30 %}<span class="text-warning">{{ wh }}</span>
-                {%- else %}<span class="text-success">{{ wh }}</span>{%- endif -%}
-              {%- else -%}{{ wh }}{%- endif -%}
-            </td>
-            <td class="text-muted font-monospace text-center" style="font-size:0.75rem;">{{ v.barcode or "—" }}</td>
-            <td class="text-center fw-semibold sales-cell">{{ s30 }}</td>
-          </tr>
-          {% endfor %}
-          {% if not variants %}
-          <tr><td colspan="7" class="text-secondary text-center py-4">{{ t.detail_no_skus }}</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
+    <!-- Stock -->
+    <div class="gd-stat">
+      <div class="gd-stat-label">Склад</div>
+      <div style="display:flex; align-items:baseline; gap:10px;">
+        <span class="gd-stat-value tnum" id="statStockTotal">0</span>
+        <span class="gd-stat-sub">шт. всего</span>
+      </div>
+      <div class="gd-stat-row" style="margin-top:auto;">
+        <span>Uzum <span class="num mono tnum" id="statUzum">0</span></span>
+        <span>Наш склад <span class="num mono tnum" id="statWh">0</span></span>
+      </div>
+      <div class="gd-storage-cost" id="statStorageCostWrap" style="display:none;">
+        <span class="gd-storage-cost-dot"></span>
+        <span class="gd-storage-cost-label">Платное хранение</span>
+        <span class="gd-storage-cost-val tnum mono" id="statStorageCost">0 сум</span>
+        <span class="gd-storage-cost-unit">в день</span>
+      </div>
     </div>
 
+    <!-- Need -->
+    <div class="gd-stat">
+      <div class="gd-stat-label">Нужно заказать</div>
+      <div style="display:flex; align-items:baseline; gap:10px;">
+        <span class="gd-stat-value gd-stat-value--accent tnum" id="statNeed">0</span>
+        <span class="gd-stat-sub">шт. на 60 дн.</span>
+      </div>
+      <div class="gd-stat-row" style="margin-top:auto; align-items:center; justify-content:space-between;">
+        <span style="font-size:11.5px; color:var(--gd-muted);"><span class="tnum" id="statAttention">0</span> SKU требуют внимания</span>
+        <button class="gd-need-btn" id="createOrderBtn">Создать заказ →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar + table -->
+  <div class="gd-card">
+
+    <div class="gd-toolbar">
+      <span class="gd-toolbar-title">Все варианты</span>
+      <span class="gd-count-pill" id="variantCountPill">{{ variants | length }}</span>
+      <span class="gd-sep-v"></span>
+      <div class="gd-seg" id="periodSeg">
+        <button class="gd-seg-btn"        data-days="7">7 дн.</button>
+        <button class="gd-seg-btn"        data-days="10">10 дн.</button>
+        <button class="gd-seg-btn"        data-days="15">15 дн.</button>
+        <button class="gd-seg-btn active" data-days="30">30 дн.</button>
+        <button class="gd-seg-btn"        data-days="60">60 дн.</button>
+        <button class="gd-seg-btn"        data-days="90">90 дн.</button>
+      </div>
+
+      <div class="gd-daterange" id="dateRangeWrapper" title="{{ t.detail_period_select }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
+        <button class="gd-dr-clear" id="dateRangeClear" title="Сбросить">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div style="flex:1;"></div>
+
+      <div class="gd-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input type="text" id="searchInput" placeholder="Поиск по SKU, размеру, штрихкоду…">
+      </div>
+
+      <button class="gd-btn" id="exportBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Экспорт
+      </button>
+
+      <button class="gd-btn" id="settingsBtn" title="Настройки таблицы" style="padding:0; width:32px; justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M19.4 14.2a7.7 7.7 0 000-4.4l2-1.5-2-3.5-2.4.9a7.7 7.7 0 00-3.8-2.2L12.7 1h-1.4l-.5 2.5a7.7 7.7 0 00-3.8 2.2l-2.4-.9-2 3.5 2 1.5a7.7 7.7 0 000 4.4l-2 1.5 2 3.5 2.4-.9a7.7 7.7 0 003.8 2.2l.5 2.5h1.4l.5-2.5a7.7 7.7 0 003.8-2.2l2.4.9 2-3.5-2-1.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <span id="loadingIndicator" class="gd-loading" style="display:none;">
+        <span class="gd-spin">⟳</span> {{ t.common_loading }}
+      </span>
+    </div>
+
+    <!-- Table -->
+    <div class="gd-table-wrap">
+    <div class="gd-thead">
+      <div class="gd-th gd-th--center" data-col="checkbox">
+        <input type="checkbox" class="gd-checkbox" id="checkAll">
+      </div>
+      <div class="gd-th" data-col="sku" data-sortable="1" data-sort-key="color">
+        SKU · Статус
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--uzum gd-th--right" data-col="uzum_fbo" data-sortable="1" data-sort-key="uzum">
+        Uzum FBO
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--fbs" data-col="fbs" data-sortable="1" data-sort-key="fbs">
+        FBS
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--wh" data-col="wh" data-sortable="1" data-sort-key="wh">
+        {{ t.detail_wh_qty }}
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--right" data-col="sell" data-sortable="1" data-sort-key="sell">
+        Цена Uzum
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--right" data-col="purchase" data-sortable="1" data-sort-key="purchase">
+        Себестоимость
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--right" data-col="storage" data-sortable="1" data-sort-key="storage">
+        Платное хранение
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--right" data-col="comm" data-sortable="1" data-sort-key="comm">
+        Комиссия Uzum
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th" data-col="barcode">{{ t.detail_barcode }}</div>
+      <div class="gd-th gd-th--right" id="salesHeader" data-col="sales" data-sortable="1" data-sort-key="sales">
+        Продажи 30 дн.
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th gd-th--right" data-col="need" data-sortable="1" data-sort-key="need">
+        Нужно (60д)
+        <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="gd-th" data-col="actions"></div>
+    </div>
+
+    <!-- Rows -->
+    <div id="skuTbody">
+      {% for v in variants %}
+      {% set s30  = sales_30d_map.get(v.id, 0) %}
+      {% set wh   = v.warehouse_quantity or 0 %}
+      {% set uq   = v.uzum_quantity or 0 %}
+      {% set fbs  = v.quantity_fbs if v.quantity_fbs is not none else None %}
+      {% set pur  = cost_map.get(v.id, 0) %}
+      {% set sell = v.price_sum or 0 %}
+      {% set stor = v.paid_storage_amount or 0 %}
+      <div class="gd-row"
+           data-vid="{{ v.id }}"
+           data-sku="{{ v.sku|lower }}"
+           data-color="{{ v.color or '' }}"
+           data-size="{{ v.size or '' }}"
+           data-barcode="{{ v.barcode or '' }}"
+           data-wh="{{ wh }}"
+           data-uq="{{ uq }}"
+           data-fbs="{{ fbs if fbs is not none else '' }}"
+           data-purchase="{{ pur }}"
+           data-sell="{{ sell }}"
+           data-storage="{{ stor }}"
+           data-s30="{{ s30 }}">
+
+        <div class="gd-cell gd-cell--center" data-col="checkbox">
+          <input type="checkbox" class="gd-checkbox gd-row-check">
+        </div>
+
+        <div class="gd-cell gd-cell--sku" data-col="sku">
+          <div class="gd-row-thumb">
+            {% if v.image_url %}<img src="{{ v.image_url | uzum540 }}" alt="" loading="lazy">
+            {% elif group.image_url %}<img src="{{ group.image_url | uzum540 }}" alt="" loading="lazy">
+            {% else %}<span class="gd-no-img">⌬</span>{% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span class="gd-sku">{{ v.sku }}</span>
+              <span class="gd-status-pill"></span>
+            </div>
+            {% if v.color or v.size %}
+            <div class="gd-row-meta">
+              {% if v.color %}
+                <span class="gd-color-dot"><span data-color-dot="{{ v.color }}"></span>{{ v.color }}</span>
+              {% endif %}
+              {% if v.color and v.size %}<span style="color:var(--gd-faint)">·</span>{% endif %}
+              {% if v.size %}<span>{{ t.detail_size }} <span class="gd-size-val">{{ v.size }}</span></span>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="gd-cell gd-cell--uzum" data-col="uzum_fbo">
+          <span class="gd-stock {% if uq == 0 %}is-zero{% endif %}">{{ uq }}</span>
+        </div>
+
+        <div class="gd-cell gd-cell--fbs" data-col="fbs">
+          {% if fbs is none %}
+            <span class="gd-stock is-zero" style="color:var(--gd-faint)">—</span>
+          {% else %}
+            <span class="gd-stock {% if fbs == 0 %}is-zero{% endif %}">{{ fbs }}</span>
+          {% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--wh" data-col="wh">
+          <span class="gd-stock {% if wh == 0 %}is-zero{% endif %} stock-cell">{{ wh }}</span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="sell">
+          <span class="gd-money {% if sell == 0 %}is-zero{% endif %}">
+            {% if sell > 0 %}{{ '{:,}'.format(sell).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+          </span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="purchase">
+          <span class="gd-money {% if pur == 0 %}is-zero{% endif %}">
+            {% if pur > 0 %}{{ '{:,}'.format(pur).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+          </span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="storage">
+          <span class="gd-money {% if stor == 0 %}is-zero{% endif %}">
+            {% if stor > 0 %}{{ '{:,}'.format(stor).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+          </span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="comm">
+          <span class="gd-money gd-comm-cell is-zero">—</span>
+        </div>
+
+        <div class="gd-cell" data-col="barcode">
+          <span class="gd-barcode">{{ v.barcode or "—" }}</span>
+        </div>
+
+        <div class="gd-cell gd-sales-cell" data-col="sales">
+          <svg class="gd-sparkline" data-vid="{{ v.id }}" viewBox="0 0 112 24" preserveAspectRatio="none"></svg>
+          <span class="gd-sales-num sales-cell">{{ s30 }}</span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="need">
+          <span class="gd-need-wrap"></span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="actions">
+          <button class="gd-action-btn" title="{{ t.common_actions }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if not variants %}
+      <div class="gd-empty">{{ t.detail_no_skus }}</div>
+      {% endif %}
+    </div>
+    </div><!-- /.gd-table-wrap -->
+
+    <div class="gd-footer">
+      <span>Показано <span class="num" id="footerShown">{{ variants | length }}</span> вариантов</span>
+      <span>Нужно заказать (60д): <span class="num warn" id="footerNeed">0</span> шт.</span>
+    </div>
+  </div>
+
+  <!-- Settings drawer -->
+  <div class="gd-settings-backdrop" id="settingsBackdrop">
+    <div class="gd-settings-panel" role="dialog" aria-labelledby="settingsTitle" onclick="event.stopPropagation()">
+      <div class="gd-settings-head">
+        <h2 class="gd-settings-title" id="settingsTitle">Настройки таблицы</h2>
+      </div>
+      <div class="gd-settings-body">
+        <div class="gd-settings-section">
+          <span>Отображается</span>
+        </div>
+        <div id="settingsShown"></div>
+        <div class="gd-settings-section">
+          <span>Скрыто</span>
+          <button class="gd-settings-show-all" id="settingsShowAll" type="button">Показать все</button>
+        </div>
+        <div id="settingsHidden"></div>
+      </div>
+      <div class="gd-settings-foot">
+        <button class="gd-settings-btn" id="settingsCancel" type="button">Отменить</button>
+        <button class="gd-settings-btn gd-settings-btn--primary" id="settingsApply" type="button">Применить</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
 <script>
+console.log('[group_detail] new build v2026-05-26-2 loaded');
 const GROUP_ID = {{ group.id }};
 const PRESETS = [7, 10, 15, 30, 60, 90];
-const _SALES_LABEL = '{{ t.detail_sales_label }}';
-const _DAYS_SHORT = '{{ t.detail_days_short }}';
-const salesCache = {};  // { "days_7": {vid: qty, ...}, "days_30": ..., "2024-01-01_2024-01-31": ... }
+const salesCache = {};
+const dailyCache = {};
+const SALES_LABEL = '{{ t.detail_sales_label }}';
+const DAYS_SHORT  = '{{ t.detail_days_short }}';
 
-// Store the server-rendered 30-day data as cache
-(function() {
-  const map30 = {};
-  document.querySelectorAll('#skuTbody tr[data-vid]').forEach(tr => {
-    map30[parseInt(tr.dataset.vid)] = parseInt(tr.dataset.s30 || 0);
+// Page theme is driven entirely by the global [data-bs-theme] toggle —
+// light → Uzum, dark → Трейдер. Re-paint SVG bars when the user flips it.
+const scope = document.getElementById('gdScope');
+new MutationObserver(() => { redrawHeroChart(); redrawAllSparklines(); })
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+
+// ── Color palette ──────────────────────────────────────
+const COLOR_CHIPS = {
+  'Золотой':'#f4c95d', 'Серебряный':'#c9ced6', 'Чёрный':'#1f2937', 'Черный':'#1f2937',
+  'Розовое золото':'#e8b4a3', 'Белый':'#f4f4f5', 'Красный':'#dc2626',
+  'Синий':'#2563eb', 'Голубой':'#38bdf8', 'Зелёный':'#16a34a', 'Зеленый':'#16a34a',
+  'Жёлтый':'#facc15', 'Желтый':'#facc15', 'Розовый':'#ec4899',
+  'Фиолетовый':'#a855f7', 'Оранжевый':'#fb923c', 'Коричневый':'#92400e', 'Серый':'#71717a',
+  'Бежевый':'#e6c79c', 'Бордовый':'#7f1d1d', 'Хаки':'#65a30d', 'Мятный':'#6ee7b7',
+};
+function colorChipFor(name){
+  if (!name) return '#a1a1aa';
+  if (COLOR_CHIPS[name]) return COLOR_CHIPS[name];
+  let h = 0; for (const c of name) h = ((h*31) + c.charCodeAt(0)) | 0;
+  return `hsl(${Math.abs(h)%360} 50% 55%)`;
+}
+
+// ── Seed sales cache from server-rendered 30d ──────────
+(function(){
+  const m = {};
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    m[parseInt(tr.dataset.vid)] = parseInt(tr.dataset.s30 || 0);
   });
-  salesCache['days_30'] = map30;
+  salesCache['days_30'] = m;
 })();
 
-function toISO(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// ── Status helper ──────────────────────────────────────
+const PILL_LABELS = { ok:'Активен', low:'Заканчивается', out:'Нет в наличии', stale:'Нет продаж' };
+function statusFor(uq, wh, s){
+  if (uq === 0 && wh === 0) return 'out';
+  if (uq <= 2)              return 'low';
+  if (s === 0)              return 'stale';
+  return 'ok';
 }
 
-function whColor(wh, sales) {
-  if (sales <= 0) return String(wh);
-  if (wh < sales / 2) return `<span class="text-danger">${wh}</span>`;
-  if (wh < sales)     return `<span class="text-warning">${wh}</span>`;
-  return `<span class="text-success">${wh}</span>`;
-}
-
-function applySalesData(map, label) {
-  document.querySelectorAll('#skuTbody tr[data-vid]').forEach(tr => {
-    const qty = map[parseInt(tr.dataset.vid)] ?? 0;
-    const wh  = parseInt(tr.dataset.wh || 0);
-    tr.querySelector('.sales-cell').textContent = qty;
-    tr.querySelector('.stock-cell').innerHTML   = whColor(wh, qty);
+function paintColors(){
+  document.querySelectorAll('[data-color-dot]').forEach(el => {
+    el.style.background = colorChipFor(el.dataset.colorDot);
   });
-  document.getElementById('salesHeader').textContent = label;
 }
 
-async function fetchSales(params) {
-  // Build cache key
-  const cacheKey = params.date_from
-    ? `${params.date_from}_${params.date_to}`
-    : `days_${params.days}`;
+function paintRowStatusesAndNeeds(){
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    const uq  = parseInt(tr.dataset.uq || 0);
+    const wh  = parseInt(tr.dataset.wh || 0);
+    const s   = parseInt(tr.querySelector('.sales-cell').textContent || 0);
+    const s30 = parseInt(tr.dataset.s30 || 0);
+    const st  = statusFor(uq, wh, s);
+    const pillEl = tr.querySelector('.gd-status-pill');
+    if (!pillEl) return;
+    // Keep `gd-status-pill` in the className so this selector keeps working
+    // on subsequent re-paints.
+    pillEl.className = `gd-status-pill gd-pill gd-pill--${st}`;
+    pillEl.innerHTML = `<span class="gd-pill-dot"></span>${PILL_LABELS[st]}`;
 
-  // If cached, apply instantly
+    const need = Math.max(0, Math.round((s30/30)*60 - uq - wh));
+    const wrap = tr.querySelector('.gd-need-wrap');
+    if (need <= 0) {
+      wrap.innerHTML = `<span class="gd-need gd-need-ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>хватает</span>`;
+    } else {
+      const cls = need >= 10 ? 'gd-need-bad' : 'gd-need-mid';
+      wrap.innerHTML = `<span class="gd-need ${cls}">+${need} шт.</span>`;
+    }
+  });
+}
+
+// ── Stats recompute (visible rows) ──────────────────────
+function recomputeStats(periodDays){
+  let totalSales=0, totalUzum=0, totalWh=0, need=0, attention=0, skusWithSales=0, shown=0, totalStorage=0;
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    if (tr.style.display === 'none') return;
+    shown++;
+    const uq = parseInt(tr.dataset.uq||0);
+    const wh = parseInt(tr.dataset.wh||0);
+    const s  = parseInt(tr.querySelector('.sales-cell').textContent||0);
+    const s30= parseInt(tr.dataset.s30||0);
+    totalSales += s; totalUzum += uq; totalWh += wh;
+    totalStorage += parseInt(tr.dataset.storage||0);
+    if (s > 0) skusWithSales++;
+    const st = statusFor(uq, wh, s);
+    if (st === 'low' || st === 'out') attention++;
+    need += Math.max(0, Math.round((s30/30)*60 - uq - wh));
+  });
+  const fmt = n => new Intl.NumberFormat('ru-RU').format(n);
+  const fmtMoneyShort = n => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' сум';
+  document.getElementById('statSalesLabel').textContent = `Продажи за ${periodDays} ${DAYS_SHORT}`;
+  document.getElementById('statSalesValue').textContent = fmt(totalSales);
+  document.getElementById('statStockTotal').textContent = fmt(totalUzum + totalWh);
+  document.getElementById('statUzum').textContent = fmt(totalUzum);
+  document.getElementById('statWh').textContent   = fmt(totalWh);
+  document.getElementById('statNeed').textContent = fmt(need);
+  document.getElementById('statAttention').textContent = fmt(attention);
+  document.getElementById('footerShown').textContent = fmt(shown);
+  document.getElementById('footerNeed').textContent  = fmt(need);
+  document.getElementById('variantCountPill').textContent = fmt(shown);
+  // Paid-storage daily cost — only show if non-zero
+  const sWrap = document.getElementById('statStorageCostWrap');
+  if (totalStorage > 0) {
+    document.getElementById('statStorageCost').textContent = fmtMoneyShort(totalStorage);
+    sWrap.style.display = '';
+  } else {
+    sWrap.style.display = 'none';
+  }
+}
+
+// ── Search filter ───────────────────────────────────────
+function applyFilter(){
+  const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    let ok = true;
+    if (q) {
+      const blob = (tr.dataset.sku+' '+tr.dataset.size+' '+tr.dataset.color+' '+tr.dataset.barcode).toLowerCase();
+      if (!blob.includes(q)) ok = false;
+    }
+    tr.style.display = ok ? '' : 'none';
+  });
+  recomputeStats(currentPeriod);
+}
+
+// ── Sales fetch + apply ─────────────────────────────────
+function applySalesData(map, label, periodDays){
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    const qty = map[parseInt(tr.dataset.vid)] ?? 0;
+    tr.querySelector('.sales-cell').textContent = qty;
+  });
+  document.getElementById('salesHeader').childNodes[0].nodeValue = label;
+  paintRowStatusesAndNeeds();
+  recomputeStats(periodDays);
+}
+
+let currentPeriod = 30;
+
+async function fetchSales(params){
+  const cacheKey = params.date_from ? `${params.date_from}_${params.date_to}` : `days_${params.days}`;
+  if (params.days) currentPeriod = params.days;
   if (salesCache[cacheKey]) {
     const label = params.date_from
-      ? `${_SALES_LABEL} ${params.date_from} — ${params.date_to}`
-      : `${_SALES_LABEL} ${params.days} ${_DAYS_SHORT}`;
-    applySalesData(salesCache[cacheKey], label);
+      ? `${SALES_LABEL} ${params.date_from} — ${params.date_to}`
+      : `${SALES_LABEL} ${params.days} ${DAYS_SHORT}`;
+    applySalesData(salesCache[cacheKey], label, params.days || 30);
+    if (params.days) fetchDaily({ days: params.days });
+    else if (params.date_from) fetchDaily({ date_from: params.date_from, date_to: params.date_to });
     return;
   }
-
   const ind = document.getElementById('loadingIndicator');
   ind.style.display = '';
   document.querySelectorAll('.sales-cell').forEach(td => td.style.opacity = '0.4');
@@ -242,71 +1094,595 @@ async function fetchSales(params) {
     (data.sales || []).forEach(r => { map[r.variant_id] = r.qty; });
     salesCache[cacheKey] = map;
     const label = params.date_from
-      ? `${_SALES_LABEL} ${params.date_from} — ${params.date_to}`
-      : `${_SALES_LABEL} ${params.days} ${_DAYS_SHORT}`;
-    applySalesData(map, label);
-  } catch(e) { alert('Ошибка: ' + e.message); }
+      ? `${SALES_LABEL} ${params.date_from} — ${params.date_to}`
+      : `${SALES_LABEL} ${params.days} ${DAYS_SHORT}`;
+    applySalesData(map, label, params.days || 30);
+    if (params.days) fetchDaily({ days: params.days });
+    else if (params.date_from) fetchDaily({ date_from: params.date_from, date_to: params.date_to });
+  } catch(e){ alert('Ошибка: ' + e.message); }
   finally {
     ind.style.display = 'none';
     document.querySelectorAll('.sales-cell').forEach(td => td.style.opacity = '');
   }
 }
 
-// Preload all preset periods in background after page fully loads (images etc.)
+// ── Hero chart + per-row sparkline (daily-stats endpoint) ─
+let heroData = null; // last fetched daily-stats payload
+
+function fmtMoney(n){ return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' сум'; }
+
+function fmtRuShortDate(iso){
+  // ISO "2026-05-26" → "26 мая"
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'long' }).format(d);
+}
+
+function redrawHeroChart(){
+  if (!heroData) return;
+  const svg  = document.getElementById('heroChart');
+  const wrap = document.getElementById('heroChartWrap');
+  const tip  = document.getElementById('chartTooltip');
+  const arr  = heroData.group_daily || [];
+  const labels = heroData.day_labels || [];
+
+  const W = 600, H = 88, pad = 4;
+  const slot = (W - pad*2) / Math.max(1, arr.length);
+  const barW = Math.max(2, slot - 2);
+  const max  = Math.max(1, ...arr);
+  const color = getComputedStyle(scope).getPropertyValue('--gd-bar').trim() || '#7000ff';
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '';
+  arr.forEach((v, i) => {
+    const h = Math.max(2, Math.round((v / max) * (H - pad*2)));
+    const x = pad + i * slot;
+    const y = H - pad - h;
+    const r = document.createElementNS(svgNS, 'rect');
+    r.setAttribute('class', 'bar');
+    r.setAttribute('x', x.toFixed(1));
+    r.setAttribute('y', y);
+    r.setAttribute('width', barW.toFixed(1));
+    r.setAttribute('height', h);
+    r.setAttribute('rx', '1.5');
+    r.setAttribute('fill', color);
+    r.dataset.idx = i;
+    svg.appendChild(r);
+  });
+
+  // Hover tooltip — track via mousemove on the SVG so empty (zero-height)
+  // bars are still hoverable based on x-position.
+  const showAt = (idx, ev) => {
+    if (idx < 0 || idx >= arr.length) { tip.classList.remove('is-show'); return; }
+    const wrapRect = wrap.getBoundingClientRect();
+    const svgRect  = svg.getBoundingClientRect();
+    const cx = svgRect.left + ((pad + idx * slot + barW/2) / W) * svgRect.width;
+    tip.style.left = (cx - wrapRect.left) + 'px';
+    tip.style.top  = (svgRect.top - wrapRect.top + 4) + 'px';
+    tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(arr[idx]) + ' шт.';
+    tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
+    tip.classList.add('is-show');
+  };
+  svg.onmousemove = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const xLocal = ((ev.clientX - r.left) / r.width) * W;
+    const idx = Math.max(0, Math.min(arr.length - 1, Math.floor((xLocal - pad) / slot)));
+    showAt(idx, ev);
+  };
+  svg.onmouseleave = () => tip.classList.remove('is-show');
+
+  // axis labels
+  const n = arr.length;
+  document.getElementById('heroAxis').innerHTML =
+    `<span>−${n-1}д</span><span>−${Math.floor((n-1)/2)}д</span><span>сегодня</span>`;
+}
+
+const SPARK_W = 112, SPARK_H = 24, SPARK_PAD = 1;
+
+function redrawAllSparklines(){
+  if (!heroData) return;
+  const pvd = heroData.per_variant_daily || {};
+  const color = getComputedStyle(scope).getPropertyValue('--gd-bar').trim() || '#7000ff';
+  document.querySelectorAll('.gd-sparkline').forEach(svg => {
+    const vid = svg.dataset.vid;
+    const arr = pvd[vid] || pvd[String(vid)] || [];
+    const max = Math.max(1, ...arr);
+    const n = Math.max(1, arr.length);
+    const slot = (SPARK_W - SPARK_PAD*2) / n;
+    const barW = Math.max(1, slot - 1);
+
+    // Always-on dotted baseline so empty days are still visually anchored.
+    let html = `<line x1="${SPARK_PAD}" y1="${SPARK_H - SPARK_PAD - 0.5}" x2="${SPARK_W - SPARK_PAD}" y2="${SPARK_H - SPARK_PAD - 0.5}" stroke="currentColor" stroke-opacity=".22" stroke-dasharray="2,2"/>`;
+    arr.forEach((v, i) => {
+      if (v <= 0) return;
+      const h = Math.max(1.5, Math.round((v / max) * (SPARK_H - SPARK_PAD*2)));
+      const x = SPARK_PAD + i * slot;
+      const y = SPARK_H - SPARK_PAD - h;
+      html += `<rect class="bar" x="${x.toFixed(1)}" y="${y}" width="${barW.toFixed(1)}" height="${h}" rx="1" fill="${color}"/>`;
+    });
+    svg.innerHTML = html;
+  });
+}
+
+// Per-row sparkline hover tooltip (shared element, follows cursor).
+(function wireRowSparklineHover(){
+  const tip = document.getElementById('rowTooltip');
+  const fmt = n => new Intl.NumberFormat('ru-RU').format(n);
+  document.getElementById('skuTbody').addEventListener('mousemove', (ev) => {
+    const svg = ev.target.closest('.gd-sparkline');
+    if (!svg || !heroData) { tip.classList.remove('is-show'); return; }
+    const pvd = heroData.per_variant_daily || {};
+    const labels = heroData.day_labels || [];
+    const arr = pvd[svg.dataset.vid] || pvd[String(svg.dataset.vid)] || [];
+    if (!arr.length) { tip.classList.remove('is-show'); return; }
+    const r = svg.getBoundingClientRect();
+    const xLocal = ((ev.clientX - r.left) / r.width) * SPARK_W;
+    const slot = (SPARK_W - SPARK_PAD*2) / arr.length;
+    const idx = Math.max(0, Math.min(arr.length - 1, Math.floor((xLocal - SPARK_PAD) / slot)));
+    // Position tooltip above the bar center
+    const cx = r.left + ((SPARK_PAD + idx * slot + slot/2) / SPARK_W) * r.width;
+    tip.style.left = cx + 'px';
+    tip.style.top  = (r.top - 6) + 'px';
+    tip.querySelector('.gd-tt-qty').textContent  = fmt(arr[idx]) + ' шт.';
+    tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
+    tip.classList.add('is-show');
+  });
+  document.getElementById('skuTbody').addEventListener('mouseleave', () => {
+    document.getElementById('rowTooltip').classList.remove('is-show');
+  });
+})();
+
+async function fetchDaily(opts){
+  // opts: { days } or { date_from, date_to }
+  const key = opts.date_from ? `range_${opts.date_from}_${opts.date_to}` : `days_${opts.days}`;
+  if (dailyCache[key]) { heroData = dailyCache[key]; redrawHeroChart(); redrawAllSparklines(); paintHeroNumbers(); paintCommissionCells(); return; }
+  const qs = new URLSearchParams(opts).toString();
+  try {
+    const res = await fetch(`/api/groups/${GROUP_ID}/daily-stats?${qs}`);
+    const data = await res.json();
+    if (!res.ok) return;
+    dailyCache[key] = data;
+    heroData = data;
+    redrawHeroChart();
+    redrawAllSparklines();
+    paintHeroNumbers();
+    paintCommissionCells();
+  } catch(e){ console.error('[fetchDaily]', e); }
+}
+
+// Fill the per-row "Комиссия Uzum" cells from the latest heroData.
+// Shows the effective commission RATE as %, normalized for price variation.
+// Hovering reveals the сум figures (avg/шт + total in period).
+function paintCommissionCells(){
+  if (!heroData) return;
+  const pct   = heroData.per_variant_commission_pct || {};
+  const avg   = heroData.per_variant_commission_avg || {};
+  const total = heroData.per_variant_commission     || {};
+  const fmt   = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    const vid = tr.dataset.vid;
+    const p = pct[vid]   ?? pct[String(vid)]   ?? 0;
+    const a = avg[vid]   ?? avg[String(vid)]   ?? 0;
+    const t = total[vid] ?? total[String(vid)] ?? 0;
+    // Sort by the effective rate × 10 so 22.0% sorts above 21.9%
+    tr.dataset.comm = Math.round((+p) * 10);
+    tr.dataset.commAvg = a;
+    tr.dataset.commTotal = t;
+    const cell = tr.querySelector('.gd-comm-cell');
+    if (!cell) return;
+    if (p > 0) {
+      cell.classList.remove('is-zero');
+      cell.innerHTML = `${(+p).toFixed(1).replace('.', ',')}<span class="gd-money-sub">%</span>`;
+    } else {
+      cell.classList.add('is-zero');
+      cell.textContent = '—';
+    }
+  });
+}
+
+// Hover tooltip on commission cells — reuses #rowTooltip.
+(function wireCommissionHover(){
+  const tip = document.getElementById('rowTooltip');
+  const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
+  document.getElementById('skuTbody').addEventListener('mousemove', (ev) => {
+    const cell = ev.target.closest('.gd-comm-cell');
+    if (!cell) return;  // sparkline handler already handles its own region
+    const tr = cell.closest('.gd-row');
+    if (!tr) return;
+    const avg = parseInt(tr.dataset.commAvg || 0);
+    const tot = parseInt(tr.dataset.commTotal || 0);
+    if (avg <= 0 && tot <= 0) { tip.classList.remove('is-show'); return; }
+    const r = cell.getBoundingClientRect();
+    tip.style.left = (r.left + r.width/2) + 'px';
+    tip.style.top  = (r.top - 6) + 'px';
+    tip.innerHTML = `<span class="gd-tt-qty">≈ ${fmt(avg)} сум/шт</span><span class="gd-tt-date">${fmt(tot)} сум всего</span>`;
+    tip.classList.add('is-show');
+  });
+})();
+
+function paintHeroNumbers(){
+  if (!heroData) return;
+  document.getElementById('statSalesValue').textContent = new Intl.NumberFormat('ru-RU').format(heroData.total_sales || 0);
+  document.getElementById('statRevenue').textContent   = fmtMoney(heroData.total_revenue || 0);
+  document.getElementById('statAvgCheck').textContent  = fmtMoney(heroData.avg_check || 0);
+  const dp = heroData.delta_pct || 0;
+  const pill = document.getElementById('statDelta');
+  const val  = document.getElementById('statDeltaVal');
+  if (dp === 0 && (heroData.total_sales||0) === 0) {
+    pill.style.display = 'none';
+  } else {
+    pill.style.display = '';
+    val.textContent = (dp >= 0 ? dp : -dp) + '%';
+    pill.classList.toggle('gd-delta-up',   dp >= 0);
+    pill.classList.toggle('gd-delta-down', dp < 0);
+    pill.querySelector('svg path').setAttribute('d', dp >= 0 ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
+  }
+  // Profit pill (revenue − commission − logistics − cost-of-goods)
+  const wrap = document.getElementById('statProfitWrap');
+  const rev  = heroData.total_revenue || 0;
+  const prof = heroData.total_profit  || 0;
+  const ppct = heroData.profit_pct    || 0;
+  if (rev > 0) {
+    wrap.style.display = '';
+    wrap.classList.toggle('is-loss', prof < 0);
+    document.getElementById('statProfit').textContent = fmtMoney(prof);
+    document.getElementById('statProfitPct').textContent =
+      (ppct >= 0 ? ppct : -ppct).toFixed(1).replace('.', ',') + '%';
+    wrap.title = `Выручка ${fmtMoney(rev)} − комиссия ${fmtMoney(heroData.total_commission||0)} − логистика ${fmtMoney(heroData.total_logistics||0)} − себестоимость ${fmtMoney(heroData.total_cost||0)}`;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ── Sortable headers ────────────────────────────────────
+let sortKey = null, sortDir = 'asc'; // default sort = server-side (by color)
+function applySort(key){
+  if (sortKey === key) sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+  else { sortKey = key; sortDir = (key === 'color') ? 'asc' : 'desc'; }
+  document.querySelectorAll('.gd-thead .gd-th[data-sortable="1"]').forEach(th => {
+    th.dataset.sortActive = (th.dataset.sortKey === key) ? '1' : '0';
+  });
+  const tbody = document.getElementById('skuTbody');
+  const rows = Array.from(tbody.querySelectorAll('.gd-row'));
+  const valOf = (tr) => {
+    switch (sortKey) {
+      case 'color':    return tr.dataset.color || '';
+      case 'uzum':     return parseInt(tr.dataset.uq || 0);
+      case 'fbs':      return tr.dataset.fbs === '' ? -1 : parseInt(tr.dataset.fbs);
+      case 'wh':       return parseInt(tr.dataset.wh || 0);
+      case 'purchase': return parseInt(tr.dataset.purchase || 0);
+      case 'sell':     return parseInt(tr.dataset.sell || 0);
+      case 'storage':  return parseInt(tr.dataset.storage || 0);
+      case 'comm':     return parseInt(tr.dataset.comm || 0);
+      case 'sales':    return parseInt(tr.querySelector('.sales-cell').textContent || 0);
+      case 'need':  {
+        const uq=+tr.dataset.uq, wh=+tr.dataset.wh, s30=+tr.dataset.s30;
+        return Math.max(0, Math.round((s30/30)*60 - uq - wh));
+      }
+    }
+    return 0;
+  };
+  const dir = sortDir === 'desc' ? -1 : 1;
+  rows.sort((a,b) => {
+    const av = valOf(a), bv = valOf(b);
+    if (av < bv) return -1*dir;
+    if (av > bv) return  1*dir;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+document.querySelectorAll('.gd-thead .gd-th[data-sortable="1"]').forEach(th => {
+  th.addEventListener('click', () => applySort(th.dataset.sortKey));
+});
+
+// ── Check-all ───────────────────────────────────────────
+document.getElementById('checkAll').addEventListener('change', e => {
+  document.querySelectorAll('.gd-row-check').forEach(c => { c.checked = e.target.checked; });
+});
+
+// ── Period seg ──────────────────────────────────────────
+document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const d = parseInt(btn.dataset.days);
+    console.log('[period click]', d, 'days');
+    document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Clear date range when a preset is picked
+    if (window._fp) window._fp.clear();
+    document.getElementById('dateRangeWrapper').classList.remove('is-active');
+    fetchSales({ days: d });
+  });
+});
+
+// ── Date range picker ───────────────────────────────────
+function toISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+const fp = flatpickr('#dateRangeInput', {
+  mode: 'range', locale: 'ru', dateFormat: 'd M Y',
+  showMonths: 2, disableMobile: true,
+  onChange(selectedDates){
+    if (selectedDates.length === 2) {
+      const df = toISO(selectedDates[0]);
+      const dt = toISO(selectedDates[1]);
+      // Deselect preset buttons (custom range now)
+      document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('dateRangeWrapper').classList.add('is-active');
+      fetchSales({ date_from: df, date_to: dt });
+    }
+  },
+});
+window._fp = fp;
+document.getElementById('dateRangeWrapper').addEventListener('click', (e) => {
+  if (e.target.closest('#dateRangeClear')) return; // clear handled separately
+  fp.open();
+});
+document.getElementById('dateRangeClear').addEventListener('click', (e) => {
+  e.stopPropagation();
+  fp.clear();
+  document.getElementById('dateRangeWrapper').classList.remove('is-active');
+  // Restore default 30d preset
+  const def = document.querySelector('#periodSeg .gd-seg-btn[data-days="30"]');
+  if (def) def.click();
+});
+
+document.getElementById('searchInput').addEventListener('input', applyFilter);
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  // CSV of currently-visible rows
+  const rows = [['SKU','Color','Size','Barcode','UzumFBO','FBS','Warehouse','PurchasePrice','SellPriceUzum','PaidStorage','CommissionPct','CommissionAvgPerUnit','CommissionTotal','Sales','Need60d']];
+  document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
+    if (tr.style.display === 'none') return;
+    const uq=+tr.dataset.uq, wh=+tr.dataset.wh, s30=+tr.dataset.s30;
+    const need = Math.max(0, Math.round((s30/30)*60 - uq - wh));
+    rows.push([
+      tr.querySelector('.gd-sku').textContent,
+      tr.dataset.color || '', tr.dataset.size || '',
+      tr.dataset.barcode || '',
+      uq,
+      tr.dataset.fbs || '',
+      wh,
+      tr.dataset.purchase || 0,
+      tr.dataset.sell || 0,
+      tr.dataset.storage || 0,
+      ((parseInt(tr.dataset.comm || 0)) / 10).toFixed(1),  // CommissionPct
+      tr.dataset.commAvg || 0,                              // CommissionAvgPerUnit (сум)
+      tr.dataset.commTotal || 0,                            // CommissionTotal (сум)
+      tr.querySelector('.sales-cell').textContent,
+      need,
+    ]);
+  });
+  const csv = '﻿' + rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'variants-{{ group.id }}.csv';
+  a.click();
+});
+
+document.getElementById('createOrderBtn').addEventListener('click', () => {
+  // Future: link to a real restock order. For now: anchor to invoice page.
+  window.location.href = '/invoice/restock?group_id={{ group.id }}';
+});
+
+// ── Column visibility + order (settings panel) ────────
+const COL_WIDTH = {
+  checkbox:'40px', sku:'minmax(280px,1.3fr)',
+  uzum_fbo:'100px', fbs:'90px', wh:'110px',
+  purchase:'130px', sell:'130px', storage:'130px', comm:'130px',
+  barcode:'140px', sales:'200px', need:'110px', actions:'44px',
+};
+const COL_MINW = {
+  checkbox:40, sku:280, uzum_fbo:100, fbs:90, wh:110,
+  purchase:130, sell:130, storage:130, comm:130, barcode:140, sales:200, need:110, actions:44,
+};
+// Default order — sell BEFORE purchase. Checkbox + sku are always first
+// (sticky-left), actions is always last.
+const DEFAULT_ORDER = ['checkbox','sku','uzum_fbo','fbs','wh','sell','purchase','storage','comm','barcode','sales','need','actions'];
+// Barcode hidden by default; everything else shown.
+const DEFAULT_HIDDEN = ['barcode'];
+
+// TOGGLE_COLS describes what shows up in the settings panel. Order in this
+// array doesn't matter — the panel uses appliedOrder/tempOrder for sequence.
+const TOGGLE_COLS_META = {
+  sku:      { label:'Товар',            locked:true },
+  uzum_fbo: { label:'Остатки FBO',      hint:'Товары на складе Uzum (FBO)' },
+  fbs:      { label:'Остатки FBS',      hint:'Готовы к отправке со своего склада' },
+  wh:       { label:'Наш склад' },
+  sell:     { label:'Цена Uzum',        hint:'Фактическая цена продажи' },
+  purchase: { label:'Себестоимость' },
+  storage:  { label:'Платное хранение', hint:'Стоимость платного хранения на Uzum' },
+  comm:     { label:'Комиссия Uzum',    hint:'Эффективная ставка комиссии Uzum (% от выручки) за выбранный период. Наведите курсор на ячейку — покажет сумму в сум.' },
+  barcode:  { label:'Штрихкод' },
+  sales:    { label:'Продажи 30 дн.' },
+  need:     { label:'Нужно (60д)',      hint:'Сколько нужно закупить на 60 дней' },
+};
+// keys that the user can toggle/drag in the panel (excludes locked checkbox/actions)
+const PANEL_KEYS = ['sku','uzum_fbo','fbs','wh','sell','purchase','storage','comm','barcode','sales','need'];
+
+function applyColumnState(hiddenSet, orderArr){
+  // 1) Reorder DOM cells in header + every row to match orderArr
+  const containers = document.querySelectorAll('.gd-thead, #skuTbody > .gd-row');
+  containers.forEach(container => {
+    orderArr.forEach(key => {
+      const cell = container.querySelector(`[data-col="${key}"]`);
+      if (cell) container.appendChild(cell);
+    });
+  });
+  // 2) Rebuild grid-template-columns + min-width from visible columns only
+  const visible = orderArr.filter(k => !hiddenSet.has(k));
+  const tpl = visible.map(k => COL_WIDTH[k]).join(' ');
+  let totalMin = 32; // row's horizontal padding
+  visible.forEach(k => { totalMin += COL_MINW[k]; });
+  scope.style.setProperty('--gd-cols', tpl);
+  scope.style.setProperty('--gd-min', totalMin + 'px');
+  // 3) Hide cells via [data-col]
+  orderArr.forEach(key => {
+    document.querySelectorAll(`[data-col="${key}"]`).forEach(c => {
+      c.style.display = hiddenSet.has(key) ? 'none' : '';
+    });
+  });
+}
+
+function loadSavedHidden(){
+  try {
+    const s = localStorage.getItem('gd-cols-hidden');
+    if (s) return new Set(JSON.parse(s));
+  } catch(e){}
+  return new Set(DEFAULT_HIDDEN);
+}
+function loadSavedOrder(){
+  try {
+    const s = localStorage.getItem('gd-cols-order');
+    if (s) {
+      const arr = JSON.parse(s);
+      // Validate: must contain every default key exactly once
+      const valid = Array.isArray(arr) && arr.length === DEFAULT_ORDER.length &&
+        DEFAULT_ORDER.every(k => arr.includes(k));
+      if (valid) return arr;
+    }
+  } catch(e){}
+  return [...DEFAULT_ORDER];
+}
+let appliedHidden = loadSavedHidden();
+let appliedOrder  = loadSavedOrder();
+let tempHidden = new Set();
+let tempOrder  = [];
+applyColumnState(appliedHidden, appliedOrder);
+
+const SVG_EYE       = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="12" rx="9" ry="5.5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>';
+const SVG_EYE_OFF   = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M10.5 6.4A11 11 0 0112 6.3c5 0 8.5 4 9.4 5.7-.4.8-1.4 2.3-3 3.7M14 17.5A11 11 0 0112 17.7c-5 0-8.5-4-9.4-5.7.4-.8 1.4-2.3 3-3.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M10 10.2A2.5 2.5 0 0014 13.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+const SVG_LOCK      = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="11" width="15" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+
+const SVG_GRIP = '<svg class="gd-settings-grip" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+
+function renderSettingsPanel(){
+  // Order is taken from tempOrder; filter into shown vs hidden sections
+  // (preserving tempOrder sequence within each section).
+  const panelKeysInOrder = tempOrder.filter(k => PANEL_KEYS.includes(k));
+  const shown  = panelKeysInOrder.filter(k => !tempHidden.has(k));
+  const hidden = panelKeysInOrder.filter(k =>  tempHidden.has(k));
+
+  const rowHTML = (key, isHidden) => {
+    const meta = TOGGLE_COLS_META[key];
+    if (!meta) return '';
+    const q = meta.hint ? `<span class="gd-settings-q" title="${meta.hint.replace(/"/g,'&quot;')}">?</span>` : '';
+    const grip = meta.locked ? '<span class="gd-settings-grip-placeholder"></span>' : SVG_GRIP;
+    const right = meta.locked
+      ? `<span class="gd-settings-toggle is-locked" title="Нельзя скрыть">${SVG_LOCK}</span>`
+      : `<button class="gd-settings-toggle ${isHidden ? 'is-hidden' : ''}" data-toggle="${key}" type="button">${isHidden ? SVG_EYE_OFF : SVG_EYE}</button>`;
+    const dragAttr = meta.locked ? '' : `draggable="true" data-drag-key="${key}"`;
+    const cls = `gd-settings-row ${meta.locked ? 'is-locked' : 'is-draggable'}`;
+    return `<div class="${cls}" ${dragAttr}>
+      <span class="gd-settings-label">${grip}${meta.label}${q}</span>
+      ${right}
+    </div>`;
+  };
+  document.getElementById('settingsShown').innerHTML  = shown.map(k => rowHTML(k, false)).join('');
+  document.getElementById('settingsHidden').innerHTML = hidden.length
+    ? hidden.map(k => rowHTML(k, true)).join('')
+    : '<div style="padding:14px 0; color:var(--gd-faint); font-size:13px;">Все колонки отображаются.</div>';
+
+  // Bind eye-toggle clicks
+  document.querySelectorAll('#settingsShown .gd-settings-toggle[data-toggle], #settingsHidden .gd-settings-toggle[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.toggle;
+      if (tempHidden.has(k)) tempHidden.delete(k); else tempHidden.add(k);
+      renderSettingsPanel();
+    });
+  });
+  // Bind drag-and-drop on draggable rows
+  document.querySelectorAll('#settingsShown .gd-settings-row.is-draggable, #settingsHidden .gd-settings-row.is-draggable').forEach(bindDrag);
+}
+
+let _dragKey = null;
+function bindDrag(row){
+  row.addEventListener('dragstart', (e) => {
+    _dragKey = row.dataset.dragKey;
+    row.classList.add('is-dragging');
+    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _dragKey); } catch(_){}
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('is-dragging');
+    document.querySelectorAll('.gd-settings-row').forEach(r => r.classList.remove('drag-over'));
+    _dragKey = null;
+  });
+  row.addEventListener('dragover', (e) => {
+    if (!_dragKey || _dragKey === row.dataset.dragKey) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.gd-settings-row').forEach(r => r.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    row.classList.remove('drag-over');
+    if (!_dragKey || _dragKey === row.dataset.dragKey) return;
+    // Move _dragKey to just before this row's key in tempOrder
+    const targetKey = row.dataset.dragKey;
+    const from = tempOrder.indexOf(_dragKey);
+    if (from < 0) return;
+    tempOrder.splice(from, 1);
+    const to = tempOrder.indexOf(targetKey);
+    if (to < 0) tempOrder.push(_dragKey);
+    else tempOrder.splice(to, 0, _dragKey);
+    renderSettingsPanel();
+  });
+}
+
+function openSettings(){
+  tempHidden = new Set(appliedHidden);
+  tempOrder  = [...appliedOrder];
+  renderSettingsPanel();
+  document.getElementById('settingsBackdrop').classList.add('is-open');
+}
+function closeSettings(){
+  document.getElementById('settingsBackdrop').classList.remove('is-open');
+}
+function applySettingsChanges(){
+  appliedHidden = new Set(tempHidden);
+  appliedOrder  = [...tempOrder];
+  try {
+    localStorage.setItem('gd-cols-hidden', JSON.stringify([...appliedHidden]));
+    localStorage.setItem('gd-cols-order',  JSON.stringify(appliedOrder));
+  } catch(e){}
+  applyColumnState(appliedHidden, appliedOrder);
+  closeSettings();
+}
+
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsCancel').addEventListener('click', closeSettings);
+document.getElementById('settingsApply').addEventListener('click', applySettingsChanges);
+document.getElementById('settingsBackdrop').addEventListener('click', closeSettings);
+document.getElementById('settingsShowAll').addEventListener('click', () => {
+  tempHidden.clear();
+  renderSettingsPanel();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('is-open')) closeSettings();
+});
+
+// ── Initial paint ──────────────────────────────────────
+paintColors();
+paintRowStatusesAndNeeds();
+recomputeStats(30);
+fetchDaily({ days: 30 });
+
+// Preload sales totals for other presets (silent)
 window.addEventListener('load', () => {
-  // Small delay to let the browser finish rendering
   setTimeout(() => {
     PRESETS.forEach(days => {
-      if (salesCache[`days_${days}`]) return; // 30d already cached
+      if (salesCache[`days_${days}`]) return;
       fetch(`/api/groups/${GROUP_ID}/sales-range?days=${days}`)
         .then(r => r.json())
         .then(data => {
           if (data.sales) {
-            const map = {};
-            data.sales.forEach(r => { map[r.variant_id] = r.qty; });
-            salesCache[`days_${days}`] = map;
+            const m = {};
+            data.sales.forEach(r => { m[r.variant_id] = r.qty; });
+            salesCache[`days_${days}`] = m;
           }
-        })
-        .catch(() => {});
+        }).catch(() => {});
     });
   }, 500);
-});
-
-// Flatpickr range picker
-const fp = flatpickr('#dateRangeInput', {
-  mode: 'range',
-  locale: 'ru',
-  dateFormat: 'd M Y',
-  showMonths: 2,
-  disableMobile: true,
-  onChange(selectedDates) {
-    if (selectedDates.length === 2) {
-      document.getElementById('dateFrom').value = toISO(selectedDates[0]);
-      document.getElementById('dateTo').value   = toISO(selectedDates[1]);
-      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    }
-  },
-});
-document.getElementById('dateRangeWrapper').addEventListener('click', () => fp.open());
-
-// Preset buttons
-document.querySelectorAll('.preset-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    fp.clear();
-    document.getElementById('dateFrom').value = '';
-    document.getElementById('dateTo').value   = '';
-    fetchSales({ days: parseInt(btn.dataset.days) });
-  });
-});
-
-// Apply button
-document.getElementById('btnApply').addEventListener('click', () => {
-  const f = document.getElementById('dateFrom').value;
-  const t = document.getElementById('dateTo').value;
-  if (!f || !t) { fp.open(); return; }
-  fetchSales({ date_from: f, date_to: t });
 });
 </script>
 

@@ -83,6 +83,26 @@
     .eco-back-btn:hover { color: var(--ink); border-color: var(--ink-2); background: var(--surface-2); }
     .eco-back-btn svg { flex-shrink: 0; }
 
+    /* Tax-rate input */
+    .tax-input {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 12px; height: 36px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; box-shadow: var(--shadow-sm);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .tax-input:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(65,105,225,.15); }
+    .tax-input .tax-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+    .tax-input input {
+      width: 54px; text-align: right;
+      border: none; outline: none; background: transparent;
+      font-size: 13px; font-weight: 600; color: var(--ink);
+      -moz-appearance: textfield;
+    }
+    .tax-input input::-webkit-outer-spin-button,
+    .tax-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .tax-input .tax-pct { font-size: 13px; font-weight: 600; color: var(--muted); }
+
     /* ── Period controls ───────────────────────────────── */
     .period-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
     .period-chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -94,6 +114,20 @@
     }
     .pchip:hover { border-color: var(--ink-2); color: var(--ink); }
     .pchip.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-sm); }
+
+    /* ── Shop picker ──────────────────────── */
+    .shop-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .shop-row-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .shop-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .schip {
+      padding: 7px 14px; border-radius: 10px;
+      background: var(--surface); border: 1px solid var(--line);
+      color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .schip:hover { border-color: var(--ink-2); color: var(--ink); }
+    .schip.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-sm); }
+    .schip .sdot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 
     .date-range-wrapper {
       position: relative; display: flex; align-items: center;
@@ -419,10 +453,17 @@
           </div>
         </div>
       </div>
-      <a href="/groups" class="eco-back-btn" id="backBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        <span>Назад</span>
-      </a>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <div class="tax-input" id="taxInputWrap" title="Ставка налога. Вычитается из выручки при расчёте прибыли.">
+          <span class="tax-label">Налог</span>
+          <input type="number" id="taxRate" min="0" max="100" step="0.1" inputmode="decimal" placeholder="0">
+          <span class="tax-pct">%</span>
+        </div>
+        <a href="/groups" class="eco-back-btn" id="backBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          <span>Назад</span>
+        </a>
+      </div>
     </div>
 
     <!-- ── Period quick picks + date range ──── -->
@@ -442,6 +483,12 @@
       </div>
       <input type="hidden" id="dateFrom">
       <input type="hidden" id="dateTo">
+    </div>
+
+    <!-- ── Shop picker ────────────────────────── -->
+    <div class="shop-row" id="shopRow" style="display:none;">
+      <span class="shop-row-label">Магазин:</span>
+      <div class="shop-chips" id="shopChips"></div>
     </div>
 
     <!-- ── Cache info bar ─────────────────────── -->
@@ -606,10 +653,22 @@
       errorLoading: '{{ t.eco_error_loading }}',
       errorFetch: '{{ t.eco_error_fetch }}',
     };
-    const CACHE_KEY_PREFIX = "eco_cache_v2_";
-    function cacheKey(df, dt) { return CACHE_KEY_PREFIX + df + "_" + dt; }
-    function saveCache(df, dt, payload) { try { localStorage.setItem(cacheKey(df,dt), JSON.stringify({payload, ts:Date.now()})); } catch(e){} }
-    function loadCache(df, dt) { try { const raw = localStorage.getItem(cacheKey(df,dt)); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
+    const CACHE_KEY_PREFIX = "eco_cache_v7_";
+    function cacheKey(df, dt, shop) { return CACHE_KEY_PREFIX + (shop||"all") + "_" + df + "_" + dt; }
+
+    // ── Tax rate (persisted, client-side only — never sent to server) ───
+    const TAX_RATE_KEY = "eco_tax_rate";
+    function getTaxRate() {
+      const v = parseFloat(localStorage.getItem(TAX_RATE_KEY) || "0");
+      return Number.isFinite(v) && v > 0 ? Math.max(0, Math.min(100, v)) : 0;
+    }
+    function setTaxRate(v) {
+      const clean = Number.isFinite(v) && v >= 0 ? Math.min(100, v) : 0;
+      localStorage.setItem(TAX_RATE_KEY, String(clean));
+      return clean;
+    }
+    function saveCache(df, dt, payload) { try { localStorage.setItem(cacheKey(df,dt,activeShopId), JSON.stringify({payload, ts:Date.now()})); } catch(e){} }
+    function loadCache(df, dt) { try { const raw = localStorage.getItem(cacheKey(df,dt,activeShopId)); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
 
     const fmt = (n) => Math.round(n || 0).toLocaleString("ru-RU");
     const fmtCompact = (n) => {
@@ -696,27 +755,63 @@
     }
 
     // ── Hero cards renderer ──────────────────────
-    function renderHero(totals){
+    const SHOP_PALETTE = ["#4169e1", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
+    function shopColor(i){ return SHOP_PALETTE[i % SHOP_PALETTE.length]; }
+
+    function renderHero(payload){
+      const totals = payload.totals || {};
+      const perShop = (payload.per_shop || []).filter(s => (s.revenue|0) > 0 || (s.profit|0) !== 0);
       const grid = document.getElementById("heroGrid");
       const stockQty   = totals.stock_qty | 0;
       const stockCost  = totals.stock_cost | 0;
       const uzCost     = totals.stock_cost_uzum | 0;
       const whCost     = totals.stock_cost_warehouse | 0;
       const revenue    = totals.sales_revenue | 0;
-      const expenses   = (totals.sales_commission|0) + (totals.sales_logistics|0) + (totals.sales_cost|0);
       const commission = totals.sales_commission|0;
       const logistics  = totals.sales_logistics|0;
+      const marketing  = totals.expenses_marketing|0;
+      const warehouse  = totals.expenses_warehouse|0;
+      const misc       = totals.expenses_misc|0;
       const cogs       = totals.sales_cost|0;
-      const profit     = totals.sales_profit|0;
-      const expensesPct = revenue > 0 ? Math.round(expenses / revenue * 100) : 0;
+      const taxRate    = getTaxRate();
+      const tax        = Math.round(revenue * taxRate / 100);
+      const expenses   = commission + logistics + marketing + warehouse + misc + tax;
+      const profit     = (totals.sales_profit|0) - tax;
+      const expensesPct = revenue > 0 ? (expenses / revenue * 100) : 0;
       const marginPct   = revenue > 0 ? (profit / revenue * 100) : 0;
 
       const breakdownExpenses = [
-        { name: "Комиссия", value: commission, color: "var(--red)"  },
-        { name: "Логистика",value: logistics,  color: "var(--red-2)" },
-        { name: "Себест.",  value: cogs,       color: "var(--amber)" },
+        { name: "Комиссия",  value: commission, color: "#ef4444" },
+        { name: "Логистика", value: logistics,  color: "#f87171" },
+        { name: "Маркетинг", value: marketing,  color: "#f59e0b" },
+        { name: "Склад",     value: warehouse,  color: "#a855f7" },
+        { name: "Прочее",    value: misc,       color: "#94a3b8" },
       ];
-      const maxExp = Math.max(1, ...breakdownExpenses.map(x => x.value));
+      if (taxRate > 0) breakdownExpenses.push({ name: `Налог · ${taxRate}%`, value: tax, color: "#0ea5e9" });
+      const maxExp = Math.max(1, ...breakdownExpenses.map(x => Math.abs(x.value)));
+
+      // Per-shop breakdown lists (revenue + profit) — only when 2+ shops have data
+      const showShopBreakdown = perShop.length >= 2;
+      const maxRev = Math.max(1, ...perShop.map(s => s.revenue|0));
+      const maxAbsProfit = Math.max(1, ...perShop.map(s => Math.abs(s.profit|0)));
+      const revBreakdown = !showShopBreakdown ? "" : `
+        <div class="breakdown-list" style="margin-top: 14px;">
+          ${perShop.map((s, i) => `
+            <div class="breakdown-row">
+              <span class="bd-name"><span class="bd-dot" style="background:${shopColor(i)};"></span>${s.name}</span>
+              <span class="bd-bar"><span style="width:${Math.round((s.revenue|0)/maxRev*100)}%; background:${shopColor(i)};"></span></span>
+              <span class="bd-val">${fmtCompact(s.revenue)}</span>
+            </div>`).join("")}
+        </div>`;
+      const profitBreakdown = !showShopBreakdown ? "" : `
+        <div class="breakdown-list" style="margin-top: 14px;">
+          ${perShop.map((s, i) => `
+            <div class="breakdown-row">
+              <span class="bd-name"><span class="bd-dot" style="background:${shopColor(i)};"></span>${s.name}</span>
+              <span class="bd-bar"><span style="width:${Math.round(Math.abs(s.profit|0)/maxAbsProfit*100)}%; background:${shopColor(i)};"></span></span>
+              <span class="bd-val" style="color:${(s.profit|0) >= 0 ? 'var(--green)' : 'var(--red)'};">${sign(s.profit)}${fmtCompact(s.profit)}</span>
+            </div>`).join("")}
+        </div>`;
 
       grid.innerHTML = `
         <div class="stat-card featured fade-in">
@@ -746,20 +841,21 @@
           </div>
           <div class="stat-sub">За выбранный период</div>
           <div class="stat-val">${fmt(revenue)} <span class="ccy">сум</span></div>
+          ${revBreakdown}
         </div>
 
         <div class="stat-card fade-in" style="animation-delay:.10s">
           <div class="stat-head">
-            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>
+            <span class="stat-head-icon" style="background:rgba(239,68,68,.12); color: var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
             <span class="stat-label">Общие расходы</span>
           </div>
-          <div class="stat-sub">${expensesPct}% от выручки</div>
+          <div class="stat-sub">${expensesPct.toFixed(1)}% от выручки</div>
           <div class="stat-val red">${fmt(expenses)} <span class="ccy">сум</span></div>
           <div class="breakdown-list" style="margin-top: 10px;">
             ${breakdownExpenses.map(it => `
               <div class="breakdown-row">
                 <span class="bd-name"><span class="bd-dot" style="background:${it.color};"></span>${it.name}</span>
-                <span class="bd-bar"><span style="width:${Math.round(it.value/maxExp*100)}%; background:${it.color};"></span></span>
+                <span class="bd-bar"><span style="width:${Math.round(Math.abs(it.value)/maxExp*100)}%; background:${it.color};"></span></span>
                 <span class="bd-val">${fmtCompact(it.value)}</span>
               </div>`).join("")}
           </div>
@@ -772,8 +868,31 @@
           </div>
           <div class="stat-sub">Маржа · ${marginPct.toFixed(1)}%</div>
           <div class="stat-val ${profit >= 0 ? 'green' : 'red'}">${sign(profit)}${fmt(profit)} <span class="ccy">сум</span></div>
+          ${profitBreakdown}
         </div>
       `;
+    }
+
+    // ── Shop picker ──────────────────────────────
+    let activeShopId = "all";
+    function renderShopPicker(shops){
+      const row = document.getElementById("shopRow");
+      const chips = document.getElementById("shopChips");
+      if (!shops || shops.length <= 1) { row.style.display = "none"; return; }
+      row.style.display = "flex";
+      const buttons = [{ uzum_id: "all", name: "Все магазины" }, ...shops];
+      chips.innerHTML = buttons.map((s, i) => {
+        const dot = s.uzum_id === "all" ? "" : `<span class="sdot" style="background:${shopColor(i-1)};"></span>`;
+        const cls = (s.uzum_id === activeShopId || (activeShopId === "" && s.uzum_id === "all")) ? "schip active" : "schip";
+        return `<button class="${cls}" data-shop="${s.uzum_id}">${dot}${s.name}</button>`;
+      }).join("");
+      chips.querySelectorAll(".schip").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeShopId = btn.dataset.shop;
+          chips.querySelectorAll(".schip").forEach(b => b.classList.toggle("active", b === btn));
+          fetchFresh(document.getElementById("dateFrom").value, document.getElementById("dateTo").value);
+        });
+      });
     }
 
     function renderMini(totals){
@@ -1100,7 +1219,8 @@
     let currentData = null;
     function renderAll(payload){
       currentData = payload;
-      renderHero(payload.totals);
+      renderShopPicker(payload.shops || []);
+      renderHero(payload);
       renderMini(payload.totals);
       renderWarehouses(payload.totals);
       renderDailyChart(payload.daily_series || []);
@@ -1122,7 +1242,7 @@
       hideCacheBar();
       setStatus(`${_ET.loading} ${df} — ${dt}…`);
       try {
-        const res = await fetch(`/api/economics/data?date_from=${df}&date_to=${dt}`);
+        const res = await fetch(`/api/economics/data?date_from=${df}&date_to=${dt}&shop_id=${encodeURIComponent(activeShopId||"all")}`);
         if (!res.ok) throw new Error(`${_ET.errorFetch} ${res.status}`);
         const payload = await res.json();
         saveCache(df, dt, payload);
@@ -1154,8 +1274,8 @@
           dateToEl.value   = toISO(selectedDates[1]);
           // Clear active chip when manually picking
           document.querySelectorAll(".pchip").forEach(c => c.classList.remove("active"));
-          if (!renderFromCache(dateFromEl.value, dateToEl.value)) fetchFresh(dateFromEl.value, dateToEl.value);
-          else fetchFresh(dateFromEl.value, dateToEl.value); // refresh quietly too
+          renderFromCache(dateFromEl.value, dateToEl.value);
+          fetchFresh(dateFromEl.value, dateToEl.value);
         }
       },
     });
@@ -1171,7 +1291,11 @@
         const { from, to } = periodRange(chip.dataset.period);
         dateFromEl.value = from; dateToEl.value = to;
         fp.setDate([parseLocal(from), parseLocal(to)], false);
-        if (!renderFromCache(from, to)) fetchFresh(from, to);
+        // Show cache instantly if available, then ALWAYS silent-refresh in
+        // the background so stale cached payloads (e.g. from before a
+        // categorization rule change) get replaced with fresh data.
+        renderFromCache(from, to);
+        fetchFresh(from, to);
       });
     });
 
@@ -1184,6 +1308,22 @@
     });
 
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
+
+    // Tax rate: load saved value + rerender hero when changed
+    (function initTax(){
+      const inp = document.getElementById("taxRate");
+      const saved = getTaxRate();
+      if (saved > 0) inp.value = saved;
+      let _t;
+      inp.addEventListener("input", () => {
+        clearTimeout(_t);
+        _t = setTimeout(() => {
+          const v = parseFloat(inp.value);
+          setTaxRate(v);
+          if (currentData) renderHero(currentData);
+        }, 200);
+      });
+    })();
 
     document.querySelectorAll(".dyn-toggle button").forEach(btn => {
       btn.addEventListener("click", () => {

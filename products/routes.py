@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update
 
 from extensions import SessionLocal
-from models import ProductGroup, Variant, VariantSale, Shop, User
+from models import ProductGroup, Variant, VariantSale, Shop, User, ExpensesLedger
 from core.parsers import _safe_qty
 from core.uzum_skulist import normalize_uzum_image_url
 from core.sales_reads import (
@@ -278,6 +278,7 @@ def economics_data_api():
     today = _today_app_tz()
     raw_from = request.args.get("date_from", "").strip()
     raw_to   = request.args.get("date_to",   "").strip()
+    raw_shop = request.args.get("shop_id",   "").strip()  # "" or "all" → all owned shops; else uzum_id
     try:
         date_from = date.fromisoformat(raw_from) if raw_from else today.replace(day=1)
     except ValueError:
@@ -292,21 +293,62 @@ def economics_data_api():
 
     with SessionLocal() as db:
         # Get uzum_ids for allowed shops + mapping from internal shop_id to uzum_id
-        shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all() if allowed_shop_ids else []
-        shop_uzum_ids = [s.uzum_id for s in shops]
-        shop_id_to_uzum = {s.id: s.uzum_id for s in shops}
+        owned_shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all() if allowed_shop_ids else []
+        # Optional ?shop_id= filter, validated against ownership
+        active_shops = owned_shops
+        if raw_shop and raw_shop.lower() != "all":
+            active_shops = [s for s in owned_shops if str(s.uzum_id) == raw_shop]
+        shop_uzum_ids   = [s.uzum_id for s in active_shops]
+        active_shop_ids = [s.id for s in active_shops]
+        shop_id_to_uzum = {s.id: s.uzum_id for s in active_shops}
+        uzum_to_name    = {s.uzum_id: (s.name or s.uzum_id) for s in active_shops}
 
-        # Aggregate sales_lines per (shop_uzum_id, sku) for the Tashkent window
-        # [date_from 00:00, date_to+1 00:00). Old path filtered
-        # `period_from >= date_from AND period_to <= date_to` — the new path
-        # is the equivalent right-open `created_at` window.
+        # Shops list for the picker (always returned regardless of filter)
+        shops_list = [{"uzum_id": s.uzum_id, "name": s.name or s.uzum_id} for s in owned_shops]
+
+        # Aggregate finance_orders per (shop, sku) and per (shop) for the window
         per_shop_sales: dict[tuple[str, str], dict] = {}
+        per_shop_totals: dict[str, dict] = {}  # uzum_id → {revenue, commission, logistics, qty, purchase_price}
         daily_revenue: dict[str, int] = {}
-        daily_profit_proxy: dict[str, int] = {}  # revenue - commission - logistics (no per-day cost)
+        daily_profit_proxy: dict[str, int] = {}  # revenue - commission - logistics (no per-day cost in finance_orders)
         daily_qty: dict[str, int] = {}
+        # Period-independent per-SKU unit cost (purchase_price/qty over a wide
+        # window). Used for "Вложено в товар" / stock_cost so the displayed
+        # inventory value doesn't change when the user toggles date ranges.
+        # Stock_qty already comes from Variant.uzum_quantity/warehouse_quantity
+        # — those are also period-independent — so cost must be too.
+        cost_map: dict[tuple[str, str], int] = {}
         if shop_uzum_ids:
             start_ts, _ = day_bounds_tashkent(date_from)
             _, end_ts = day_bounds_tashkent(date_to)
+
+            # All-time cost lookup, always anchored to TODAY so the per-SKU
+            # average cost is identical no matter which period chip the user
+            # picks. Floor at 2020-01-01 (older than any data we have).
+            cost_floor = date(2020, 1, 1)
+            cost_start_ts, _ = day_bounds_tashkent(cost_floor)
+            _, cost_end_ts   = day_bounds_tashkent(today)
+            cost_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                cost_start_ts,
+                cost_end_ts,
+                group_by="sku",
+                session=db,
+            )
+            for row in cost_rows:
+                sid = str(row.get("shop_id"))
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                pp  = int(row.get("purchase_price_sum") or 0)
+                if qty <= 0 or pp <= 0:
+                    continue
+                uc = pp // qty
+                if title:
+                    cost_map[(sid, title)] = uc
+                    cost_map[(sid, title.upper())] = uc
+                if row.get("sku_id"):
+                    cost_map[(sid, str(row["sku_id"]))] = uc
+
             agg_rows = read_sales_aggregated(
                 shop_uzum_ids,
                 start_ts,
@@ -314,8 +356,6 @@ def economics_data_api():
                 group_by="sku",
                 session=db,
             )
-            # `sales_lines.shop_id` is int but the rest of this module keys
-            # lookups by the string uzum_id — cast back to str.
             for row in agg_rows:
                 sid = str(row.get("shop_id"))
                 title = (row.get("sku_title") or "").strip()
@@ -323,13 +363,26 @@ def economics_data_api():
                 sell = int(row.get("revenue_sum") or 0)
                 comm = int(row.get("commission_sum") or 0)
                 logi = int(row.get("logistics_sum") or 0)
+                pp   = int(row.get("purchase_price_sum") or 0)
                 entry = {"qty": qty, "sell_price": sell,
-                         "commission": comm, "logistics": logi}
+                         "commission": comm, "logistics": logi,
+                         "purchase_price": pp}
                 if title:
                     per_shop_sales[(sid, title)] = entry
                     per_shop_sales[(sid, title.upper())] = entry
                 if row.get("sku_id"):
                     per_shop_sales[(sid, str(row["sku_id"]))] = entry
+                # Per-shop totals (sum across all SKUs, no double-counting since
+                # each finance_orders SKU row appears once)
+                pst = per_shop_totals.setdefault(sid, {
+                    "revenue": 0, "commission": 0, "logistics": 0,
+                    "qty": 0, "purchase_price": 0,
+                })
+                pst["revenue"]        += sell
+                pst["commission"]     += comm
+                pst["logistics"]      += logi
+                pst["qty"]            += qty
+                pst["purchase_price"] += pp
 
             # Daily breakdown for "Продажи по дням" chart
             day_rows = read_sales_aggregated(
@@ -352,9 +405,62 @@ def economics_data_api():
                 daily_profit_proxy[bkey] = daily_profit_proxy.get(bkey, 0) + (rev - comm - logi)
                 daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
 
+        # ── Categorized expenses from expenses_ledger ────────────────────
+        # Logistics rows are skipped here: they're already counted via
+        # finance_orders.logistics_sum (Uzum's payments report exposes the
+        # same logistics fee, so double-counting would inflate расходы).
+        # Net per category = sum(Оплата) - sum(Возврат).
+        t_exp_warehouse = t_exp_marketing = t_exp_misc = 0
+        per_shop_exp: dict[str, dict] = {}  # uzum_id (str) → {warehouse, marketing, misc}
+        if shop_uzum_ids:
+            # ExpensesLedger.shop_id is int; cast our str uzum_ids.
+            int_shop_ids = []
+            for sid in shop_uzum_ids:
+                try: int_shop_ids.append(int(sid))
+                except (TypeError, ValueError): pass
+            if int_shop_ids:
+                exp_rows = db.execute(
+                    select(ExpensesLedger).where(
+                        ExpensesLedger.shop_id.in_(int_shop_ids),
+                        ExpensesLedger.day >= date_from,
+                        ExpensesLedger.day <= date_to,
+                    )
+                ).scalars().all()
+                for r in exp_rows:
+                    svc_raw = (r.service or "").lower()
+                    # Normalize Uzbek apostrophe variants (U+02BB, U+2019, U+02BC)
+                    # to ASCII so substring matches work consistently.
+                    svc = svc_raw
+                    for _ap in ("ʻ", "’", "ʼ"):
+                        svc = svc.replace(_ap, "'")
+                    sign = 1 if (r.op_type or "").strip() == "Оплата" else -1
+                    amt = int(float(r.amount or 0)) * sign
+                    # Skip logistics (already in finance_orders.logistics_fee)
+                    if "logistika" in svc or "logistic" in svc:
+                        continue
+                    # Skip inter-shop balance redistribution — it's an internal
+                    # transfer between the seller's own shops, not a real cost.
+                    if "balansni qayta taqsimlash" in svc:
+                        continue
+                    if ("saqlash" in svc) or ("ombor" in svc) or ("qaytarish" in svc):
+                        cat = "warehouse"
+                    # Marketing = paid promotion ("pulli targ'ibot") +
+                    # boost orders ("buyurtmalarni ko'paytirish to'lovi") only.
+                    # Photoshoot/other services fall through to misc.
+                    elif ("pulli targ" in svc) or ("paytirish" in svc):
+                        cat = "marketing"
+                    else:
+                        cat = "misc"
+                    if cat == "warehouse":   t_exp_warehouse += amt
+                    elif cat == "marketing": t_exp_marketing += amt
+                    else:                    t_exp_misc      += amt
+                    sid_str = str(r.shop_id)
+                    bucket = per_shop_exp.setdefault(sid_str, {"warehouse": 0, "marketing": 0, "misc": 0})
+                    bucket[cat] += amt
+
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        if active_shop_ids:
+            stmt = stmt.where(ProductGroup.shop_id.in_(active_shop_ids))
         else:
             stmt = stmt.where(False)
         groups = db.execute(stmt).scalars().all()
@@ -372,20 +478,18 @@ def economics_data_api():
             g_stock_qty_uzum = g_stock_qty_wh = 0
             g_stock_cost_uzum = g_stock_cost_wh = 0
             g_sales_rev = g_sales_cost = g_commission = g_logistics = 0
-            g_active_skus = 0
             g_uzum_id = shop_id_to_uzum.get(g.shop_id, "")
 
             for v in g.variants:
-                cost      = v.purchase_price or 0
+                v_cost_db = v.purchase_price or 0  # cost from local Variant.purchase_price (may be 0)
                 qty_uzum  = v.uzum_quantity or 0
                 qty_wh    = v.warehouse_quantity or 0
                 stock_qty = qty_uzum + qty_wh
-                g_stock_qty       += stock_qty
-                g_stock_qty_uzum  += qty_uzum
-                g_stock_qty_wh    += qty_wh
-                g_stock_cost      += stock_qty * cost
-                g_stock_cost_uzum += qty_uzum * cost
-                g_stock_cost_wh   += qty_wh * cost
+
+                # "Active SKU" = currently on sale on Uzum (has stock available to buy).
+                # Counts unique variants with Uzum stock > 0; not affected by period.
+                if qty_uzum > 0:
+                    active_skus += 1
 
                 fin = None
                 for key in [v.sku, (v.sku or "").upper(), v.barcode,
@@ -394,18 +498,45 @@ def economics_data_api():
                         fin = per_shop_sales[(g_uzum_id, key)]
                         break
 
-                sq              = fin["qty"]              if fin else 0
-                # finance_orders stores period totals (not per-unit), so use directly
-                total_sell      = fin.get("sell_price", 0) if fin else 0
-                total_comm      = fin.get("commission",  0) if fin else 0
-                total_logi      = fin.get("logistics",   0) if fin else 0
+                sq         = fin["qty"]              if fin else 0
+                total_sell = fin.get("sell_price", 0) if fin else 0
+                total_comm = fin.get("commission",  0) if fin else 0
+                total_logi = fin.get("logistics",   0) if fin else 0
+                # finance.purchase_price_sum is the actual cost-of-goods Uzum reports
+                # for the sold units in this window — use it directly. If absent
+                # (variant had no sales), fall back to qty * Variant.purchase_price.
+                fin_cogs   = int(fin.get("purchase_price", 0)) if fin else 0
+                cogs       = fin_cogs if fin_cogs > 0 else (sq * v_cost_db)
 
-                if sq > 0:
-                    g_active_skus += 1
+                # Per-unit cost for stock_cost computation. Period-INDEPENDENT
+                # so "Вложено в товар" stays stable when the user toggles
+                # date chips (qty itself is also period-independent).
+                #   1) Variant.purchase_price if set (user-entered cost)
+                #   2) cost_map: wide-window finance avg (2-year lookback)
+                #   3) Fallback: period-scoped finance (rarely needed)
+                #   4) 0 (nothing known about this SKU)
+                if v_cost_db > 0:
+                    unit_cost = v_cost_db
+                else:
+                    unit_cost = 0
+                    for key in [v.sku, (v.sku or "").upper(), v.barcode,
+                                 (v.barcode or "").upper(), v.uzum_sku_id]:
+                        if key and (g_uzum_id, key) in cost_map:
+                            unit_cost = cost_map[(g_uzum_id, key)]
+                            break
+                    if unit_cost == 0 and fin and fin.get("qty", 0) > 0 and fin.get("purchase_price", 0) > 0:
+                        unit_cost = fin["purchase_price"] // fin["qty"]
+
+                g_stock_qty       += stock_qty
+                g_stock_qty_uzum  += qty_uzum
+                g_stock_qty_wh    += qty_wh
+                g_stock_cost      += stock_qty * unit_cost
+                g_stock_cost_uzum += qty_uzum  * unit_cost
+                g_stock_cost_wh   += qty_wh    * unit_cost
 
                 g_sales_qty  += sq
                 g_sales_rev  += total_sell
-                g_sales_cost += sq * cost
+                g_sales_cost += cogs
                 g_commission += total_comm
                 g_logistics  += total_logi
 
@@ -428,9 +559,34 @@ def economics_data_api():
             t_sales_rev       += g_sales_rev;        t_sales_qty       += g_sales_qty
             t_sales_profit    += g_sales_profit;     t_commission      += g_commission
             t_logistics       += g_logistics;        t_sales_cost      += g_sales_cost
-            active_skus       += g_active_skus
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
+
+        # Per-shop breakdown for hero cards (Revenue, Profit). Uses finance totals
+        # for revenue + commission/logistics; profit here is the same proxy used
+        # in the daily series (revenue - commission - logistics, no COGS) because
+        # COGS is only available at SKU resolution and accumulating it per shop
+        # would double-count variant data we already aggregated above.
+        per_shop = []
+        for s in active_shops:
+            pst = per_shop_totals.get(s.uzum_id, {})
+            exp = per_shop_exp.get(s.uzum_id, {})
+            rev  = int(pst.get("revenue", 0))
+            comm = int(pst.get("commission", 0))
+            logi = int(pst.get("logistics", 0))
+            cogs = int(pst.get("purchase_price", 0))
+            wh   = int(exp.get("warehouse", 0))
+            mkt  = int(exp.get("marketing", 0))
+            misc = int(exp.get("misc", 0))
+            shop_expenses = comm + logi + mkt + wh + misc
+            per_shop.append({
+                "uzum_id": s.uzum_id,
+                "name":    s.name or s.uzum_id,
+                "revenue":  rev,
+                "expenses": shop_expenses,
+                "profit":   rev - shop_expenses - cogs,
+            })
+        per_shop.sort(key=lambda x: x["revenue"], reverse=True)
 
         # Build daily series (one bucket per day in range, zero-fill gaps)
         daily_series = []
@@ -497,6 +653,10 @@ def economics_data_api():
                 if cm == 13:
                     cm = 1; cy += 1
 
+        # Final profit subtracts the extra expense categories on top of the
+        # per-item profit (which only subtracted commission/logistics/cogs).
+        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc)
+
         return _json_response({
             "items": items,
             "totals": {
@@ -504,11 +664,17 @@ def economics_data_api():
                 "stock_qty_uzum": t_stock_qty_uzum, "stock_qty_warehouse": t_stock_qty_wh,
                 "stock_cost_uzum": t_stock_cost_uzum, "stock_cost_warehouse": t_stock_cost_wh,
                 "sales_revenue": t_sales_rev, "sales_qty": t_sales_qty,
-                "sales_profit": t_sales_profit, "sales_commission": t_commission,
+                "sales_profit": t_sales_profit_full, "sales_commission": t_commission,
                 "sales_logistics": t_logistics, "sales_cost": t_sales_cost,
+                "expenses_warehouse": t_exp_warehouse,
+                "expenses_marketing": t_exp_marketing,
+                "expenses_misc":      t_exp_misc,
                 "active_skus": active_skus,
             },
-            "daily_series":    daily_series,
+            "shops":            shops_list,
+            "active_shop_id":   (raw_shop or "all"),
+            "per_shop":         per_shop,
+            "daily_series":     daily_series,
             "monthly_dynamics": monthly_dynamics,
         })
 

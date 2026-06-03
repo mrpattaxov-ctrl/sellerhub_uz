@@ -3245,6 +3245,50 @@ def _save_hourly_snapshots(snap_hour_tashkent: datetime) -> None:
           f"(UTC={snap_hour_utc.isoformat()})")
 
 
+def _products_sync_loop():
+    """Background products/stock sync for every shop, every N minutes.
+
+    Replaces the old browser-driven 10-minute auto-refresh timer (which only
+    ran while a tab was open and force-reloaded the page). This runs in the
+    dedicated worker process, independent of any browser, so stock stays
+    fresh even with no one looking. The page just renders current DB data
+    when a user enters/refreshes it.
+
+    Interval is PRODUCTS_SYNC_INTERVAL_MIN minutes (default 15). Disable the
+    whole loop with PRODUCTS_SYNC_LOOP=0.
+
+    Sequential per shop, reusing the per-shop locked _sync_products_via_openapi
+    so it plays nicely with manual syncs and the Telegram sync button.
+    """
+    import time as _t
+
+    try:
+        interval_min = int(os.environ.get("PRODUCTS_SYNC_INTERVAL_MIN", "15").strip() or "15")
+    except Exception:
+        interval_min = 15
+    interval_min = max(1, interval_min)
+    interval_seconds = interval_min * 60
+
+    print(f"[ProductsSync] loop started — every {interval_min} min")
+    while True:
+        try:
+            shops = _active_shop_ids_for_sales()
+            for s in shops:
+                try:
+                    tok = _owner_openapi_token_for_shop(s)
+                    if not tok:
+                        print(f"[ProductsSync] shop={s} skipped — no OpenAPI token")
+                        continue
+                    res = _sync_products_via_openapi(s, tok)
+                    print(f"[ProductsSync] shop={s} pages={res.get('pages_synced', 0)} "
+                          f"fetched={res.get('fetched', 0)}")
+                except Exception as e:
+                    print(f"[ProductsSync] shop={s} ERROR: {e!r}")
+        except Exception as e:
+            print(f"[ProductsSync] unexpected error: {e!r}")
+        _t.sleep(interval_seconds)
+
+
 def _hourly_finance_loop():
     """Sleep until next HH:00 Tashkent; refresh today's finance for every shop.
 

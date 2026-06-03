@@ -10,6 +10,8 @@
   <meta http-equiv="Expires" content="0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #f3f4f6;
@@ -104,7 +106,8 @@
     .tax-input .tax-pct { font-size: 13px; font-weight: 600; color: var(--muted); }
 
     /* ── Period controls ───────────────────────────────── */
-    .period-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .period-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .period-row .period-chips { margin-right: auto; }
     .period-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .pchip {
       padding: 8px 14px; border-radius: 999px;
@@ -141,6 +144,112 @@
       font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; width: 100%;
     }
     .date-range-wrapper .cal-icon { color: var(--muted); flex-shrink: 0; }
+
+    /* Shop picker dropdown (matches the products page store dropdown styling) */
+    .eco-shop-picker { position: relative; }
+    .eco-shop-trigger {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 38px; padding: 0 14px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 13px; font-weight: 500; color: var(--ink);
+      cursor: pointer;
+      min-width: 200px;
+      white-space: nowrap;
+      transition: border-color .15s;
+    }
+    .eco-shop-trigger:hover { border-color: var(--ink-2); }
+    .eco-shop-trigger svg { color: var(--muted); flex-shrink: 0; }
+    .eco-shop-trigger .eco-shop-chev { margin-left: auto; color: var(--muted); font-size: 10px; }
+    .eco-shop-menu {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      min-width: 100%;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; padding: 6px;
+      box-shadow: var(--shadow-md);
+      z-index: 50;
+    }
+    .eco-shop-picker.open .eco-shop-menu { display: block; }
+    .eco-shop-item {
+      padding: 9px 12px;
+      font-size: 13px; font-weight: 500; color: var(--ink);
+      border-radius: 8px; cursor: pointer;
+      white-space: nowrap;
+    }
+    .eco-shop-item:hover { background: var(--surface-2); }
+    .eco-shop-item.selected { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+
+    /* Annual revenue limit indicator */
+    .eco-limit-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .eco-limit-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .eco-limit-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .eco-limit-label {
+      font-size: 12px; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .eco-limit-label .eco-limit-year { color: var(--ink-2); }
+    .eco-limit-values {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: 14px; color: var(--ink-2);
+    }
+    .eco-limit-current {
+      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      font-size: 18px; font-weight: 700; color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .eco-limit-sep { color: var(--muted); }
+    .eco-limit-max {
+      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .eco-limit-pct {
+      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 22px; font-weight: 700;
+      padding: 4px 12px; border-radius: 999px;
+      background: var(--brand-soft); color: var(--brand);
+    }
+    .eco-limit-pct.is-warn { background: rgba(217, 119, 6, .12); color: #b25c00; }
+    .eco-limit-pct.is-danger { background: rgba(217, 45, 32, .12); color: #b42318; }
+    [data-bs-theme="dark"] .eco-limit-pct.is-warn { background: rgba(251, 191, 36, .14); color: #fbbf24; }
+    [data-bs-theme="dark"] .eco-limit-pct.is-danger { background: rgba(239, 68, 68, .16); color: #fca5a5; }
+    .eco-limit-bar {
+      height: 10px;
+      background: var(--line-2);
+      border-radius: 99px;
+      overflow: hidden;
+      position: relative;
+    }
+    .eco-limit-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+      border-radius: 99px;
+      transition: width .6s ease, background .3s ease;
+    }
+    .eco-limit-bar-fill.is-warn { background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); }
+    .eco-limit-bar-fill.is-danger { background: linear-gradient(90deg, #dc2626 0%, #f87171 100%); }
+    .eco-limit-bar-fill.is-loading {
+      background: linear-gradient(90deg,
+        var(--line-2) 0%, rgba(0,0,0,.08) 50%, var(--line-2) 100%);
+      background-size: 200% 100%;
+      animation: ecoLimitShimmer 1.4s linear infinite;
+      width: 100% !important;
+    }
+    @keyframes ecoLimitShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
 
     /* ── Cache bar ─────────────────────────────────────── */
     .cache-bar {
@@ -208,10 +317,19 @@
     }
     .stat-card .stat-head-icon { background: var(--brand-soft); color: var(--brand); }
     .stat-card.featured .stat-head-icon { background: rgba(255,255,255,.18); color: #fff; }
-    .stat-label { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .stat-label { font-size: 16px; font-weight: 500; color: var(--muted); }
     .stat-sub   { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-    .stat-val   { font-size: 26px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; line-height: 1.15; }
+    /* Bigger, anchored-to-bottom variant — used for the featured "Вложено в товар" card */
+    .stat-sub-bottom {
+      font-size: 16px; font-weight: 600;
+      letter-spacing: -.005em;
+      margin-top: 14px; margin-bottom: 0;
+      color: rgba(255,255,255,.92);
+    }
+    .stat-val   { font-size: 34px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; line-height: 1.15; }
     .stat-val .ccy { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+    @media (max-width: 1100px) { .stat-val { font-size: 30px; } }
+    @media (max-width: 600px)  { .stat-val { font-size: 28px; } }
     .stat-card.featured .stat-val .ccy { color: rgba(255,255,255,.7); }
     .stat-val.red   { color: var(--red); }
     .stat-val.green { color: var(--green); }
@@ -436,21 +554,15 @@
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
   data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
   data-lang="{{ lang }}">
+  {% include "_topbar.html" %}
 
   <div class="eco-wrap">
 
     <!-- ── Header ─────────────────────────────── -->
     <div class="eco-header">
       <div class="eco-title-block">
-        <div class="eco-title-icon">u</div>
         <div>
           <h1 class="eco-h1">{{ t.eco_title }}</h1>
-          <div class="eco-subline" id="subline">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span id="periodLabel">—</span>
-            <span class="dot"></span>
-            <span id="productsCount">0 товаров</span>
-          </div>
         </div>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -481,26 +593,34 @@
         <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
         <span style="color: var(--muted); font-size: 10px;">▼</span>
       </div>
+      <div class="eco-shop-picker" id="ecoShopPicker" style="display:none;">
+        <button type="button" class="eco-shop-trigger" id="ecoShopTrigger">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span id="ecoShopLabel">Все магазины</span>
+          <span class="eco-shop-chev">▼</span>
+        </button>
+        <div class="eco-shop-menu" id="ecoShopMenu"></div>
+      </div>
       <input type="hidden" id="dateFrom">
       <input type="hidden" id="dateTo">
     </div>
 
-    <!-- ── Shop picker ────────────────────────── -->
-    <div class="shop-row" id="shopRow" style="display:none;">
-      <span class="shop-row-label">Магазин:</span>
-      <div class="shop-chips" id="shopChips"></div>
-    </div>
-
-    <!-- ── Cache info bar ─────────────────────── -->
-    <div class="cache-bar" id="cacheBar">
-      <div class="cache-bar-left">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>{{ t.eco_cache_prefix }} <strong id="cacheTime" style="color: var(--ink-2);">—</strong></span>
+    <!-- ── Annual revenue limit (replaces the old cache info bar) ── -->
+    <div class="eco-limit-card" id="ecoLimitCard">
+      <div class="eco-limit-row">
+        <div class="eco-limit-info">
+          <div class="eco-limit-label">Годовой лимит выручки · <span class="eco-limit-year" id="ecoLimitYear">—</span></div>
+          <div class="eco-limit-values">
+            <span class="eco-limit-current" id="ecoLimitCurrent">—</span>
+            <span class="eco-limit-sep">/</span>
+            <span class="eco-limit-max" id="ecoLimitMax">5 000 000 000 сум</span>
+          </div>
+        </div>
+        <div class="eco-limit-pct" id="ecoLimitPct">—</div>
       </div>
-      <button class="refresh-btn" id="refreshBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        <span id="refreshBtnText">Обновить из Uzum</span>
-      </button>
+      <div class="eco-limit-bar">
+        <div class="eco-limit-bar-fill is-loading" id="ecoLimitFill"></div>
+      </div>
     </div>
 
     <!-- ── Status bar ─────────────────────────── -->
@@ -740,18 +860,15 @@
     }
     function hideStatus(){ document.getElementById("statusBar").classList.remove("show"); }
 
-    function showCacheBar(ts){
-      const d = new Date(ts);
-      document.getElementById("cacheTime").textContent =
-        d.toLocaleString("ru-RU", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
-      document.getElementById("cacheBar").classList.add("show");
-    }
-    function hideCacheBar(){ document.getElementById("cacheBar").classList.remove("show"); }
+    // The cache bar was removed — these are kept as no-ops so existing call sites don't error.
+    function showCacheBar(){}
+    function hideCacheBar(){}
 
     function setBtnRefreshLoading(loading){
       const btn = document.getElementById("refreshBtn");
-      btn.classList.toggle("loading", loading);
-      document.getElementById("refreshBtnText").textContent = loading ? _ET.loading : "Обновить из Uzum";
+      if (btn) btn.classList.toggle("loading", loading);
+      const txt = document.getElementById("refreshBtnText");
+      if (txt) txt.textContent = loading ? _ET.loading : "Обновить из Uzum";
     }
 
     // ── Hero cards renderer ──────────────────────
@@ -819,7 +936,7 @@
             <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
             <span class="stat-label">Вложено в товар</span>
           </div>
-          <div class="stat-sub">Всего на складах · ${fmt(stockQty)} шт</div>
+          <div class="stat-sub" aria-hidden="true" style="visibility:hidden">·</div>
           <div class="stat-val">${fmt(stockCost)} <span class="ccy">сум</span></div>
           <div class="stat-divider"></div>
           <div class="mini-pair">
@@ -832,6 +949,7 @@
               <div class="stat-mini-val">${fmtCompact(whCost)} сум</div>
             </div>
           </div>
+          <div class="stat-sub stat-sub-bottom">Всего на складах · ${fmt(stockQty)} шт</div>
         </div>
 
         <div class="stat-card fade-in" style="animation-delay:.05s">
@@ -876,24 +994,39 @@
     // ── Shop picker ──────────────────────────────
     let activeShopId = "all";
     function renderShopPicker(shops){
-      const row = document.getElementById("shopRow");
-      const chips = document.getElementById("shopChips");
-      if (!shops || shops.length <= 1) { row.style.display = "none"; return; }
-      row.style.display = "flex";
-      const buttons = [{ uzum_id: "all", name: "Все магазины" }, ...shops];
-      chips.innerHTML = buttons.map((s, i) => {
-        const dot = s.uzum_id === "all" ? "" : `<span class="sdot" style="background:${shopColor(i-1)};"></span>`;
-        const cls = (s.uzum_id === activeShopId || (activeShopId === "" && s.uzum_id === "all")) ? "schip active" : "schip";
-        return `<button class="${cls}" data-shop="${s.uzum_id}">${dot}${s.name}</button>`;
+      const picker = document.getElementById("ecoShopPicker");
+      const menu   = document.getElementById("ecoShopMenu");
+      const label  = document.getElementById("ecoShopLabel");
+      if (!shops || shops.length <= 1) { picker.style.display = "none"; return; }
+      picker.style.display = "";
+      const items = [{ uzum_id: "all", name: "Все магазины" }, ...shops];
+      const isActive = (s) => (s.uzum_id === activeShopId) || ((!activeShopId || activeShopId === "all") && s.uzum_id === "all");
+      menu.innerHTML = items.map(s => {
+        const cls = isActive(s) ? "eco-shop-item selected" : "eco-shop-item";
+        return `<div class="${cls}" data-shop="${s.uzum_id}">${s.name}</div>`;
       }).join("");
-      chips.querySelectorAll(".schip").forEach(btn => {
-        btn.addEventListener("click", () => {
-          activeShopId = btn.dataset.shop;
-          chips.querySelectorAll(".schip").forEach(b => b.classList.toggle("active", b === btn));
+      const active = items.find(isActive) || items[0];
+      label.textContent = active.name;
+      menu.querySelectorAll(".eco-shop-item").forEach(el => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          activeShopId = el.dataset.shop === "all" ? "" : el.dataset.shop;
+          label.textContent = el.textContent;
+          menu.querySelectorAll(".eco-shop-item").forEach(b => b.classList.toggle("selected", b === el));
+          picker.classList.remove("open");
           fetchFresh(document.getElementById("dateFrom").value, document.getElementById("dateTo").value);
         });
       });
     }
+
+    // Wire the shop dropdown trigger once
+    (function wireShopPicker(){
+      const picker = document.getElementById("ecoShopPicker");
+      const trigger = document.getElementById("ecoShopTrigger");
+      if (!picker || !trigger) return;
+      trigger.addEventListener("click", (e) => { e.stopPropagation(); picker.classList.toggle("open"); });
+      document.addEventListener("click", () => picker.classList.remove("open"));
+    })();
 
     function renderMini(totals){
       const orders = totals.sales_qty|0;
@@ -1128,7 +1261,7 @@
         (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q)
       );
       document.getElementById("tableCount").textContent = filtered.length;
-      document.getElementById("productsCount").textContent = filtered.length + " товаров";
+      { const el = document.getElementById("productsCount"); if (el) el.textContent = filtered.length + " товаров"; }
 
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 50px 20px;">
@@ -1228,7 +1361,7 @@
       renderTable(payload.items || []);
       const df = document.getElementById("dateFrom").value;
       const dt = document.getElementById("dateTo").value;
-      document.getElementById("periodLabel").textContent = `${ruDate(df)} — ${ruDate(dt)}`;
+      { const el = document.getElementById("periodLabel"); if (el) el.textContent = `${ruDate(df)} — ${ruDate(dt)}`; }
     }
 
     function renderFromCache(df, dt){
@@ -1266,8 +1399,8 @@
 
     const fp = flatpickr("#dateRangeInput", {
       mode: "range", locale: "ru", dateFormat: "d M Y",
-      showMonths: 1, disableMobile: true, static: true,
-      appendTo: document.getElementById("dateRangeWrapper"),
+      showMonths: 1, disableMobile: true,
+      position: "below",
       onChange(selectedDates){
         if (selectedDates.length === 2) {
           dateFromEl.value = toISO(selectedDates[0]);
@@ -1299,9 +1432,7 @@
       });
     });
 
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      fetchFresh(dateFromEl.value, dateToEl.value);
-    });
+    { const _rb = document.getElementById("refreshBtn"); if (_rb) _rb.addEventListener("click", () => { fetchFresh(dateFromEl.value, dateToEl.value); }); }
 
     document.getElementById("productSearch").addEventListener("input", () => {
       if (currentData) renderTable(currentData.items || []);
@@ -1335,13 +1466,62 @@
     });
 
     // Initial render: cache instantly, then fetch
-    document.getElementById("periodLabel").textContent = `${ruDate(init.from)} — ${ruDate(init.to)}`;
+    { const el = document.getElementById("periodLabel"); if (el) el.textContent = `${ruDate(init.from)} — ${ruDate(init.to)}`; }
     if (!renderFromCache(init.from, init.to)) {
       fetchFresh(init.from, init.to);
     } else {
       // also kick a silent refresh
       fetchFresh(init.from, init.to);
     }
+
+    // ── Annual revenue limit (year-to-date vs 5 000 000 000 сум) ──
+    (function loadAnnualLimit(){
+      const LIMIT = 5_000_000_000; // UZS cap for the IP (sole-proprietor) tax regime
+      const fillEl    = document.getElementById("ecoLimitFill");
+      const pctEl     = document.getElementById("ecoLimitPct");
+      const currentEl = document.getElementById("ecoLimitCurrent");
+      const yearEl    = document.getElementById("ecoLimitYear");
+      const today  = new Date();
+      const year   = today.getFullYear();
+      const yearStart = `${year}-01-01`;
+      const yearEnd   = toISO(today);
+      yearEl.textContent = String(year);
+
+      function applyValue(revenue) {
+        const pct = Math.max(0, Math.min(100, (revenue / LIMIT) * 100));
+        fillEl.classList.remove("is-loading", "is-warn", "is-danger");
+        pctEl.classList.remove("is-warn", "is-danger");
+        // Threshold styling
+        if (pct >= 90) {
+          fillEl.classList.add("is-danger");
+          pctEl.classList.add("is-danger");
+        } else if (pct >= 70) {
+          fillEl.classList.add("is-warn");
+          pctEl.classList.add("is-warn");
+        }
+        // Cap visual width at 100% but keep the actual ratio in the badge text
+        const visualPct = Math.min(100, pct);
+        fillEl.style.width = visualPct + "%";
+        pctEl.textContent = pct.toFixed(1).replace(".", ",") + "%";
+        currentEl.textContent = fmt(revenue) + " сум";
+      }
+
+      function applyError() {
+        fillEl.classList.remove("is-loading");
+        fillEl.style.width = "0%";
+        pctEl.textContent = "—";
+        currentEl.textContent = "—";
+      }
+
+      // Fetch year-to-date revenue across all shops for this user.
+      fetch(`/api/economics/data?date_from=${yearStart}&date_to=${yearEnd}&shop_id=all`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(payload => {
+          const rev = (payload && payload.totals && payload.totals.sales_revenue) | 0;
+          applyValue(rev);
+        })
+        .catch(() => applyError());
+    })();
   </script>
 </body>
 </html>

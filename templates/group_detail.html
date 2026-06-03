@@ -116,27 +116,56 @@
   }
   .gd-stat-value { font-size:36px; font-weight:600; letter-spacing:-.02em; color:var(--gd-ink); line-height:1; }
   .gd-stat-value--accent { color:var(--gd-red); }
-  .gd-stat-sub { font-size:13px; color:var(--gd-muted); }
+  .gd-stat-sub { font-size:16px; color:var(--gd-ink-2); }
   .gd-stat-row { display:flex; gap:14px; font-size:12.5px; color:var(--gd-muted); }
   .gd-stat-row .num { color:var(--gd-ink); font-weight:600; }
 
   .gd-storage-cost {
-    display:inline-flex; align-items:center; gap:6px;
-    margin-top:8px; padding-top:8px;
-    border-top:.5px dashed var(--gd-line);
-    font-size:11.5px; color:var(--gd-muted);
+    display:flex; align-items:center; gap:7px;
+    margin-top:8px; padding-top:12px;
+    border-top:.5px solid var(--gd-line);
+    font-size:13.5px; color:var(--gd-muted);
     white-space:nowrap;
   }
   .gd-storage-cost-dot {
-    width:6px; height:6px; border-radius:50%;
+    width:7px; height:7px; border-radius:50%;
     background:var(--gd-red); opacity:.85; flex-shrink:0;
   }
   .gd-storage-cost-label { color:var(--gd-muted); }
   .gd-storage-cost-val   {
-    color:var(--gd-red); font-weight:600; font-size:12.5px;
+    color:var(--gd-red); font-weight:600; font-size:15px;
     margin-left:2px;
   }
   .gd-storage-cost-unit  { color:var(--gd-faint); }
+
+  /* Coverage / deficit donut gauges (Склад · Нужно заказать) */
+  .gd-gauge-row {
+    display:flex; align-items:center; gap:16px;
+    margin-top:12px;
+  }
+  .gd-gauge { position:relative; width:82px; height:82px; flex:0 0 auto; }
+  .gd-gauge svg { width:100%; height:100%; transform:rotate(-90deg); display:block; }
+  .gd-gauge-track { fill:none; stroke:var(--gd-line); stroke-width:3.6; }
+  .gd-gauge-fill {
+    fill:none; stroke-width:3.6; stroke-linecap:round;
+    stroke-dasharray:113.097; stroke-dashoffset:113.097;
+    transition:stroke-dashoffset .65s cubic-bezier(.4,0,.2,1);
+  }
+  .gd-gauge--cover   .gd-gauge-fill { stroke:var(--gd-bar); }
+  .gd-gauge--deficit .gd-gauge-fill { stroke:var(--gd-red); }
+  .gd-gauge-label {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px;
+  }
+  .gd-gauge-pct { font-size:16px; font-weight:700; color:var(--gd-ink); letter-spacing:-.02em; line-height:1; }
+  .gd-gauge--deficit .gd-gauge-pct { color:var(--gd-red); }
+  .gd-gauge-cap {
+    font-size:7.5px; font-weight:600; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--gd-muted); line-height:1;
+  }
+  .gd-gauge-text { font-size:13px; line-height:1.5; color:var(--gd-muted); }
+  .gd-gauge-text .num { color:var(--gd-ink); font-weight:600; }
 
   .gd-delta-pill {
     display:inline-flex; align-items:center; gap:3px;
@@ -146,37 +175,35 @@
   .gd-delta-up   { background:var(--gd-green-soft); color:var(--gd-green); }
   .gd-delta-down { background:var(--gd-red-soft);   color:var(--gd-red); }
 
-  .gd-stat-money { font-size:13px; color:var(--gd-muted); }
-  .gd-stat-money .num { color:var(--gd-ink-2); }
-
-  .gd-stat-profit {
-    display:inline-flex; align-items:center; gap:6px;
-    margin-top:4px; padding:4px 10px;
-    border-radius:6px;
-    font-size:12.5px; color:var(--gd-muted);
-    white-space:nowrap;
-    background:var(--gd-green-soft);
-    width:fit-content;
+  /* Hero metric row — Выручка · Средний чек · Прибыль */
+  .gd-metrics {
+    display:flex;
+    margin-top:6px; padding-top:14px;
+    border-top:1px solid var(--gd-line);
   }
-  .gd-stat-profit.is-loss { background:var(--gd-red-soft); }
-  .gd-stat-profit-icon {
-    width:6px; height:6px; border-radius:50%;
-    background:var(--gd-green); flex-shrink:0;
+  .gd-metric {
+    flex:1 1 0; min-width:0;
+    padding:0 20px;
   }
-  .gd-stat-profit.is-loss .gd-stat-profit-icon { background:var(--gd-red); }
-  .gd-stat-profit-label { color:var(--gd-ink-2); }
-  .gd-stat-profit-val {
-    color:var(--gd-green); font-weight:600; font-size:13px;
-    margin-left:2px;
+  .gd-metric:first-child { padding-left:0; }
+  .gd-metric + .gd-metric { border-left:1px solid var(--gd-line); }
+  .gd-metric-label {
+    font-size:13px; color:var(--gd-muted); margin-bottom:7px;
   }
-  .gd-stat-profit.is-loss .gd-stat-profit-val { color:var(--gd-red); }
-  .gd-stat-profit-pct {
-    color:var(--gd-green); font-weight:600; font-size:11.5px;
-    padding:0 6px; border-radius:4px;
-    background:rgba(0,0,0,.04);
+  .gd-metric-value {
+    font-size:24px; font-weight:700; color:var(--gd-ink);
+    letter-spacing:-.02em; line-height:1; white-space:nowrap;
   }
-  [data-bs-theme="dark"] .gd-stat-profit-pct { background:rgba(255,255,255,.08); }
-  .gd-stat-profit.is-loss .gd-stat-profit-pct { color:var(--gd-red); }
+  .gd-metric-unit {
+    font-size:13px; font-weight:500; color:var(--gd-muted);
+    letter-spacing:0;
+  }
+  .gd-metric--profit .gd-metric-value { color:var(--gd-green); }
+  .gd-metric--profit.is-loss .gd-metric-value { color:var(--gd-red); }
+  .gd-metric-sub {
+    margin-top:6px; font-size:13px; font-weight:500; color:var(--gd-green);
+  }
+  .gd-metric--profit.is-loss .gd-metric-sub { color:var(--gd-red); }
 
   /* Hero bar chart */
   .gd-hero-chart-wrap { margin-top:auto; position:relative; }
@@ -203,11 +230,17 @@
   .gd-tooltip.is-show { opacity:1; }
   .gd-tooltip .gd-tt-qty { font-variant-numeric:tabular-nums; }
   .gd-tooltip .gd-tt-date { color:var(--gd-faint); margin-left:6px; font-weight:400; }
+  .gd-tooltip .gd-tt-rev {
+    display:block; margin-top:3px;
+    font-variant-numeric:tabular-nums; font-weight:600;
+    color:#86efac;
+  }
+  .gd-tooltip .gd-tt-rev:empty { display:none; }
 
   .gd-need-btn {
     appearance:none; border:0; background:var(--gd-solid-bg); color:var(--gd-solid-fg);
-    padding:5px 10px; border-radius:6px;
-    font-size:11.5px; font-weight:500; cursor:pointer; font-family:inherit;
+    padding:11px 20px; border-radius:10px;
+    font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;
     white-space:nowrap;
   }
   .gd-need-btn:hover { filter:brightness(1.05); }
@@ -397,13 +430,30 @@
   }
 
   .gd-row-thumb {
+    position:relative;
     width:44px; height:44px; border-radius:8px;
     background:var(--gd-surface-2); border:.5px solid var(--gd-line);
     overflow:hidden; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
   }
   .gd-row-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .gd-row-thumb[data-zoom-src] { cursor:zoom-in; }
   .gd-row-thumb .gd-no-img { color:var(--gd-faint); font-size:18px; }
+
+  /* Floating hover-zoom preview (position:fixed so it escapes table overflow) */
+  .gd-zoom-preview {
+    position:fixed; top:0; left:0;
+    width:240px; height:240px;
+    padding:6px;
+    background:var(--gd-surface); border:1px solid var(--gd-line);
+    border-radius:16px; box-shadow:0 18px 50px rgba(0,0,0,.30);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transform:scale(.92); transform-origin:left center;
+    transition:opacity .14s ease, transform .14s ease;
+    z-index:9999;
+  }
+  .gd-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+  .gd-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:10px; display:block; }
 
   .gd-sku {
     font-family:'Geist Mono','SF Mono',Menlo,monospace;
@@ -623,21 +673,26 @@
           <span id="statDeltaVal">0%</span>
         </span>
       </div>
-      <div class="gd-stat-money">
-        <span class="num tnum" id="statRevenue">0 сум</span>
-        <span> · ср. чек </span>
-        <span class="num tnum" id="statAvgCheck">0 сум</span>
-      </div>
-      <div class="gd-stat-profit" id="statProfitWrap" style="display:none;">
-        <span class="gd-stat-profit-icon"></span>
-        <span class="gd-stat-profit-label">Прибыль</span>
-        <span class="gd-stat-profit-val tnum mono" id="statProfit">0 сум</span>
-        <span class="gd-stat-profit-pct tnum" id="statProfitPct">0%</span>
+      <div class="gd-metrics">
+        <div class="gd-metric">
+          <div class="gd-metric-label">Выручка</div>
+          <div class="gd-metric-value"><span class="tnum" id="statRevenue">0</span> <span class="gd-metric-unit">сум</span></div>
+        </div>
+        <div class="gd-metric">
+          <div class="gd-metric-label">Средний чек</div>
+          <div class="gd-metric-value"><span class="tnum" id="statAvgCheck">0</span> <span class="gd-metric-unit">сум</span></div>
+        </div>
+        <div class="gd-metric gd-metric--profit" id="statProfitWrap" style="display:none;">
+          <div class="gd-metric-label">Прибыль</div>
+          <div class="gd-metric-value"><span class="tnum" id="statProfit">0</span> <span class="gd-metric-unit">сум</span></div>
+          <div class="gd-metric-sub">маржа <span class="tnum" id="statProfitPct">0%</span></div>
+        </div>
       </div>
       <div class="gd-hero-chart-wrap" id="heroChartWrap">
         <svg class="gd-hero-chart" id="heroChart" viewBox="0 0 600 88" preserveAspectRatio="none"></svg>
         <div class="gd-tooltip" id="chartTooltip">
           <span class="gd-tt-qty">0 шт.</span><span class="gd-tt-date">—</span>
+          <span class="gd-tt-rev">0 сум</span>
         </div>
         <div class="gd-chart-axis" id="heroAxis">
           <span>−30д</span><span>−15д</span><span>сегодня</span>
@@ -652,11 +707,27 @@
         <span class="gd-stat-value tnum" id="statStockTotal">0</span>
         <span class="gd-stat-sub">шт. всего</span>
       </div>
-      <div class="gd-stat-row" style="margin-top:auto;">
+      <div class="gd-stat-row">
         <span>Uzum <span class="num mono tnum" id="statUzum">0</span></span>
         <span>Наш склад <span class="num mono tnum" id="statWh">0</span></span>
       </div>
-      <div class="gd-storage-cost" id="statStorageCostWrap" style="display:none;">
+      <div class="gd-gauge-row">
+        <div class="gd-gauge gd-gauge--cover">
+          <svg viewBox="0 0 44 44">
+            <circle class="gd-gauge-track" cx="22" cy="22" r="18"/>
+            <circle class="gd-gauge-fill" id="coverGaugeFill" cx="22" cy="22" r="18"/>
+          </svg>
+          <div class="gd-gauge-label">
+            <span class="gd-gauge-pct tnum" id="coverGaugePct">0%</span>
+            <span class="gd-gauge-cap">покрытие</span>
+          </div>
+        </div>
+        <div class="gd-gauge-text">
+          Текущий остаток покрывает<br>
+          ≈ <span class="num tnum" id="coverDays">0</span> из 60 дней спроса.
+        </div>
+      </div>
+      <div class="gd-storage-cost" id="statStorageCostWrap" style="display:none; margin-top:auto;">
         <span class="gd-storage-cost-dot"></span>
         <span class="gd-storage-cost-label">Платное хранение</span>
         <span class="gd-storage-cost-val tnum mono" id="statStorageCost">0 сум</span>
@@ -671,7 +742,25 @@
         <span class="gd-stat-value gd-stat-value--accent tnum" id="statNeed">0</span>
         <span class="gd-stat-sub">шт. на 60 дн.</span>
       </div>
-      <div class="gd-stat-row" style="margin-top:auto; align-items:center; justify-content:space-between;">
+      <!-- invisible spacer to match the Склад «Uzum / Наш склад» row so the two donuts align -->
+      <div class="gd-stat-row" style="visibility:hidden;" aria-hidden="true">Uzum 0 Наш склад 0</div>
+      <div class="gd-gauge-row">
+        <div class="gd-gauge gd-gauge--deficit">
+          <svg viewBox="0 0 44 44">
+            <circle class="gd-gauge-track" cx="22" cy="22" r="18"/>
+            <circle class="gd-gauge-fill" id="deficitGaugeFill" cx="22" cy="22" r="18"/>
+          </svg>
+          <div class="gd-gauge-label">
+            <span class="gd-gauge-pct tnum" id="deficitGaugePct">0%</span>
+            <span class="gd-gauge-cap">дефицит</span>
+          </div>
+        </div>
+        <div class="gd-gauge-text">
+          Не хватает <span class="num tnum" id="deficitShort">0</span> шт.,<br>
+          чтобы закрыть 60 дней.
+        </div>
+      </div>
+      <div class="gd-stat-row" style="margin-top:auto; align-items:center; justify-content:space-between; padding-top:12px; border-top:.5px solid var(--gd-line);">
         <span style="font-size:11.5px; color:var(--gd-muted);"><span class="tnum" id="statAttention">0</span> SKU требуют внимания</span>
         <button class="gd-need-btn" id="createOrderBtn">Создать заказ →</button>
       </div>
@@ -805,7 +894,7 @@
         </div>
 
         <div class="gd-cell gd-cell--sku" data-col="sku">
-          <div class="gd-row-thumb">
+          <div class="gd-row-thumb"{% if v.image_url %} data-zoom-src="{{ v.image_url | uzum540 }}"{% elif group.image_url %} data-zoom-src="{{ group.image_url | uzum540 }}"{% endif %}>
             {% if v.image_url %}<img src="{{ v.image_url | uzum540 }}" alt="" loading="lazy">
             {% elif group.image_url %}<img src="{{ group.image_url | uzum540 }}" alt="" loading="lazy">
             {% else %}<span class="gd-no-img">⌬</span>{% endif %}
@@ -1007,7 +1096,7 @@ function paintRowStatusesAndNeeds(){
 
 // ── Stats recompute (visible rows) ──────────────────────
 function recomputeStats(periodDays){
-  let totalSales=0, totalUzum=0, totalWh=0, need=0, attention=0, skusWithSales=0, shown=0, totalStorage=0;
+  let totalSales=0, totalUzum=0, totalWh=0, need=0, attention=0, skusWithSales=0, shown=0, totalStorage=0, totalS30=0;
   document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
     if (tr.style.display === 'none') return;
     shown++;
@@ -1016,6 +1105,7 @@ function recomputeStats(periodDays){
     const s  = parseInt(tr.querySelector('.sales-cell').textContent||0);
     const s30= parseInt(tr.dataset.s30||0);
     totalSales += s; totalUzum += uq; totalWh += wh;
+    totalS30 += s30;
     totalStorage += parseInt(tr.dataset.storage||0);
     if (s > 0) skusWithSales++;
     const st = statusFor(uq, wh, s);
@@ -1042,6 +1132,35 @@ function recomputeStats(periodDays){
   } else {
     sWrap.style.display = 'none';
   }
+
+  // Coverage / deficit donut gauges (always over a fixed 60-day horizon)
+  const totalStock  = totalUzum + totalWh;
+  const dailyDemand = totalS30 / 30;
+  const demand60    = dailyDemand * 60;
+  const clamp = p => Math.max(0, Math.min(100, p));
+  let coverPct, coverDays, deficitPct;
+  if (demand60 > 0) {
+    const daysCover = totalStock / dailyDemand;
+    coverPct   = clamp(Math.round(daysCover / 60 * 100));
+    coverDays  = Math.min(60, Math.round(daysCover));
+    deficitPct = clamp(Math.round(need / demand60 * 100));
+  } else {
+    // No demand in period → stock fully covers, no deficit
+    coverPct = totalStock > 0 ? 100 : 0;
+    coverDays = 60;
+    deficitPct = 0;
+  }
+  const C = 113.097; // 2π·18, matches stroke-dasharray in CSS
+  const setGauge = (id, pct) => {
+    const el = document.getElementById(id);
+    if (el) el.style.strokeDashoffset = C * (1 - pct / 100);
+  };
+  setGauge('coverGaugeFill', coverPct);
+  setGauge('deficitGaugeFill', deficitPct);
+  document.getElementById('coverGaugePct').textContent   = coverPct + '%';
+  document.getElementById('coverDays').textContent       = fmt(coverDays);
+  document.getElementById('deficitGaugePct').textContent = deficitPct + '%';
+  document.getElementById('deficitShort').textContent    = fmt(need);
 }
 
 // ── Search filter ───────────────────────────────────────
@@ -1124,6 +1243,7 @@ function redrawHeroChart(){
   const wrap = document.getElementById('heroChartWrap');
   const tip  = document.getElementById('chartTooltip');
   const arr  = heroData.group_daily || [];
+  const revArr = heroData.group_daily_revenue || [];
   const labels = heroData.day_labels || [];
 
   const W = 600, H = 88, pad = 4;
@@ -1161,6 +1281,7 @@ function redrawHeroChart(){
     tip.style.top  = (svgRect.top - wrapRect.top + 4) + 'px';
     tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(arr[idx]) + ' шт.';
     tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
+    tip.querySelector('.gd-tt-rev').textContent  = revArr[idx] ? fmtMoney(revArr[idx]) : '';
     tip.classList.add('is-show');
   };
   svg.onmousemove = (ev) => {
@@ -1303,8 +1424,9 @@ function paintCommissionCells(){
 function paintHeroNumbers(){
   if (!heroData) return;
   document.getElementById('statSalesValue').textContent = new Intl.NumberFormat('ru-RU').format(heroData.total_sales || 0);
-  document.getElementById('statRevenue').textContent   = fmtMoney(heroData.total_revenue || 0);
-  document.getElementById('statAvgCheck').textContent  = fmtMoney(heroData.avg_check || 0);
+  const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
+  document.getElementById('statRevenue').textContent   = fmtN(heroData.total_revenue || 0);
+  document.getElementById('statAvgCheck').textContent  = fmtN(heroData.avg_check || 0);
   const dp = heroData.delta_pct || 0;
   const pill = document.getElementById('statDelta');
   const val  = document.getElementById('statDeltaVal');
@@ -1325,7 +1447,7 @@ function paintHeroNumbers(){
   if (rev > 0) {
     wrap.style.display = '';
     wrap.classList.toggle('is-loss', prof < 0);
-    document.getElementById('statProfit').textContent = fmtMoney(prof);
+    document.getElementById('statProfit').textContent = fmtN(prof);
     document.getElementById('statProfitPct').textContent =
       (ppct >= 0 ? ppct : -ppct).toFixed(1).replace('.', ',') + '%';
     wrap.title = `Выручка ${fmtMoney(rev)} − комиссия ${fmtMoney(heroData.total_commission||0)} − логистика ${fmtMoney(heroData.total_logistics||0)} − себестоимость ${fmtMoney(heroData.total_cost||0)}`;
@@ -1684,6 +1806,47 @@ window.addEventListener('load', () => {
     });
   }, 500);
 });
+
+// Hover-zoom preview for variant thumbnails. A single position:fixed element
+// follows the hovered thumb, so it escapes the table's overflow clipping.
+(function () {
+  var preview = document.createElement('div');
+  preview.className = 'gd-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+
+  var GAP = 14;        // gap between thumb and preview
+  var SIZE = 240;      // must match .gd-zoom-preview width/height in CSS
+
+  function place(thumb) {
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    // Prefer to the right of the thumb; flip left if it would overflow.
+    var left = r.right + GAP;
+    if (left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+    if (left < 8) left = 8;
+    // Vertically center on the thumb, clamped to viewport.
+    var top = r.top + r.height / 2 - SIZE / 2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+
+  function show(thumb) {
+    var src = thumb.getAttribute('data-zoom-src');
+    if (!src) return;
+    if (pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide() { preview.classList.remove('is-visible'); }
+
+  document.querySelectorAll('.gd-row-thumb[data-zoom-src]').forEach(function (thumb) {
+    thumb.addEventListener('mouseenter', function () { show(thumb); });
+    thumb.addEventListener('mouseleave', hide);
+  });
+})();
 </script>
 
 {% endblock %}

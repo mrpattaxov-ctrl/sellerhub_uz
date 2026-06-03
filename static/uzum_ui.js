@@ -654,18 +654,8 @@
     return data;
   }
 
-  // --- Auto Refresh Logic (Every 10 Minutes) ---
-  setInterval(async () => {
-    console.log("Auto-refreshing data...");
-    try {
-      const shopsRes = await fetch("/api/shops");
-      const shopsData = await shopsRes.json();
-      if (shopsData.shops) {
-        for (const shop of shopsData.shops) {
-          await postJson("/api/uzum/sync", { shop_id: shop.uzum_id, size: 100, sync_all: true });
-        }
-        window.location.reload();
-      }
-    } catch (e) { console.error("Auto-sync failed", e); }
-  }, 10 * 60 * 1000); // 10 minutes
+  // Products/stock fetching now runs server-side in the background worker
+  // (_products_sync_loop, every PRODUCTS_SYNC_INTERVAL_MIN minutes), independent
+  // of any open browser. The page renders current DB data on load/refresh, so
+  // there's no client-side auto-refresh timer or forced page reload here.
 })();

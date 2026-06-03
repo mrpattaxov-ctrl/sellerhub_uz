@@ -58,6 +58,14 @@ if os.environ.get("NEW_SALES_REPORTS_LOOPS", "1").strip().lower() not in ("0", "
     threads.append(t7)
     print("[Worker] Started: daily expenses loop")
 
+# Background products/stock sync (replaces old browser 10-min auto-refresh).
+# Disable via PRODUCTS_SYNC_LOOP=0.
+if os.environ.get("PRODUCTS_SYNC_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+    t8 = threading.Thread(target=_app._products_sync_loop, daemon=True, name="products-sync")
+    t8.start()
+    threads.append(t8)
+    print("[Worker] Started: products sync loop")
+
 _app._start_auto_login_scheduler()
 print("[Worker] Started: auto-login scheduler")
 

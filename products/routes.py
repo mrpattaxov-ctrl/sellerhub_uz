@@ -161,22 +161,57 @@ def groups_page():
                 Variant.group_id,
                 func.count(Variant.id),
                 func.coalesce(func.sum(Variant.uzum_quantity), 0),
+                func.coalesce(func.sum(Variant.quantity_fbs), 0),
                 func.coalesce(func.sum(Variant.warehouse_quantity), 0),
                 func.min(Variant.sku),
             )
             .where(Variant.group_id.in_(group_ids) if group_ids else False)
             .group_by(Variant.group_id)
         )
-        agg = {gid: {"variants": c, "uzum_qty": int(u), "wh_qty": int(w), "sku": "-".join(str(s).split("-")[:2]) if s else ""} for (gid, c, u, w, s) in db.execute(vstmt).all()}
+        agg = {
+            gid: {
+                "variants": c,
+                "fbo": int(u),
+                "fbs": int(fbs),
+                "wh": int(w),
+                "uzum_qty": int(u),  # kept for backward compat with other templates/JS
+                "wh_qty": int(w),
+                "sku": "-".join(str(s).split("-")[:2]) if s else "",
+            }
+            for (gid, c, u, fbs, w, s) in db.execute(vstmt).all()
+        }
 
-        # Fetch shops for the picker
+        # Fetch shops for the picker (with name lookup used by the cards)
         shops = db.execute(
             select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop)
         ).scalars().all()
+        shops_by_id = {s.id: s for s in shops}
 
-    return render_template("groups.html", groups=groups, agg=agg, q=q,
-                           current_status=display_status, shops=shops, current_shop_id=shop_filter,
-                           page=page, total_pages=total_pages, total_count=total_count, per_page=per_page)
+        # Tab totals (Активные / Архив) over the *visible* set (allowed shops + store filter, ignoring search)
+        tab_base = select(func.count(ProductGroup.id))
+        if allowed_shop_ids:
+            tab_base = tab_base.where(
+                ProductGroup.shop_id.in_(allowed_shop_ids) | (ProductGroup.shop_id == None)
+            )
+        else:
+            tab_base = tab_base.where(ProductGroup.shop_id == None)
+        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+            tab_base = tab_base.where(ProductGroup.shop_id == int(shop_filter))
+        count_active = db.execute(
+            tab_base.where((ProductGroup.is_archived == False) | (ProductGroup.is_archived == None))
+        ).scalar() or 0
+        count_archived = db.execute(
+            tab_base.where(ProductGroup.is_archived == True)
+        ).scalar() or 0
+
+    return render_template(
+        "groups.html",
+        groups=groups, agg=agg, q=q,
+        current_status=display_status, shops=shops, shops_by_id=shops_by_id,
+        current_shop_id=shop_filter,
+        page=page, total_pages=total_pages, total_count=total_count, per_page=per_page,
+        count_active=count_active, count_archived=count_archived,
+    )
 
 @products_bp.get("/fetch")
 @login_required
@@ -406,11 +441,16 @@ def economics_data_api():
                 daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
 
         # ── Categorized expenses from expenses_ledger ────────────────────
-        # Logistics rows are skipped here: they're already counted via
-        # finance_orders.logistics_sum (Uzum's payments report exposes the
-        # same logistics fee, so double-counting would inflate расходы).
+        # Logistics outflow ("Оплата") rows are skipped here: they're already
+        # counted via finance_orders.logistics_sum (Uzum's payments report
+        # exposes the same logistics fee, so double-counting would inflate
+        # расходы). BUT logistics REFUND ("Возврат") rows are kept and netted
+        # against the logistics total — those are credits Uzum issues when a
+        # parcel comes back, and the seller should see them reduce Логистика.
         # Net per category = sum(Оплата) - sum(Возврат).
         t_exp_warehouse = t_exp_marketing = t_exp_misc = 0
+        t_log_refunds = 0  # cumulative — negative when there are refunds
+        per_shop_log_refund: dict[str, int] = {}
         per_shop_exp: dict[str, dict] = {}  # uzum_id (str) → {warehouse, marketing, misc}
         if shop_uzum_ids:
             # ExpensesLedger.shop_id is int; cast our str uzum_ids.
@@ -433,10 +473,24 @@ def economics_data_api():
                     svc = svc_raw
                     for _ap in ("ʻ", "’", "ʼ"):
                         svc = svc.replace(_ap, "'")
-                    sign = 1 if (r.op_type or "").strip() == "Оплата" else -1
+                    op = (r.op_type or "").strip()
+                    sign = 1 if op == "Оплата" else -1
                     amt = int(float(r.amount or 0)) * sign
-                    # Skip logistics (already in finance_orders.logistics_fee)
+                    # Logistics handling:
+                    #   • "Оплата" (forward delivery outflow) — skip; already in
+                    #     finance_orders.logistics_fee, so counting it again
+                    #     would double-charge.
+                    #   • "Возврат" (Uzum credits the seller back when a parcel
+                    #     comes home or the fee was miscalculated) — KEEP and
+                    #     route into a dedicated refund bucket so it nets
+                    #     against the Логистика total.
                     if "logistika" in svc or "logistic" in svc:
+                        if op == "Оплата":
+                            continue
+                        # amt is already negative because sign == -1
+                        t_log_refunds += amt
+                        sid_lr = str(r.shop_id)
+                        per_shop_log_refund[sid_lr] = per_shop_log_refund.get(sid_lr, 0) + amt
                         continue
                     # Skip inter-shop balance redistribution — it's an internal
                     # transfer between the seller's own shops, not a real cost.
@@ -562,6 +616,16 @@ def economics_data_api():
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
 
+        # Net logistics refunds (Возврат rows tagged "logistika") into the
+        # grand total and into each shop's logistics bucket BEFORE the per-shop
+        # output loop is built. t_log_refunds is ≤ 0, so this reduces the
+        # reported "Логистика" expense.
+        t_logistics += t_log_refunds
+        for _sid, _ref in per_shop_log_refund.items():
+            _pst = per_shop_totals.get(_sid)
+            if _pst is not None:
+                _pst["logistics"] += _ref
+
         # Per-shop breakdown for hero cards (Revenue, Profit). Uses finance totals
         # for revenue + commission/logistics; profit here is the same proxy used
         # in the daily series (revenue - commission - logistics, no COGS) because
@@ -655,7 +719,9 @@ def economics_data_api():
 
         # Final profit subtracts the extra expense categories on top of the
         # per-item profit (which only subtracted commission/logistics/cogs).
-        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc)
+        # t_log_refunds is ≤ 0 (Возврат logistika rows), so subtracting it
+        # adds the refunded logistics back to profit.
+        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc) - t_log_refunds
 
         return _json_response({
             "items": items,
@@ -1050,6 +1116,7 @@ def group_daily_stats(group_id: int):
         day_index = {d: i for i, d in enumerate(day_list)}
 
         group_daily = [0] * days
+        group_revenue_daily = [0] * days
         group_revenue = 0
         group_commission = 0
         group_logistics = 0
@@ -1076,6 +1143,7 @@ def group_daily_stats(group_id: int):
             logf = int(r.log or 0)
             cost = int(r.cost or 0)
             group_daily[idx] += qty
+            group_revenue_daily[idx] += rev
             group_revenue += rev
             group_commission += comm
             group_logistics += logf
@@ -1162,6 +1230,7 @@ def group_daily_stats(group_id: int):
         "avg_check": avg_check,
         "delta_pct": delta_pct,
         "group_daily": group_daily,
+        "group_daily_revenue": group_revenue_daily,
         "day_labels": [d.isoformat() for d in day_list],
         "per_variant_daily": per_variant_daily,
         "per_variant_commission": per_variant_comm,        # total сум in period

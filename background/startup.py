@@ -60,5 +60,10 @@ def start_background_threads():
         threading.Thread(target=_app._nightly_finance_refetch_loop, daemon=True, name="finance-nightly-refetch").start()
         threading.Thread(target=_app._daily_expenses_loop, daemon=True, name="expenses-daily").start()
         print("[Background] Started: legacy-style finance loops (hourly, nightly-refetch, expenses-daily)")
+    # Background products/stock sync (replaces old browser 10-min auto-refresh).
+    # Disable via PRODUCTS_SYNC_LOOP=0.
+    if os.environ.get("PRODUCTS_SYNC_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._products_sync_loop, daemon=True, name="products-sync").start()
+        print("[Background] Started: products sync loop")
     _app._start_auto_login_scheduler()
     print("[Background] Started: hourly finance, Telegram bot, auto-login")

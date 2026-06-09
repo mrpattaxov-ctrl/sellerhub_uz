@@ -1303,6 +1303,172 @@ def add_variant_sale(variant_id: int):
 # ----------------------------
 # Invoice / Restock Logic
 # ----------------------------
+_RESTOCK_PERIOD_DAYS = (7, 10, 15, 30, 60, 90)
+_RESTOCK_CHUNK_DEFAULT = 35
+_RESTOCK_CHUNK_MIN = 1
+_RESTOCK_CHUNK_MAX = 100
+
+
+def _resolve_restock_limit(raw):
+    """Clamp the per-invoice SKU limit to [1, 100], default 35."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return _RESTOCK_CHUNK_DEFAULT
+    return max(_RESTOCK_CHUNK_MIN, min(_RESTOCK_CHUNK_MAX, n))
+
+
+def _chunk_by_shop(items, chunk_size, shop_key):
+    """Split ``items`` into invoice chunks of at most ``chunk_size`` that never
+    span two shops. ``items`` must already be sorted so each shop's rows are
+    contiguous. A shop with more rows than ``chunk_size`` simply produces
+    several chunks. Returns ``[[]]`` when there is nothing to chunk so the
+    template can render its empty state.
+    """
+    chunks = []
+    cur_shop = object()  # sentinel that never equals a real shop key
+    for it in items:
+        sk = shop_key(it)
+        if not chunks or sk != cur_shop or len(chunks[-1]) >= chunk_size:
+            chunks.append([])
+            cur_shop = sk
+        chunks[-1].append(it)
+    return chunks or [[]]
+
+
+def _resolve_restock_window():
+    """Resolve the restock sales window from request args.
+
+    Mirrors group_sales_range: an explicit ``date_from``/``date_to`` pair wins,
+    otherwise a ``days`` chip (one of 7/10/15/30/60/90, default 30). Returns
+    ``(start_ts, end_ts, days_label, date_from_str, date_to_str)`` where the
+    timestamps are Tashkent day bounds ready for read_sales_aggregated.
+    """
+    days_param = request.args.get("days")
+    date_from_str = (request.args.get("date_from") or "").strip()
+    date_to_str = (request.args.get("date_to") or "").strip()
+    today = _today_app_tz()
+
+    if date_from_str and date_to_str:
+        try:
+            d_from = date.fromisoformat(date_from_str)
+            d_to = date.fromisoformat(date_to_str)
+            days_label = (d_to - d_from).days + 1
+        except ValueError:
+            d_from, d_to, days_label = today - timedelta(days=30), today, 30
+            date_from_str = date_to_str = ""
+    else:
+        try:
+            days_label = int(days_param) if days_param else 30
+        except (ValueError, TypeError):
+            days_label = 30
+        if days_label not in _RESTOCK_PERIOD_DAYS:
+            days_label = 30
+        d_to = today
+        d_from = today - timedelta(days=days_label)
+
+    start_ts, _ = day_bounds_tashkent(d_from)
+    _, end_ts = day_bounds_tashkent(d_to)
+    return start_ts, end_ts, days_label, date_from_str, date_to_str
+
+
+def _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts):
+    """Build per-shop live sales lookups from finance_orders for the window.
+
+    Returns ``{shop_pk: (by_sku_id, by_title)}``. Same matching keys as
+    group_sales_range so the restock page reads sales straight from finance
+    rather than the stale Variant.sales_30d_finance snapshot.
+    """
+    sales_maps: dict[int, tuple[dict, dict]] = {}
+    for shop_pk, uzum_id in shop_uzum_by_pk.items():
+        try:
+            agg_rows = read_sales_aggregated(
+                uzum_id, start_ts, end_ts, group_by="sku", session=db,
+            )
+        except Exception as e:
+            print(f"[Restock] finance read failed for shop={uzum_id}: {e!r}")
+            agg_rows = []
+        by_sku_id: dict[str, int] = {}
+        by_title: dict[str, int] = {}
+        for row in agg_rows:
+            qty = int(row.get("qty_sum") or 0)
+            title = (row.get("sku_title") or "").strip()
+            if title:
+                by_title[title] = qty
+                by_title[title.upper()] = qty
+            sid = row.get("sku_id")
+            if sid:
+                sid_s = str(sid)
+                by_sku_id[sid_s] = qty
+                by_sku_id[sid_s.upper()] = qty
+        sales_maps[shop_pk] = (by_sku_id, by_title)
+    return sales_maps
+
+
+def _restock_match(v, by_sku_id, by_title):
+    """Look a variant up in (by_sku_id, by_title) maps using the same lenient
+    matching everywhere on the restock page: sku → uzum_sku_id → title/barcode.
+    Returns 0 when nothing matches.
+    """
+    vsku = v.sku or ""
+    val = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
+    if val == 0 and v.uzum_sku_id and str(v.uzum_sku_id) in by_sku_id:
+        val = by_sku_id[str(v.uzum_sku_id)]
+    if val == 0:
+        for key in [vsku, vsku.upper(), v.barcode, (v.barcode or "").upper()]:
+            if key and key in by_title:
+                val = by_title[key]
+                break
+    return val
+
+
+def _restock_period_sales(v, by_sku_id, by_title):
+    """Per-variant sales for the window (sku_id → uzum_sku_id → title/barcode)."""
+    return _restock_match(v, by_sku_id, by_title)
+
+
+def _restock_cost_maps(db, shop_uzum_by_pk, end_ts):
+    """Per-shop average unit-cost lookups from *all-time* finance_orders.
+
+    Returns ``{shop_pk: (by_sku_id, by_title)}`` where each value is the
+    average себестоимость per unit (purchase_price_sum // qty_sum) across all
+    finance data up to ``end_ts``. Used as a fallback when a variant's stored
+    ``purchase_price`` is 0 — Uzum's product API often omits the cost, but the
+    finance/orders feed reports it on every sold unit. Mirrors the unit-cost
+    derivation on the economics page.
+    """
+    cost_floor = date(2020, 1, 1)
+    start_ts, _ = day_bounds_tashkent(cost_floor)
+    cost_maps: dict[int, tuple[dict, dict]] = {}
+    for shop_pk, uzum_id in shop_uzum_by_pk.items():
+        try:
+            rows = read_sales_aggregated(
+                uzum_id, start_ts, end_ts, group_by="sku", session=db,
+            )
+        except Exception as e:
+            print(f"[Restock] cost read failed for shop={uzum_id}: {e!r}")
+            rows = []
+        by_sku_id: dict[str, int] = {}
+        by_title: dict[str, int] = {}
+        for row in rows:
+            qty = int(row.get("qty_sum") or 0)
+            pp = int(row.get("purchase_price_sum") or 0)
+            if qty <= 0 or pp <= 0:
+                continue
+            uc = pp // qty
+            title = (row.get("sku_title") or "").strip()
+            if title:
+                by_title[title] = uc
+                by_title[title.upper()] = uc
+            sid = row.get("sku_id")
+            if sid:
+                sid_s = str(sid)
+                by_sku_id[sid_s] = uc
+                by_sku_id[sid_s.upper()] = uc
+        cost_maps[shop_pk] = (by_sku_id, by_title)
+    return cost_maps
+
+
 @products_bp.get("/invoice/restock")
 @login_required
 def invoice_restock_page():
@@ -1310,40 +1476,63 @@ def invoice_restock_page():
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
 
+    start_ts, end_ts, days_label, date_from_str, date_to_str = _resolve_restock_window()
+
     with SessionLocal() as db:
         if _current_user_is_admin():
             shops = db.execute(select(Shop)).scalars().all()
         else:
             shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all()
 
+        # Shops in scope for the table (filter chip narrows to one).
+        scope_shop_ids = list(allowed_shop_ids)
+        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+            scope_shop_ids = [int(shop_filter)]
+
+        # Live per-shop sales for the chosen window, straight from finance_orders.
+        shop_uzum_by_pk = {}
+        shop_name_by_pk = {}
+        if scope_shop_ids:
+            for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
+                shop_uzum_by_pk[s.id] = s.uzum_id
+                shop_name_by_pk[s.id] = s.name
+        sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
+        # All-time per-unit cost fallback for variants with no stored purchase_price.
+        _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
+        cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
+
         stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        if scope_shop_ids:
+            stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
         else:
             stmt = stmt.where(False)
-        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id == int(shop_filter))
 
         rows = db.execute(stmt).all()
 
         items = []
         for v, g in rows:
-            s30 = v.sales_30d_finance or 0
+            by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
+            sales = _restock_period_sales(v, by_sku_id, by_title)
             u_qty = v.uzum_quantity or 0
             wh_qty = v.warehouse_quantity or 0
 
-            # Logic: needed = s30. If u_qty < needed, restock = needed - u_qty
-            if u_qty < s30:
-                needed = s30 - u_qty
+            # Logic: needed = sales in window. If u_qty < needed, restock = needed - u_qty
+            if u_qty < sales:
+                needed = sales - u_qty
                 if wh_qty > 0:
                     restock = min(needed, wh_qty)
                     price = v.purchase_price or 0
+                    if price <= 0:
+                        c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
+                        price = _restock_match(v, c_by_sku_id, c_by_title) or 0
                     items.append({
                         "id": v.id,
                         "name": g.name,
                         "sku": v.sku,
                         "barcode": v.barcode,
-                        "sales_30d": s30,
+                        "shop_id": g.shop_id,
+                        "shop_name": shop_name_by_pk.get(g.shop_id, ""),
+                        "sales_30d": sales,
                         "uzum_qty": u_qty,
                         "wh_qty": wh_qty,
                         "restock_qty": restock,
@@ -1352,16 +1541,31 @@ def invoice_restock_page():
                         "image_url": normalize_uzum_image_url(v.image_url or g.image_url)
                     })
 
-        # Sort by SKU to keep variants together
-        items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
+        # Group invoices by shop: sort by shop name, then SKU within each shop.
+        items.sort(key=lambda x: (
+            str(x.get("shop_name") or "").strip().lower(),
+            x.get("shop_id") or 0,
+            str(x.get("sku") or "").strip().lower(),
+        ))
 
-        # Chunk into max 35 items per file/invoice
-        chunk_size = 35
-        chunks = [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
-        if not chunks:
-            chunks = [[]]
+        # Chunk into max `chunk_size` items per file/invoice (user-configurable
+        # 1–100), never mixing two shops in one invoice.
+        chunk_size = _resolve_restock_limit(request.args.get("limit"))
+        chunks = _chunk_by_shop(items, chunk_size, lambda x: x.get("shop_id"))
 
-    return render_template("invoice_restock.html", chunks=chunks, shops=shops, current_shop=shop_filter)
+    return render_template(
+        "invoice_restock.html",
+        chunks=chunks,
+        shops=shops,
+        current_shop=shop_filter,
+        days_label=days_label,
+        date_from=date_from_str,
+        date_to=date_to_str,
+        period_days=_RESTOCK_PERIOD_DAYS,
+        chunk_limit=chunk_size,
+        chunk_limit_min=_RESTOCK_CHUNK_MIN,
+        chunk_limit_max=_RESTOCK_CHUNK_MAX,
+    )
 
 @products_bp.route("/invoice/restock/download", methods=["GET", "POST"])
 @login_required
@@ -1371,14 +1575,19 @@ def invoice_restock_download():
 
     try:
         data_rows = []
+        chunk_limit_raw = None
 
         if request.method == "POST":
             # Use data provided by the client (edited quantities)
             payload = request.get_json(force=True, silent=True) or {}
             items = payload.get("items") or []
+            chunk_limit_raw = payload.get("limit")
 
-            # Sort items by SKU to ensure they are grouped nicely in the Excel file
-            items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
+            # Group by shop, then SKU, so files never mix shops and variants stay together.
+            items.sort(key=lambda x: (
+                x.get("shop_id") or 0,
+                str(x.get("sku") or "").strip().lower(),
+            ))
 
             for item in items:
                 bc = str(item.get("barcode") or "").strip()
@@ -1388,40 +1597,60 @@ def invoice_restock_download():
                 except (ValueError, TypeError):
                     continue
                 if qty > 0:
-                    data_rows.append([bc, price, qty])
+                    data_rows.append([bc, price, qty, item.get("shop_id")])
         else:
-            # GET request: Auto-calculate based on DB (legacy behavior)
+            # GET request: Auto-calculate based on live finance for the window.
             shop_filter = (request.args.get("shop_id") or "").strip()
             uid = int(current_user.get_id())
             allowed_shop_ids = _user_shop_ids(uid)
+            start_ts, end_ts, _dl, _df, _dt = _resolve_restock_window()
             with SessionLocal() as db:
+                scope_shop_ids = list(allowed_shop_ids)
+                if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+                    scope_shop_ids = [int(shop_filter)]
+
+                shop_uzum_by_pk = {}
+                if scope_shop_ids:
+                    for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
+                        shop_uzum_by_pk[s.id] = s.uzum_id
+                sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
+                _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
+                cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
+
                 stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-                if allowed_shop_ids:
-                    stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+                if scope_shop_ids:
+                    stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
                 else:
                     stmt = stmt.where(False)
-                if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-                    stmt = stmt.where(ProductGroup.shop_id == int(shop_filter))
-                stmt = stmt.order_by(Variant.sku)
+                stmt = stmt.order_by(ProductGroup.shop_id, Variant.sku)
                 rows = db.execute(stmt).all()
 
                 for v, g in rows:
-                    s30 = v.sales_30d_finance or 0
+                    by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
+                    sales = _restock_period_sales(v, by_sku_id, by_title)
                     u_qty = v.uzum_quantity or 0
                     wh_qty = v.warehouse_quantity or 0
 
-                    if u_qty < s30:
-                        needed = s30 - u_qty
+                    if u_qty < sales:
+                        needed = sales - u_qty
                         if wh_qty > 0:
                             restock = min(needed, wh_qty)
                             price = v.purchase_price or 0
-                            data_rows.append([v.barcode or "", price, restock])
+                            if price <= 0:
+                                c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
+                                price = _restock_match(v, c_by_sku_id, c_by_title) or 0
+                            data_rows.append([v.barcode or "", price, restock, g.shop_id])
 
-        # Chunk into max 35 items per file
-        chunk_size = 35
-        chunks = [data_rows[i:i + chunk_size] for i in range(0, len(data_rows), chunk_size)]
-        if not chunks:
-            chunks = [[]]
+        # Chunk into max `chunk_size` items per file (user-configurable 1–100),
+        # never mixing two shops in one file. Each row carries its shop id as a
+        # trailing element used only for grouping — stripped before writing.
+        chunk_size = _resolve_restock_limit(
+            chunk_limit_raw if chunk_limit_raw is not None else request.args.get("limit")
+        )
+        _tagged = _chunk_by_shop(
+            data_rows, chunk_size, lambda r: r[3] if len(r) > 3 else None
+        )
+        chunks = [[r[:3] for r in c] for c in _tagged]
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -1486,6 +1715,7 @@ def invoice_restock_upload_uzum():
         uzum_shop_id = shop.uzum_id
 
     data_rows = []
+    zero_price_barcodes = []
     items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
 
     for item in items:
@@ -1496,7 +1726,17 @@ def invoice_restock_upload_uzum():
         except (ValueError, TypeError):
             continue
         if qty > 0:
+            # Uzum rejects the whole file if any cost is 0 — catch it here too.
+            if price <= 0:
+                zero_price_barcodes.append(bc or "—")
+                continue
             data_rows.append([bc, price, qty])
+
+    if zero_price_barcodes:
+        return _json_response({
+            "error": "Укажите себестоимость (больше 0) для штрихкодов: "
+                     + ", ".join(zero_price_barcodes)
+        }, 400)
 
     if not data_rows:
         return _json_response({"error": "No valid items to upload"}, 400)

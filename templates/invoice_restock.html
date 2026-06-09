@@ -1,7 +1,116 @@
 {% extends "base.html" %}
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
 <style>
+  /* Period segmented control + date range — ported from the variants SKU page */
+  .restock-seg {
+    display: inline-flex;
+    padding: 3px;
+    background: #faf8ff;
+    border: 0.5px solid #ece6f7;
+    border-radius: 9px;
+  }
+  .restock-seg-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #6b5e94;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .restock-seg-btn:hover { color: #13092e; }
+  .restock-seg-btn.active {
+    background: #ffffff;
+    color: #13092e;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(70, 36, 168, 0.06);
+  }
+  .restock-daterange {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 32px;
+    border: 0.5px solid #ece6f7;
+    border-radius: 8px;
+    color: #3a2d67;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(70, 36, 168, 0.06);
+    transition: border-color 0.15s;
+  }
+  .restock-daterange:hover { border-color: #7000ff; }
+  .restock-daterange.is-active {
+    border-color: #7000ff;
+    box-shadow: 0 1px 2px rgba(70, 36, 168, 0.06), 0 0 0 3px #ede0ff;
+  }
+  .restock-daterange svg { color: #6b5e94; flex-shrink: 0; }
+  .restock-daterange input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    min-width: 150px;
+    font-size: 12.5px;
+    color: inherit;
+    cursor: pointer;
+    text-align: center;
+    padding: 0;
+  }
+  .restock-daterange input::placeholder { color: #a89dc8; }
+  .restock-dr-clear {
+    border: 0;
+    background: none;
+    padding: 0;
+    line-height: 0;
+    color: #a89dc8;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+  }
+  .restock-dr-clear:hover { color: #d92d20; background: #fde4e2; }
+  .restock-limit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 6px 0 12px;
+    margin: 0;
+    border: 0.5px solid #ece6f7;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(70, 36, 168, 0.06);
+    transition: border-color 0.15s;
+    cursor: default;
+  }
+  .restock-limit:focus-within { border-color: #7000ff; box-shadow: 0 1px 2px rgba(70, 36, 168, 0.06), 0 0 0 3px #ede0ff; }
+  .restock-limit-label { font-size: 12.5px; font-weight: 500; color: #6b5e94; white-space: nowrap; }
+  .restock-limit input {
+    width: 52px;
+    height: 24px;
+    border: 0.5px solid #ece6f7;
+    border-radius: 6px;
+    background: #faf8ff;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #13092e;
+    outline: 0;
+    -moz-appearance: textfield;
+  }
+  .restock-limit input::-webkit-outer-spin-button,
+  .restock-limit input::-webkit-inner-spin-button { opacity: 1; height: 24px; }
+  .restock-limit input:focus { border-color: #7000ff; }
   .sortable-tbody { min-height: 60px; }
   .sortable-tbody tr { transition: box-shadow 0.18s ease, background-color 0.18s ease; }
   .sortable-tbody tr.sortable-selected td { background-color: #eef6ff !important; }
@@ -145,32 +254,66 @@
   .action-btn--excel {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
   }
+  .invoice-shop {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #ede0ff;
+    color: #5b21b6;
+    font-size: 0.8rem;
+    font-weight: 600;
+    vertical-align: middle;
+  }
   /* Footer Summary Styles */
   .footer-summary { font-size: 1.5rem; font-weight: bold; }
   .footer-summary td { border-top: 0.5px solid #cccccc !important; }
   .footer-cell { text-align: center; vertical-align: middle; font-size: 1.1rem; }
 </style>
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
   <div>
     <h3>{{ t.inv_restock_title }}</h3>
     <div class="text-secondary small">{{ t.inv_restock_subtitle }}</div>
   </div>
-  <div class="d-flex gap-2">
-    <form class="d-flex gap-2" method="get">
-      <select name="shop_id" id="shop_filter" class="form-select" onchange="this.form.submit()">
-        <option value="">{{ t.inv_restock_all_shops }}</option>
-        {% for s in shops %}
-        <option value="{{ s.id }}" {% if current_shop == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+  <div class="d-flex flex-column align-items-end gap-2">
+    <select id="shop_filter" class="form-select" style="min-width: 220px;" onchange="navRestock({})">
+      <option value="">{{ t.inv_restock_all_shops }}</option>
+      {% for s in shops %}
+      <option value="{{ s.id }}" {% if current_shop == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+      <div class="restock-seg" id="periodSeg">
+        {% for d in period_days %}
+        <button type="button"
+                class="restock-seg-btn period-chip {% if not date_from and days_label == d %}active{% endif %}"
+                data-days="{{ d }}">{{ d }} {{ t.detail_days_short }}</button>
         {% endfor %}
-      </select>
-    </form>
+      </div>
+      <div class="restock-daterange {% if date_from %}is-active{% endif %}" title="{{ t.detail_period_select }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly
+               value="{% if date_from %}{{ date_from }} — {{ date_to }}{% endif %}">
+        {% if date_from %}
+        <button type="button" class="restock-dr-clear" id="dateRangeClear" title="{{ t.detail_period_select }}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        {% endif %}
+      </div>
+      <label class="restock-limit" title="{{ t.inv_restock_limit_title }}">
+        <span class="restock-limit-label">{{ t.inv_restock_limit_label }}</span>
+        <input type="number" id="chunkLimitInput" min="{{ chunk_limit_min }}" max="{{ chunk_limit_max }}"
+               step="1" value="{{ chunk_limit }}" inputmode="numeric">
+      </label>
+    </div>
   </div>
 </div>
 
 {% for chunk in chunks %}
 <div class="card mb-4 invoice-card shadow-sm">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h5 class="mb-0">{{ t.inv_restock_invoice }} <span class="invoice-number">{{ loop.index }}</span> <span class="badge bg-secondary item-count">{{ chunk|length }} {{ t.inv_restock_pcs }}</span></h5>
+    <h5 class="mb-0">{{ t.inv_restock_invoice }} <span class="invoice-number">{{ loop.index }}</span> <span class="badge bg-secondary item-count">{{ chunk|length }} {{ t.inv_restock_pcs }}</span>{% if chunk and chunk[0].shop_name %} <span class="invoice-shop">{{ chunk[0].shop_name }}</span>{% endif %}</h5>
     <div>
       <button class="action-btn action-btn--uzum me-2" onclick="uploadChunk(this)">
         <span class="action-btn__icon" aria-hidden="true">
@@ -206,7 +349,7 @@
           <th>{{ t.inv_restock_col_photo }}</th>
           <th>{{ t.inv_restock_col_product }}</th>
           <th class="text-center">{{ t.inv_restock_col_barcode }}</th>
-          <th class="text-center">{{ t.inv_restock_col_sales30 }}</th>
+          <th class="text-center">{% if date_from %}{{ date_from }} — {{ date_to }}{% else %}{{ t.inv_restock_col_sales30 | replace('30', days_label|string) }}{% endif %}</th>
           <th class="text-center" style="background-color: #e6e6fa;">{{ t.inv_restock_col_uzum_stock }}</th>
           <th class="text-center" style="background-color: #e0ffff;">{{ t.inv_restock_col_wh_stock }}</th>
           <th class="text-center table-warning" style="width: 120px; background-color: #fff3cd;">{{ t.inv_restock_col_to_send }}</th>
@@ -216,7 +359,7 @@
       </thead>
       <tbody class="sortable-tbody">
         {% for item in chunk %}
-        <tr data-barcode="{{ item.barcode or '' }}" data-price="{{ item.price }}" data-sku="{{ item.sku or '' }}">
+        <tr data-barcode="{{ item.barcode or '' }}" data-price="{{ item.price }}" data-sku="{{ item.sku or '' }}" data-shop="{{ item.shop_id or '' }}">
           <td class="text-center text-nowrap selection-cell">
             <div class="selection-stack">
               <button type="button" class="selection-toggle row-select-toggle" role="checkbox" aria-checked="false" title="{{ t.inv_restock_select_row }}">
@@ -290,6 +433,7 @@ const _IRT = {
   uploadError: {{ t.inv_restock_upload_error | tojson }},
   networkError: {{ t.inv_restock_network_error | tojson }},
   serverError: {{ t.fetch_server_error_prefix | tojson }},
+  zeroPrice: {{ t.inv_restock_zero_price | tojson }},
 };
 
 function updateRowTotal(input) {
@@ -350,13 +494,15 @@ function calcTotals(tbody) {
 }
 
 function updateChunkCounts() {
+  const _lim = document.getElementById('chunkLimitInput');
+  const limit = _lim ? (parseInt(_lim.value) || 35) : 35;
   document.querySelectorAll('.invoice-card').forEach((card, idx) => {
       card.querySelector('.invoice-number').textContent = idx + 1;
       const rows = card.querySelectorAll('tbody tr');
       const countBadge = card.querySelector('.item-count');
       countBadge.textContent = `${rows.length} ${_IRT.pcs}`;
 
-      if (rows.length > 35) {
+      if (rows.length > limit) {
           countBadge.classList.replace('bg-secondary', 'bg-danger');
       } else {
           countBadge.classList.replace('bg-danger', 'bg-secondary');
@@ -377,6 +523,7 @@ async function downloadChunk(btn) {
   card.querySelectorAll('tbody tr').forEach(row => {
     const barcode = row.dataset.barcode;
     const sku = row.dataset.sku;
+    const shop_id = row.dataset.shop || null;
     const priceInput = row.querySelector('.price-input');
     const qtyInput = row.querySelector('.qty-input');
 
@@ -384,7 +531,7 @@ async function downloadChunk(btn) {
       const price = parseFloat(priceInput.value) || 0;
       const qty = parseInt(qtyInput.value) || 0;
       if (qty > 0) {
-        items.push({ barcode, price, qty, sku });
+        items.push({ barcode, price, qty, sku, shop_id });
       }
     }
   });
@@ -399,10 +546,12 @@ async function downloadChunk(btn) {
   btn.innerHTML = _IRT.generating;
 
   try {
+    const _lim = document.getElementById('chunkLimitInput');
+    const limit = _lim ? (parseInt(_lim.value) || undefined) : undefined;
     const res = await fetch("/invoice/restock/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items })
+      body: JSON.stringify({ items, limit })
     });
 
     if (!res.ok) {
@@ -449,21 +598,38 @@ async function uploadChunk(btn) {
     const card = btn.closest('.invoice-card');
     const rows = card.querySelectorAll('tbody tr');
     let itemsToUpload = [];
-    
+    let zeroPriceBarcodes = [];
+
     rows.forEach(row => {
         let qtyInput = row.querySelector('.qty-input');
+        let priceInput = row.querySelector('.price-input');
         if (qtyInput) {
             let qty = parseInt(qtyInput.value) || 0;
+            // Read the LIVE (editable) cost cell, not the stale data-price attribute.
+            let price = parseFloat(priceInput ? priceInput.value : row.getAttribute('data-price')) || 0;
             if (qty > 0) {
+                const barcode = row.getAttribute('data-barcode') || '';
+                if (price <= 0) {
+                    zeroPriceBarcodes.push(barcode || '—');
+                    if (priceInput) priceInput.classList.add('is-invalid');
+                } else if (priceInput) {
+                    priceInput.classList.remove('is-invalid');
+                }
                 itemsToUpload.push({
-                    barcode: row.getAttribute('data-barcode') || '',
-                    price: parseFloat(row.getAttribute('data-price')) || 0,
+                    barcode: barcode,
+                    price: price,
                     qty: qty,
-                    sku: row.getAttribute('data-sku') || ''
+                    sku: row.getAttribute('data-sku') || '',
+                    shop_id: row.getAttribute('data-shop') || null
                 });
             }
         }
     });
+
+    // Uzum rejects the whole file if any cost is 0 — block early with the exact rows.
+    if (zeroPriceBarcodes.length > 0) {
+        return alert(_IRT.zeroPrice + "\n\n" + zeroPriceBarcodes.join("\n"));
+    }
 
     let shopFilter = document.getElementById('shop_filter');
     let shopId = shopFilter ? shopFilter.value : null; 
@@ -694,5 +860,68 @@ document.querySelectorAll('.select-all-toggle').forEach((toggle) => {
 });
 
 syncAllSelectionUi();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+<script>
+// Period selector — reloads the page with the chosen window so the server
+// recomputes the restock table from live finance for that range. Mirrors the
+// variants (group_detail) page behaviour. Shop filter is preserved.
+function navRestock(params) {
+  const u = new URL(window.location.href);
+  ['days', 'date_from', 'date_to'].forEach(k => u.searchParams.delete(k));
+  const shop = document.getElementById('shop_filter');
+  if (shop && shop.value) u.searchParams.set('shop_id', shop.value);
+  else u.searchParams.delete('shop_id');
+  Object.entries(params).forEach(([k, v]) => { if (v != null) u.searchParams.set(k, v); });
+  window.location.href = u.toString();
+}
+
+document.querySelectorAll('.period-chip').forEach(btn => {
+  btn.addEventListener('click', () => navRestock({ days: btn.dataset.days }));
+});
+
+// Per-invoice SKU limit (1–100). Reloads so the server re-chunks the table.
+const _chunkLimitInput = document.getElementById('chunkLimitInput');
+if (_chunkLimitInput) {
+  const _min = parseInt(_chunkLimitInput.min) || 1;
+  const _max = parseInt(_chunkLimitInput.max) || 100;
+  const _orig = _chunkLimitInput.value;
+  const applyLimit = () => {
+    let v = parseInt(_chunkLimitInput.value);
+    if (isNaN(v)) { _chunkLimitInput.value = _orig; return; }
+    v = Math.max(_min, Math.min(_max, v));
+    _chunkLimitInput.value = v;
+    if (String(v) !== String(_orig)) navRestock({ limit: v });
+  };
+  _chunkLimitInput.addEventListener('change', applyLimit);
+  _chunkLimitInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); applyLimit(); }
+  });
+}
+
+if (window.flatpickr) {
+  flatpickr("#dateRangeInput", {
+    mode: "range",
+    locale: "ru",
+    dateFormat: "Y-m-d",
+    onClose: (selectedDates) => {
+      if (selectedDates.length === 2) {
+        const f = flatpickr.formatDate(selectedDates[0], "Y-m-d");
+        const t = flatpickr.formatDate(selectedDates[1], "Y-m-d");
+        navRestock({ date_from: f, date_to: t });
+      }
+    }
+  });
+}
+
+const _drClear = document.getElementById('dateRangeClear');
+if (_drClear) {
+  _drClear.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navRestock({ days: 30 });
+  });
+}
 </script>
 {% endblock %}

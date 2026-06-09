@@ -447,14 +447,19 @@
         <h5 class="card-title mb-1">{{ t.fetch_openapi_title }}</h5>
         <div class="text-secondary small mb-3">{{ t.fetch_openapi_desc }}</div>
         <div class="row g-2 align-items-end">
-          <div class="col-md-9">
+          <div class="col-md-6">
             <label class="form-label">{{ t.fetch_openapi_token_label }}</label>
-            <input type="password" id="openapiToken" class="form-control" placeholder="{{ t.fetch_openapi_token_placeholder }}" autocomplete="off">
+            <input type="password" id="openapiToken" class="form-control" placeholder="{% if current_user.uzum_openapi_token %}{{ t.fetch_openapi_token_saved_hint }}{% else %}{{ t.fetch_openapi_token_placeholder }}{% endif %}" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ t.fetch_openapi_seller_id_label }}</label>
+            <input type="number" id="openapiSellerId" class="form-control" placeholder="{{ t.fetch_openapi_seller_id_placeholder }}" autocomplete="off" value="{{ current_user.uzum_seller_id or '' }}">
           </div>
           <div class="col-md-3">
             <button class="fetch-btn fetch-btn--primary w-100" id="btnDiscoverShops">{{ t.fetch_openapi_discover_btn }}</button>
           </div>
         </div>
+        <div class="text-secondary small mt-1">{{ t.fetch_openapi_seller_id_hint }}</div>
         <div id="openapiResult" class="mt-3" style="display:none;">
           <label class="form-label">{{ t.fetch_openapi_pick_label }}</label>
           <div class="openapi-picker" id="openapiPicker">
@@ -952,18 +957,47 @@
       });
     })();
 
+    // Smart Seller ID input: if the user pastes a cabinet URL (with
+    // ?sId=N), extract just the N. Otherwise (raw number) leave as-is.
+    // Triggers on input, paste, and blur so any path the user takes
+    // ends up with just the digits in the field.
+    (function setupSellerIdAutoExtract(){
+      const input = document.getElementById("openapiSellerId");
+      if (!input) return;
+      const RE_SID = /[?&]sId=(\d+)/i;
+      const normalize = () => {
+        const raw = (input.value || "").trim();
+        if (!raw) return;
+        const m = raw.match(RE_SID);
+        if (m && m[1]) {
+          input.value = m[1];
+        } else if (!/^\d+$/.test(raw)) {
+          // Not a URL and not pure digits — keep digits only as a
+          // best-effort recovery (e.g. user pasted "sId 95673" or
+          // "ID: 95673"). If nothing matches, clear so they retry.
+          const digits = raw.match(/\d+/g);
+          if (digits && digits.length) input.value = digits[digits.length - 1];
+        }
+      };
+      input.addEventListener("paste", () => setTimeout(normalize, 0));
+      input.addEventListener("input", normalize);
+      input.addEventListener("blur", normalize);
+    })();
+
     document.getElementById("btnDiscoverShops").addEventListener("click", async () => {
       const tokenInput = document.getElementById("openapiToken");
+      const sellerIdInput = document.getElementById("openapiSellerId");
       const btn = document.getElementById("btnDiscoverShops");
       _setOpenapiError("");
       const token = (tokenInput.value || "").trim();
+      const sellerId = (sellerIdInput?.value || "").trim();
       if (!token) { _setOpenapiError(_FT.openapiTokenRequired); return; }
 
       const prev = btn.textContent;
       btn.disabled = true;
       btn.textContent = _FT.openapiDiscovering;
       try {
-        const data = await api("/api/shops/openapi/discover", "POST", { token });
+        const data = await api("/api/shops/openapi/discover", "POST", { token, seller_id: sellerId || null });
         _renderDiscoveredShops(data.shops || []);
       } catch (e) {
         _setOpenapiError(_FT.errorPrefix + " " + e.message);

@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+  .fbs-detail {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1rem;
+  }
+  .fbs-detail-back {
+    display: inline-flex; align-items: center; gap: .35rem;
+    color: #475569; text-decoration: none;
+    font-size: .88rem; font-weight: 600;
+  }
+  .fbs-detail-back:hover { color: #1e293b; }
+
+  .fbs-detail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    padding: .5rem 0 .25rem;
+  }
+  .fbs-detail-head h1 {
+    margin: 0; font-size: 1.5rem; font-weight: 700; color: #101828;
+    display: inline-flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+  }
+  .fbs-detail-head .meta { color: #667085; font-size: .82rem; }
+
+  .fbs-detail-card {
+    background: #fff; border: 1px solid #eaecf0; border-radius: 16px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .fbs-detail-card h3 {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #667085; margin: 0 0 .85rem; font-weight: 700;
+  }
+  .fbs-detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .85rem 1.4rem;
+  }
+  .fbs-detail-grid dt {
+    font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+    color: #94a3b8; margin: 0 0 .15rem; font-weight: 600;
+  }
+  .fbs-detail-grid dd {
+    margin: 0; color: #101828; font-size: .9rem; word-break: break-word;
+  }
+  .fbs-detail-grid dd.muted { color: #94a3b8; font-style: italic; }
+
+  /* ── Header pills ────────────────────────────────────────────── */
+  .fbs-status-pill {
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: .76rem; font-weight: 700;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .fbs-status-CREATED                              { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .fbs-status-PACKING                              { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+  .fbs-status-PENDING_DELIVERY                     { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .fbs-status-DELIVERING                           { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+  .fbs-status-DELIVERED                            { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .fbs-status-ACCEPTED_AT_DP                       { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+  .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+  .fbs-status-COMPLETED                            { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+  .fbs-status-CANCELED                             { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .fbs-status-PENDING_CANCELLATION                 { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+  .fbs-status-RETURNED                             { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+
+  .fbs-scheme-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: .72rem; font-weight: 700;
+    background: #e0e7ff; color: #3730a3;
+  }
+  .fbs-scheme-badge.dbs { background: #fef3c7; color: #92400e; }
+  .fbs-flag {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: .72rem; font-weight: 700;
+    background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+  }
+
+  /* ── Items table ─────────────────────────────────────────────── */
+  .fbs-items {
+    width: 100%; margin: 0;
+  }
+  .fbs-items th {
+    text-align: left; font-size: .68rem; text-transform: uppercase;
+    letter-spacing: .04em; color: #667085; font-weight: 600;
+    padding: .5rem .75rem; border-bottom: 1px solid #eaecf0;
+  }
+  .fbs-items td {
+    padding: .75rem; border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle; font-size: .88rem;
+  }
+  .fbs-items tr:last-child td { border-bottom: none; }
+  .fbs-items img {
+    width: 48px; height: 48px; object-fit: cover; border-radius: 6px;
+    background: #f1f5f9; border: 1px solid #eaecf0;
+  }
+  .fbs-items .item-title { font-weight: 600; color: #101828; }
+  .fbs-items .item-sku { font-size: .76rem; color: #667085; }
+  .fbs-items .item-amount { font-weight: 600; }
+  .fbs-items .item-total { font-weight: 700; color: #101828; }
+
+  .fbs-totals-row {
+    margin-top: 1rem; padding-top: .75rem;
+    border-top: 2px solid #f1f5f9;
+    display: flex; justify-content: flex-end; gap: 1.5rem;
+    font-size: .95rem;
+  }
+  .fbs-totals-row .total-label { color: #667085; }
+  .fbs-totals-row .total-value { font-weight: 700; color: #101828; }
+
+  /* ── States ──────────────────────────────────────────────────── */
+  .fbs-detail-loading {
+    padding: 2.5rem 1rem; text-align: center; color: #667085;
+  }
+  .fbs-detail-error {
+    background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+    padding: 1rem 1.2rem; border-radius: 12px; font-size: .9rem;
+  }
+  .fbs-detail-pending {
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    padding: 1rem 1.2rem; border-radius: 12px; font-size: .9rem;
+  }
+  .fbs-detail-pending code {
+    background: rgba(0,0,0,.05); padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  [data-bs-theme="dark"] .fbs-detail-back { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-back:hover { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-head h1 { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-head .meta { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-card { background: #1a1d27; border-color: #2d3148; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  [data-bs-theme="dark"] .fbs-detail-card h3 { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-grid dt { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-detail-grid dd { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-grid dd.muted { color: #64748b; }
+
+  [data-bs-theme="dark"] .fbs-items th { color: #94a3b8; border-bottom-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-items td { border-bottom-color: #252a3f; }
+  [data-bs-theme="dark"] .fbs-items img { background: #1e2130; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-items .item-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-items .item-sku { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-items .item-total { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-totals-row { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-totals-row .total-label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-totals-row .total-value { color: #e2e8f0; }
+
+  [data-bs-theme="dark"] .fbs-detail-loading { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-error { background: #2a0e0e; border-color: #7f1d1d; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-detail-pending { background: #2a1d0a; border-color: #92400e; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-detail-pending code { background: rgba(255,255,255,.06); }
+  [data-bs-theme="dark"] .fbs-scheme-badge { background: #1e2d4a; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-scheme-badge.dbs { background: #2a1d0a; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-flag { background: #2a1d0a; color: #fbbf24; border-color: #92400e; }
+
+  [data-bs-theme="dark"] .fbs-status-CREATED                              { background: rgba(96,165,250,.12); border-color: #1e4080; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-status-PACKING                              { background: rgba(251,191,36,.12); border-color: #b45309; color: #fcd34d; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_DELIVERY                     { background: rgba(74,222,128,.12); border-color: #166534; color: #6ee7b7; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERING                           { background: rgba(251,146,60,.12); border-color: #c2410c; color: #fdba74; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED                            { background: rgba(52,211,153,.16); border-color: #047857; color: #34d399; }
+  [data-bs-theme="dark"] .fbs-status-ACCEPTED_AT_DP                       { background: rgba(167,139,250,.12); border-color: #6d28d9; color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: rgba(167,139,250,.08); border-color: #7c3aed; color: #ddd6fe; }
+  [data-bs-theme="dark"] .fbs-status-COMPLETED                            { background: #1e2130; border-color: #2d3148; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-CANCELED                             { background: rgba(248,113,113,.12); border-color: #b91c1c; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_CANCELLATION                 { background: rgba(220,38,38,.10); border-color: #991b1b; color: #f87171; }
+  [data-bs-theme="dark"] .fbs-status-RETURNED                             { background: rgba(159,18,57,.12); border-color: #9f1239; color: #fda4af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fbs-detail">
+  <a class="fbs-detail-back" href="/fbs">← Buyurtmalar ro'yxatiga</a>
+
+  <div class="fbs-detail-head">
+    <h1 id="fbsDetailTitle">
+      <span>Buyurtma №{{ order_id }}</span>
+    </h1>
+    <div class="meta" id="fbsDetailMeta">Yuklanmoqda…</div>
+  </div>
+
+  <div id="fbsDetailBody">
+    <div class="fbs-detail-card">
+      <div class="fbs-detail-loading">Buyurtma ma'lumotlari yuklanmoqda…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const ORDER_ID = {{ order_id|tojson }};
+  const body = document.getElementById("fbsDetailBody");
+  const titleEl = document.getElementById("fbsDetailTitle");
+  const metaEl = document.getElementById("fbsDetailMeta");
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function formatDate(value){
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function formatMoney(n){
+    if (n == null) return "—";
+    return Number(n).toLocaleString("ru-RU") + " UZS";
+  }
+
+  // Uzum's productImage.photo is a dict with dynamic resolution keys
+  // (additionalProp1/2/3 or pixel-named). Walk it and pick the first
+  // URL we find, preferring "high" over "low".
+  function extractImageUrl(productImage){
+    if (!productImage || typeof productImage !== "object") return null;
+    const photo = productImage.photo;
+    if (!photo || typeof photo !== "object") return null;
+    for (const key of Object.keys(photo)) {
+      const v = photo[key];
+      if (v && typeof v === "object") {
+        if (v.high) return v.high;
+        if (v.low) return v.low;
+      }
+    }
+    return null;
+  }
+
+  function gridItem(label, value, opts){
+    opts = opts || {};
+    const hasValue = value != null && value !== "" && value !== "string";
+    if (!hasValue && !opts.showEmpty) return "";
+    const cls = hasValue ? "" : "muted";
+    const v = hasValue ? escapeHtml(value) : (opts.emptyText || "—");
+    return `<div><dt>${escapeHtml(label)}</dt><dd class="${cls}">${v}</dd></div>`;
+  }
+
+  // Show a date only if it's a real timestamp; Uzum returns the same
+  // placeholder ISO ("2026-...") in unset slots — we can't easily tell
+  // those apart from real ones, so the consumer-facing rule is: show
+  // anything that parses as a date.
+  function gridDate(label, value){
+    const formatted = formatDate(value);
+    return gridItem(label, formatted);
+  }
+
+  function statusPill(status){
+    const s = String(status || "—");
+    return `<span class="fbs-status-pill fbs-status-${escapeHtml(s)}">${escapeHtml(s)}</span>`;
+  }
+
+  function schemeBadge(scheme){
+    const s = String(scheme || "FBS");
+    const cls = s === "DBS" ? "fbs-scheme-badge dbs" : "fbs-scheme-badge";
+    return `<span class="${cls}">${escapeHtml(s)}</span>`;
+  }
+
+  function renderItemsTable(orderItems){
+    if (!Array.isArray(orderItems) || orderItems.length === 0) {
+      return `<div class="fbs-detail-grid"><dd class="muted">Mahsulotlar yo'q</dd></div>`;
+    }
+    let grandTotal = 0;
+    const rows = orderItems.map(it => {
+      const img = extractImageUrl(it.productImage);
+      const title = it.productTitle || it.skuTitle || "—";
+      const sku = it.skuTitle && it.skuTitle !== it.productTitle ? it.skuTitle : "";
+      const charValue = it.skuCharValue ? `${it.skuCharTitle || ""}: ${it.skuCharValue}`.trim() : "";
+      const qty = Number(it.amount || 0);
+      const unit = Number(it.sellerPrice || 0);
+      const line = qty * unit;
+      grandTotal += line;
+      return `
+        <tr>
+          <td>${img ? `<img src="${escapeHtml(img)}" alt="">` : `<div style="width:48px;height:48px"></div>`}</td>
+          <td>
+            <div class="item-title">${escapeHtml(title)}</div>
+            ${sku ? `<div class="item-sku">SKU: ${escapeHtml(sku)}</div>` : ""}
+            ${charValue ? `<div class="item-sku">${escapeHtml(charValue)}</div>` : ""}
+            ${it.comment ? `<div class="item-sku">${escapeHtml(it.comment)}</div>` : ""}
+          </td>
+          <td class="text-end item-amount">${qty} ×</td>
+          <td class="text-end">${escapeHtml(formatMoney(unit))}</td>
+          <td class="text-end item-total">${escapeHtml(formatMoney(line))}</td>
+        </tr>
+      `;
+    }).join("");
+    return `
+      <table class="fbs-items">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Mahsulot</th>
+            <th class="text-end">Soni</th>
+            <th class="text-end">Donasi</th>
+            <th class="text-end">Jami</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="fbs-totals-row">
+        <span class="total-label">Mahsulotlar jami:</span>
+        <span class="total-value">${escapeHtml(formatMoney(grandTotal))}</span>
+      </div>
+    `;
+  }
+
+  function renderOrder(order){
+    const di = order.deliveryInfo || {};
+    const drop = order.dropOffPoint || {};
+    const stock = order.stock || {};
+    const slot = order.timeSlot || {};
+
+    // Header — title gets the status + scheme inline pills.
+    titleEl.innerHTML = `
+      <span>Buyurtma №${escapeHtml(order.id)}</span>
+      ${statusPill(order.status)}
+      ${schemeBadge(order.scheme)}
+      ${order.identifierRequired ? `<span class="fbs-flag">IMEI talab qilinadi</span>` : ""}
+    `;
+
+    const sections = [];
+
+    // ── Mijoz ──
+    const customerHtml = [
+      gridItem("Ism-familiya", di.customerFullname),
+      gridItem("Telefon", di.customerPhone),
+      gridItem("Manzil", di.deliveryAddress),
+      gridItem("Izoh", di.deliveryComment),
+    ].join("");
+    if (customerHtml.trim()) {
+      sections.push(`
+        <section class="fbs-detail-card">
+          <h3>Mijoz</h3>
+          <dl class="fbs-detail-grid">${customerHtml}</dl>
+        </section>
+      `);
+    }
+
+    // ── Sanalar va status ──
+    const datesHtml = [
+      gridDate("Yaratildi", order.dateCreated),
+      gridDate("Tasdiqlash muddati", order.acceptUntil),
+      gridDate("Yetkazib berish muddati", order.deliverUntil),
+      gridDate("Tasdiqlangan", order.acceptedDate),
+      gridDate("Yo'lda", order.deliveringDate),
+      gridDate("DP'ga yetkazilgan", order.deliveredToDeliveryPointDate),
+      gridDate("Yetkazilgan", order.deliveryDate),
+      gridDate("Yakunlangan", order.completedDate),
+      gridDate("Bekor qilingan", order.dateCancelled),
+      gridDate("Qaytarilgan", order.returnDate),
+      order.cancelReason ? gridItem("Bekor qilish sababi", order.cancelReason) : "",
+    ].filter(Boolean).join("");
+    if (datesHtml.trim()) {
+      sections.push(`
+        <section class="fbs-detail-card">
+          <h3>Status va sanalar</h3>
+          <dl class="fbs-detail-grid">${datesHtml}</dl>
+        </section>
+      `);
+    }
+
+    // ── Yetkazib berish (drop-off + time slot + place) ──
+    const deliveryHtml = [
+      gridItem("Olish nuqtasi", drop.address),
+      gridItem("Olish nuqtasi turi", drop.type),
+      gridDate("Slot boshlanishi", slot.timeFrom),
+      gridDate("Slot tugashi", slot.timeTo),
+      gridItem("Joy", order.place),
+      gridItem("Hisob raqami", order.invoiceNumber),
+    ].join("");
+    if (deliveryHtml.trim()) {
+      sections.push(`
+        <section class="fbs-detail-card">
+          <h3>Yetkazib berish</h3>
+          <dl class="fbs-detail-grid">${deliveryHtml}</dl>
+        </section>
+      `);
+    }
+
+    // ── Ombor (stock) ──
+    const stockHtml = [
+      gridItem("Ombor nomi", stock.title),
+      gridItem("Ombor manzili", stock.address),
+      gridItem("Tashqi ID", stock.externalId),
+      gridItem("Ish vaqti (boshlanishi)", stock.timeFrom),
+      gridItem("Ish vaqti (tugashi)", stock.timeTo),
+      gridItem("Manba", stock.poolSource),
+    ].join("");
+    if (stockHtml.trim()) {
+      sections.push(`
+        <section class="fbs-detail-card">
+          <h3>Ombor</h3>
+          <dl class="fbs-detail-grid">${stockHtml}</dl>
+        </section>
+      `);
+    }
+
+    // ── Mahsulotlar ──
+    sections.push(`
+      <section class="fbs-detail-card">
+        <h3>Mahsulotlar</h3>
+        ${renderItemsTable(order.orderItems)}
+        <div class="fbs-totals-row" style="margin-top: .25rem">
+          <span class="total-label">Buyurtma summasi (price):</span>
+          <span class="total-value">${escapeHtml(formatMoney(order.price))}</span>
+        </div>
+      </section>
+    `);
+
+    body.innerHTML = sections.join("");
+  }
+
+  async function load(){
+    try {
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}`);
+      const data = await res.json();
+      if (res.status === 501) {
+        body.innerHTML = `
+          <div class="fbs-detail-pending">
+            <strong>Detail endpoint hali tayyor emas.</strong><br>
+            <code>GET /v1/fbs/order/{orderId}</code> swagger ma'lumotlari kutilmoqda.
+          </div>
+        `;
+        metaEl.textContent = "Endpoint kutilmoqda";
+        return;
+      }
+      if (!res.ok) {
+        body.innerHTML = `<div class="fbs-detail-error"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        metaEl.textContent = "Xato";
+        return;
+      }
+      renderOrder(data.order || {});
+      metaEl.textContent = `Endpoint: ${data.used_url || "—"}`;
+    } catch (e) {
+      body.innerHTML = `<div class="fbs-detail-error"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message)}</div>`;
+      metaEl.textContent = "Tarmoq xatosi";
+    }
+  }
+  load();
+})();
+</script>
+{% endblock %}

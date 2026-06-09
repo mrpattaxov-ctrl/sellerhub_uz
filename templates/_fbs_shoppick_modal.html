@@ -1,0 +1,95 @@
+{# ── Do'kon tanlash modali (накладная — per-do'kon) ──────────────────
+   Ko'p do'kondan buyurtma belgilanganda chiqadi: bitta накладная faqat
+   bitta do'kon uchun (Uzum talabi — sellerId/ombor per-do'kon). Seller
+   QAYSI do'kon uchun yaratishni o'zi tanlaydi (avval avtomatik eng katta
+   guruh tanlanardi + tez yo'qoladigan toast). Dizayn _fbs_confirm_modal
+   bilan bir xil, postavka rangida (binafsha). JS interfeys (fbs_orders
+   IIFE'sida): fbsPickShop([{shopId, name, count}]) → Promise<shopId|null>. #}
+<div id="fbsShopPickModal" class="fbs-shoppick-modal" role="dialog"
+     aria-modal="true" aria-hidden="true" aria-labelledby="fbsShopPickTitle">
+  <div class="fbs-shoppick-backdrop" data-shoppick-cancel="1"></div>
+  <div class="fbs-shoppick-card" role="document">
+    <button type="button" class="fbs-shoppick-x" data-shoppick-cancel="1"
+            aria-label="Yopish" title="Yopish">&times;</button>
+    <div class="fbs-shoppick-icon" aria-hidden="true">📦</div>
+    <h3 class="fbs-shoppick-title" id="fbsShopPickTitle">Turli do'kondan buyurtma belgilandi</h3>
+    <p class="fbs-shoppick-msg">Bitta накладная — bitta do'kon uchun. Qaysi do'kon uchun yaratamiz?</p>
+    <div class="fbs-shoppick-list" id="fbsShopPickList" role="radiogroup"></div>
+    <div class="fbs-shoppick-actions">
+      <button type="button" class="fbs-shoppick-cancel" data-shoppick-cancel="1">Bekor</button>
+      <button type="button" class="fbs-shoppick-ok" id="fbsShopPickOk">Davom etish</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .fbs-shoppick-modal { position: fixed; inset: 0; z-index: 2095; display: none;
+    align-items: center; justify-content: center; padding: 1rem; }
+  .fbs-shoppick-modal.is-open { display: flex; }
+  .fbs-shoppick-backdrop { position: absolute; inset: 0;
+    background: rgba(16,24,40,.45); backdrop-filter: blur(2px);
+    animation: fbsShopPickFade .15s ease-out; }
+  @keyframes fbsShopPickFade { from { opacity: 0; } to { opacity: 1; } }
+  .fbs-shoppick-card { position: relative; width: min(420px, 100%);
+    background: #fff; border-radius: 18px; padding: 1.5rem 1.4rem 1.2rem;
+    box-shadow: 0 20px 60px rgba(16,24,40,.28); text-align: center;
+    animation: fbsShopPickPop .18s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes fbsShopPickPop {
+    from { opacity: 0; transform: translateY(8px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); } }
+  .fbs-shoppick-x { position: absolute; top: 10px; right: 12px;
+    width: 30px; height: 30px; padding: 0; display: flex; align-items: center;
+    justify-content: center; border: 0; border-radius: 8px; background: transparent;
+    color: #98a2b3; font-size: 1.5rem; line-height: 1; cursor: pointer;
+    transition: background .12s, color .12s; }
+  .fbs-shoppick-x:hover { background: #f1f4fa; color: #475467; }
+  .fbs-shoppick-icon { width: 52px; height: 52px; margin: 0 auto .8rem;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    font-size: 1.5rem; background: #ede9fe; color: #7c3aed; }
+  .fbs-shoppick-title { margin: 0 0 .4rem; font-size: 1.15rem; font-weight: 700; color: #101828; }
+  .fbs-shoppick-msg { margin: 0 0 1.1rem; font-size: .92rem; line-height: 1.5; color: #475467; }
+  .fbs-shoppick-list { display: flex; flex-direction: column; gap: .5rem;
+    margin: 0 0 1.3rem; text-align: left; max-height: 46vh; overflow-y: auto; }
+  .fbs-shoppick-item { position: relative; display: flex; align-items: center; gap: .7rem;
+    padding: .7rem .9rem; border: 1.5px solid #e4e7ec; border-radius: 12px;
+    cursor: pointer; transition: border-color .12s, background .12s; }
+  .fbs-shoppick-item:hover { border-color: #c7b8f5; background: #faf8ff; }
+  .fbs-shoppick-item.is-active { border-color: #7c3aed; background: #f5f3ff; }
+  .fbs-shoppick-item input { position: absolute; width: 1px; height: 1px;
+    opacity: 0; pointer-events: none; }
+  .fbs-shoppick-radio { flex: none; width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid #cbd2dc; position: relative; transition: border-color .12s; }
+  .fbs-shoppick-item.is-active .fbs-shoppick-radio { border-color: #7c3aed; }
+  .fbs-shoppick-item.is-active .fbs-shoppick-radio::after { content: "";
+    position: absolute; inset: 3px; border-radius: 50%; background: #7c3aed; }
+  .fbs-shoppick-name { flex: 1; min-width: 0; font-weight: 600; color: #101828;
+    font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fbs-shoppick-count { flex: none; font-size: .78rem; font-weight: 700;
+    color: #6941c6; background: #ede9fe; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .fbs-shoppick-actions { display: flex; gap: .6rem; }
+  .fbs-shoppick-actions button { flex: 1; padding: .65rem 1rem; border-radius: 11px;
+    font-size: .92rem; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+    transition: filter .12s, transform .08s, background .12s; }
+  .fbs-shoppick-actions button:active { transform: translateY(1px); }
+  .fbs-shoppick-cancel { background: #f2f4f7; color: #475467; border-color: #e4e7ec; }
+  .fbs-shoppick-cancel:hover { background: #e9ecf2; }
+  .fbs-shoppick-ok { background: #7c3aed; color: #fff; }
+  .fbs-shoppick-ok:hover { background: #6d28d9; }
+  /* ── Dark mode ── */
+  [data-bs-theme="dark"] .fbs-shoppick-card { background: #1a1d27; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  [data-bs-theme="dark"] .fbs-shoppick-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-shoppick-msg { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-shoppick-icon { background: rgba(124,58,237,.2); color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-shoppick-x { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-shoppick-x:hover { background: #252a3f; color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-shoppick-item { border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-shoppick-item:hover { border-color: #5b3fa0; background: #211d33; }
+  [data-bs-theme="dark"] .fbs-shoppick-item.is-active { border-color: #a78bfa; background: #251f3a; }
+  [data-bs-theme="dark"] .fbs-shoppick-radio { border-color: #3a3f5c; }
+  [data-bs-theme="dark"] .fbs-shoppick-item.is-active .fbs-shoppick-radio { border-color: #a78bfa; }
+  [data-bs-theme="dark"] .fbs-shoppick-item.is-active .fbs-shoppick-radio::after { background: #a78bfa; }
+  [data-bs-theme="dark"] .fbs-shoppick-name { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-shoppick-count { background: rgba(124,58,237,.22); color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-shoppick-cancel { background: #252a3f; color: #cbd5e1; border-color: #3a3f5c; }
+  [data-bs-theme="dark"] .fbs-shoppick-cancel:hover { background: #2d3349; }
+</style>

@@ -1,0 +1,3464 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+  .fbs-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .fbs-hero {
+    border: 1px solid rgba(53, 86, 185, .12);
+    border-radius: 20px;
+    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
+    box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
+    padding: 1.3rem 1.4rem;
+    /* Tab'lar hero ichida (o'ng yuqorida): chap = kicker+sarlavha+izoh,
+       o'ng = section-tab'lar. Bitta yaxlit karta, oradagi bo'sh joy yo'q. */
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: .9rem 1.5rem; flex-wrap: wrap;
+  }
+  .fbs-hero-main { flex: 1 1 340px; min-width: 0; }
+  .fbs-kicker {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .32rem .7rem;
+    border-radius: 999px;
+    background: rgba(52, 86, 185, .1);
+    color: #3456b9;
+    font-size: .72rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    margin-bottom: .6rem;
+  }
+  .fbs-title { margin: 0; font-size: 1.6rem; font-weight: 700; color: #101828; }
+  .fbs-subtitle { margin: .35rem 0 0; color: #667085; font-size: .95rem; line-height: 1.5; max-width: 640px; }
+
+  /* Section tabs (Buyurtmalar / Ombor) — segment-pill. Hero kartaning
+     o'ng yuqorisida turadi (flex item); tor ekranda pastga o'raladi. */
+  .fbs-section-tabs {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: #f1f4fa; border: 1px solid #e4e9f3;
+    border-radius: 14px;
+    flex: none; align-self: flex-start;
+  }
+  .fbs-section-tabs a {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem 1rem;
+    border-radius: 10px;
+    color: #475467; font-weight: 600; font-size: .88rem;
+    text-decoration: none; transition: background .15s, color .15s;
+  }
+  .fbs-section-tabs a:hover { color: #101828; background: rgba(255,255,255,.55); }
+  .fbs-section-tabs a.active {
+    background: #fff; color: #101828;
+    box-shadow: 0 1px 2px rgba(16,24,40,.08), 0 1px 3px rgba(16,24,40,.06);
+  }
+  .fbs-section-tabs a svg { flex: none; }
+  [data-bs-theme="dark"] .fbs-section-tabs {
+    background: #1c2334; border-color: #2b3346;
+  }
+  [data-bs-theme="dark"] .fbs-section-tabs a { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-section-tabs a:hover { color: #e8edf5; background: rgba(255,255,255,.04); }
+  [data-bs-theme="dark"] .fbs-section-tabs a.active {
+    background: #2a3349; color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+
+  .fbs-card {
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 18px;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+
+  .fbs-toolbar {
+    display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end;
+  }
+  .fbs-toolbar > div { display: flex; flex-direction: column; }
+  .fbs-toolbar label { font-size: .72rem; color: #667085; font-weight: 600;
+                       margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .04em; }
+  .fbs-toolbar select,
+  .fbs-toolbar input {
+    border: 1px solid #d0d5dd; border-radius: 10px;
+    padding: .45rem .7rem; font-size: .88rem; min-width: 160px;
+  }
+
+  /* ── Filter row (search + date range) ────────────────────────
+     Sits between the toolbar (shop/scheme/size/reload) and the
+     status chips. Wraps on narrow viewports so each input keeps a
+     comfortable typing width. */
+  .fbs-filter-row {
+    display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end;
+    margin-top: .75rem;
+    padding-top: .75rem;
+    border-top: 1px dashed #eaecf0;
+  }
+  .fbs-filter-row > div { display: flex; flex-direction: column; }
+  .fbs-filter-row label {
+    font-size: .72rem; color: #667085; font-weight: 600;
+    margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .fbs-filter-row input {
+    border: 1px solid #d0d5dd; border-radius: 10px;
+    padding: .45rem .7rem; font-size: .88rem; min-width: 160px;
+  }
+  .fbs-filter-search { flex: 1 1 240px; }
+  .fbs-filter-search input { width: 100%; min-width: 220px; }
+  .fbs-filter-actions { flex-direction: row !important; align-items: center; gap: .5rem; }
+  .fbs-filter-badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .3rem .65rem; border-radius: 999px;
+    background: #eef2ff; color: #3456b9;
+    font-size: .76rem; font-weight: 600;
+    white-space: nowrap;
+  }
+
+  [data-bs-theme="dark"] .fbs-filter-row { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-filter-row label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-filter-row input { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-filter-badge { background: rgba(99,132,255,.15); color: #93b4ff; }
+
+  /* ── Status badge row (top of card) ─────────────────────────── */
+  .fbs-status-row {
+    display: flex; gap: .4rem; flex-wrap: wrap;
+    margin: 1rem 0 .25rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid #eaecf0;
+  }
+  .fbs-status-chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .3rem .7rem; border-radius: 8px;
+    font-size: .78rem; font-weight: 600;
+    background: #f3f4f6; border: 1px solid transparent;
+    color: #475569; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .fbs-status-chip:hover { background: #e5e7eb; color: #1e293b; }
+  .fbs-status-chip.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+  .fbs-status-chip-count {
+    display: inline-flex; min-width: 18px; padding: 0 6px; border-radius: 999px;
+    background: rgba(255,255,255,.25); font-size: .68rem; font-weight: 700;
+  }
+  .fbs-status-chip:not(.active) .fbs-status-chip-count {
+    background: #fff; color: #475569;
+  }
+
+  /* «Поставка» nav-chip — status qatorida, ilgari PENDING_DELIVERY
+     ("Jo'natishga tayyor") chipi turgan joyda. Lekin bu status filtri EMAS:
+     to'liq Накладные sahifasiga (/fbs/invoices) olib boruvchi HAVOLA — eski
+     yuqori tab funksiyasi shu yerga ko'chdi. Binafsha aksent (bulk-bar'dagi
+     postavka tugmasi bilan bir xil) uni "topshirish maqsadi" sifatida ajratadi.
+     `.fbs-status-chip` klassi YO'Q — shuning uchun chip click/active JS uni
+     chetlab o'tadi, navigatsiya buzilmaydi. */
+  .fbs-status-nav {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .3rem .8rem; border-radius: 8px;
+    font-size: .78rem; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+    color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe;
+    transition: background .15s, color .15s, border-color .15s,
+                transform .12s ease, box-shadow .18s ease;
+  }
+  .fbs-status-nav svg { flex: none; }
+  .fbs-status-nav:hover {
+    background: linear-gradient(135deg, #9061f9, #7c3aed);
+    color: #fff; border-color: #7c3aed;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(124,58,237,.32);
+  }
+  [data-bs-theme="dark"] .fbs-status-nav {
+    background: rgba(124,58,237,.16); color: #c4b5fd; border-color: rgba(124,58,237,.4);
+  }
+  [data-bs-theme="dark"] .fbs-status-nav:hover {
+    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    color: #fff; border-color: #6d28d9;
+  }
+  /* Faol holat — «Поставка» ko'rinishi (iframe) ochiq turganda. */
+  .fbs-status-nav.is-active {
+    background: linear-gradient(135deg, #9061f9, #7c3aed);
+    color: #fff; border-color: #7c3aed;
+    box-shadow: 0 6px 16px rgba(124,58,237,.32);
+  }
+  [data-bs-theme="dark"] .fbs-status-nav.is-active {
+    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    color: #fff; border-color: #6d28d9;
+  }
+  /* «Поставка» iframe — Накладные sahifasini shu joyda ko'rsatadi. Balandlik
+     embed sahifadan kelgan "fbs-invoices-height" xabari bilan moslanadi. */
+  .fbs-postavka-frame {
+    width: 100%; border: 0; display: block;
+    min-height: 360px; height: 480px;
+    transition: height .25s ease;
+  }
+
+  /* ── Status pill (inside table) ──────────────────────────────── */
+  .fbs-status-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  /* Status colour map — see dark.md "fbs_orders.html" section */
+  .fbs-status-CREATED                              { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .fbs-status-PACKING                              { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+  .fbs-status-PENDING_DELIVERY                     { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .fbs-status-DELIVERING                           { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+  .fbs-status-DELIVERED                            { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .fbs-status-ACCEPTED_AT_DP                       { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+  .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+  .fbs-status-COMPLETED                            { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+  .fbs-status-CANCELED                             { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .fbs-status-PENDING_CANCELLATION                 { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+  .fbs-status-RETURNED                             { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+
+  /* Topshirish-deadline pill under the order № — IDENTICAL to the
+     invoices page (.inv-deadline) so both screens show the SAME chip:
+     a rounded badge whose colour escalates green → amber → red+pulse →
+     slate as the deadline nears. The «Muddat» column carries the absolute
+     date; this is its live companion. Kept in sync with fbs_invoices.html
+     on purpose ("bir xil"). */
+  .fbs-deadline-timer {
+    display: flex; align-items: center; gap: .3rem;
+    width: max-content;
+    margin-top: .3rem;
+    padding: .16rem .55rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .fbs-deadline-timer svg { width: 11px; height: 11px; flex: none; opacity: .95; }
+  .fbs-deadline-timer.is-ok     { background: #ecfdf3; color: #027a48; border-color: #abefc6; }
+  .fbs-deadline-timer.is-warn   { background: #fffaeb; color: #b54708; border-color: #fedf89; }
+  .fbs-deadline-timer.is-urgent { background: #fef3f2; color: #b42318; border-color: #fecdca;
+                                  animation: fbsDeadlinePulse 2s ease-in-out infinite; }
+  .fbs-deadline-timer.is-past   { background: #475467; color: #ffffff; border-color: #344054; }
+  @keyframes fbsDeadlinePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 68, 56, 0); }
+    50%      { box-shadow: 0 0 0 4px rgba(240, 68, 56, .15); }
+  }
+  [data-bs-theme="dark"] .fbs-deadline-timer.is-ok     { background: rgba(18,183,106,.18); color: #6ee7a8; border-color: rgba(18,183,106,.4); }
+  [data-bs-theme="dark"] .fbs-deadline-timer.is-warn   { background: rgba(247,144,9,.18); color: #fed793; border-color: rgba(247,144,9,.4); }
+  [data-bs-theme="dark"] .fbs-deadline-timer.is-urgent { background: rgba(240,68,56,.18); color: #fca5a5; border-color: rgba(240,68,56,.4); }
+  [data-bs-theme="dark"] .fbs-deadline-timer.is-past   { background: #2b3346; color: #c4cad8; border-color: #2b3346; }
+
+  .fbs-empty {
+    padding: 2.5rem 1rem; text-align: center; color: #667085;
+  }
+  .fbs-empty strong { color: #101828; }
+
+  .fbs-meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: .75rem; flex-wrap: wrap;
+    font-size: .8rem; color: #667085;
+    margin-top: .65rem;
+  }
+  .fbs-meta-row code {
+    background: #f3f4f6; padding: 2px 6px; border-radius: 6px;
+    color: #475569; font-size: .76rem;
+  }
+
+  .fbs-table th { white-space: nowrap; font-size: .72rem; }
+  .fbs-table td { vertical-align: middle; font-size: .88rem; }
+  .fbs-table tbody tr { cursor: pointer; }
+  .fbs-id { font-weight: 700; color: #101828; }
+  /* Hoverable order number — only when there's an image to show */
+  .fbs-id[data-image] { cursor: zoom-in; }
+
+  /* Singleton hover popup that previews the order's first product image.
+     position:fixed dodges table-overflow clipping; the JS computes
+     coordinates relative to the trigger cell and clamps to viewport. */
+  .fbs-img-pop {
+    position: fixed;
+    z-index: 1080;
+    width: 260px; max-width: 92vw;   /* aniq en — JS rasm soniga qarab o'rnatadi */
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 14px 36px rgba(16,24,40,.18), 0 2px 6px rgba(16,24,40,.08);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-6px) scale(.96);
+    transition: opacity .18s ease, transform .18s ease;
+    pointer-events: none;
+    will-change: opacity, transform;
+  }
+  .fbs-img-pop.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+  /* Tovar rasmlari to'ri: 1 ta → 220×220; 2+ → har katak KVADRAT
+     (aspect-ratio:1) → rasm to'liq (contain), kataklar zich joylashadi,
+     popup balandligi rasm soniga moslashadi (2 ta → past, ixcham). */
+  .fbs-img-pop-grid {
+    display: grid; gap: 2px;
+    background: #eaecf0;
+  }
+  .fbs-img-pop-cell {
+    position: relative; overflow: hidden;
+    aspect-ratio: 1 / 1;
+    background: #f5f7fb; min-width: 0; min-height: 0;
+  }
+  .fbs-img-pop-cell img {
+    width: 100%; height: 100%;
+    display: block;
+    object-fit: contain;   /* rasm TO'LIQ — kesilmaydi (och fonda markazda) */
+    opacity: 0;
+    transition: opacity .15s ease;
+  }
+  .fbs-img-pop-cell img.is-loaded { opacity: 1; }
+  /* 4 tadan ortiq bo'lsa, 4-katak ustida «+N». */
+  .fbs-img-pop-more {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(16,24,40,.6);
+    color: #fff; font-size: 1.35rem; font-weight: 700;
+  }
+  .fbs-img-pop-skel {
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, #e6ebf4 8%, #f0f3fa 18%, #e6ebf4 33%);
+    background-size: 200% 100%;
+    animation: fbsImgShim 1.4s linear infinite;
+  }
+  .fbs-img-pop-skel.is-hidden { display: none; }
+  @keyframes fbsImgShim {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  /* Yorliq — rasm TAGIDA (overlay emas): oq fon, qora matn, o'qilishi oson.
+     .t = tovar nomi (2 qatorgacha), .m = SKU · shtrix (kichik, kulrang). */
+  .fbs-img-pop-label {
+    padding: .6rem .7rem .65rem;
+    background: #fff;
+    color: #101828;
+    font-size: .82rem; line-height: 1.3;
+    text-align: left;
+    word-break: break-word;
+  }
+  .fbs-img-pop-label .t {
+    font-weight: 600;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .fbs-img-pop-label .m {
+    margin-top: .28rem; font-size: .73rem; color: #667085; font-weight: 500;
+  }
+  [data-bs-theme="dark"] .fbs-img-pop {
+    background: #1c2334;
+    box-shadow: 0 14px 36px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.3);
+  }
+  [data-bs-theme="dark"] .fbs-img-pop-grid { background: #2b3346; }
+  [data-bs-theme="dark"] .fbs-img-pop-cell { background: #232a3d; }
+  [data-bs-theme="dark"] .fbs-img-pop-label { background: #1c2334; color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-img-pop-label .m { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-img-pop-skel {
+    background: linear-gradient(110deg, #232a3d 8%, #2b3346 18%, #232a3d 33%);
+    background-size: 200% 100%;
+  }
+  .fbs-customer { color: #475569; }
+  .fbs-shop { color: #475569; font-weight: 500; }
+  /* «Mahsulot» ustuni — har tovar uchun SKU + shtrix kod. Ko'p tovarli
+     buyurtmada bir nechta blok (ingichka chiziq bilan ajratiladi). */
+  .fbs-products .fbs-prod { display: flex; align-items: center; gap: .55rem; }
+  .fbs-products .fbs-prod + .fbs-prod {
+    margin-top: .4rem; padding-top: .4rem; border-top: 1px dashed #eaecf0;
+  }
+  .fbs-products .info { min-width: 0; }
+  .fbs-products .sku { font-weight: 600; color: #101828; font-size: .82rem; line-height: 1.35; }
+  .fbs-products .bc  { color: #667085; font-size: .76rem; line-height: 1.3; }
+  /* Son — alohida kichik pill (FBS badge uslubida), chap tomonda. */
+  .fbs-products .qty-pill {
+    flex: none;
+    display: inline-block;
+    padding: 1px 9px; border-radius: 999px;
+    background: #e0e7ff; color: #3730a3;
+    font-size: .66rem; font-weight: 700; white-space: nowrap;
+  }
+  [data-bs-theme="dark"] .fbs-products .qty-pill { background: #1e2d4a; color: #93c5fd; }
+  /* Rasm biriktirilgan «N dona» belgisi — ustiga borilsa shu tovar rasmi
+     popup'da chiqadi (zoom kursor + ozgina to'qroq fon = bosiladigan ko'rinish). */
+  .fbs-products .qty-pill[data-image] { cursor: zoom-in; transition: background .12s; }
+  .fbs-products .qty-pill[data-image]:hover { background: #c7d2fe; }
+  [data-bs-theme="dark"] .fbs-products .qty-pill[data-image]:hover { background: #2a3a5c; }
+  /* «+N» ochish/yopish tugmasi (ko'p tovarli buyurtma). */
+  .fbs-products .fbs-prod-toggle {
+    display: inline-flex; align-items: center; gap: .3rem;
+    margin-top: .45rem;
+    padding: 2px 11px; border-radius: 999px;
+    background: #eef2ff; color: #3456b9; border: 1px solid #dbe3ff;
+    font-size: .72rem; font-weight: 700; cursor: pointer;
+    transition: background .12s;
+  }
+  .fbs-products .fbs-prod-toggle:hover { background: #e0e7ff; }
+  .fbs-products .fbs-prod-toggle .chev { transition: transform .18s ease; }
+  .fbs-products .fbs-prod-toggle.is-open .chev { transform: rotate(180deg); }
+  .fbs-products .fbs-prod-extra .fbs-prod {
+    margin-top: .4rem; padding-top: .4rem; border-top: 1px dashed #eaecf0;
+  }
+  [data-bs-theme="dark"] .fbs-products .fbs-prod-toggle {
+    background: rgba(99,132,255,.18); color: #93b4ff; border-color: rgba(99,132,255,.32);
+  }
+  [data-bs-theme="dark"] .fbs-products .fbs-prod-toggle:hover { background: rgba(99,132,255,.28); }
+  [data-bs-theme="dark"] .fbs-products .fbs-prod-extra .fbs-prod { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-products .sku { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-products .bc  { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-products .fbs-prod + .fbs-prod { border-top-color: #2d3148; }
+  .fbs-scheme {
+    display: inline-block; padding: 1px 8px; border-radius: 6px;
+    font-size: .68rem; font-weight: 700;
+    background: #e0e7ff; color: #3730a3;
+  }
+  .fbs-scheme.dbs { background: #fef3c7; color: #92400e; }
+
+  .fbs-warning {
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 12px; padding: .8rem 1rem; font-size: .9rem;
+  }
+  .fbs-warning a { color: #92400e; text-decoration: underline; font-weight: 700; }
+
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  [data-bs-theme="dark"] .fbs-hero {
+    background: linear-gradient(160deg, #0f1117 0%, #131625 56%, #111420 100%);
+    border-color: #2d3148;
+    box-shadow: 0 12px 28px rgba(0,0,0,.3);
+  }
+  [data-bs-theme="dark"] .fbs-kicker { background: rgba(99,132,255,.15); color: #93b4ff; }
+  [data-bs-theme="dark"] .fbs-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-subtitle { color: #8892a4; }
+  [data-bs-theme="dark"] .fbs-card { background: #1a1d27; border-color: #2d3148; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  [data-bs-theme="dark"] .fbs-toolbar label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-toolbar select,
+  [data-bs-theme="dark"] .fbs-toolbar input { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+
+  [data-bs-theme="dark"] .fbs-status-row { border-bottom-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-status-chip { background: #1e2130; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-chip:hover { background: #252a3f; color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-status-chip.active { background: #e2e8f0; color: #0f1117; border-color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-status-chip:not(.active) .fbs-status-chip-count { background: #0f1117; color: #94a3b8; }
+
+  [data-bs-theme="dark"] .fbs-empty { color: #8892a4; }
+  [data-bs-theme="dark"] .fbs-empty strong { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-meta-row { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-meta-row code { background: #1e2130; color: #94a3b8; }
+
+  /* Stage 4d — Yangilash button spinner + "Oxirgi yangilangan" hint */
+  #fbsReload { display: inline-flex; align-items: center; gap: .4rem; min-width: 110px; justify-content: center; }
+  #fbsReload[disabled] { opacity: .8; cursor: progress; }
+  #fbsReload .spinner-border-sm {
+    width: 14px; height: 14px; border-width: 2px; display: none;
+  }
+  #fbsReload.is-loading .spinner-border-sm { display: inline-block; }
+  .fbs-last-synced {
+    color: #94a3b8; font-size: .78rem; font-style: italic;
+    margin-left: auto;
+  }
+  [data-bs-theme="dark"] .fbs-last-synced { color: #64748b; }
+
+  /* Toast — copy of detail page pattern, scoped to /fbs page. */
+  .fbs-list-toast-container {
+    position: fixed; top: 1rem; right: 1rem; z-index: 2080;
+    display: flex; flex-direction: column; gap: .55rem;
+    max-width: min(360px, calc(100vw - 2rem));
+    pointer-events: none;
+  }
+  .fbs-list-toast {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .7rem .9rem; border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.12);
+    font-size: .86rem; line-height: 1.35;
+    pointer-events: auto;
+    animation: fbs-list-toast-in .18s ease-out;
+  }
+  @keyframes fbs-list-toast-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fbs-list-toast.is-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+  .fbs-list-toast.is-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .fbs-list-toast .close-btn {
+    margin-left: auto; background: transparent; border: 0;
+    color: inherit; opacity: .55; font-size: 1.05rem; line-height: 1; cursor: pointer;
+  }
+  .fbs-list-toast .close-btn:hover { opacity: 1; }
+  [data-bs-theme="dark"] .fbs-list-toast.is-success { background: #052e23; color: #6ee7b7; border-color: #064e3b; }
+  [data-bs-theme="dark"] .fbs-list-toast.is-error   { background: #2a0e0e; color: #fca5a5; border-color: #7f1d1d; }
+  [data-bs-theme="dark"] .fbs-id { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-customer { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-shop { color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-scheme { background: #1e2d4a; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-scheme.dbs { background: #2a1d0a; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-warning { background: #2a1d0a; border-color: #92400e; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-warning a { color: #fbbf24; }
+
+  [data-bs-theme="dark"] .fbs-status-CREATED                              { background: rgba(96,165,250,.12); border-color: #1e4080; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-status-PACKING                              { background: rgba(251,191,36,.12); border-color: #b45309; color: #fcd34d; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_DELIVERY                     { background: rgba(74,222,128,.12); border-color: #166534; color: #6ee7b7; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERING                           { background: rgba(251,146,60,.12); border-color: #c2410c; color: #fdba74; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED                            { background: rgba(52,211,153,.16); border-color: #047857; color: #34d399; }
+  [data-bs-theme="dark"] .fbs-status-ACCEPTED_AT_DP                       { background: rgba(167,139,250,.12); border-color: #6d28d9; color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: rgba(167,139,250,.08); border-color: #7c3aed; color: #ddd6fe; }
+  [data-bs-theme="dark"] .fbs-status-COMPLETED                            { background: #1e2130; border-color: #2d3148; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-CANCELED                             { background: rgba(248,113,113,.12); border-color: #b91c1c; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_CANCELLATION                 { background: rgba(220,38,38,.10); border-color: #991b1b; color: #f87171; }
+  [data-bs-theme="dark"] .fbs-status-RETURNED                             { background: rgba(159,18,57,.12); border-color: #9f1239; color: #fda4af; }
+
+  /* ── Bosqich 5b: Bulk-select column + sticky toolbar ──────────
+     The checkbox column sits flush left and is narrow. Rows are still
+     row-click → detail page, so the checkbox stops propagation in JS
+     to avoid every checkbox click also navigating away. Toolbar slides
+     up from the bottom only when at least one row is checked. */
+  .fbs-check-col, .fbs-check-cell { width: 36px; text-align: center; }
+  .fbs-check-cell input[type="checkbox"],
+  .fbs-check-col input[type="checkbox"] {
+    width: 16px; height: 16px; cursor: pointer; accent-color: #3456b9;
+  }
+  .fbs-table tbody tr.is-selected td { background: rgba(99,132,255,.08); }
+  [data-bs-theme="dark"] .fbs-table tbody tr.is-selected td { background: rgba(99,132,255,.16); }
+
+  /* "Just-arrived" highlight — a row that was NOT in the previous
+     render fades from green to transparent over 2.6s. Drives the
+     visible Yangilash feedback (without this, a sub-second JIT refresh
+     feels like nothing happened, even when new orders did appear). */
+  @keyframes fbs-row-flash {
+    0%   { background: rgba(34,197,94,.30); }
+    60%  { background: rgba(34,197,94,.18); }
+    100% { background: transparent; }
+  }
+  .fbs-table tbody tr.is-new td {
+    animation: fbs-row-flash 2.6s ease-out 1;
+  }
+  [data-bs-theme="dark"] .fbs-table tbody tr.is-new td {
+    animation-name: fbs-row-flash-dark;
+  }
+  @keyframes fbs-row-flash-dark {
+    0%   { background: rgba(34,197,94,.42); }
+    60%  { background: rgba(34,197,94,.22); }
+    100% { background: transparent; }
+  }
+
+  /* ── Modern card-style rows ──────────────────────────────────────
+     Each row reads as its own rounded card (white surface, 1px hairline,
+     gap between rows) and lifts on hover — same calm, soft-shadow language
+     as the order-detail modal. `table.fbs-table` (element+class) outranks
+     both Bootstrap's `.table` and base.html's dark overrides so these win
+     without !important. */
+  table.fbs-table { border-collapse: separate; border-spacing: 0 8px; }
+  table.fbs-table thead th {
+    border: none; background: transparent;
+    text-transform: uppercase; letter-spacing: .055em;
+    color: #98a2b3; font-weight: 600; font-size: .68rem;
+    padding: .15rem .85rem .4rem;
+  }
+  table.fbs-table tbody td {
+    background: #fff; padding: .9rem .85rem; vertical-align: middle;
+    border-top: 1px solid #eaecf0; border-bottom: 1px solid #eaecf0;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  table.fbs-table tbody td:first-child {
+    border-left: 1px solid #eaecf0;
+    border-top-left-radius: 14px; border-bottom-left-radius: 14px;
+  }
+  table.fbs-table tbody td:last-child {
+    border-right: 1px solid #eaecf0;
+    border-top-right-radius: 14px; border-bottom-right-radius: 14px;
+  }
+  table.fbs-table tbody tr { transition: box-shadow .16s ease, transform .12s ease; }
+  table.fbs-table.table-hover tbody tr:hover td { background: #fafbfe; border-color: #d7deea; }
+  table.fbs-table tbody tr:hover { box-shadow: 0 10px 26px rgba(16,24,40,.10); }
+  /* № + deadline chip: keep the cell a real table-cell (so it stays
+     vertically centred in line with the other columns), and just drop the
+     chip onto its own line below the number. Making the chip a block-level
+     flex pushes it to a new line without turning the <td> into a flexbox
+     (which would break vertical-align across the row). */
+  table.fbs-table .fbs-id { font-size: .92rem; line-height: 1.3; }
+  table.fbs-table .fbs-id .fbs-deadline-timer {
+    display: flex; width: fit-content; margin-top: .4rem;
+  }
+  [data-bs-theme="dark"] table.fbs-table thead th { color: #64748b; }
+  [data-bs-theme="dark"] table.fbs-table tbody td { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] table.fbs-table.table-hover tbody tr:hover td { background: #1e2233; border-color: #3a4058; }
+  [data-bs-theme="dark"] table.fbs-table tbody tr:hover { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+
+  /* ── «К отправке» — накладная-grouped (invoice) view ───────────────
+     PENDING_DELIVERY orders shown grouped by their накладная: each invoice
+     is a card; clicking it expands the orders below (accordion), each with a
+     checkbox feeding the shared bulk selection so the QR/Yorliq print
+     actions work on the picked orders. */
+  .fbs-inv-list { display: flex; flex-direction: column; gap: 10px; }
+  .fbs-inv-card { border: 1px solid #eaecf0; border-radius: 14px; background: #fff;
+    overflow: hidden; transition: box-shadow .16s ease; }
+  .fbs-inv-card.is-open { box-shadow: 0 10px 26px rgba(16,24,40,.10); }
+  .fbs-inv-head { display: flex; align-items: center; gap: 14px; padding: .9rem 1rem; cursor: pointer; }
+  .fbs-inv-head:hover { background: #fafbfe; }
+  .fbs-inv-num { font-weight: 700; color: #101828; font-size: .95rem; white-space: nowrap; }
+  .fbs-inv-count { flex: none; display: inline-block; padding: 1px 9px; border-radius: 999px;
+    background: #e0e7ff; color: #3730a3; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+  .fbs-inv-meta { display: flex; flex-wrap: wrap; gap: .25rem 1rem; flex: 1 1 auto; min-width: 0;
+    font-size: .82rem; color: #667085; align-items: center; }
+  .fbs-inv-meta b { color: #101828; font-weight: 600; }
+  .fbs-inv-meta .addr { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fbs-inv-chev { flex: none; color: #98a2b3; transition: transform .2s ease; }
+  .fbs-inv-card.is-open .fbs-inv-chev { transform: rotate(180deg); }
+  .fbs-inv-body { border-top: 1px solid #f1f5f9; padding: .35rem .75rem .6rem;
+    background: #fcfcfd; display: none; }
+  .fbs-inv-card.is-open .fbs-inv-body { display: block; }
+  .fbs-inv-loading { padding: 1rem; text-align: center; color: #98a2b3; font-size: .85rem; }
+  .fbs-inv-order { display: flex; align-items: flex-start; gap: 12px; padding: .6rem .4rem;
+    border-bottom: 1px solid #f1f5f9; cursor: pointer; margin: 0; }
+  .fbs-inv-order:last-child { border-bottom: none; }
+  .fbs-inv-order .oi-check { width: 16px; height: 16px; margin-top: 2px; flex: none;
+    cursor: pointer; accent-color: #3456b9; }
+  .fbs-inv-order .oi-main { flex: 1 1 auto; min-width: 0; }
+  .fbs-inv-order .oi-top { display: flex; align-items: center; gap: .5rem; }
+  .fbs-inv-order .oi-num { font-weight: 700; color: #101828; font-size: .85rem; }
+  .fbs-inv-order .oi-total { margin-left: auto; font-weight: 700; color: #101828; font-size: .85rem; }
+  .fbs-inv-order .oi-item { display: flex; align-items: center; gap: .5rem; margin-top: .35rem;
+    font-size: .8rem; color: #667085; min-width: 0; }
+  .fbs-inv-order .oi-item img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover;
+    border: 1px solid #eaecf0; background: #f1f5f9; flex: none; }
+  .fbs-inv-order .oi-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  [data-bs-theme="dark"] .fbs-inv-card { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-inv-card.is-open { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .fbs-inv-head:hover { background: #1e2233; }
+  [data-bs-theme="dark"] .fbs-inv-num,
+  [data-bs-theme="dark"] .fbs-inv-meta b { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-inv-meta { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-inv-count { background: #1e2d4a; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-inv-body { background: #161922; border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-inv-order { border-bottom-color: #252a3f; }
+  [data-bs-theme="dark"] .fbs-inv-order .oi-num,
+  [data-bs-theme="dark"] .fbs-inv-order .oi-total { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-inv-order .oi-item { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-inv-order .oi-item img { background: #1e2130; border-color: #2d3148; }
+
+  .fbs-bulk-bar {
+    position: fixed; left: 50%; bottom: 1.25rem;
+    transform: translate(-50%, calc(100% + 30px));
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem .9rem; border-radius: 14px;
+    background: #1e293b; color: #f8fafc;
+    box-shadow: 0 14px 32px rgba(0,0,0,.25);
+    z-index: 2070; pointer-events: none; opacity: 0;
+    transition: transform .22s ease-out, opacity .22s ease-out;
+    max-width: calc(100vw - 2rem); flex-wrap: wrap;
+  }
+  .fbs-bulk-bar.is-visible {
+    transform: translate(-50%, 0); opacity: 1; pointer-events: auto;
+  }
+  /* When the bulk bar is visible at the bottom of the viewport it can
+     overlap the last few order rows. :has() lets us reserve scroll-
+     space on the page so the seller can always reach the rows behind
+     the bar by scrolling further. 140px covers the bar even when it
+     wraps to two lines on narrow screens. */
+  body:has(.fbs-bulk-bar.is-visible) {
+    padding-bottom: 140px;
+  }
+  .fbs-bulk-bar .fbs-bulk-count {
+    font-weight: 700; padding-right: .25rem;
+    border-right: 1px solid rgba(255,255,255,.18);
+    margin-right: .25rem;
+  }
+  .fbs-bulk-bar button {
+    background: rgba(255,255,255,.1); color: #f8fafc;
+    border: 1px solid rgba(255,255,255,.16);
+    padding: .58rem 1.25rem; border-radius: 12px;
+    font-size: .92rem; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .4rem;
+    transition: background .15s, opacity .12s, transform .14s ease,
+                box-shadow .18s ease;
+  }
+  .fbs-bulk-bar button:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .fbs-bulk-bar button:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+  .fbs-bulk-bar button.is-primary { background: #3456b9; border-color: #3456b9; }
+  .fbs-bulk-bar button.is-primary:hover:not(:disabled) { background: #2a47a0; }
+  .fbs-bulk-bar button.is-ghost { background: transparent; border-color: transparent; opacity: .85; }
+  .fbs-bulk-bar button.is-ghost:hover { background: rgba(255,255,255,.08); opacity: 1; }
+  /* Two-step workflow colours: confirm («Ishga olish» / Взять в работу) is
+     green (go), postavka is purple (the eventual goal). Both filled so the
+     slimmed-down bar reads as two clear primary actions. Disabled state is
+     handled by the !important rule below (greys out regardless of colour). */
+  .fbs-bulk-bar button.is-confirm,
+  .fbs-bulk-bar button.is-postavka {
+    position: relative; overflow: hidden; color: #fff;
+  }
+  .fbs-bulk-bar button.is-confirm  { background: linear-gradient(135deg, #10b981, #059669); border-color: #059669; }
+  .fbs-bulk-bar button.is-postavka { background: linear-gradient(135deg, #9061f9, #7c3aed); border-color: #7c3aed; }
+  /* Hover: lift + coloured glow. */
+  .fbs-bulk-bar button.is-confirm:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0ea271, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(5,150,105,.45);
+  }
+  .fbs-bulk-bar button.is-postavka:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(124,58,237,.5);
+  }
+  /* Shine sweep — a soft highlight slides across on hover (modern flair). */
+  .fbs-bulk-bar button.is-confirm::after,
+  .fbs-bulk-bar button.is-postavka::after {
+    content: ""; position: absolute; top: 0; left: -120%;
+    width: 55%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,.38), transparent);
+    transform: skewX(-20deg); pointer-events: none;
+    transition: left .55s ease;
+  }
+  .fbs-bulk-bar button.is-confirm:hover:not(:disabled)::after,
+  .fbs-bulk-bar button.is-postavka:hover:not(:disabled)::after { left: 135%; }
+  /* Disabled state — must win over .is-primary so the blue background
+     doesn't make the button look clickable. Placed after the .is-primary
+     rule and uses !important to ensure ordering doesn't change the
+     outcome if classes get reordered later. */
+  .fbs-bulk-bar button:disabled,
+  .fbs-bulk-bar button:disabled.is-primary {
+    background: rgba(255,255,255,.05) !important;
+    border-color: rgba(255,255,255,.08) !important;
+    color: #64748b !important;
+    cursor: not-allowed;
+    opacity: 1; /* explicit color above already conveys disabled */
+  }
+  .fbs-bulk-bar .spinner-border-sm { width: 12px; height: 12px; border-width: 2px; display: none; }
+  .fbs-bulk-bar button.is-busy .spinner-border-sm { display: inline-block; }
+  .fbs-bulk-bar button.is-busy { opacity: .8; cursor: progress; }
+
+  /* Size selector — compact dark dropdown, sits between the count
+     badge and the action buttons. Native <select> styled to feel
+     consistent with the rest of the toolbar (no Bootstrap class
+     reset would survive in this dark context, so we restyle from
+     scratch). */
+  .fbs-bulk-size {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding-right: .5rem;
+    border-right: 1px solid rgba(255,255,255,.18);
+    font-size: .76rem; color: #cbd5e1;
+  }
+  .fbs-bulk-size select {
+    appearance: none; -webkit-appearance: none;
+    background: rgba(255,255,255,.08) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23f8fafc' d='M2 3.5l3 3 3-3z'/></svg>") no-repeat right .55rem center;
+    background-size: 10px 10px;
+    color: #f8fafc; border: 1px solid rgba(255,255,255,.16);
+    padding: .3rem 1.5rem .3rem .6rem; border-radius: 8px;
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    transition: background .12s;
+  }
+  .fbs-bulk-size select:hover { background-color: rgba(255,255,255,.16); }
+  .fbs-bulk-size select:focus { outline: 2px solid rgba(99,132,255,.55); outline-offset: 1px; }
+  .fbs-bulk-size select option { background: #1e293b; color: #f8fafc; }
+
+  [data-bs-theme="dark"] .fbs-bulk-bar {
+    background: #0f1117; color: #e2e8f0;
+    box-shadow: 0 14px 32px rgba(0,0,0,.5);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fbs-page">
+  <section class="fbs-hero">
+    <div class="fbs-hero-main">
+      <span class="fbs-kicker">FBS / DBS</span>
+      <h1 class="fbs-title">Buyurtmalar</h1>
+      <p class="fbs-subtitle">
+        Uzum'ning FBS («Fulfillment by Seller») va DBS («Delivery by Seller»)
+        buyurtmalari. Ma'lumotlar Seller OpenAPI orqali shaxsiy token bilan olinadi.
+      </p>
+    </div>
+
+    <nav class="fbs-section-tabs" aria-label="FBS bo'limi">
+    <a href="/fbs" class="active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Buyurtmalar
+    </a>
+    <a href="/fbs/stock">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+      Ombor
+    </a>
+    </nav>
+  </section>
+
+  {% if not has_token %}
+  <div class="fbs-warning">
+    Uzum Seller OpenAPI tokeni o'rnatilmagan. Buyurtmalarni ko'rish uchun
+    avval <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+  </div>
+  {% endif %}
+
+  <section class="fbs-card">
+    <div class="fbs-toolbar">
+      <div>
+        <label for="fbsShop">Do'kon</label>
+        <select id="fbsShop">
+          {% if not shops %}
+          <option value="">— do'kon yo'q —</option>
+          {% else %}
+          <option value="all">Hammasi</option>
+          {% for s in shops %}
+          <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }} ({{ s.uzum_id }})</option>
+          {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div>
+        <label for="fbsScheme">Sxema</label>
+        <select id="fbsScheme">
+          <option value="">FBS + DBS (hammasi)</option>
+          <option value="FBS">FBS</option>
+          <option value="DBS">DBS</option>
+        </select>
+      </div>
+      <div>
+        <label for="fbsSize">Sahifada</label>
+        <select id="fbsSize">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+      <div>
+        <button id="fbsReload" type="button" class="btn btn-dark">
+          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <span class="fbs-reload-label">{{ list_labels.btn_refresh }}</span>
+        </button>
+      </div>
+      <div>
+        <button id="fbsDropoffBtn" type="button" class="btn btn-outline-primary" disabled
+                title="Avval buyurtma belgilang">
+          <span aria-hidden="true">📍</span>
+          <span>{{ list_labels.dropoff_btn }}</span>
+        </button>
+      </div>
+    </div>
+
+
+    {# Status chip row — counts come from /fbs/api/count (Stage 1: stub, 501).
+       PENDING_DELIVERY ("Jo'natishga tayyor") chipi o'rniga «Поставка» navigatsiya
+       chipi qo'yilgan: u status filtri emas, to'liq Накладные sahifasiga
+       (/fbs/invoices) olib boradi — eski yuqori tab funksiyasi shu yerga ko'chdi. #}
+    <div class="fbs-status-row" id="fbsStatusRow">
+      {% for st in status_enum %}
+      {% if st == "PENDING_DELIVERY" %}
+      <a href="/fbs/invoices" class="fbs-status-nav" title="Поставка — накладные">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span>Поставка</span>
+      </a>
+      {% else %}
+      <button type="button"
+              class="fbs-status-chip {% if st == default_status %}active{% endif %}"
+              data-status="{{ st }}"
+              title="{{ st }}">
+        <span>{{ status_labels.get(st, st) }}</span>
+        <span class="fbs-status-chip-count" data-status-count="{{ st }}">·</span>
+      </button>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <div id="fbsResult" style="margin-top: 1rem">
+      <div class="fbs-empty">
+        Yuklash uchun «Yangilash» tugmasini bosing yoki status tanlang.
+      </div>
+    </div>
+
+    <div class="fbs-meta-row" id="fbsMeta" style="display:none">
+      <span>
+        Topildi: <strong id="fbsTotal">0</strong> ·
+        Sahifa: <strong id="fbsPage">0</strong> ·
+        Status: <strong id="fbsCurStatus">—</strong>
+      </span>
+      <span>
+        Endpoint: <code id="fbsUsedUrl">—</code>
+      </span>
+      <span class="fbs-last-synced" id="fbsLastSynced"></span>
+    </div>
+  </section>
+</div>
+
+<!-- Stage 4d toast container — uses CSS scoped to .fbs-list-toast* -->
+<div class="fbs-list-toast-container" id="fbsListToastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Bosqich 5b — bulk-action sticky toolbar. Hidden by default; JS
+     slides it up when at least one row checkbox is checked. -->
+<div class="fbs-bulk-bar" id="fbsBulkBar" role="region" aria-label="Bulk actions">
+  <span class="fbs-bulk-count">
+    <span id="fbsBulkCount">0</span> {{ list_labels.bulk_n_selected }}
+  </span>
+  {# «Ishga olish» (bulk-confirm) — faqat «Yangi» (CREATED) tabida ko'rinadi.
+     Tanlangan CREATED buyurtmalarni bir bosishda tasdiqlaydi (status →
+     PACKING). Backend: POST /fbs/api/orders/bulk-confirm. #}
+  <button type="button" id="fbsBulkConfirm" class="is-confirm" title="{{ list_labels.bulk_confirm_title }}">
+    <span aria-hidden="true">✓</span>
+    <span>{{ list_labels.bulk_btn_confirm }}</span>
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+  </button>
+  {# «Qabul punktlari» — tanlangan buyurtmalar uchun qabul punktini tanlash
+     modalini ochadi (toolbar'dagi 📍 tugma bilan bir xil ish). Faqat
+     «Yig'ilmoqda» (PACKING) tabida ko'rinadi. #}
+  <button type="button" id="fbsBulkYorliq" class="is-primary" title="Tanlangan buyurtmalar yorlig'ini chop etish">
+    <span aria-hidden="true">🖨</span>
+    <span>Yorliq</span>
+  </button>
+  <button type="button" id="fbsBulkQr" class="is-primary" title="Tanlangan buyurtmalar QR kodini chop etish">
+    <span aria-hidden="true">▦</span>
+    <span>QR</span>
+  </button>
+  <button type="button" id="fbsBulkPickup" class="is-postavka"
+          title="{{ list_labels.dropoff_btn_hint }}">
+    <span aria-hidden="true">📍</span>
+    <span>{{ list_labels.dropoff_btn }}</span>
+  </button>
+</div>
+
+{% include "_fbs_confirm_modal.html" %}
+{% include "_fbs_shoppick_modal.html" %}
+
+{# ── Order-detail modal ──────────────────────────────────────────────
+   Clicking an order row opens its full detail INSIDE this modal (instead
+   of navigating to /fbs/<id>). The body is an <iframe> pointing at the
+   same detail page in ?embed=1 mode — so all the detail render + action
+   logic (confirm/cancel/IMEI/label/DBS) is reused verbatim with zero
+   duplication. The card chrome mirrors the confirm modal (rounded white
+   card, dim+blur backdrop, × close) so it matches the app's modal look. #}
+<div id="fbsOrderModal" class="fbs-od-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="fbs-od-modal-backdrop" data-od-close="1"></div>
+  <div class="fbs-od-modal-card" role="document">
+    <button type="button" class="fbs-od-modal-x" data-od-close="1"
+            aria-label="{{ list_labels.aria_close }}" title="{{ list_labels.aria_close }}">×</button>
+    <iframe id="fbsOrderModalFrame" class="fbs-od-modal-frame" title="Buyurtma" loading="lazy"></iframe>
+  </div>
+</div>
+<style>
+  .fbs-od-modal { position: fixed; inset: 0; z-index: 2095; display: none;
+    align-items: center; justify-content: center; padding: 1rem; }
+  .fbs-od-modal.is-open { display: flex; }
+  .fbs-od-modal-backdrop { position: absolute; inset: 0;
+    background: rgba(16,24,40,.45); backdrop-filter: blur(2px);
+    animation: fbsOdFade .15s ease-out; }
+  @keyframes fbsOdFade { from { opacity: 0; } to { opacity: 1; } }
+  /* No spinner: the backdrop fades in instantly (click feedback), and the
+     card stays invisible until the embedded page reports its content height
+     — then it appears already at the right size with a smooth pop+fade. No
+     empty box, no jump, no spinner. */
+  .fbs-od-modal-card { position: relative; width: min(680px, 100%);
+    max-height: 88vh; background: #fff; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(16,24,40,.32); display: flex;
+    opacity: 0; transform: translateY(12px) scale(.96);
+    transition: opacity .24s ease, transform .26s cubic-bezier(.16,1,.3,1); }
+  .fbs-od-modal.is-ready .fbs-od-modal-card { opacity: 1; transform: none; }
+  .fbs-od-modal-x { position: absolute; top: 10px; right: 12px; z-index: 2;
+    width: 32px; height: 32px; padding: 0; display: flex; align-items: center;
+    justify-content: center; border: 0; border-radius: 9px;
+    background: rgba(255,255,255,.7); color: #98a2b3; font-size: 1.6rem;
+    line-height: 1; cursor: pointer; transition: background .12s, color .12s; }
+  .fbs-od-modal-x:hover { background: #f1f4fa; color: #475467; }
+  /* Height still transitions for later re-renders (e.g. after an action). */
+  .fbs-od-modal-frame { width: 100%; height: 200px; max-height: 88vh; border: 0;
+    display: block; background: transparent;
+    transition: height .3s cubic-bezier(.16,1,.3,1); }
+  [data-bs-theme="dark"] .fbs-od-modal-card { background: #1a1d27;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  [data-bs-theme="dark"] .fbs-od-modal-x { background: rgba(26,29,39,.7); color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-modal-x:hover { background: #252a3f; color: #cbd5e1; }
+</style>
+
+{# ── Накладна-detal modali ────────────────────────────────────────────
+   «Поставка» ro'yxatida (iframe) накладна qatori bosilganda, iframe parent'ga
+   {type:"fbs-invoice-open", id} yuboradi → bu KENG modal ochiladi. Tanasi
+   /fbs/invoices?embed=1&detail=<id> iframe'i — renderDetailBody() qayta
+   ishlatiladi (dublikat yo'q). Buyurtma-detal modali bilan bir xil naqsh,
+   faqat kengroq (~1000px). Orqa fon (orders sahifasi) MUTLAQO o'zgarmaydi. #}
+<div id="fbsInvoiceModal" class="fbs-inv-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="fbs-inv-modal-backdrop" data-inv-close="1"></div>
+  <div class="fbs-inv-modal-card" role="document">
+    <button type="button" class="fbs-inv-modal-x" data-inv-close="1"
+            aria-label="{{ list_labels.aria_close }}" title="{{ list_labels.aria_close }}">×</button>
+    <iframe id="fbsInvoiceModalFrame" class="fbs-inv-modal-frame" title="Накладная" loading="lazy"></iframe>
+  </div>
+</div>
+<style>
+  .fbs-inv-modal { position: fixed; inset: 0; z-index: 2095; display: none;
+    align-items: flex-start; justify-content: center; padding: 2.5vh 1rem; }
+  .fbs-inv-modal.is-open { display: flex; }
+  .fbs-inv-modal-backdrop { position: absolute; inset: 0;
+    background: rgba(16,24,40,.45); backdrop-filter: blur(2px);
+    animation: fbsOdFade .15s ease-out; }
+  /* Spinner yo'q: backdrop darhol ko'rinadi, karta esa embed sahifa o'z
+     balandligini xabar qilgach silliq pop+fade bilan chiqadi (bo'sh quti yo'q). */
+  .fbs-inv-modal-card { position: relative; width: min(1000px, 96vw);
+    max-height: 95vh; background: #fff; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(16,24,40,.32); display: flex;
+    opacity: 0; transform: translateY(12px) scale(.97);
+    transition: opacity .24s ease, transform .26s cubic-bezier(.16,1,.3,1); }
+  .fbs-inv-modal.is-ready .fbs-inv-modal-card { opacity: 1; transform: none; }
+  .fbs-inv-modal-x { position: absolute; top: 12px; right: 14px; z-index: 2;
+    width: 34px; height: 34px; padding: 0; display: flex; align-items: center;
+    justify-content: center; border: 0; border-radius: 10px;
+    background: rgba(255,255,255,.82); color: #98a2b3; font-size: 1.7rem;
+    line-height: 1; cursor: pointer; transition: background .12s, color .12s; }
+  .fbs-inv-modal-x:hover { background: #f1f4fa; color: #475467; }
+  .fbs-inv-modal-frame { width: 100%; height: 200px; max-height: 95vh; border: 0;
+    display: block; background: transparent;
+    transition: height .3s cubic-bezier(.16,1,.3,1); }
+  [data-bs-theme="dark"] .fbs-inv-modal-card { background: #1a1d27;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  [data-bs-theme="dark"] .fbs-inv-modal-x { background: rgba(26,29,39,.7); color: #64748b; }
+  [data-bs-theme="dark"] .fbs-inv-modal-x:hover { background: #252a3f; color: #cbd5e1; }
+</style>
+
+{# Drop-off points modal — opened from the toolbar 📍 button. #}
+<div id="fbsDropoffModal" class="fbs-dropoff-modal" role="dialog"
+     aria-hidden="true" aria-labelledby="fbsDropoffTitle">
+  <div class="fbs-dropoff-backdrop" data-dropoff-close="1"></div>
+  <div class="fbs-dropoff-card">
+    <div class="fbs-dropoff-head">
+      <h3 id="fbsDropoffTitle">📍 {{ list_labels.dropoff_modal_title }}</h3>
+      <button type="button" class="fbs-dropoff-x" data-dropoff-close="1"
+              aria-label="{{ list_labels.aria_close }}">×</button>
+    </div>
+    <div class="fbs-dropoff-tools">
+      <div class="fbs-dropoff-source" role="tablist" aria-label="Source">
+        <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
+                data-source="db" role="tab">
+          {{ list_labels.dropoff_src_db }}
+        </button>
+        <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
+                data-source="uzum" role="tab">
+          {{ list_labels.dropoff_src_uzum }}
+        </button>
+      </div>
+      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
+        <span aria-hidden="true">🧭</span>
+        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+      </button>
+      <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
+    </div>
+    <div class="fbs-dropoff-match-row">
+      <label class="fbs-dropoff-match">
+        <input type="checkbox" id="fbsDropoffMatchOnly" checked>
+        <span class="fbs-dropoff-match-track"><span class="fbs-dropoff-match-thumb"></span></span>
+        <span class="fbs-dropoff-match-label">{{ list_labels.dropoff_match_only }}</span>
+      </label>
+      <span class="fbs-dropoff-match-help" tabindex="0"
+            title="{{ list_labels.dropoff_match_hint }}"
+            aria-label="{{ list_labels.dropoff_match_hint }}">?</span>
+    </div>
+    <div class="fbs-dropoff-search-row">
+      <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
+      <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
+             placeholder="{{ list_labels.dropoff_search_ph }}"
+             autocomplete="off" spellcheck="false">
+      <button type="button" id="fbsDropoffSearchClear"
+              class="fbs-dropoff-search-clear" hidden
+              aria-label="{{ list_labels.aria_close }}">×</button>
+      <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
+    </div>
+    <div id="fbsDropoffBody" class="fbs-dropoff-body">
+      <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .fbs-dropoff-modal { position: fixed; inset: 0; display: none;
+    z-index: 1050; align-items: center; justify-content: center; }
+  .fbs-dropoff-modal.is-open { display: flex; }
+  .fbs-dropoff-backdrop { position: absolute; inset: 0;
+    background: rgba(0,0,0,.55); }
+  .fbs-dropoff-card { position: relative; background: var(--bs-body-bg, #fff);
+    color: var(--bs-body-color, #111); border-radius: 12px;
+    width: min(720px, 92vw); max-height: 86vh; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+  .fbs-dropoff-head { display: flex; justify-content: space-between;
+    align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(128,128,128,.2); }
+  .fbs-dropoff-head h3 { margin: 0; font-size: 1.05rem; }
+  .fbs-dropoff-x { background: transparent; border: 0; font-size: 1.6rem;
+    cursor: pointer; color: inherit; line-height: 1; padding: 0 6px; }
+  .fbs-dropoff-body { padding: 14px 18px; overflow-y: auto; }
+  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
+    padding: 28px 8px; opacity: .7; }
+  .fbs-dropoff-item { padding: 12px 14px; border: 1px solid rgba(128,128,128,.2);
+    border-radius: 10px; margin-bottom: 10px; display: flex;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  .fbs-dropoff-item .addr { font-weight: 600; font-size: 1rem; flex: 1 1 280px; }
+  .fbs-dropoff-item .shops { font-size: .85rem; opacity: .75; margin-top: 4px; }
+  .fbs-dropoff-item .counts { display: flex; gap: 10px; align-items: center;
+    flex: 0 0 auto; }
+  .fbs-dropoff-item .badge-active { background: #f59e0b; color: #1a1300;
+    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+  .fbs-dropoff-item .badge-total { background: rgba(128,128,128,.18);
+    padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
+  .fbs-dropoff-item .btn-copy { background: transparent; border: 1px solid rgba(128,128,128,.4);
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; color: inherit;
+    font-size: .85rem; }
+  .fbs-dropoff-item .btn-copy:hover { background: rgba(128,128,128,.12); }
+  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
+  /* Geolocation + favorite */
+  .fbs-dropoff-tools { padding: 10px 18px; display: flex; gap: 10px;
+    align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid rgba(128,128,128,.15); }
+  .fbs-dropoff-source { display: inline-flex; border: 1px solid rgba(128,128,128,.3);
+    border-radius: 8px; overflow: hidden; }
+  .fbs-dropoff-src-btn { background: transparent; border: 0; padding: 6px 14px;
+    cursor: pointer; color: inherit; font-size: .85rem; font-weight: 600;
+    border-right: 1px solid rgba(128,128,128,.3); }
+  .fbs-dropoff-src-btn:last-child { border-right: 0; }
+  .fbs-dropoff-src-btn.is-active { background: #3456b9; color: #fff; }
+  .fbs-dropoff-src-btn:hover:not(.is-active) { background: rgba(128,128,128,.12); }
+  /* «Faqat mos keladigan» toggle */
+  .fbs-dropoff-match-row { padding: 9px 18px; display: flex; align-items: center;
+    gap: 8px; border-bottom: 1px solid rgba(128,128,128,.15); }
+  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 9px;
+    cursor: pointer; font-size: .88rem; font-weight: 600; user-select: none; }
+  .fbs-dropoff-match input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .fbs-dropoff-match-track { width: 38px; height: 22px; border-radius: 999px;
+    background: rgba(128,128,128,.4); position: relative; transition: background .15s;
+    flex: 0 0 auto; }
+  .fbs-dropoff-match-thumb { position: absolute; top: 2px; left: 2px; width: 18px;
+    height: 18px; border-radius: 50%; background: #fff; transition: transform .15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track { background: #3456b9; }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track .fbs-dropoff-match-thumb { transform: translateX(16px); }
+  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(52,86,185,.55); outline-offset: 2px; }
+  .fbs-dropoff-match-help { width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(128,128,128,.25); color: inherit; font-size: .75rem;
+    font-weight: 700; display: inline-flex; align-items: center;
+    justify-content: center; cursor: help; }
+  .fbs-dropoff-search-row { padding: 8px 18px; display: flex; gap: 8px;
+    align-items: center; border-bottom: 1px solid rgba(128,128,128,.15);
+    position: relative; }
+  .fbs-dropoff-search-icon { opacity: .6; font-size: 1rem; }
+  .fbs-dropoff-search { flex: 1; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(128,128,128,.3); background: transparent;
+    color: inherit; font-size: .9rem; outline: none; }
+  .fbs-dropoff-search:focus { border-color: #3456b9;
+    box-shadow: 0 0 0 3px rgba(52,86,185,.15); }
+  .fbs-dropoff-search-clear { background: rgba(128,128,128,.18);
+    border: 0; width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    color: inherit; font-size: 1rem; line-height: 1; padding: 0; }
+  .fbs-dropoff-search-clear:hover { background: rgba(128,128,128,.3); }
+  .fbs-dropoff-search-count { font-size: .8rem; opacity: .7;
+    background: rgba(128,128,128,.15); padding: 3px 8px; border-radius: 999px; }
+  .fbs-dropoff-item mark { background: #fde68a; color: inherit;
+    padding: 0 2px; border-radius: 3px; }
+  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
+  .fbs-dropoff-geo-btn { background: transparent; border: 1px solid #3456b9;
+    color: #3456b9; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    font-size: .9rem; display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 600; }
+  .fbs-dropoff-geo-btn:hover { background: rgba(52,86,185,.1); }
+  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-geo-status { font-size: .85rem; opacity: .75; }
+  .fbs-dropoff-item.is-favorite { border-color: #f59e0b;
+    background: rgba(245,158,11,.06); }
+  .fbs-dropoff-item .btn-fav { background: transparent; border: 0;
+    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px;
+    color: rgba(128,128,128,.45); margin-right: 2px; }
+  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
+  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; }
+  .fbs-dropoff-item .badge-dist { background: rgba(52,86,185,.12);
+    color: #3456b9; padding: 4px 10px; border-radius: 999px;
+    font-weight: 700; font-size: .85rem; }
+  .fbs-dropoff-item .badge-nearest { background: #10b981; color: #fff;
+    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .8rem; }
+  .fbs-dropoff-item .btn-slots { background: transparent; border: 1px solid #3456b9;
+    color: #3456b9; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    font-size: .85rem; font-weight: 600; }
+  .fbs-dropoff-item .btn-slots:hover { background: rgba(52,86,185,.1); }
+  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-slots { width: 100%; margin-top: 10px;
+    border-top: 1px dashed rgba(128,128,128,.3); padding-top: 10px;
+    display: flex; flex-wrap: wrap; gap: 8px; }
+  .fbs-dropoff-slots .slot-empty, .fbs-dropoff-slots .slot-loading,
+  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .85rem;
+    opacity: .75; text-align: center; padding: 8px; }
+  .fbs-dropoff-slots .slot-error { color: #dc2626; }
+  .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12);
+    color: #047857; padding: 5px 11px; border-radius: 8px;
+    font-size: .85rem; font-weight: 600; border: 1px solid rgba(16,185,129,.3); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { color: #34d399; }
+  .fbs-dropoff-slots .slot-pill.is-clickable { cursor: pointer;
+    transition: transform .08s ease, background .15s ease; }
+  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22);
+    transform: translateY(-1px); }
+  .fbs-dropoff-slots .slot-pill.is-clickable:active { transform: translateY(0); }
+  .fbs-dropoff-slots .slot-pill.is-clickable:disabled { opacity: .55; cursor: progress; }
+</style>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const shopSel = $("fbsShop");
+  const schemeSel = $("fbsScheme");
+  const sizeSel = $("fbsSize");
+  const btnReload = $("fbsReload");
+  const out = $("fbsResult");
+  const meta = $("fbsMeta");
+  const metaTotal = $("fbsTotal");
+  const metaPage = $("fbsPage");
+  const metaStatus = $("fbsCurStatus");
+  const metaUrl = $("fbsUsedUrl");
+  const statusRow = $("fbsStatusRow");
+  // Filter row (Bosqich 5a)
+  const searchInput = $("fbsSearch");
+  const dateFromInput = $("fbsDateFrom");
+  const dateToInput = $("fbsDateTo");
+  const clearFiltersBtn = $("fbsClearFilters");
+  const filterBadge = $("fbsFilterBadge");
+
+  // The selected tab rides in the URL (?status=…) so a browser refresh —
+  // or a shared/bookmarked link — restores the same chip instead of
+  // snapping back to the default. Validated against the known enum;
+  // anything unexpected falls back to the server default.
+  const _STATUS_ENUM = new Set([{% for st in status_enum %}"{{ st }}"{% if not loop.last %}, {% endif %}{% endfor %}]);
+  const _urlStatus = new URLSearchParams(location.search).get("status");
+  let currentStatus = (_urlStatus && _STATUS_ENUM.has(_urlStatus)) ? _urlStatus : "{{ default_status }}";
+  const HAS_TOKEN = {{ 'true' if has_token else 'false' }};
+  // ── Bosqich 5b: bulk-select state ──────────────────────────────
+  // _selectedIds is the source of truth across renders — when the
+  // table re-renders (filter change, page reload), checkboxes restore
+  // themselves from this set so the seller doesn't lose their selection
+  // by accident. _ordersById is per-render snapshot keyed by id, used
+  // by bulk actions to read each order's current status.
+  const _selectedIds = new Set();
+  let _ordersById = new Map();
+  const bulkBar = document.getElementById("fbsBulkBar");
+  const bulkCount = document.getElementById("fbsBulkCount");
+  const bulkPickupBtn = document.getElementById("fbsBulkPickup");
+  const bulkConfirmBtn = document.getElementById("fbsBulkConfirm");
+  const bulkYorliqBtn = document.getElementById("fbsBulkYorliq");
+  const bulkQrBtn = document.getElementById("fbsBulkQr");
+  const dropoffBtn = document.getElementById("fbsDropoffBtn");
+  const dropoffModal = document.getElementById("fbsDropoffModal");
+  const dropoffBody = document.getElementById("fbsDropoffBody");
+  const dropoffGeoBtn = document.getElementById("fbsDropoffGeoBtn");
+  const dropoffGeoLabel = document.getElementById("fbsDropoffGeoLabel");
+  const dropoffGeoStatus = document.getElementById("fbsDropoffGeoStatus");
+  const dropoffSrcDbBtn = document.getElementById("fbsDropoffSrcDb");
+  const dropoffSrcUzumBtn = document.getElementById("fbsDropoffSrcUzum");
+  const dropoffSearchInput = document.getElementById("fbsDropoffSearch");
+  const dropoffSearchClear = document.getElementById("fbsDropoffSearchClear");
+  const dropoffSearchCount = document.getElementById("fbsDropoffSearchCount");
+  const dropoffMatchOnly = document.getElementById("fbsDropoffMatchOnly");
+  let _matchOnly = true;      // «Faqat mos keladigan» — ON=tanlangan buyurtmalarga moslab
+  let _dropoffSource = "db";  // "db" or "uzum"
+  let _dropoffQuery = "";     // current search query (normalized)
+  // Drop-off modal state. _dropoffPoints holds the last-fetched list so
+  // geolocation / favorite toggling can re-render without re-fetching.
+  // _userLatLng is set after a successful geolocation request and used
+  // by haversineKm() to attach a distance to each point.
+  let _dropoffPoints = [];
+  let _userLatLng = null;
+  const FAV_KEY = "fbs_dropoff_favorite_addr";
+  // Pre-fetched data per source. When the user clicks the toolbar button
+  // we use the cached payload (instant) and refresh in the background.
+  // Key: source ("db" / "uzum"); value: { points, ts }.
+  const _dropoffPrefetch = {};
+  const _DROPOFF_PREFETCH_TTL = 60 * 1000;  // 1 min — refresh aggressively
+  // address → {lat, lng} cache that survives across tabs. Built up as
+  // Uzum returns structured coords; DB-sourced points then borrow these
+  // when their address text doesn't carry coords (fixes the case where
+  // the same point is closest in Uzum tab but has no distance in DB tab).
+  const _addrCoordsKey = "fbs_dropoff_addr_coords";
+  function loadAddrCoords(){
+    try {
+      const raw = sessionStorage.getItem(_addrCoordsKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveAddrCoords(map){
+    try { sessionStorage.setItem(_addrCoordsKey, JSON.stringify(map)); }
+    catch (e) {}
+  }
+  function isPrefetchFresh(source){
+    const e = _dropoffPrefetch[source];
+    return e && (Date.now() - e.ts < _DROPOFF_PREFETCH_TTL);
+  }
+  async function prefetchDropoffPoints(source){
+    try {
+      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(source)}`;
+      const t0 = Date.now();
+      const res = await fetch(url, {credentials: "same-origin"});
+      const data = await res.json().catch(() => ({}));
+      console.log(`[dropoff] prefetch source=${source} status=${res.status} took=${Date.now()-t0}ms n=${(data.points||[]).length}`);
+      if (res.ok && Array.isArray(data.points)) {
+        _dropoffPrefetch[source] = { points: data.points, ts: Date.now() };
+      }
+    } catch (e) {
+      console.warn("[dropoff] prefetch failed:", e);
+    }
+  }
+  // Same map used by the server-rendered chips, so the in-table status
+  // pills match. Falls back to the raw enum if a key is missing.
+  const STATUS_LABELS = {{ status_labels|tojson }};
+  // Stage 4d: list-page i18n bundle (uz / ru). Every user-visible
+  // string added in this stage comes from LIST_LBL — never hardcode.
+  const LIST_LBL = {{ list_labels|tojson }};
+  // shopId (uzum_id) → do'kon nomi. «Mijoz» ustuni o'rniga jadvalda do'kon
+  // ko'rsatish uchun (server-rendered shops ro'yxatidan). Bo'sh bo'lsa {}.
+  const SHOP_NAMES = {
+    {% for s in shops %}{{ (s.uzum_id|string)|tojson }}: {{ (s.name or s.uzum_id|string)|tojson }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  };
+
+  const reloadLabel = btnReload.querySelector(".fbs-reload-label");
+  const lastSyncedEl = $("fbsLastSynced");
+  const toastContainer = $("fbsListToastContainer");
+
+  // ─── Toast (scoped to list page) ──────────────────────────────
+  // `durationMs` overrides the default (success=2000ms, error=stay).
+  // Used by the rate-limit notice, which is green (not scary) and
+  // dismisses on its own after 6s — slower than the normal success
+  // toast so the seller actually notices they were throttled.
+  function showListToast(message, kind, durationMs){
+    const div = document.createElement("div");
+    div.className = "fbs-list-toast " + (kind === "error" ? "is-error" : "is-success");
+    div.innerHTML = `
+      <div>${escapeHtml(message)}</div>
+      <button type="button" class="close-btn" aria-label="${escapeHtml(LIST_LBL.aria_close)}">×</button>
+    `;
+    div.querySelector(".close-btn").onclick = () => div.remove();
+    toastContainer.appendChild(div);
+    const auto = (durationMs != null)
+      ? durationMs
+      : (kind === "error" ? null : 2000);
+    if (auto != null) setTimeout(() => div.remove(), auto);
+  }
+
+  // ─── Relative time formatter ──────────────────────────────────
+  // ISO-8601 (UTC with trailing Z) → human-friendly UZ/RU phrase.
+  // Stays a single function so any locale tweak only touches one place.
+  function formatRelativeTime(iso){
+    if (!iso) return LIST_LBL.never_synced;
+    const then = new Date(iso);
+    if (isNaN(then.getTime())) return LIST_LBL.never_synced;
+    const seconds = Math.max(0, Math.floor((Date.now() - then.getTime()) / 1000));
+    if (seconds < 30) return LIST_LBL.just_now;
+    if (seconds < 3600) {
+      const m = Math.max(1, Math.floor(seconds / 60));
+      return `${m}${LIST_LBL.minutes_ago}`;
+    }
+    if (seconds < 86400) {
+      const h = Math.floor(seconds / 3600);
+      return `${h}${LIST_LBL.hours_ago}`;
+    }
+    if (seconds < 86400 * 2) return LIST_LBL.yesterday;
+    return LIST_LBL.older;
+  }
+
+  // Latest ISO from /fbs/api/orders so the indicator can re-render on
+  // a 30s timer (so "1 daq oldin" doesn't get stuck at "hozirgina"
+  // forever after the seller leaves the tab open).
+  // ── Countdown RING under each order № ──────────────────────────
+  // A draining SVG donut + "qancha qoldi" label until the seller's
+  // deadline (acceptUntil for CREATED, deliverUntil for the active
+  // statuses). The ring shows the FRACTION of the window still left
+  // (full → empty); the colour escalates green → orange → red as it
+  // shrinks; the label adapts (rounded hours far off, exact minutes when
+  // close, "muddat o'tdi" once past). The «Muddat» column carries the
+  // absolute date; this is its live visual companion, re-evaluated every
+  // minute so it drains without a full list reload.
+  function _parseWhen(v){
+    // Accept ISO strings, epoch-ms, epoch-seconds, or numeric strings.
+    if (v == null || v === "") return NaN;
+    const s = String(v).trim();
+    if (/^\d+$/.test(s)) { const n = Number(s); return n < 1e12 ? n * 1000 : n; }
+    return new Date(s).getTime();
+  }
+  // Clock icon — same SVG the invoices page uses inside .inv-deadline, so
+  // both deadline chips are pixel-identical.
+  const _IC_DEADLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  // Mirror of fbs_invoices.html `fmtDeadlineBadge`: same label wording and
+  // same colour thresholds (green ≥24h, amber 6–24h, red+pulse <6h, slate
+  // overdue) so the countdown reads the SAME on both screens.
+  function formatCountdown(when){
+    const t = _parseWhen(when);
+    if (!isFinite(t)) return null;
+    const diffMs = t - Date.now();
+    if (diffMs <= 0) return { text: "Muddat o'tdi", cls: "is-past" };
+    const hours = Math.floor(diffMs / 3600000);
+    let text, cls;
+    if (hours >= 1) text = `${hours} soat qoldi`;
+    else            text = `${Math.max(1, Math.floor(diffMs / 60000))} daq qoldi`;
+    if (hours >= 24)      cls = "is-ok";
+    else if (hours >= 6)  cls = "is-warn";
+    else                  cls = "is-urgent";
+    return { text, cls };
+  }
+  function updateDeadlineTimers(){
+    document.querySelectorAll(".fbs-deadline-timer[data-deadline]").forEach(el => {
+      const info = formatCountdown(el.getAttribute("data-deadline"));
+      if (!info) { el.style.display = "none"; return; }
+      el.className = `fbs-deadline-timer ${info.cls}`;
+      const label = el.querySelector(".fbs-deadline-label");
+      if (label) label.textContent = info.text;
+    });
+  }
+  // Tick every minute so the ring keeps draining while the tab is open.
+  // renderOrders fills them immediately on each render; this keeps fresh.
+  setInterval(updateDeadlineTimers, 60000);
+
+  let lastSyncedIso = null;
+  function renderLastSynced(){
+    if (!lastSyncedEl) return;
+    if (!lastSyncedIso) {
+      lastSyncedEl.textContent = LIST_LBL.never_synced;
+      return;
+    }
+    lastSyncedEl.textContent =
+      LIST_LBL.last_synced_prefix + formatRelativeTime(lastSyncedIso)
+      + LIST_LBL.auto_sync_note;
+  }
+  setInterval(renderLastSynced, 30000);
+
+  // ─── Yangilash button state ───────────────────────────────────
+  function setReloadBusy(busy){
+    btnReload.disabled = busy;
+    btnReload.classList.toggle("is-loading", busy);
+    if (reloadLabel) {
+      reloadLabel.textContent = busy
+        ? LIST_LBL.btn_refresh_active
+        : LIST_LBL.btn_refresh;
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // Bosqich A.8 — fetch with a hard client-side timeout. Without it, a slow
+  // or hung backend (e.g. a Uzum call stuck in the 60/120/180s retry
+  // backoff after a 429) leaves the refresh promise unsettled forever, so
+  // the "Yangilanmoqda…" spinner never clears (setReloadBusy(false) sits in
+  // a finally that only runs once the await returns). Aborting at the
+  // timeout rejects the await → the spinner clears → the seller is freed.
+  function fetchWithTimeout(url, ms = 15000){
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+  }
+
+  function formatDate(value){
+    if (!value) return "—";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function formatMoney(n){
+    if (n == null) return "—";
+    return Number(n).toLocaleString("ru-RU") + " UZS";
+  }
+
+  function statusPill(status){
+    const s = String(status || "—");
+    const label = STATUS_LABELS[s] || s;
+    return `<span class="fbs-status-pill fbs-status-${escapeHtml(s)}" title="${escapeHtml(s)}">${escapeHtml(label)}</span>`;
+  }
+
+  function schemeBadge(scheme){
+    const s = String(scheme || "FBS");
+    const cls = s === "DBS" ? "fbs-scheme dbs" : "fbs-scheme";
+    return `<span class="${cls}">${escapeHtml(s)}</span>`;
+  }
+
+  // Order IDs seen on the previous render. Used to flash newly-arrived
+  // rows on the next render so a Yangilash that brings in new orders is
+  // visually unmistakable. Empty on the first render (skip flash so
+  // initial page-load isn't a green wash of every row).
+  let _prevOrderIds = null;
+
+  function renderOrders(orders){
+    if (!orders.length) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Buyurtmalar topilmadi.</strong><br>Boshqa status tanlang yoki sxemani o'zgartiring.</div>`;
+      _prevOrderIds = new Set();
+      // Wipe selection when the table empties so the toolbar doesn't
+      // linger with stale IDs that no longer have a row.
+      clearSelection();
+      return;
+    }
+    // Compute which IDs are NEW (not in previous render). Suppress the
+    // flash on the first render (_prevOrderIds === null) so the initial
+    // page load doesn't paint every row green.
+    const newIds = new Set();
+    if (_prevOrderIds !== null) {
+      orders.forEach(o => {
+        const id = String(o.id);
+        if (!_prevOrderIds.has(id)) newIds.add(id);
+      });
+    }
+    _prevOrderIds = new Set(orders.map(o => String(o.id)));
+
+    // Cache the per-render order list so bulk actions can look up an
+    // order's status by id without re-fetching. Used to enable/disable
+    // the "Toplu tasdiqlash" button.
+    _ordersById = new Map();
+    orders.forEach(o => _ordersById.set(String(o.id), o));
+
+    const rows = orders.map(o => {
+      const id = o.id;
+      // «Do'kon» ustuni — shopId'ni do'kon nomiga aylantiramiz (SHOP_NAMES).
+      // Nom topilmasa shopId'ning o'zi, u ham bo'lmasa «—».
+      const shopId = String(o.shopId || "");
+      const shopName = SHOP_NAMES[shopId] || shopId || "—";
+      const items = Array.isArray(o.orderItems) ? o.orderItems : [];
+      // Pick a reasonably-sized Uzum CDN photo for the hover preview.
+      // 480 strikes the best balance between sharpness and bandwidth;
+      // fall through to smaller variants for older items where 480
+      // isn't present.
+      // N1 (HAR audit A.11) — the official OpenAPI returns `productImage`,
+      // the internal API returns `photo`; read whichever is present so the
+      // list thumbnail isn't blank on official-sourced data.
+      // Har bir tovar uchun rasm URL'i — popup'da HAMMASINI ko'rsatamiz
+      // (ilgari faqat birinchisi chiqardi). productImage (OpenAPI) yoki
+      // photo (ichki API) — qaysi bo'lsa.
+      const pickImg = (it) => {
+        const pi = it.productImage || it.photo;
+        const ps = pi && pi.photo;
+        return (ps && (
+              (ps["480"] && (ps["480"].high || ps["480"].low))
+           || (ps["540"] && (ps["540"].high || ps["540"].low))
+           || (ps["240"] && (ps["240"].high || ps["240"].low))
+           || (ps["720"] && (ps["720"].high || ps["720"].low))
+        )) || "";
+      };
+      const itemImgs = items.map(it => {
+        const u = pickImg(it);
+        return u ? {
+          url: u,
+          sku: it.skuTitle || "",
+          barcode: (it.barcode != null && it.barcode !== "") ? String(it.barcode) : "",
+        } : null;
+      }).filter(Boolean);
+      const firstItemImg = itemImgs.length ? itemImgs[0].url : "";
+      const isChecked = _selectedIds.has(String(id));
+
+      const isNew = newIds.has(String(id));
+      const rowClasses = [
+        isChecked ? 'is-selected' : '',
+        isNew ? 'is-new' : '',
+      ].filter(Boolean).join(' ');
+      // N6 (HAR audit A.13) — surface the deadline the seller is racing.
+      // CREATED is bounded by acceptUntil (confirm before this); later active
+      // statuses by deliverUntil. Overdue → red. Pairs with the N5 deadline
+      // sort so the most-urgent order is both at the top and clearly flagged.
+      // Scope to the four actionable statuses (mirrors the backend
+      // _DEADLINE_SORT_COLUMN set); terminal / handed-off rows
+      // (DELIVERED, COMPLETED, CANCELED, RETURNED, ...) carry no pending
+      // obligation, so they show no deadline and never a misleading
+      // "overdue" red.
+      const DEADLINE_STATUSES = new Set(['CREATED', 'PACKING', 'PENDING_DELIVERY', 'DELIVERING']);
+      const deadlineRaw = !DEADLINE_STATUSES.has(o.status) ? null
+        : (o.status === 'CREATED') ? o.acceptUntil
+        : (o.deliverUntil || o.acceptUntil);
+      const deadlineOverdue = deadlineRaw && (new Date(deadlineRaw) < new Date());
+      const deadlineCell = deadlineRaw
+        ? `<span${deadlineOverdue ? ' style="color:#dc2626;font-weight:600"' : ''}>${escapeHtml(formatDate(deadlineRaw))}</span>`
+        : '—';
+      // «Mahsulot» ustuni — har tovarning soni + SKU + shtrix. Ko'p tovarli
+      // buyurtmada faqat 1-tovar ko'rinadi; «+N» tugmasi qolganini ochadi
+      // (qayta bossa yana yopadi — qatorga o'tmasligi uchun stopPropagation).
+      // withImg=true bo'lsagina «N dona» belgisiga shu tovarning rasmi
+      // biriktiriladi (ustiga borilsa popup chiqadi). Bu FAQAT «+N» bilan
+      // ochiladigan qo'shimcha tovarlar uchun — birinchi/yagona tovar eski
+      // holatda qoladi (belgida rasm yo'q).
+      // «N dona» belgisiga shu tovar rasmini biriktirish rejimi:
+      //   "live"  — data-image darrov (ko'rinmaydigan qo'shimcha tovarlar;
+      //             yopiqda baribir ko'rinmaydi, «+N» ochilgach hover ishlaydi)
+      //   "defer" — birinchi tovar: rasm data-defer-image'da, hover O'CHIQ;
+      //             «+N» ochilganda data-image'ga ko'chadi (yopilsa olinadi)
+      //   "none"  — yagona tovar: hover umuman yo'q (eski holat)
+      const renderProd = (it, imgMode) => {
+        const sku = it.skuTitle || "";
+        const bc = (it.barcode != null && it.barcode !== "") ? String(it.barcode) : "";
+        const qty = Number(it.amount || 0);
+        const img = (imgMode === "live" || imgMode === "defer") ? pickImg(it) : "";
+        let pillCls = "qty-pill", pillData = "";
+        if (qty > 0 && img) {
+          const meta = (sku ? ` data-sku="${escapeHtml(sku)}"` : "")
+                     + (bc ? ` data-barcode="${escapeHtml(bc)}"` : "");
+          if (imgMode === "defer") {
+            pillCls += " is-defer";
+            pillData = ` data-defer-image="${escapeHtml(img)}"` + meta;
+          } else {
+            pillData = ` data-image="${escapeHtml(img)}"` + meta;
+          }
+        }
+        return '<div class="fbs-prod">'
+             + (qty > 0 ? `<span class="${pillCls}"${pillData}>${qty} dona</span>` : "")
+             + '<div class="info">'
+             +   `<div class="sku">${sku ? "SKU: " + escapeHtml(sku) : ""}</div>`
+             +   (bc ? `<div class="bc">Shtrix: ${escapeHtml(bc)}</div>` : "")
+             + '</div>'
+             + '</div>';
+      };
+      let productsHtml;
+      if (!items.length) {
+        productsHtml = '<span class="text-muted">—</span>';
+      } else if (items.length === 1) {
+        productsHtml = renderProd(items[0], "none");
+      } else {
+        const moreN = items.length - 1;
+        productsHtml = renderProd(items[0], "defer")
+          + `<div class="fbs-prod-extra" hidden>${items.slice(1).map(it => renderProd(it, "live")).join("")}</div>`
+          + `<button type="button" class="fbs-prod-toggle" data-more="${moreN}" aria-expanded="false">`
+          +   `<span class="lbl">+${moreN}</span>`
+          +   '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
+          + '</button>';
+      }
+      return `
+        <tr data-order-id="${escapeHtml(id)}" class="${rowClasses}">
+          <td class="fbs-check-cell">
+            <input type="checkbox" class="fbs-row-check"
+                   data-order-id="${escapeHtml(id)}"
+                   ${isChecked ? 'checked' : ''}
+                   aria-label="Buyurtma №${escapeHtml(id)}">
+          </td>
+          <td class="fbs-id"${firstItemImg ? ` data-image="${escapeHtml(firstItemImg)}" data-images="${escapeHtml(JSON.stringify(itemImgs))}"` : ''}>${escapeHtml(id)}${deadlineRaw ? `<span class="fbs-deadline-timer" data-deadline="${escapeHtml(deadlineRaw)}" title="Qabul punktiga topshirish muddati">${_IC_DEADLINE}<span class="fbs-deadline-label"></span></span>` : ''}</td>
+          <td class="fbs-products">${productsHtml}</td>
+          <td>${schemeBadge(o.scheme)}</td>
+          <td>${escapeHtml(formatDate(o.dateCreated))}</td>
+          <td>${deadlineCell}</td>
+          <td class="fbs-shop">
+            <span class="text-truncate d-inline-block" style="max-width:150px;vertical-align:middle"
+                  title="${escapeHtml(shopName)}">${escapeHtml(shopName)}</span>
+          </td>
+          <td class="text-end"><strong>${escapeHtml(formatMoney(o.price))}</strong></td>
+        </tr>
+      `;
+    }).join("");
+
+    out.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-hover fbs-table mb-0">
+          <thead>
+            <tr>
+              <th class="fbs-check-col">
+                <input type="checkbox" id="fbsSelectAll"
+                       aria-label="${escapeHtml(LIST_LBL.bulk_select_all_aria)}">
+              </th>
+              <th>№</th>
+              <th>Mahsulot</th>
+              <th>Sxema</th>
+              <th>Yaratildi</th>
+              <th>Muddat</th>
+              <th>Do'kon</th>
+              <th class="text-end">Summa</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+
+    // Fill the per-row countdown timers right after render; the 60s
+    // interval (registered at boot) keeps them ticking afterwards.
+    updateDeadlineTimers();
+
+    // Per-row checkbox: toggle selection, stop the click from bubbling
+    // to the row (which would navigate to the detail page).
+    out.querySelectorAll(".fbs-row-check").forEach(cb => {
+      cb.addEventListener("click", (e) => e.stopPropagation());
+      cb.addEventListener("change", (e) => {
+        const oid = cb.getAttribute("data-order-id");
+        const tr = cb.closest("tr");
+        if (cb.checked) _selectedIds.add(oid); else _selectedIds.delete(oid);
+        if (tr) tr.classList.toggle("is-selected", cb.checked);
+        updateBulkBar();
+        syncSelectAllCheckbox();
+      });
+    });
+
+    // Ko'p tovarli «+N» toggle — 1-tovardan keyingilarni ochadi/yopadi.
+    // stopPropagation: qatorga o'tib detal modalini ochib yubormasin.
+    out.querySelectorAll(".fbs-prod-toggle").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const cell = btn.closest(".fbs-products");
+        const extra = cell && cell.querySelector(".fbs-prod-extra");
+        if (!extra) return;
+        const willOpen = extra.hidden;     // hozir yashirin → ochiladi
+        extra.hidden = !willOpen;
+        btn.classList.toggle("is-open", willOpen);
+        btn.setAttribute("aria-expanded", String(willOpen));
+        const lbl = btn.querySelector(".lbl");
+        if (lbl) lbl.textContent = willOpen ? "Yashirish" : ("+" + (btn.dataset.more || ""));
+        // Birinchi tovar belgisidagi rasm-hover FAQAT ochiq holatda yonadi
+        // (yopiqda toza qoladi). data-defer-image ↔ data-image almashinuvi.
+        const deferPill = cell.querySelector(".qty-pill.is-defer");
+        if (deferPill) {
+          if (willOpen) {
+            const di = deferPill.getAttribute("data-defer-image");
+            if (di) deferPill.setAttribute("data-image", di);
+          } else {
+            deferPill.removeAttribute("data-image");
+          }
+        }
+      });
+    });
+
+    // "Select all" in header — toggles every visible checkbox + their
+    // row selection state in one pass.
+    const selectAll = document.getElementById("fbsSelectAll");
+    if (selectAll) {
+      selectAll.addEventListener("change", () => {
+        const turnOn = selectAll.checked;
+        out.querySelectorAll(".fbs-row-check").forEach(cb => {
+          const oid = cb.getAttribute("data-order-id");
+          cb.checked = turnOn;
+          if (turnOn) _selectedIds.add(oid); else _selectedIds.delete(oid);
+          const tr = cb.closest("tr");
+          if (tr) tr.classList.toggle("is-selected", turnOn);
+        });
+        updateBulkBar();
+      });
+      syncSelectAllCheckbox();
+    }
+
+    // Wire row clicks → detail page (skip when click came from a control).
+    out.querySelectorAll("tbody tr[data-order-id]").forEach(tr => {
+      tr.addEventListener("click", (e) => {
+        // Don't navigate if the click started on the checkbox cell —
+        // the cell uses stopPropagation already, but the cell padding
+        // around the checkbox isn't covered, so a click on the cell
+        // background would otherwise leak through.
+        if (e.target.closest(".fbs-check-cell")) return;
+        const oid = tr.getAttribute("data-order-id");
+        if (oid) openOrderModal(oid);
+      });
+    });
+  }
+
+  // ── Order-detail modal ───────────────────────────────────────────
+  // Opens /fbs/<id>?embed=1 inside an iframe in the centered modal. The
+  // embedded page posts {type:"fbs-order-changed"} after a confirm/cancel/
+  // etc. so we can refresh the list and close — the seller never sees a
+  // stale row behind the modal.
+  const _odModal = document.getElementById("fbsOrderModal");
+  const _odFrame = document.getElementById("fbsOrderModalFrame");
+  let _odSized = false;
+  function openOrderModal(oid){
+    if (!_odModal || !_odFrame) { window.location.href = `/fbs/${oid}`; return; }
+    _odSized = false;
+    _odModal.classList.remove("is-ready");
+    _odFrame.style.height = "200px";              // only seen if the fallback fires
+    _odFrame.src = `/fbs/${encodeURIComponent(oid)}?embed=1`;
+    // Reveal the card when the embed page reports its height, so it appears
+    // already at the right size (no spinner, no empty box). onload is only a
+    // fallback for the rare case no height message arrives (stale cache).
+    _odFrame.onload = () => {
+      setTimeout(() => { if (!_odSized) _odModal.classList.add("is-ready"); }, 250);
+    };
+    _odModal.classList.add("is-open");
+    _odModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+  function closeOrderModal(){
+    if (!_odModal) return;
+    _odModal.classList.remove("is-open");
+    _odModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    // Drop the iframe src so a re-open always fetches fresh state and any
+    // in-flight detail timers/audio stop.
+    if (_odFrame) _odFrame.src = "about:blank";
+  }
+
+  // ── Накладна-detal modali (KENG) ─────────────────────────────────
+  // «Поставка» ro'yxati iframe'i qator bosilganda {fbs-invoice-open} yuboradi.
+  // Bu modal /fbs/invoices?embed=1&detail=<id> ni iframe'da ochadi; balandlik
+  // detail iframe'ining {fbs-invoice-detail-height} xabari bilan moslanadi.
+  const _invModalEl = document.getElementById("fbsInvoiceModal");
+  const _invFrame = document.getElementById("fbsInvoiceModalFrame");
+  let _invModalSized = false;
+  let _invPendingHeader = null;   // ro'yxatdan kelgan header (tez yo'l uchun)
+  function openInvoiceDetailModal(invId){
+    if (!_invModalEl || !_invFrame) return;
+    _invModalSized = false;
+    _invModalEl.classList.remove("is-ready");
+    _invFrame.style.height = "200px";            // faqat fallback ishlasa ko'rinadi
+    _invFrame.src = `/fbs/invoices?embed=1&detail=${encodeURIComponent(invId)}`;
+    _invFrame.onload = () => {
+      setTimeout(() => { if (!_invModalSized) _invModalEl.classList.add("is-ready"); }, 250);
+    };
+    _invModalEl.classList.add("is-open");
+    _invModalEl.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+  function closeInvoiceDetailModal(){
+    if (!_invModalEl) return;
+    _invModalEl.classList.remove("is-open");
+    _invModalEl.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    if (_invFrame) _invFrame.src = "about:blank";
+  }
+  if (_invModalEl) {
+    _invModalEl.querySelectorAll("[data-inv-close]").forEach(el =>
+      el.addEventListener("click", closeInvoiceDetailModal));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && _invModalEl.classList.contains("is-open")) closeInvoiceDetailModal();
+    });
+  }
+
+  if (_odModal) {
+    _odModal.querySelectorAll("[data-od-close]").forEach(el =>
+      el.addEventListener("click", closeOrderModal));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && _odModal.classList.contains("is-open")) closeOrderModal();
+    });
+    // Messages from the embedded detail page:
+    //  • fbs-detail-height → size the card to its content (compact, no
+    //    empty space) up to 88vh, beyond which the iframe scrolls.
+    //  • fbs-order-changed → an action ran; refresh the list and close.
+    window.addEventListener("message", (e) => {
+      const d = e.data || {};
+      if (d.type === "fbs-detail-height") {
+        const max = Math.round(window.innerHeight * 0.88);
+        const h = Math.min(Math.max(Number(d.height) || 0, 120), max);
+        if (_odFrame) _odFrame.style.height = h + "px";
+        // First real size → grow + fade the content in together.
+        _odSized = true;
+        _odModal.classList.add("is-ready");
+        return;
+      }
+      if (d.type === "fbs-invoices-height") {
+        _postavkaLastH = Number(d.height) || 0;
+        sizePostavkaFrame();
+        return;
+      }
+      // «Поставка» ro'yxatida накладна qatori bosildi → KENG MODAL ochamiz
+      // (parent darajasida — orqa fon o'zgarmaydi). Ro'yxatdan kelgan header'ni
+      // saqlaymiz → detal sahifasi uni so'raydi va darhol ko'rsatadi (tez).
+      if (d.type === "fbs-invoice-open") {
+        _invPendingHeader = d.header || null;
+        openInvoiceDetailModal(String(d.id || ""));
+        return;
+      }
+      // Detal iframe'i tayyor — ro'yxatdan kelgan header'ni unga uzatamiz
+      // (orders_only=1 tez yo'li uchun).
+      if (d.type === "fbs-detail-ready") {
+        if (_invFrame && _invFrame.contentWindow) {
+          try { _invFrame.contentWindow.postMessage({ type: "fbs-detail-header", header: _invPendingHeader }, "*"); }
+          catch (_) { /* ahamiyatsiz */ }
+        }
+        return;
+      }
+      // Modal ichidagi detail iframe'i o'z balandligini xabar qildi → kartani
+      // kontentga moslab o'lchaymiz (buyurtma-detal modali kabi).
+      if (d.type === "fbs-invoice-detail-height") {
+        const max = Math.round(window.innerHeight * 0.88);
+        const h = Math.min(Math.max(Number(d.height) || 0, 160), max);
+        if (_invFrame) _invFrame.style.height = h + "px";
+        _invModalSized = true;
+        if (_invModalEl) _invModalEl.classList.add("is-ready");
+        return;
+      }
+      // Detalda punkt/slot o'zgardi → orqada turgan «Поставка» ro'yxatini
+      // (iframe) jimgina qayta yuklaymiz, modal ochiqligicha qoladi.
+      if (d.type === "fbs-invoice-changed") {
+        const pf = document.getElementById("fbsPostavkaFrame");
+        if (pf) pf.contentWindow && pf.contentWindow.postMessage({ type: "fbs-reload" }, "*");
+        return;
+      }
+      if (d.type === "fbs-order-changed") {
+        closeOrderModal();
+        Promise.all([loadOrders(true), loadCounts(true)]);
+      }
+    });
+  }
+
+  // ── «К отправке» накладная (invoice) view ─────────────────────────
+  // Reuses the existing /fbs/api/invoices (list) + /fbs/api/invoices/<id>
+  // (orders) endpoints. Renders active invoices as cards; expanding a card
+  // pulls its orders and shows a checkbox per order wired into the shared
+  // _selectedIds, so the bulk bar's Yorliq/QR print acts on the picked set.
+  function invFmtSlot(slot){
+    if (!slot || !slot.timeFrom) return "";
+    try {
+      const a = new Date(slot.timeFrom), b = new Date(slot.timeTo);
+      const pad = n => String(n).padStart(2, "0");
+      return `${pad(a.getDate())}.${pad(a.getMonth()+1)} ${pad(a.getHours())}:${pad(a.getMinutes())}–${pad(b.getHours())}:${pad(b.getMinutes())}`;
+    } catch (e) { return ""; }
+  }
+  async function loadInvoicesView(){
+    clearSelection();
+    out.innerHTML = `<div class="fbs-empty">Yuklanmoqda…</div>`;
+    meta.style.display = "none";
+    // Active invoices the seller still has to hand over: CREATED +
+    // ACCEPTANCE_IN_PROGRESS (ACCEPTED/CANCELLED are already done).
+    const qs = new URLSearchParams();
+    ["CREATED", "ACCEPTANCE_IN_PROGRESS"].forEach(s => qs.append("statuses", s));
+    qs.set("size", "50"); qs.set("page", "0");
+    try {
+      const res = await fetchWithTimeout(`/fbs/api/invoices?${qs.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        if (res.status === 429) showListToast(data.error || "Uzum hozir band. Birozdan keyin urinib ko'ring.", "error");
+        out.innerHTML = `<div class="fbs-empty"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        return;
+      }
+      renderInvoicesView(data.invoices || []);
+    } catch (e) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message || "")}</div>`;
+    }
+  }
+  function renderInvoicesView(invoices){
+    if (!invoices.length) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Накладная yo'q.</strong><br>Jo'natishga tayyor накладная topilmadi.</div>`;
+      clearSelection();
+      return;
+    }
+    const cards = invoices.map(inv => {
+      const number = escapeHtml(String(inv.number || inv.id || "—"));
+      const count = `${inv.numberAcceptedOrders ?? 0} / ${inv.numberOrders ?? 0}`;
+      const addr = (inv.dropOffPoint && inv.dropOffPoint.address) || "—";
+      const slot = invFmtSlot(inv.timeSlot);
+      const price = formatMoney(inv.fullPrice);
+      return `
+        <div class="fbs-inv-card" data-inv-id="${escapeHtml(String(inv.id))}">
+          <div class="fbs-inv-head">
+            <span class="fbs-inv-num">№${number}</span>
+            <span class="fbs-inv-count" title="Qabul qilingan / Jami">${escapeHtml(count)}</span>
+            <span class="fbs-inv-meta">
+              <span class="addr">📍 <b>${escapeHtml(addr)}</b></span>
+              ${slot ? `<span>🕒 ${escapeHtml(slot)}</span>` : ""}
+              <span>${escapeHtml(price)}</span>
+            </span>
+            <svg class="fbs-inv-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="fbs-inv-body"></div>
+        </div>`;
+    }).join("");
+    out.innerHTML = `<div class="fbs-inv-list">${cards}</div>`;
+    out.querySelectorAll(".fbs-inv-card .fbs-inv-head").forEach(head => {
+      head.addEventListener("click", () => toggleInvoice(head.closest(".fbs-inv-card")));
+    });
+  }
+  async function toggleInvoice(card){
+    if (!card) return;
+    const id = card.dataset.invId;
+    const body = card.querySelector(".fbs-inv-body");
+    if (card.classList.contains("is-open")) { card.classList.remove("is-open"); return; }
+    card.classList.add("is-open");
+    if (body.dataset.loaded === "1") return;
+    body.innerHTML = `<div class="fbs-inv-loading">Yuklanmoqda…</div>`;
+    try {
+      // orders_only=1 → skip the redundant invoice-detail Uzum call; we
+      // already have the header from the list. One paced call, not two.
+      const res = await fetchWithTimeout(`/fbs/api/invoices/${encodeURIComponent(id)}?orders_only=1`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        body.innerHTML = `<div class="fbs-inv-loading">Xato: ${escapeHtml(data.error || res.status)}</div>`;
+        return;
+      }
+      const orders = data.orders || [];
+      body.innerHTML = orders.length
+        ? orders.map(renderInvOrderRow).join("")
+        : `<div class="fbs-inv-loading">Buyurtmalar topilmadi.</div>`;
+      body.dataset.loaded = "1";
+      body.querySelectorAll(".oi-check").forEach(cb => {
+        cb.checked = _selectedIds.has(cb.dataset.orderId);
+        cb.addEventListener("click", e => e.stopPropagation());
+        cb.addEventListener("change", () => {
+          const oid = cb.dataset.orderId;
+          if (cb.checked) _selectedIds.add(oid); else _selectedIds.delete(oid);
+          updateBulkBar();
+        });
+      });
+    } catch (e) {
+      body.innerHTML = `<div class="fbs-inv-loading">Tarmoq xatosi.</div>`;
+    }
+  }
+  function renderInvOrderRow(o){
+    const oid = escapeHtml(String(o.order_id));
+    const items = Array.isArray(o.items) ? o.items : [];
+    const it0 = items[0] || {};
+    const img = it0.image ? `<img src="${escapeHtml(it0.image)}" alt="" loading="lazy">` : "";
+    const title = escapeHtml(it0.title || it0.sku || "—");
+    const more = items.length > 1 ? ` +${items.length - 1}` : "";
+    return `
+      <label class="fbs-inv-order">
+        <input type="checkbox" class="oi-check" data-order-id="${oid}">
+        <div class="oi-main">
+          <div class="oi-top">
+            <span class="oi-num">№${oid}</span>
+            <span class="oi-total">${escapeHtml(formatMoney(o.price))}</span>
+          </div>
+          <div class="oi-item">${img}<span>${title}${more}</span></div>
+        </div>
+      </label>`;
+  }
+  // Print the selected orders' labels as ONE merged PDF (server-side merge
+  // → a single window.open, so no popup-blocker fight). mode "qr" prints the
+  // product QR stickers; otherwise the full shipping label.
+  async function printSelectedLabels(mode){
+    const ids = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
+    if (!ids.length) { showListToast("Avval buyurtma belgilang", "error"); return; }
+    showListToast(`${ids.length} ta yorliq tayyorlanmoqda…`, "success");
+    try {
+      const res = await fetch("/fbs/api/orders/bulk-labels", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ order_ids: ids, size: "LARGE", mode: mode === "qr" ? "qr" : "full" }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        let msg = res.status;
+        try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
+        showListToast("Yorliqlarni olishda xato: " + msg, "error");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      const errs = Number(res.headers.get("X-Fbs-Bulk-Errors") || 0);
+      showListToast(errs > 0 ? `Yorliqlar tayyor (${errs} tasi xato)` : "Yorliqlar tayyor", errs > 0 ? "error" : "success");
+    } catch (e) {
+      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+    }
+  }
+
+  // «Ishga olish» — tanlangan CREATED buyurtmalarni bir bosishda tasdiqlaydi.
+  // Backend per-buyurtma natija qaytaradi (results[]) — biz faqat umumiy
+  // hisobni toast'da ko'rsatamiz, so'ng ro'yxat + chip sonlarini yangilaymiz.
+  async function bulkConfirmSelected(){
+    const ids = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
+    if (!ids.length) { showListToast("Avval buyurtma belgilang", "error"); return; }
+    // Faqat CREATED tabida ishlaydi (Uzum penalty xavfi — boshqa statusda
+    // tasdiqlash bekorga rate-limit yeydi).
+    if (currentStatus !== "CREATED") {
+      showListToast(LIST_LBL.bulk_confirm_only_created, "error");
+      return;
+    }
+    const ok = await fbsConfirm({
+      icon: "✓",
+      okVariant: "confirm",
+      title: LIST_LBL.bulk_confirm_title,
+      message: (LIST_LBL.bulk_confirm_prompt || "{n} ta buyurtmani ishga olasizmi?").replace("{n}", ids.length),
+      okLabel: LIST_LBL.bulk_btn_confirm,
+    });
+    if (!ok) return;
+    setBulkBtnBusy(bulkConfirmBtn, true);
+    try {
+      const res = await fetch("/fbs/api/orders/bulk-confirm", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ order_ids: ids }),
+        credentials: "same-origin",
+      });
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        if (res.status === 429) {
+          showListToast(data.error || "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.", "error");
+        } else {
+          showListToast((LIST_LBL.bulk_toast_confirm_fail || "Tasdiqlashda xato") + ": " + (data.error || res.status), "error");
+        }
+        return;
+      }
+      const okN = Number(data.success_count || 0);
+      const errN = Number(data.error_count || 0);
+      if (errN > 0) {
+        showListToast(`${okN} ${LIST_LBL.bulk_toast_confirm_partial.replace("{n}", errN)}`, "error");
+      } else {
+        showListToast(`${okN} ${LIST_LBL.bulk_toast_confirm_ok}`, "success");
+      }
+      // Tasdiqlangan buyurtmalar endi PACKING'ga o'tdi — tanlovni tozalab,
+      // ro'yxat va chip sonlarini qayta yuklaymiz.
+      clearSelection();
+      await loadOrders(true);
+      loadCounts(false, { silent: true });
+    } catch (e) {
+      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+    } finally {
+      // is-busy ni o'chiramiz, so'ng disabled holatni tanlovga qarab qayta
+      // tiklaymiz: xato yo'lida tanlov saqlangani uchun (n>0) tugma yana
+      // yonadi va qayta urinish mumkin bo'ladi (setBulkBtnBusy "yopishqoq"
+      // disabled qoldiradi — updateBulkBar uni n bo'yicha qayta hisoblaydi).
+      setBulkBtnBusy(bulkConfirmBtn, false);
+      updateBulkBar();
+    }
+  }
+
+  // Pass refresh=true ONLY when the user presses "Yangilash". Status
+  // chip clicks, scheme changes, and the initial page load go through
+  // the Redis SWR cache (stale-while-revalidate) — fast warm hit, async
+  // background refresh.
+  async function loadOrders(refresh){
+    // «Поставка» (Накладные iframe) ochiq turganda buyurtmalar jadvalini
+    // tortmaymiz — aks holda taymer/filtr iframe'ni almashtirib yuboradi.
+    if (postavkaActive) return;
+    const shop = shopSel.value;
+    if (!shop) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Do'kon tanlanmagan.</strong></div>`;
+      meta.style.display = "none";
+      return;
+    }
+    // «К отправке» (PENDING_DELIVERY) → накладная-grouped invoice view
+    // (cards + accordion + checkboxes) instead of the flat order table.
+    if (currentStatus === "PENDING_DELIVERY") { return loadInvoicesView(); }
+    out.innerHTML = `<div class="fbs-empty">Yuklanmoqda…</div>`;
+    meta.style.display = "none";
+
+    const qs = new URLSearchParams({
+      shop_id: shop,
+      status: currentStatus,
+      size: sizeSel.value,
+      page: "0",
+    });
+    if (schemeSel.value) qs.set("scheme", schemeSel.value);
+    if (refresh) qs.set("refresh", "1");
+
+    try {
+      const res = await fetchWithTimeout(`/fbs/api/orders?${qs.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        // Bosqich A.9 (#5) — HTTP 429 = Uzum per-token throttle ("band"),
+        // not a real error. Show a PASSIVE wait-hint toast and do NOT
+        // auto-retry (every manual retry is still paced 1s/token on the
+        // server). NOTE: the Yangilash list/count refresh is best-effort
+        // and returns 200 even when Uzum throttles, so in 5a this branch
+        // is dormant — it lights up for the paths that DO surface 429
+        // (the action endpoints in #5b).
+        if (res.status === 429) {
+          showListToast(data.error || "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.", "error");
+          return;
+        }
+        out.innerHTML = `<div class="fbs-empty"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        return;
+      }
+      renderOrders(data.orders || []);
+      metaTotal.textContent = data.total || 0;
+      metaPage.textContent = (data.page ?? 0);
+      metaStatus.textContent = data.status || "—";
+      metaUrl.textContent = data.used_url || "—";
+      meta.style.display = "";
+      // After a Yangilash press the server JIT-synced the current
+      // chip; the orders response carries the now-correct count for
+      // that status. Push it into the chip immediately so the chip
+      // matches the just-rendered list without waiting for the slower
+      // loadCounts() call. (Other chips stay as the bg worker last
+      // wrote them.)
+      if (refresh && data.status) {
+        const chipCountEl = statusRow.querySelector(
+          `[data-status-count="${data.status}"]`
+        );
+        if (chipCountEl) chipCountEl.textContent = String(data.total ?? 0);
+      }
+      // Stage 4d — surface DB freshness so the seller sees how stale
+      // the cache is without inspecting Network responses.
+      lastSyncedIso = data.last_synced_at || null;
+      renderLastSynced();
+    } catch (e) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message)}</div>`;
+      throw e;  // bubble so caller (refresh button) can show error toast
+    }
+  }
+
+  // Server-side aggregate: one browser request → server fans out 11
+  // parallel Uzum calls via ThreadPoolExecutor (each call SWR-cached).
+  // Replaces the old per-status fan-out which serialized through
+  // gunicorn's worker pool. Backend returns {counts: {STATUS: N, ...},
+  // errors: {STATUS: msg}} — chips listed in `counts` get a number,
+  // ones in `errors` (or missing entirely) keep their "·" placeholder.
+  async function loadCounts(refresh = false, options = {}){
+    const { silent = false } = options;
+    const shop = shopSel.value;
+    if (!shop) return;
+    // Reset chip counts to "·" while loading. Skipped when called in
+    // "silent" mode (stale-while-revalidate path): we already have
+    // numbers on screen and replacing them with placeholders just
+    // makes the press feel laggy.
+    if (!silent) {
+      statusRow.querySelectorAll("[data-status-count]").forEach(el => {
+        el.textContent = "·";
+      });
+    }
+
+    const qs = new URLSearchParams({ shop_id: shop });
+    if (refresh) qs.set("refresh", "1");
+
+    try {
+      const res = await fetchWithTimeout(`/fbs/api/counts-all?${qs.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const counts = data.counts || {};
+      Object.entries(counts).forEach(([status, count]) => {
+        const el = statusRow.querySelector(`[data-status-count="${status}"]`);
+        if (el) el.textContent = String(count);
+      });
+      // Statuses missing from `counts` (errored on backend) stay as "·".
+    } catch (e) { /* silent — counts are nice-to-have */ }
+  }
+
+  function setActiveStatus(status){
+    // Status chip bosilsa «Поставка» ko'rinishidan chiqamiz.
+    exitPostavkaView();
+    currentStatus = status;
+    // Persist the tab in the URL so a page refresh restores it (see the
+    // currentStatus init). replaceState (not pushState) so the Back
+    // button still points at the previous page, not at every chip click.
+    try {
+      const _u = new URL(location.href);
+      _u.searchParams.set("status", status);
+      history.replaceState(null, "", _u);
+    } catch (_) { /* URL/History API unavailable — non-fatal */ }
+    statusRow.querySelectorAll(".fbs-status-chip").forEach(c => {
+      c.classList.toggle("active", c.getAttribute("data-status") === status);
+    });
+    // Changing status changes the visible order set entirely — drop
+    // selection so the toolbar isn't acting on rows that are no longer
+    // even in view.
+    clearSelection();
+  }
+
+  // ── «Поставка» (Накладные) — shu sahifa ichida iframe orqali ──────
+  // Chip bosilganda /fbs/invoices?embed=1 ni #fbsResult ichida ochadi:
+  // boshqa sahifaga o'tilmaydi, status chip kabi shu oynada almashadi.
+  // Iframe butun Накладные sahifasini (jadval+filtr+akt+modallar) qayta
+  // ishlatadi — dublikat kod yo'q.
+  const postavkaChip = document.querySelector(".fbs-status-nav");
+  // Qidiruv + sana filtr qatori buyurtmalar uchun; Накладные ko'rinishida
+  // keraksiz, shuning uchun «Поставка» faol bo'lganda yashiriladi.
+  const filterRow = document.querySelector(".fbs-filter-row");
+  let postavkaActive = false;
+  function showPostavkaView(){
+    postavkaActive = true;
+    clearSelection();
+    meta.style.display = "none";
+    if (filterRow) filterRow.style.display = "none";
+    statusRow.querySelectorAll(".fbs-status-chip").forEach(c => c.classList.remove("active"));
+    if (postavkaChip) postavkaChip.classList.add("is-active");
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set("view", "postavka");
+      u.searchParams.delete("status");
+      history.replaceState(null, "", u);
+    } catch (_) { /* History API yo'q — muhim emas */ }
+    out.innerHTML = '<iframe id="fbsPostavkaFrame" class="fbs-postavka-frame"'
+      + ' src="/fbs/invoices?embed=1" title="Накладные" loading="lazy"></iframe>';
+  }
+  function exitPostavkaView(){
+    if (!postavkaActive) return;
+    postavkaActive = false;
+    if (postavkaChip) postavkaChip.classList.remove("is-active");
+    if (filterRow) filterRow.style.display = "";
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete("view");
+      history.replaceState(null, "", u);
+    } catch (_) { /* non-fatal */ }
+  }
+  if (postavkaChip) {
+    postavkaChip.addEventListener("click", (e) => {
+      e.preventDefault();           // havola sifatida sahifa ochmasin
+      if (!postavkaActive) showPostavkaView();
+    });
+  }
+  // Iframe balandligini ekran ICHIGA sig'diramiz: uning tepasidan ekran
+  // tagigacha bo'lgan joy bilan cheklaymiz. Aks holda iframe viewport'dan
+  // oshib ketsa, embed sahifadagi pastki «Akt отправки» paneli (position:fixed)
+  // iframe tagida — ekrandan pastda — qolib, KO'RINMAY qoladi. Endi iframe
+  // ekranga sig'adi → panel doim ko'rinadi, uzun ro'yxat ichki skroll bo'ladi.
+  let _postavkaLastH = 0;
+  function sizePostavkaFrame(){
+    const fr = document.getElementById("fbsPostavkaFrame");
+    if (!fr) return;
+    const top = fr.getBoundingClientRect().top;
+    const avail = Math.max(360, Math.floor(window.innerHeight - top - 12));
+    fr.style.height = Math.min(_postavkaLastH || avail, avail) + "px";
+  }
+  window.addEventListener("resize", () => { if (postavkaActive) sizePostavkaFrame(); });
+
+  // ─── Bosqich 5b: bulk-select helpers ──────────────────────────
+  function clearSelection(){
+    _selectedIds.clear();
+    out.querySelectorAll(".fbs-row-check, .oi-check").forEach(cb => { cb.checked = false; });
+    out.querySelectorAll("tbody tr.is-selected").forEach(tr => tr.classList.remove("is-selected"));
+    syncSelectAllCheckbox();
+    updateBulkBar();
+  }
+  function syncSelectAllCheckbox(){
+    const sa = document.getElementById("fbsSelectAll");
+    if (!sa) return;
+    const boxes = out.querySelectorAll(".fbs-row-check");
+    if (!boxes.length) { sa.checked = false; sa.indeterminate = false; return; }
+    let checked = 0;
+    boxes.forEach(cb => { if (cb.checked) checked++; });
+    sa.checked = checked === boxes.length;
+    sa.indeterminate = checked > 0 && checked < boxes.length;
+  }
+  function updateBulkBar(){
+    const n = _selectedIds.size;
+    bulkCount.textContent = String(n);
+    bulkBar.classList.toggle("is-visible", n > 0);
+    // Tugmalar tabga qarab ko'rinadi:
+    //   • Yorliq + QR  → faqat «К отправке» (PENDING_DELIVERY, накладная ko'rinishi)
+    //   • Qabul punktlari → faqat «Сборка» (PACKING)
+    // Boshqa tabda noto'g'ri tugma chiqib qolmasin.
+    //   • Ishga olish → faqat «Yangi» (CREATED)
+    const isCreated = (currentStatus === "CREATED");
+    const isPending = (currentStatus === "PENDING_DELIVERY");
+    const isPacking = (currentStatus === "PACKING");
+    if (bulkConfirmBtn) bulkConfirmBtn.style.display = isCreated ? "" : "none";
+    if (bulkYorliqBtn) bulkYorliqBtn.style.display = isPending ? "" : "none";
+    if (bulkQrBtn)     bulkQrBtn.style.display     = isPending ? "" : "none";
+    if (bulkPickupBtn) bulkPickupBtn.style.display = isPacking ? "" : "none";
+    // «Ishga olish» — buyurtma belgilanmaguncha O'CHIQ.
+    if (bulkConfirmBtn) {
+      bulkConfirmBtn.disabled = (n === 0);
+      bulkConfirmBtn.title = (n === 0) ? "Avval buyurtma belgilang" : LIST_LBL.bulk_confirm_title;
+    }
+    // «Qabul punktlari» (поставка) — tanlangan buyurtmalar uchun. Buyurtma
+    // belgilanmaguncha O'CHIQ; tanlangandan keyingina ochiladi. Bulk paneldagi
+    // tugma va toolbar'dagi 📍 tugma bir xil holatda turadi.
+    if (bulkPickupBtn) {
+      bulkPickupBtn.disabled = (n === 0);
+      bulkPickupBtn.title = (n === 0) ? "Avval buyurtma belgilang" : LIST_LBL.dropoff_btn_hint;
+    }
+    // Toolbar'dagi 📍 «Qabul punktlari» faqat «Yig'ilmoqda» (PACKING) tabida
+    // yonadi — boshqa tabda (masalan «Yangi») buyurtma tanlansa ham O'CHIQ
+    // turadi, chunki postavka faqat PACKING buyurtmalardan yasaladi.
+    if (dropoffBtn) {
+      dropoffBtn.disabled = (n === 0 || !isPacking);
+      dropoffBtn.title = (n === 0)
+        ? "Avval buyurtma belgilang"
+        : (!isPacking ? "«Qabul punktlari» faqat «Yig'ilmoqda» buyurtmalar uchun" : LIST_LBL.dropoff_btn_hint);
+    }
+  }
+  function setBulkBtnBusy(btn, busy){
+    btn.classList.toggle("is-busy", busy);
+    btn.disabled = busy || btn.disabled;
+  }
+
+  // ─── Maxsus tasdiqlash modali ─────────────────────────────────
+  // Brauzerning native confirm() o'rniga. Promise<bool> qaytaradi:
+  // «ha» → true, «yo'q»/backdrop/Esc → false. Har brauzerda bir xil,
+  // bloklanmaydi (native confirm "больше не показывать" bilan o'chib,
+  // jim false qaytarardi → buyurtma tasdiqlanmay qolardi).
+  const _confirmModal  = document.getElementById("fbsConfirmModal");
+  const _confirmIcon   = document.getElementById("fbsConfirmIcon");
+  const _confirmTitle  = document.getElementById("fbsConfirmTitle");
+  const _confirmMsg    = document.getElementById("fbsConfirmMsg");
+  const _confirmOk     = document.getElementById("fbsConfirmOk");
+  const _confirmCancel = document.getElementById("fbsConfirmCancel");
+  let _confirmResolve  = null;
+  function _closeConfirm(result){
+    _confirmModal.classList.remove("is-open");
+    _confirmModal.setAttribute("aria-hidden", "true");
+    if (_confirmResolve){ const r = _confirmResolve; _confirmResolve = null; r(result); }
+  }
+  function fbsConfirm(opts){
+    opts = opts || {};
+    const variant = opts.okVariant === "postavka" ? "is-postavka"
+                  : opts.okVariant === "danger"   ? "is-danger"
+                  : "is-confirm";
+    _confirmIcon.textContent = opts.icon || "✓";
+    _confirmIcon.className = "fbs-confirm-icon " + variant;
+    _confirmTitle.textContent = opts.title || "";
+    _confirmMsg.textContent = opts.message || "";
+    _confirmOk.textContent = opts.okLabel || "OK";
+    _confirmOk.className = "fbs-confirm-ok " + variant;
+    _confirmCancel.textContent = LIST_LBL.confirm_cancel || "Bekor qilish";
+    _confirmModal.classList.add("is-open");
+    _confirmModal.setAttribute("aria-hidden", "false");
+    // Defer focus so the pop animation doesn't get cut by an instant focus.
+    setTimeout(() => _confirmOk.focus(), 30);
+    return new Promise(resolve => { _confirmResolve = resolve; });
+  }
+  _confirmOk.addEventListener("click", () => _closeConfirm(true));
+  _confirmModal.querySelectorAll("[data-confirm-cancel]").forEach(el =>
+    el.addEventListener("click", () => _closeConfirm(false)));
+  document.addEventListener("keydown", (e) => {
+    if (!_confirmModal.classList.contains("is-open")) return;
+    if (e.key === "Escape") { e.preventDefault(); _closeConfirm(false); }
+    else if (e.key === "Enter") { e.preventDefault(); _closeConfirm(true); }
+  });
+
+  // ── Do'kon tanlash dialog (накладная — per-do'kon) ─────────────────
+  // Ko'p do'kondan buyurtma belgilanganda chiqadi: bitta накладная faqat
+  // bitta do'kon uchun (Uzum talabi). shops: [{shopId, name, count}]
+  // (kattadan kichikka tartiblangan). Tanlangan shopId qaytadi; bekor
+  // qilinsa / yopilsa → null. Dizayn fbsConfirm bilan bir xil pattern.
+  const _shopPickModal = document.getElementById("fbsShopPickModal");
+  const _shopPickList  = document.getElementById("fbsShopPickList");
+  const _shopPickOk    = document.getElementById("fbsShopPickOk");
+  let _shopPickResolve = null;
+  function _closeShopPick(result){
+    if (!_shopPickModal) return;
+    _shopPickModal.classList.remove("is-open");
+    _shopPickModal.setAttribute("aria-hidden", "true");
+    if (_shopPickResolve){ const r = _shopPickResolve; _shopPickResolve = null; r(result); }
+  }
+  function _shopPickSelected(){
+    const sel = _shopPickList && _shopPickList.querySelector('input[name="fbsShopPick"]:checked');
+    return sel ? sel.value : null;
+  }
+  function fbsPickShop(shops){
+    if (!_shopPickModal || !_shopPickList || !shops || !shops.length) {
+      return Promise.resolve(null);
+    }
+    // Eng katta guruh (shops[0]) standart belgilangan holda chiqadi.
+    _shopPickList.innerHTML = shops.map((s, i) => (
+      `<label class="fbs-shoppick-item${i === 0 ? ' is-active' : ''}">`
+      + `<input type="radio" name="fbsShopPick" value="${escapeHtml(String(s.shopId))}"${i === 0 ? ' checked' : ''}>`
+      + '<span class="fbs-shoppick-radio" aria-hidden="true"></span>'
+      + `<span class="fbs-shoppick-name">${escapeHtml(String(s.name))}</span>`
+      + `<span class="fbs-shoppick-count">${escapeHtml(String(s.count))} ta</span>`
+      + '</label>'
+    )).join("");
+    _shopPickModal.classList.add("is-open");
+    _shopPickModal.setAttribute("aria-hidden", "false");
+    setTimeout(() => { if (_shopPickOk) _shopPickOk.focus(); }, 30);
+    return new Promise(resolve => { _shopPickResolve = resolve; });
+  }
+  if (_shopPickList) {
+    // Tanlov o'zgarganda faol qatorni belgilash (binafsha halqa + fon).
+    _shopPickList.addEventListener("change", () => {
+      _shopPickList.querySelectorAll(".fbs-shoppick-item").forEach(it => {
+        const r = it.querySelector("input");
+        it.classList.toggle("is-active", !!(r && r.checked));
+      });
+    });
+  }
+  if (_shopPickOk) _shopPickOk.addEventListener("click", () => _closeShopPick(_shopPickSelected()));
+  if (_shopPickModal) {
+    _shopPickModal.querySelectorAll("[data-shoppick-cancel]").forEach(el =>
+      el.addEventListener("click", () => _closeShopPick(null)));
+  }
+  document.addEventListener("keydown", (e) => {
+    if (!_shopPickModal || !_shopPickModal.classList.contains("is-open")) return;
+    if (e.key === "Escape") { e.preventDefault(); _closeShopPick(null); }
+    else if (e.key === "Enter") { e.preventDefault(); _closeShopPick(_shopPickSelected()); }
+  });
+
+  // Bulk paneldagi «Qabul punktlari» — toolbar'dagi 📍 tugma bilan bir xil
+  // qabul-punkti tanlash modalini ochadi (openDropoffModal pastda e'lon
+  // qilingan — funksiya deklaratsiyasi, hoist bo'ladi).
+  if (bulkPickupBtn) bulkPickupBtn.addEventListener("click", openDropoffModal);
+  if (bulkConfirmBtn) bulkConfirmBtn.addEventListener("click", bulkConfirmSelected);
+  if (bulkYorliqBtn) bulkYorliqBtn.addEventListener("click", () => printSelectedLabels("label"));
+  if (bulkQrBtn) bulkQrBtn.addEventListener("click", () => printSelectedLabels("qr"));
+
+  // ─── Drop-off points modal ─────────────────────────────────────
+  function openDropoffModal(){
+    dropoffModal.classList.add("is-open");
+    dropoffModal.setAttribute("aria-hidden", "false");
+    // Har ochilishda «Faqat mos keladigan» standart holatga (ON) qaytadi.
+    _matchOnly = true;
+    if (dropoffMatchOnly) dropoffMatchOnly.checked = true;
+    // Restore cached geolocation FIRST so the list renders sorted by
+    // distance on the very first paint (no 10s re-render flicker).
+    if (!_userLatLng) {
+      const cached = readGeoCache();
+      if (cached) {
+        _userLatLng = cached;
+        dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_refresh;
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_ok;
+        dropoffGeoStatus.style.color = "#10b981";
+      }
+    }
+    loadDropoffPoints();
+    // Background re-request geolocation only if we DON'T already have
+    // a fix. `silent: true` so a denied/timeout error doesn't flash
+    // a scary red status on auto-trigger.
+    if (!_userLatLng && window.isSecureContext && navigator.geolocation) {
+      setTimeout(() => requestUserLocation({ silent: true }), 150);
+    }
+  }
+  function closeDropoffModal(){
+    dropoffModal.classList.remove("is-open");
+    dropoffModal.setAttribute("aria-hidden", "true");
+  }
+  // Parse "(lat lng)" or "(lat, lng)" from a free-text Uzum address.
+  // Uzum embeds the coordinates of some drop-off points in the address
+  // string itself — e.g. "Malika parkovkasi (41.337179 69.27172)".
+  // For points without embedded coords we just can't compute distance.
+  function extractLatLng(address){
+    if (!address) return null;
+    // Latitude 38–46, longitude 55–74 — broad Uzbekistan bounding box,
+    // tight enough to reject random numbers in the address text.
+    const m = address.match(/\(?\s*(3[89]|4[0-6])\.(\d{3,8})[\s,]+\s*(5[5-9]|6\d|7[0-4])\.(\d{3,8})\s*\)?/);
+    if (!m) return null;
+    return {
+      lat: parseFloat(`${m[1]}.${m[2]}`),
+      lng: parseFloat(`${m[3]}.${m[4]}`),
+    };
+  }
+  // Great-circle distance (km) between two lat/lng pairs via Haversine.
+  function haversineKm(a, b){
+    if (!a || !b) return null;
+    const R = 6371;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2
+            + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+  function getFavoriteAddr(){
+    try { return localStorage.getItem(FAV_KEY) || ""; }
+    catch (e) { return ""; }
+  }
+  function setFavoriteAddr(addr){
+    try {
+      if (addr) localStorage.setItem(FAV_KEY, addr);
+      else localStorage.removeItem(FAV_KEY);
+    } catch (e) {}
+  }
+  // Normalize text for forgiving search: lowercase, strip diacritics,
+  // map common Cyrillic→Latin so "ташкент" finds "toshkent". This is
+  // the same trick Yandex/Google use under the hood.
+  const _CYR2LAT = {
+    "а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ё":"yo","ж":"j",
+    "з":"z","и":"i","й":"y","к":"k","л":"l","м":"m","н":"n","о":"o",
+    "п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"x","ц":"ts",
+    "ч":"ch","ш":"sh","щ":"sh","ъ":"","ы":"i","ь":"","э":"e","ю":"yu","я":"ya",
+    "ў":"o","қ":"q","ғ":"g","ҳ":"h",
+  };
+  function normalizeForSearch(s){
+    if (!s) return "";
+    let t = String(s).toLowerCase();
+    // strip diacritics (NFD then drop combining marks)
+    try { t = t.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+    catch(e){}
+    // Cyrillic → Latin
+    let out = "";
+    for (const ch of t) out += (_CYR2LAT[ch] !== undefined ? _CYR2LAT[ch] : ch);
+    // collapse apostrophes / quotes / extra punctuation to single space
+    return out.replace(/['`’"]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  // Highlight matched query terms inside an HTML-escaped string.
+  // Operates on the normalized text to find positions, then maps those
+  // back onto the ORIGINAL text via a 1-to-1 char index (works because
+  // normalization preserves character order for the cases we handle).
+  function highlightMatch(original, terms){
+    if (!terms.length) return escapeHtml(original);
+    const norm = normalizeForSearch(original);
+    // Build a position map: norm[i] originated at original[idxMap[i]].
+    // Since our normalization can change length (Cyrillic char → 2 Latin
+    // chars), a precise map is tricky. Cheaper approach: just find the
+    // term in the NORMALIZED string and highlight the corresponding
+    // slice of the ORIGINAL string approximately. For the purpose of
+    // visual feedback this is good enough.
+    const escOrig = escapeHtml(original);
+    // Use a regex per term against the normalized string to find
+    // approximate positions in the original via proportional mapping.
+    // Easier and still correct enough: highlight every occurrence of
+    // the raw term in the original (case-insensitive Latin matches
+    // most of our addresses since the data is Latin already).
+    let out = escOrig;
+    for (const term of terms) {
+      if (!term) continue;
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = out.replace(new RegExp("(" + safe + ")", "gi"), "<mark>$1</mark>");
+    }
+    return out;
+  }
+  function filterPointsByQuery(points){
+    const q = _dropoffQuery.trim();
+    if (!q) return { filtered: points, terms: [] };
+    const terms = normalizeForSearch(q).split(" ").filter(Boolean);
+    if (!terms.length) return { filtered: points, terms: [] };
+    const filtered = points.filter(p => {
+      const haystack = normalizeForSearch(
+        (p.address || "") + " " + (p.shops || []).join(" ")
+      );
+      // AND: every term must appear somewhere in the haystack.
+      return terms.every(t => haystack.includes(t));
+    });
+    return { filtered, terms };
+  }
+  function renderDropoffPoints(){
+    const points = _dropoffPoints.slice();
+    if (!points.length) {
+      dropoffBody.innerHTML =
+        `<div class="fbs-dropoff-empty">${LIST_LBL.dropoff_empty}</div>`;
+      updateSearchCount(0, 0);
+      return;
+    }
+    const fav = getFavoriteAddr();
+    // Attach distance where possible (only for points whose address
+    // contains a parseable lat/lng — others stay distance=null and sort
+    // to the bottom).
+    // Pull the cross-tab address→coords cache so DB-sourced points can
+    // borrow lat/lng learned earlier from the Uzum tab. New coords found
+    // in this render pass are added back before saving.
+    const addrCoords = loadAddrCoords();
+    let addrCoordsDirty = false;
+    points.forEach(p => {
+      // 1) Server-provided structured coords (Uzum API).
+      if (typeof p.latitude === "number" && typeof p.longitude === "number") {
+        p._coords = { lat: p.latitude, lng: p.longitude };
+        // Backfill the cache so the SAME address in the DB tab gets a
+        // distance next time.
+        if (p.address && !addrCoords[p.address]) {
+          addrCoords[p.address] = { lat: p.latitude, lng: p.longitude };
+          addrCoordsDirty = true;
+        }
+      } else if (p.address && addrCoords[p.address]) {
+        // 2) Borrow from cross-tab cache (Uzum learned this address
+        // earlier and we stashed its coords).
+        p._coords = addrCoords[p.address];
+      } else {
+        // 3) Last resort — parse coords out of the address text itself
+        // (only works for addresses like "Malika parkovkasi (41.33 69.27)").
+        p._coords = extractLatLng(p.address);
+      }
+      p._distKm = (_userLatLng && p._coords)
+        ? haversineKm(_userLatLng, p._coords)
+        : null;
+      p._isFav = (fav && p.address === fav);
+    });
+    if (addrCoordsDirty) saveAddrCoords(addrCoords);
+    // Apply search filter (after distance/favorite computation so the
+    // EN YAQIN badge below still picks from the FULL set's nearest).
+    const { filtered: shown, terms } = filterPointsByQuery(points);
+    updateSearchCount(shown.length, points.length);
+    if (!shown.length) {
+      dropoffBody.innerHTML = `
+        <div class="fbs-dropoff-empty">
+          ${LIST_LBL.dropoff_search_empty}
+          <div style="margin-top:8px"><code>${escapeHtml(_dropoffQuery)}</code></div>
+        </div>`;
+      return;
+    }
+    // From here on, sort + render the FILTERED list.
+    const pointsToRender = shown;
+    // Sort priority: favorite first, then by distance (null = end),
+    // then by active count desc, then by total desc.
+    pointsToRender.sort((a, b) => {
+      if (a._isFav !== b._isFav) return a._isFav ? -1 : 1;
+      const da = a._distKm, db = b._distKm;
+      if (da !== null && db !== null) return da - db;
+      if (da !== null) return -1;
+      if (db !== null) return 1;
+      if (b.active !== a.active) return b.active - a.active;
+      return b.total - a.total;
+    });
+    // Mark the truly-nearest point as "EN YAQIN" — INCLUDING the
+    // favorite. Earlier we skipped favorites here, which produced the
+    // confusing case where the favorite was 1.5 km away but a 2.0 km
+    // point got the "EN YAQIN" badge. The badge should always point
+    // to the minimum-distance entry; if that's also the favorite, both
+    // ★ and EN YAQIN render on the same row.
+    let nearestIdx = -1;
+    let nearestDist = Infinity;
+    pointsToRender.forEach((p, i) => {
+      if (p._distKm !== null && p._distKm < nearestDist) {
+        nearestDist = p._distKm;
+        nearestIdx = i;
+      }
+    });
+
+    dropoffBody.innerHTML = pointsToRender.map((p, idx) => {
+      const shopsLine = (p.shops || []).length
+        ? `<div class="shops">${LIST_LBL.dropoff_shops_prefix} ${highlightMatch((p.shops || []).join(", "), terms)}</div>`
+        : "";
+      // Working hours — show TODAY's slot if Uzum sent them. Maps the
+      // Date's weekday (0=Sunday) onto the MONDAY..SUNDAY keys Uzum uses.
+      const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+      const todayKey = WEEKDAYS[new Date().getDay()];
+      const wh = (p.workingHours && p.workingHours[todayKey]) || null;
+      const hoursLine = wh
+        ? `<div class="shops">🕒 ${LIST_LBL.dropoff_hours_today}: ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</div>`
+        : "";
+      const activeBadge = p.active
+        ? `<span class="badge-active" title="${LIST_LBL.dropoff_active_hint}">${p.active}</span>`
+        : "";
+      const distBadge = (p._distKm !== null)
+        ? `<span class="badge-dist" title="${LIST_LBL.dropoff_dist_hint}">${p._distKm.toFixed(1)} km</span>`
+        : "";
+      const nearestBadge = (idx === nearestIdx)
+        ? `<span class="badge-nearest">${LIST_LBL.dropoff_nearest}</span>`
+        : "";
+      const favOn = p._isFav ? "is-on" : "";
+      const favTitle = p._isFav ? LIST_LBL.dropoff_fav_remove : LIST_LBL.dropoff_fav_add;
+      // "Slotlar" button only when we have a uuid (DB rows from legacy
+      // imports may lack uuid; Uzum requires it for the time-slot call).
+      const slotsBtn = p.uuid
+        ? `<button type="button" class="btn-slots" data-slots-idx="${idx}"
+                  data-uuid="${escapeHtml(p.uuid)}">
+             🕒 ${LIST_LBL.dropoff_slots_btn}
+           </button>`
+        : "";
+      return `
+        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}">
+          <div style="flex:1 1 280px; display:flex; align-items:flex-start;">
+            <button type="button" class="btn-fav ${favOn}"
+                    data-fav-idx="${idx}" title="${favTitle}">
+              ${p._isFav ? '★' : '☆'}
+            </button>
+            <div>
+              <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
+              ${shopsLine}
+              ${hoursLine}
+            </div>
+          </div>
+          <div class="counts">
+            ${nearestBadge}
+            ${distBadge}
+            ${activeBadge}
+            <span class="badge-total" title="${LIST_LBL.dropoff_total_hint}">∑ ${p.total}</span>
+            ${slotsBtn}
+            <button type="button" class="btn-copy" data-copy-idx="${idx}">
+              ${LIST_LBL.dropoff_copy}
+            </button>
+          </div>
+          <div class="fbs-dropoff-slots" data-slots-host="${idx}" hidden></div>
+        </div>`;
+    }).join("");
+    // Wire copy buttons.
+    dropoffBody.querySelectorAll(".btn-copy").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.copyIdx);
+        const addr = (pointsToRender[idx] || {}).address || "";
+        if (!addr) return;
+        navigator.clipboard.writeText(addr).then(() => {
+          btn.classList.add("copied");
+          const orig = btn.textContent;
+          btn.textContent = LIST_LBL.dropoff_copied;
+          setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.textContent = orig;
+          }, 1500);
+        }).catch(() => showListToast(LIST_LBL.dropoff_copy_fail, "error"));
+      });
+    });
+    // Wire favorite stars.
+    dropoffBody.querySelectorAll(".btn-fav").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.favIdx);
+        const p = pointsToRender[idx];
+        if (!p) return;
+        if (p._isFav) setFavoriteAddr("");
+        else setFavoriteAddr(p.address);
+        renderDropoffPoints();
+      });
+    });
+    // Wire slot buttons. First click → fetch + expand; second click → collapse.
+    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.slotsIdx);
+        const uuid = btn.dataset.uuid;
+        const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
+        if (!host) return;
+        // Toggle: if already shown, hide.
+        if (!host.hidden) {
+          host.hidden = true;
+          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_btn}`;
+          return;
+        }
+        host.hidden = false;
+        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
+        btn.disabled = true;
+        loadTimeSlots(uuid, host).finally(() => {
+          btn.disabled = false;
+          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_hide}`;
+        });
+      });
+    });
+  }
+  // Format an ISO timestamp pair as a human-friendly "DD.MM HH:MM–HH:MM"
+  // slot label. Same-day collapse: shows date once on the left.
+  function fmtSlot(timeFrom, timeTo){
+    try {
+      const a = new Date(timeFrom);
+      const b = new Date(timeTo);
+      const pad = (n) => String(n).padStart(2, "0");
+      const sameDay = a.toDateString() === b.toDateString();
+      const date = `${pad(a.getDate())}.${pad(a.getMonth()+1)}`;
+      const tA = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+      const tB = `${pad(b.getHours())}:${pad(b.getMinutes())}`;
+      return sameDay ? `${date} ${tA}–${tB}` : `${date} ${tA} → ${pad(b.getDate())}.${pad(b.getMonth()+1)} ${tB}`;
+    } catch (e) {
+      return `${timeFrom} – ${timeTo}`;
+    }
+  }
+  // Create a new invoice (накладная) covering the user's PACKING orders
+  // at this point+slot. Confirms with the seller first since this is a
+  // commitment to Uzum.
+  async function createInvoiceForSlot(opts){
+    if (!opts || !opts.dopUuid) {
+      showListToast(LIST_LBL.invoice_no_dop, "error");
+      return;
+    }
+    // Pick which orders go on the invoice. Priority:
+    //   1) Explicitly selected (via checkbox) PACKING orders
+    //   2) If nothing selected, all PACKING orders on the page
+    // Then GROUP BY shop — Uzum's invoice is per-shop, so we filter to
+    // the LARGEST same-shop group (or the active shop filter if set).
+    // The seller gets a clear confirmation telling them which shop and
+    // how many orders are going on the invoice.
+    const allPacking = [];
+    if (_ordersById) {
+      _ordersById.forEach(o => {
+        if (String(o.status) === "PACKING") {
+          allPacking.push({ id: o.id, shopId: String(o.shopId || "") });
+        }
+      });
+    }
+    if (!allPacking.length) {
+      showListToast(LIST_LBL.invoice_no_packing, "error");
+      return;
+    }
+    // STRICT: only EXPLICITLY selected PACKING orders go on an invoice —
+    // we never touch unselected orders. The «Пункт приёма» button is
+    // disabled until there's a selection, so reaching here without one is
+    // a guard-rail, not a normal path.
+    if (!_selectedIds || _selectedIds.size === 0) {
+      showListToast("Avval buyurtma belgilang", "error");
+      return;
+    }
+    const candidates = allPacking.filter(o => _selectedIds.has(String(o.id)));
+    if (!candidates.length) {
+      showListToast("Belgilangan buyurtmalar orasida «Сборка» holatidagisi yo'q", "error");
+      return;
+    }
+    // Do'kon bo'yicha guruhlash. Uzum накладна'si per-do'kon — bitta
+    // накладная faqat bitta do'kon uchun. Ko'p do'kon belgilangan bo'lsa,
+    // avval seller QAYSI do'kon uchun yaratishni o'zi tanlaydi (avval
+    // avtomatik eng katta guruh tanlanardi + tez yo'qoladigan toast —
+    // endi aniq dialog). Bitta do'kon bo'lsa — to'g'ridan-to'g'ri davom.
+    const byShop = {};
+    candidates.forEach(o => {
+      (byShop[o.shopId] = byShop[o.shopId] || []).push(o.id);
+    });
+    const shopGroups = Object.entries(byShop).sort((a, b) => b[1].length - a[1].length);
+    let chosenShopId, chosenOrders;
+    if (shopGroups.length > 1) {
+      const pickList = shopGroups.map(([sid, ids]) => ({
+        shopId: sid,
+        name:   SHOP_NAMES[sid] || sid,
+        count:  ids.length,
+      }));
+      const picked = await fbsPickShop(pickList);
+      if (!picked) return;                       // seller bekor qildi
+      chosenShopId = picked;
+      chosenOrders = byShop[picked] || [];
+    } else {
+      chosenShopId = shopGroups[0][0];
+      chosenOrders = shopGroups[0][1];
+    }
+    const slotPart = opts.slotLabel || "";
+    const msg = LIST_LBL.invoice_confirm_prompt
+      .replace("{n}", chosenOrders.length)
+      .replace("{point}", opts.pointAddr || "—")
+      .replace("{slot}", slotPart);
+    if (!await fbsConfirm({
+      title:     LIST_LBL.invoice_confirm_title,
+      message:   msg,
+      okLabel:   LIST_LBL.bulk_btn_postavka,
+      okVariant: "postavka",
+      icon:      "📦",
+    })) return;
+    const packingOrders = chosenOrders;
+    const shopUzumIdToSend = chosenShopId;
+
+    try {
+      const res = await fetch("/fbs/api/invoices", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          order_ids: packingOrders,
+          drop_off_point_uuid: opts.dopUuid,
+          time_slot_uuid: opts.slotUuid || null,
+          shop_uzum_id: shopUzumIdToSend,
+        }),
+        credentials: "same-origin",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const errCode = (data.uzum_code || "").toLowerCase();
+        showListToast(data.error || LIST_LBL.invoice_create_fail, "error");
+        // If the error is "wrong order status" / "invoice not found" /
+        // "already exists" — our DB cache is stale vs Uzum. Force-refresh
+        // orders so the seller can re-try with fresh state.
+        if (errCode.includes("fbs-24") || errCode.includes("seller-order-19")
+            || errCode.includes("already") || (data.error || "").toLowerCase().includes("status")) {
+          console.log("[invoice] stale state detected — auto-refreshing orders");
+          closeDropoffModal();
+          await Promise.all([loadOrders(true), loadCounts(true)]);
+        }
+        return;
+      }
+      const inv = data.invoice || {};
+      const num = inv.number || inv.id || "?";
+      const mode = data.mode === "updated"
+        ? LIST_LBL.invoice_mode_updated
+        : LIST_LBL.invoice_mode_created;
+      showListToast(`✅ ${mode} #${num}`, "success");
+      closeDropoffModal();
+      // Refresh the orders list — Uzum flips PACKING → PENDING_DELIVERY
+      // (or similar) once the invoice is created.
+      await Promise.all([loadOrders(true), loadCounts(true)]);
+    } catch (e) {
+      console.error("[invoice/create] failed:", e);
+      showListToast(LIST_LBL.invoice_create_fail + ": " + (e.message || ""), "error");
+    }
+  }
+  // The slot query MUST use the exact same order set that
+  // createInvoiceForSlot will put on the накладная — otherwise Uzum
+  // computes the slot window for one set while we invoice another:
+  //   * Uzum's window is [now .. earliest deliverUntil] across the orders
+  //     we hand it, so a stray overdue order poisons it → fbs-19-time-is-up.
+  //   * The invoice is per-shop, so createInvoiceForSlot picks the LARGEST
+  //     single-shop PACKING group. Sending a multi-shop set to the slot
+  //     call would mismatch (or trip fbs-20-incompatible-dimensional-groups).
+  // So this returns that SAME group: {shopId, ids} of the biggest same-shop
+  // selected-PACKING bucket, or null when there's nothing to invoice.
+  function selectedPackingShopGroup(){
+    const candidates = [];
+    if (_ordersById) {
+      _ordersById.forEach(o => {
+        if (String(o.status) === "PACKING" && _selectedIds.has(String(o.id))) {
+          const n = Number(o.id);
+          if (Number.isFinite(n)) candidates.push({ id: n, shopId: String(o.shopId || "") });
+        }
+      });
+    }
+    if (!candidates.length) return null;
+    const byShop = {};
+    candidates.forEach(o => { (byShop[o.shopId] = byShop[o.shopId] || []).push(o.id); });
+    const groups = Object.entries(byShop).sort((a, b) => b[1].length - a[1].length);
+    const [shopId, ids] = groups[0];
+    return { shopId, ids };
+  }
+  async function loadTimeSlots(uuid, host){
+    try {
+      // «Faqat mos keladigan» (_matchOnly) ON → tanlangan PACKING
+      // buyurtmalarga moslab (deadline oynasi). Tanlanmagan bo'lsa, "avval
+      // buyurtma belgilang" hintи (bo'sh order_ids → backend "barcha aktiv"
+      // ga tushib, fbs-19 overdue-poisoning yo'liga kirmasin). OFF →
+      // order_ids'siz → backend barcha aktiv buyurtmalar bo'yicha kengroq oyna.
+      let qs = "";
+      if (_matchOnly) {
+        const group = selectedPackingShopGroup();
+        if (!group || !group.ids.length) {
+          host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_no_orders}</div>`;
+          return;
+        }
+        qs = `?order_ids=${group.ids.join(",")}`;
+      }
+      const res = await fetch(`/fbs/api/dropoff-points/${encodeURIComponent(uuid)}/time-slots${qs}`,
+                              {credentials: "same-origin"});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        host.innerHTML = `<div class="slot-error">${escapeHtml(data.error || LIST_LBL.dropoff_slots_fail)}</div>`;
+        return;
+      }
+      if (data.reason === "no_active_orders") {
+        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_no_orders}</div>`;
+        return;
+      }
+      const slots = data.slots || [];
+      if (!slots.length) {
+        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_empty}</div>`;
+        return;
+      }
+      // Slot pills are now CLICKABLE — clicking creates an invoice
+      // (накладная) tying the current PACKING orders to this point+slot.
+      // Encode the full slot object as data-attrs so the click handler
+      // can pass uuid (if present) or timeFrom as the slot identifier.
+      host.innerHTML = slots.map((s, i) =>
+        `<button type="button" class="slot-pill is-clickable"
+                 data-slot-idx="${i}"
+                 data-slot-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
+                 data-slot-from="${escapeHtml(s.timeFrom || '')}"
+                 data-slot-to="${escapeHtml(s.timeTo || '')}"
+                 title="${LIST_LBL.dropoff_slot_click_hint}">
+           ${escapeHtml(fmtSlot(s.timeFrom, s.timeTo))}
+         </button>`
+      ).join("");
+      // Wire clicks — find the parent point's dropoff uuid by walking up
+      // to the item card and reading the .btn-slots data-uuid.
+      const pointCard = host.closest(".fbs-dropoff-item");
+      const slotsBtn = pointCard ? pointCard.querySelector(".btn-slots") : null;
+      const dopUuid = slotsBtn ? slotsBtn.dataset.uuid : "";
+      const pointAddr = pointCard ? (pointCard.querySelector(".addr")?.textContent || "").trim() : "";
+      host.querySelectorAll(".slot-pill.is-clickable").forEach(pill => {
+        pill.addEventListener("click", () => {
+          createInvoiceForSlot({
+            dopUuid: dopUuid,
+            pointAddr: pointAddr,
+            slotUuid: pill.dataset.slotUuid || null,
+            slotFrom: pill.dataset.slotFrom || null,
+            slotTo: pill.dataset.slotTo || null,
+            slotLabel: pill.textContent.trim(),
+          });
+        });
+      });
+    } catch (e) {
+      host.innerHTML = `<div class="slot-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
+    }
+  }
+  async function loadDropoffPoints(){
+    // Show cached points INSTANTLY (no network wait) if we have a fresh
+    // prefetch — this is what makes the modal feel snappy on second+
+    // opens and on tab switches. Background refresh still happens so
+    // the data doesn't go stale.
+    const fresh = isPrefetchFresh(_dropoffSource);
+    if (fresh) {
+      console.log(`[dropoff] using prefetch source=${_dropoffSource} n=${_dropoffPrefetch[_dropoffSource].points.length}`);
+      _dropoffPoints = _dropoffPrefetch[_dropoffSource].points;
+      renderDropoffPoints();
+    } else {
+      dropoffBody.innerHTML =
+        `<div class="fbs-dropoff-loading">${LIST_LBL.dropoff_loading}</div>`;
+    }
+    try {
+      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}`;
+      const t0 = Date.now();
+      const res = await fetch(url, {credentials: "same-origin"});
+      const data = await res.json().catch(() => ({}));
+      console.log(`[dropoff] fetch source=${_dropoffSource} took=${Date.now()-t0}ms status=${res.status}`);
+      if (!res.ok) {
+        if (!fresh) {
+          dropoffBody.innerHTML =
+            `<div class="fbs-dropoff-empty">${escapeHtml(data.error || LIST_LBL.dropoff_load_fail)}</div>`;
+        }
+        return;
+      }
+      _dropoffPoints = data.points || [];
+      _dropoffPrefetch[_dropoffSource] = { points: _dropoffPoints, ts: Date.now() };
+      // If server fell back from "uzum" → "db" (e.g. no active orders),
+      // surface that subtly so the user doesn't think they pressed the
+      // wrong tab.
+      if (_dropoffSource === "uzum" && data.source === "db") {
+        showListToast(LIST_LBL.dropoff_uzum_fallback, "warn");
+        _dropoffSource = "db";
+        syncSourceButtons();
+      }
+      renderDropoffPoints();
+    } catch (e) {
+      if (!fresh) {
+        dropoffBody.innerHTML =
+          `<div class="fbs-dropoff-empty">${escapeHtml(LIST_LBL.dropoff_load_fail + ": " + (e.message || ""))}</div>`;
+      }
+    }
+  }
+  function syncSourceButtons(){
+    dropoffSrcDbBtn.classList.toggle("is-active", _dropoffSource === "db");
+    dropoffSrcUzumBtn.classList.toggle("is-active", _dropoffSource === "uzum");
+  }
+  function updateSearchCount(visible, total){
+    const q = _dropoffQuery.trim();
+    if (!q || total === 0) {
+      dropoffSearchCount.hidden = true;
+      return;
+    }
+    dropoffSearchCount.hidden = false;
+    dropoffSearchCount.textContent = `${visible} / ${total}`;
+  }
+  // Debounced search — 120ms is barely perceptible but stops us
+  // re-rendering on every keystroke for fast typers.
+  let _searchDebounce = null;
+  function onSearchInput(){
+    const v = dropoffSearchInput.value;
+    dropoffSearchClear.hidden = !v;
+    if (_searchDebounce) clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(() => {
+      _dropoffQuery = v;
+      renderDropoffPoints();
+    }, 120);
+  }
+  function clearDropoffSearch(){
+    dropoffSearchInput.value = "";
+    _dropoffQuery = "";
+    dropoffSearchClear.hidden = true;
+    renderDropoffPoints();
+    dropoffSearchInput.focus();
+  }
+  // Geolocation cache (sessionStorage). 10-minute TTL — accurate
+  // enough for "which drop-off is nearest" while keeping the modal
+  // instant on repeat opens within the same browsing session.
+  const GEO_CACHE_KEY = "fbs_dropoff_user_geo";
+  const GEO_CACHE_TTL_MS = 10 * 60 * 1000;
+  function readGeoCache(){
+    try {
+      const raw = sessionStorage.getItem(GEO_CACHE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj.lat !== "number" || typeof obj.lng !== "number") return null;
+      if (Date.now() - (obj.ts || 0) > GEO_CACHE_TTL_MS) return null;
+      return { lat: obj.lat, lng: obj.lng };
+    } catch (e) { return null; }
+  }
+  function writeGeoCache(latLng){
+    try {
+      sessionStorage.setItem(GEO_CACHE_KEY,
+        JSON.stringify({ lat: latLng.lat, lng: latLng.lng, ts: Date.now() }));
+    } catch (e) {}
+  }
+
+  function requestUserLocation(opts){
+    opts = opts || {};
+    const silent = !!opts.silent;  // background auto-trigger; don't flash error UI
+    console.log("[dropoff/geo] click — secureContext=", window.isSecureContext,
+                "protocol=", location.protocol, "host=", location.hostname);
+    if (!navigator.geolocation) {
+      if (!silent) {
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_unsupported;
+        dropoffGeoStatus.style.color = "#dc2626";
+      }
+      return;
+    }
+    if (!window.isSecureContext) {
+      if (!silent) {
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_insecure
+          + " (" + location.protocol + "//" + location.host + ")";
+        dropoffGeoStatus.style.color = "#dc2626";
+      }
+      return;
+    }
+    dropoffGeoBtn.disabled = true;
+    dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_busy;
+    dropoffGeoStatus.textContent = "";
+    dropoffGeoStatus.style.color = "";
+    // enableHighAccuracy=false uses wifi/cell-tower triangulation
+    // (~1-2s) instead of waiting for a GPS lock (~5-15s). For
+    // "which drop-off point is nearest" we don't need sub-meter
+    // accuracy — kilometre-level is plenty. maximumAge=300_000 lets
+    // the browser reuse a recent fix (saves ~1s on warm starts).
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        console.log("[dropoff/geo] OK lat=", pos.coords.latitude,
+                    "lng=", pos.coords.longitude, "acc=", pos.coords.accuracy);
+        _userLatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        writeGeoCache(_userLatLng);
+        dropoffGeoBtn.disabled = false;
+        dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_refresh;
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_ok;
+        dropoffGeoStatus.style.color = "#10b981";
+        renderDropoffPoints();
+      },
+      (err) => {
+        console.error("[dropoff/geo] failed code=", err && err.code,
+                      "message=", err && err.message);
+        dropoffGeoBtn.disabled = false;
+        dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_btn;
+        if (silent) return;  // don't show a scary error on auto-trigger
+        let msg;
+        if (err && err.code === 1)      msg = LIST_LBL.dropoff_geo_denied;
+        else if (err && err.code === 2) msg = LIST_LBL.dropoff_geo_unavailable;
+        else if (err && err.code === 3) msg = LIST_LBL.dropoff_geo_timeout;
+        else                            msg = LIST_LBL.dropoff_geo_fail;
+        dropoffGeoStatus.textContent = msg + (err && err.message ? " (" + err.message + ")" : "");
+        dropoffGeoStatus.style.color = "#dc2626";
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
+    );
+  }
+  dropoffBtn.addEventListener("click", openDropoffModal);
+  dropoffGeoBtn.addEventListener("click", requestUserLocation);
+  dropoffSrcDbBtn.addEventListener("click", () => {
+    if (_dropoffSource === "db") return;
+    _dropoffSource = "db";
+    syncSourceButtons();
+    loadDropoffPoints();
+  });
+  dropoffSrcUzumBtn.addEventListener("click", () => {
+    if (_dropoffSource === "uzum") return;
+    _dropoffSource = "uzum";
+    syncSourceButtons();
+    loadDropoffPoints();
+  });
+  dropoffSearchInput.addEventListener("input", onSearchInput);
+  dropoffSearchClear.addEventListener("click", clearDropoffSearch);
+  // «Faqat mos keladigan» toggle — ochiq slot panellarini yangi sozlama
+  // bilan qayta yuklaydi.
+  if (dropoffMatchOnly) {
+    dropoffMatchOnly.addEventListener("change", () => {
+      _matchOnly = dropoffMatchOnly.checked;
+      refreshOpenSlots();
+    });
+  }
+  function refreshOpenSlots(){
+    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
+      const idx = Number(btn.dataset.slotsIdx);
+      const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
+      if (host && !host.hidden) {
+        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
+        loadTimeSlots(btn.dataset.uuid, host);
+      }
+    });
+  }
+  // Esc inside the search input clears it (rather than closing the modal).
+  dropoffSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dropoffSearchInput.value) {
+      e.stopPropagation();
+      clearDropoffSearch();
+    }
+  });
+  dropoffModal.addEventListener("click", (e) => {
+    if (e.target && e.target.getAttribute("data-dropoff-close")) closeDropoffModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dropoffModal.classList.contains("is-open")) closeDropoffModal();
+  });
+
+  // Wire up controls.
+  statusRow.querySelectorAll(".fbs-status-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      setActiveStatus(chip.getAttribute("data-status"));
+      // Chip click reads from cache — no refresh.
+      loadOrders(false);
+    });
+  });
+  // "Yangilash" tugmasi → both calls refresh=1, sequenced so the toast
+  // only fires after BOTH finish. Button is disabled + shows spinner +
+  // label flips to "Yangilanmoqda..." while the request is in flight.
+  // On failure of either call we surface a single error toast instead
+  // of leaving the UI in a half-loaded state.
+  // Rate limit (agreed with user 2026-05-23):
+  //   * up to 3 clicks within any 5-second window are allowed
+  //   * the 4th rapid click is blocked for 3 seconds with a toast,
+  //     so spammers don't push needless Uzum calls through the JIT
+  //     refresh path (each click fires ~11 calls per active chip)
+  const _reloadClickTimes = [];
+  const RATE_WINDOW_MS = 5000;
+  const RATE_BURST = 3;
+  const RATE_LOCKOUT_MS = 3000;
+  let _reloadLockedUntil = 0;
+
+  btnReload.addEventListener("click", async () => {
+    // «Поставка» ko'rinishida Yangilash → iframe'ni qayta yuklaymiz.
+    if (postavkaActive) {
+      const fr = document.getElementById("fbsPostavkaFrame");
+      if (fr && fr.contentWindow) fr.contentWindow.location.reload();
+      loadCounts(true, { silent: true });
+      return;
+    }
+    const now = Date.now();
+    // Rate-limit toast is green and stays 6s (3× the normal success
+    // toast) — not red, so it informs without alarming the seller.
+    if (now < _reloadLockedUntil) {
+      showListToast(LIST_LBL.toast_rate_limited, "success", 6000);
+      return;
+    }
+    // Drop clicks outside the rolling 5s window.
+    while (_reloadClickTimes.length && now - _reloadClickTimes[0] > RATE_WINDOW_MS) {
+      _reloadClickTimes.shift();
+    }
+    if (_reloadClickTimes.length >= RATE_BURST) {
+      _reloadLockedUntil = now + RATE_LOCKOUT_MS;
+      _reloadClickTimes.length = 0;
+      showListToast(LIST_LBL.toast_rate_limited, "success", 6000);
+      return;
+    }
+    _reloadClickTimes.push(now);
+
+    if (btnReload.disabled) return;
+    // Yangilash policy (Abdulaziz 2026-05-26 — SWR with bg spinner):
+    // Phase 1: instant DB read. Seller sees last-known data in
+    //          ~100-200ms — no spinner needed (DB is sub-second).
+    //          Data appears, seller can already start scrolling.
+    // Phase 2: Uzum sync runs WITH the button spinner visible — the
+    //          spinner means "fresh data is being fetched". The
+    //          seller can still interact with the already-rendered
+    //          list/chips; only the Yangilash button itself is
+    //          disabled to prevent re-pressing during the sync.
+    //          When sync finishes: chip counts update, new orders
+    //          flash green, toast "Yangilangan".
+    try {
+      await Promise.all([
+        loadCounts(false, { silent: true }),
+        loadOrders(false),
+      ]);
+    } catch (e) {
+      showListToast(LIST_LBL.toast_refresh_error, "error");
+    }
+
+    // Phase 2 — Uzum revalidate WITH spinner so the seller sees
+    // "fresh data is on the way." The data they see during the spin
+    // is from the Phase 1 DB read (already on screen); when Phase 2
+    // returns the UI silently swaps to the live values.
+    setReloadBusy(true);
+    try {
+      await Promise.all([
+        loadCounts(true, { silent: true }),
+        loadOrders(true),
+      ]);
+      showListToast(LIST_LBL.toast_refreshed, "success");
+    } catch (e) {
+      showListToast(LIST_LBL.toast_refresh_error, "error");
+    } finally {
+      setReloadBusy(false);
+    }
+  });
+  schemeSel.addEventListener("change", () => {
+    loadOrders(false);
+    loadCounts();
+  });
+
+  // (Qidiruv + sana filtr qatori olib tashlandi — Abdulaziz 2026-06-09:
+  //  dizaynga xalaqit berardi. Buyurtmalar faqat status chiplari bilan
+  //  filtrlanadi.)
+
+  // Reflect the restored tab (from ?status= or the default) in the chip
+  // highlight before the first load — the server renders the *default*
+  // chip active, which is wrong when the URL carried another tab.
+  statusRow.querySelectorAll(".fbs-status-chip").forEach(c => {
+    c.classList.toggle("active", c.getAttribute("data-status") === currentStatus);
+  });
+  // Auto-load if a shop is preselected and the user has a token.
+  // URL ?view=postavka bo'lsa — to'g'ridan-to'g'ri «Поставка» ko'rinishini
+  // ochamiz (sahifa yangilanganda yoki havola bo'yicha kirilganda tiklanadi).
+  const _urlView = new URLSearchParams(location.search).get("view");
+  if (_urlView === "postavka") {
+    showPostavkaView();
+    if (shopSel.value && HAS_TOKEN) loadCounts();
+  } else if (shopSel.value && HAS_TOKEN) {
+    loadOrders(false);
+    loadCounts();
+  }
+  // Background-warm the drop-off points cache after a delay so the
+  // first time the seller opens the 📍 modal it feels instant. We
+  // prefetch the DB source only (no Uzum yet — that'd consume rate
+  // limit without a guarantee the user will open the modal).
+  if (HAS_TOKEN) {
+    setTimeout(() => prefetchDropoffPoints("db"), 2000);
+  }
+
+  // ── Hover-preview popup for order numbers ──────────────────────
+  // Single body-mounted element re-used across all hovers; event
+  // delegation on <document> means it survives table re-renders.
+  // 80 ms show-delay kills flicker when the mouse just sweeps past
+  // a row; transition kicks in once the .is-visible class lands.
+  (function setupOrderImagePreview() {
+    const pop = document.createElement("div");
+    pop.className = "fbs-img-pop";
+    pop.innerHTML = '<div class="fbs-img-pop-grid"></div>'
+                  + '<div class="fbs-img-pop-label"></div>';
+    document.body.appendChild(pop);
+    const popGrid = pop.querySelector(".fbs-img-pop-grid");
+    const popLabel = pop.querySelector(".fbs-img-pop-label");
+
+    let showTimer = null, hideTimer = null;
+    let activeCell = null;
+    let renderedKey = "";
+
+    // Buyurtmadagi barcha tovar rasmlarini to'r qilib chizadi:
+    // 1 ta → to'liq; 2+ → 2 ustun; 4 tadan ortig'i → 4-katakda «+N».
+    function renderGrid(images){
+      const n = images.length;
+      // Yorliq (rasm tagida) — qisqa: faqat SKU + shtrix kod (tovar nomi
+      // YO'Q, uzun edi). Ko'p tovarli → «N ta tovar».
+      if (n === 1) {
+        const im = images[0];
+        popLabel.innerHTML =
+            (im.sku ? `<div class="t">SKU: ${escapeHtml(im.sku)}</div>` : "")
+          + (im.barcode ? `<div class="m">Shtrix: ${escapeHtml(im.barcode)}</div>` : "");
+      } else {
+        popLabel.innerHTML = `<div class="t">${escapeHtml(n + " ta tovar")}</div>`;
+      }
+      popLabel.style.display = popLabel.innerHTML ? "" : "none";
+      const key = images.map(i => i.url).join("|");
+      if (key === renderedKey) return;   // o'sha rasmlar — qayta chizmaymiz
+      renderedKey = key;
+      // Bitta → katta 260px; ko'p → har biri 160px kvadrat (2 ustun).
+      // Karta enini ham shunga moslab o'rnatamiz (footer matni shu en
+      // ichida o'raladi — uzun nom kartani cho'zib yubormaydi).
+      popGrid.style.gridTemplateColumns = (n === 1) ? "260px" : "160px 160px";
+      pop.style.width = (n === 1) ? "260px" : "322px";
+      const shown = images.slice(0, 4);
+      const extra = n - shown.length;
+      popGrid.innerHTML = shown.map((im, idx) => {
+        const more = (idx === 3 && extra > 0)
+          ? `<span class="fbs-img-pop-more">+${extra}</span>` : "";
+        return '<div class="fbs-img-pop-cell">'
+             + '<div class="fbs-img-pop-skel"></div>'
+             + `<img alt="" decoding="async" src="${escapeHtml(im.url)}">`
+             + more + '</div>';
+      }).join("");
+      popGrid.querySelectorAll(".fbs-img-pop-cell").forEach(c => {
+        const img = c.querySelector("img");
+        const skel = c.querySelector(".fbs-img-pop-skel");
+        if (img.complete && img.naturalWidth) {
+          skel.classList.add("is-hidden"); img.classList.add("is-loaded");
+        } else {
+          img.onload  = () => { skel.classList.add("is-hidden"); img.classList.add("is-loaded"); };
+          img.onerror = () => { skel.classList.add("is-hidden"); };
+        }
+      });
+    }
+
+    function position(cell) {
+      const r = cell.getBoundingClientRect();
+      const GAP = 10;
+      // Popup endi rasm soniga qarab turli o'lchamda — haqiqiy o'lchamni
+      // o'lchaymiz (renderGrid show'dan oldin chaqirilgani uchun tayyor).
+      const W = pop.offsetWidth || 220;
+      const H = pop.offsetHeight || 220;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      // Default: place to the right of the cell, vertically centered.
+      let x = r.right + GAP;
+      let y = r.top + r.height / 2 - H / 2;
+      if (x + W > vw - 8) x = r.left - W - GAP;       // flip to left edge
+      if (x < 8) x = Math.max(8, r.right + GAP);       // last-resort right
+      if (y < 8) y = 8;
+      if (y + H > vh - 8) y = vh - H - 8;
+      pop.style.left = Math.round(x) + "px";
+      pop.style.top = Math.round(y) + "px";
+    }
+
+    function show(cell) {
+      // data-images (JSON massiv) — barcha tovar rasmlari. Bo'lmasa,
+      // eski data-image (bitta) ga qaytamiz.
+      let images = null;
+      const raw = cell.getAttribute("data-images");
+      if (raw) { try { images = JSON.parse(raw); } catch (e) { images = null; } }
+      if (!images || !images.length) {
+        const u = cell.getAttribute("data-image");
+        if (!u) return;
+        // Bitta rasm (masalan «N dona» belgisi) — SKU/shtrix data-* dan.
+        images = [{
+          url: u,
+          sku: cell.getAttribute("data-sku") || "",
+          barcode: cell.getAttribute("data-barcode") || "",
+        }];
+      }
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      showTimer = setTimeout(() => {
+        renderGrid(images);
+        position(cell);
+        pop.classList.add("is-visible");
+      }, 80);
+    }
+
+    function hide() {
+      clearTimeout(showTimer);
+      hideTimer = setTimeout(() => {
+        pop.classList.remove("is-visible");
+        activeCell = null;
+      }, 90);
+    }
+
+    // Popup'ni ochadigan elementlar: buyurtma raqami (barcha rasm to'ri)
+    // hamda har tovarning «N dona» belgisi (faqat o'sha tovar rasmi).
+    const IMG_HOVER_SEL = ".fbs-id[data-image], .fbs-products .qty-pill[data-image]";
+    document.addEventListener("mouseover", (e) => {
+      const cell = e.target.closest(IMG_HOVER_SEL);
+      if (!cell) return;
+      // Cancel a pending hide first — handles the "leave then re-enter
+      // the same cell within the 90 ms grace window" case where
+      // `activeCell` is still set so the early-return below would
+      // otherwise swallow the re-hover and leave the popup hidden.
+      clearTimeout(hideTimer);
+      if (cell === activeCell) return;
+      activeCell = cell;
+      show(cell);
+    });
+    document.addEventListener("mouseout", (e) => {
+      const cell = e.target.closest(IMG_HOVER_SEL);
+      if (!cell) return;
+      // Ignore moves between child nodes inside the same cell.
+      if (e.relatedTarget && cell.contains(e.relatedTarget)) return;
+      if (activeCell === cell) hide();
+    });
+    // Keep the popup glued to the cell as the user scrolls.
+    window.addEventListener("scroll", () => {
+      if (activeCell && pop.classList.contains("is-visible")) position(activeCell);
+    }, true);
+  })();
+})();
+</script>
+{% endblock %}

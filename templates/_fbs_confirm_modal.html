@@ -1,0 +1,86 @@
+{# ── Maxsus tasdiqlash modali (umumiy partial) ──────────────────────
+   Brauzerning tug'ma confirm() o'rniga: har brauzerda bir xil ko'rinadi,
+   bloklanmaydi (native confirm "больше не показывать" bilan o'chib, jim
+   false qaytarardi), dizaynga mos + dark mode. Ikkala FBS sahifa ham
+   shu partial'ni include qiladi. Tugma matnlari JS'da (fbsConfirm)
+   o'rnatiladi — bu yerda label/Jinja bog'liqligi yo'q.
+
+   JS interfeys (har sahifaning IIFE'sida bir xil): async fbsConfirm(
+   {title, message, okLabel, okVariant: "confirm"|"postavka"|"danger",
+   icon}) → Promise<bool>. #}
+<div id="fbsConfirmModal" class="fbs-confirm-modal" role="dialog"
+     aria-modal="true" aria-hidden="true" aria-labelledby="fbsConfirmTitle">
+  <div class="fbs-confirm-backdrop" data-confirm-cancel="1"></div>
+  <div class="fbs-confirm-card" role="document">
+    <button type="button" class="fbs-confirm-x" data-confirm-cancel="1"
+            aria-label="Yopish" title="Yopish">×</button>
+    <div class="fbs-confirm-icon" id="fbsConfirmIcon" aria-hidden="true">✓</div>
+    <h3 class="fbs-confirm-title" id="fbsConfirmTitle"></h3>
+    <p class="fbs-confirm-msg" id="fbsConfirmMsg"></p>
+    <div class="fbs-confirm-actions">
+      <button type="button" class="fbs-confirm-cancel" data-confirm-cancel="1"
+              id="fbsConfirmCancel"></button>
+      <button type="button" class="fbs-confirm-ok is-confirm" id="fbsConfirmOk"></button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .fbs-confirm-modal { position: fixed; inset: 0; z-index: 2090; display: none;
+    align-items: center; justify-content: center; padding: 1rem; }
+  .fbs-confirm-modal.is-open { display: flex; }
+  .fbs-confirm-backdrop { position: absolute; inset: 0;
+    background: rgba(16,24,40,.45); backdrop-filter: blur(2px);
+    animation: fbsConfirmFade .15s ease-out; }
+  @keyframes fbsConfirmFade { from { opacity: 0; } to { opacity: 1; } }
+  .fbs-confirm-card { position: relative; width: min(400px, 100%);
+    background: #fff; border-radius: 18px; padding: 1.5rem 1.4rem 1.2rem;
+    box-shadow: 0 20px 60px rgba(16,24,40,.28); text-align: center;
+    animation: fbsConfirmPop .18s cubic-bezier(.2,.9,.3,1.2); }
+  /* Yopish (×) — yuqori o'ng burchak. data-confirm-cancel="1" → mavjud JS
+     uni avtomatik «bekor» (false) ga ulaydi. */
+  .fbs-confirm-x {
+    position: absolute; top: 10px; right: 12px;
+    width: 30px; height: 30px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 8px; background: transparent;
+    color: #98a2b3; font-size: 1.5rem; line-height: 1; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .fbs-confirm-x:hover { background: #f1f4fa; color: #475467; }
+  @keyframes fbsConfirmPop {
+    from { opacity: 0; transform: translateY(8px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); } }
+  .fbs-confirm-icon { width: 52px; height: 52px; margin: 0 auto .8rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-size: 1.5rem; font-weight: 700;
+    background: #d1fae5; color: #059669; }
+  .fbs-confirm-icon.is-postavka { background: #ede9fe; color: #7c3aed; }
+  .fbs-confirm-icon.is-danger   { background: #fee2e2; color: #dc2626; }
+  .fbs-confirm-title { margin: 0 0 .4rem; font-size: 1.15rem; font-weight: 700; color: #101828; }
+  .fbs-confirm-msg { margin: 0 0 1.3rem; font-size: .92rem; line-height: 1.5; color: #475467; }
+  .fbs-confirm-actions { display: flex; gap: .6rem; }
+  .fbs-confirm-actions button { flex: 1; padding: .65rem 1rem; border-radius: 11px;
+    font-size: .92rem; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+    transition: filter .12s, transform .08s, background .12s; }
+  .fbs-confirm-actions button:active { transform: translateY(1px); }
+  .fbs-confirm-cancel { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+  .fbs-confirm-cancel:hover { background: #fee2e2; }
+  .fbs-confirm-ok { color: #fff; }
+  .fbs-confirm-ok.is-confirm  { background: #059669; }
+  .fbs-confirm-ok.is-confirm:hover  { background: #047857; }
+  .fbs-confirm-ok.is-postavka { background: #7c3aed; }
+  .fbs-confirm-ok.is-postavka:hover { background: #6d28d9; }
+  .fbs-confirm-ok.is-danger   { background: #dc2626; }
+  .fbs-confirm-ok.is-danger:hover   { background: #b91c1c; }
+  [data-bs-theme="dark"] .fbs-confirm-card { background: #1a1d27; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  [data-bs-theme="dark"] .fbs-confirm-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-confirm-msg { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-confirm-icon { background: rgba(5,150,105,.18); color: #6ee7a8; }
+  [data-bs-theme="dark"] .fbs-confirm-icon.is-postavka { background: rgba(124,58,237,.2); color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-confirm-icon.is-danger { background: rgba(220,38,38,.2); color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-confirm-cancel { background: rgba(220,38,38,.12); color: #fca5a5; border-color: rgba(220,38,38,.35); }
+  [data-bs-theme="dark"] .fbs-confirm-cancel:hover { background: rgba(220,38,38,.2); }
+  [data-bs-theme="dark"] .fbs-confirm-x { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-confirm-x:hover { background: #252a3f; color: #cbd5e1; }
+</style>

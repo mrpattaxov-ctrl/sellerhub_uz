@@ -1,0 +1,2965 @@
+{% extends layout|default("base.html") %}
+
+{% block extra_css %}
+<style>
+  .inv-page { max-width: 1200px; margin: 0 auto; display: grid; gap: 1.25rem; }
+{% if embed %}
+  /* Embed rejimi — orders sahifasidagi «Поставка» chip ichida iframe sifatida
+     ko'rsatiladi. Chrome yo'q; tashqi karta orders kartasiga singishi uchun
+     ramka/soya/fon/padding olib tashlanadi (ikki qavat karta ko'rinmasin). */
+  body.fbs-embed { padding: 0; background: transparent; }
+  .inv-page { gap: 0; max-width: 100%; }
+  .inv-card { border: none; box-shadow: none; background: transparent; padding: 0; }
+{% endif %}
+  .inv-hero {
+    border: 1px solid rgba(53, 86, 185, .12);
+    border-radius: 20px;
+    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
+    box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
+    padding: 1.3rem 1.4rem;
+    /* Tab'lar hero ichida (o'ng yuqorida) — bitta yaxlit karta. */
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: .9rem 1.5rem; flex-wrap: wrap;
+  }
+  .inv-hero-main { flex: 1 1 340px; min-width: 0; }
+  .inv-kicker {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .32rem .7rem;
+    border-radius: 999px;
+    background: rgba(52, 86, 185, .1);
+    color: #3456b9;
+    font-size: .72rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    margin-bottom: .6rem;
+  }
+  .inv-title { margin: 0; font-size: 1.6rem; font-weight: 700; color: #101828; }
+  .inv-subtitle { margin: .35rem 0 0; color: #667085; font-size: .95rem; line-height: 1.5; max-width: 640px; }
+
+  /* Section tabs (Buyurtmalar / Ombor) — segment-pill, hero kartaning
+     o'ng yuqorisida (flex item); tor ekranda pastga o'raladi. */
+  .fbs-section-tabs {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: #f1f4fa; border: 1px solid #e4e9f3;
+    border-radius: 14px;
+    flex: none; align-self: flex-start;
+  }
+  .fbs-section-tabs a {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem 1rem;
+    border-radius: 10px;
+    color: #475467; font-weight: 600; font-size: .88rem;
+    text-decoration: none; transition: background .15s, color .15s;
+  }
+  .fbs-section-tabs a:hover { color: #101828; background: rgba(255,255,255,.55); }
+  .fbs-section-tabs a.active {
+    background: #fff; color: #101828;
+    box-shadow: 0 1px 2px rgba(16,24,40,.08), 0 1px 3px rgba(16,24,40,.06);
+  }
+  .fbs-section-tabs a svg { flex: none; }
+  [data-bs-theme="dark"] .fbs-section-tabs {
+    background: #1c2334; border-color: #2b3346;
+  }
+  [data-bs-theme="dark"] .fbs-section-tabs a { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-section-tabs a:hover { color: #e8edf5; background: rgba(255,255,255,.04); }
+  [data-bs-theme="dark"] .fbs-section-tabs a.active {
+    background: #2a3349; color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+
+  .inv-card {
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 18px;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+
+  /* Status filter ─ single "Hamma statuslar" dropdown (Uzum-style).
+     Replaces the old 4-chip row: Uzum returns every status in ONE call,
+     so we fetch once and filter client-side off this <select>. Empty
+     value = all statuses combined into one date-sorted list. */
+  .inv-filter-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; flex-wrap: wrap;
+    margin-bottom: .9rem;
+  }
+  .inv-select-wrap { position: relative; display: inline-flex; }
+  .inv-select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    padding: .55rem 2.4rem .55rem .9rem;
+    border: 1px solid #d0d5dd; border-radius: 12px;
+    background: #fff; color: #101828;
+    font-size: .9rem; font-weight: 600; cursor: pointer;
+    min-width: 230px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .inv-select:hover { border-color: #b3bccb; }
+  .inv-select:focus {
+    outline: none; border-color: #6938ef;
+    box-shadow: 0 0 0 4px rgba(105, 56, 239, .08);
+  }
+  .inv-select-caret {
+    position: absolute; right: .85rem; top: 50%; transform: translateY(-50%);
+    pointer-events: none; color: #667085;
+  }
+  [data-bs-theme="dark"] .inv-select {
+    background: #232a3d; border-color: #2b3346; color: #e8edf5;
+  }
+  [data-bs-theme="dark"] .inv-select:hover { border-color: #3a4566; }
+  [data-bs-theme="dark"] .inv-select:focus {
+    border-color: #7b4eff; box-shadow: 0 0 0 4px rgba(123, 78, 255, .14);
+  }
+  [data-bs-theme="dark"] .inv-select-caret { color: #9aa3b2; }
+
+  /* Table */
+  .inv-table-wrap { overflow-x: auto; }
+  .inv-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .inv-table thead th {
+    text-align: left; padding: .55rem .65rem;
+    font-size: .72rem; font-weight: 700; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid #eaecf0;
+    background: #f9fafb;
+    white-space: nowrap;
+  }
+  .inv-table tbody td {
+    padding: .65rem; border-bottom: 1px solid #f2f4f7;
+    vertical-align: middle;
+  }
+  .inv-table tbody tr:hover td { background: rgba(99,132,255,.05); }
+  /* Whole-row click expands the detail panel — pointer cursor signals it.
+     Detail rows themselves stay default-cursor (no further toggle). */
+  .inv-table tbody tr:not(.inv-detail-row) { cursor: pointer; }
+  .inv-table tbody tr.inv-detail-row { cursor: default; }
+  .inv-table tbody tr.inv-detail-row:hover td { background: transparent; }
+
+  /* Trigger row — when its detail is open, mark it visually so the
+     user can tell "THIS row is the one expanded" at a glance. Soft
+     purple bg + left accent stripe = clear "selected" state. */
+  .inv-table tbody tr.is-expanded td {
+    background: rgba(105, 56, 239, .055) !important;
+    position: relative;
+  }
+  .inv-table tbody tr.is-expanded td:first-child {
+    box-shadow: inset 4px 0 0 #6938ef;
+  }
+  [data-bs-theme="dark"] .inv-table tbody tr.is-expanded td {
+    background: rgba(123, 78, 255, .14) !important;
+  }
+  [data-bs-theme="dark"] .inv-table tbody tr.is-expanded td:first-child {
+    box-shadow: inset 4px 0 0 #b8a8ff;
+  }
+
+  /* OMBOR cell — plain text only (Изменить button moved to the
+     detail panel's address card). The flex layout that used to host
+     the inline button has been removed; forcing display:flex on a
+     <td> creates phantom empty flex children in some rendering paths. */
+  .inv-table .col-num   { font-weight: 700; color: #101828; white-space: nowrap; }
+  .inv-table .col-date  { color: #667085; white-space: nowrap; }
+  .inv-table .col-price { text-align: right; font-weight: 600; white-space: nowrap; }
+  .inv-table .col-orders { text-align: center; font-weight: 600; }
+  .inv-table .col-addr  { color: #475467; max-width: 240px; }
+  .inv-table .col-slot  { color: #475467; white-space: nowrap; font-size: .83rem; }
+  .inv-table .col-act   { text-align: right; white-space: nowrap; }
+
+  /* Checkbox column (bulk akt selection) — narrow, centred. The native
+     checkbox is recoloured to our accent so it reads as "selected" the
+     same way across light/dark. */
+  .inv-table .col-check { width: 36px; text-align: center; padding-right: 0; }
+  .inv-check {
+    width: 17px; height: 17px;
+    cursor: pointer;
+    accent-color: #6938ef;
+    vertical-align: middle;
+  }
+  /* Non-CREATED rows: checkbox present but muted + unclickable (bulk akt is
+     CREATED-only). Subtle so the table doesn't read as "broken". */
+  .inv-check:disabled { opacity: .28; cursor: not-allowed; }
+  [data-bs-theme="dark"] .inv-check { accent-color: #7b4eff; }
+
+  /* Bulk-action bar — bottom-centred floating dark pill, mirroring the
+     orders page's `.fbs-bulk-bar` so both FBS pages share one selection
+     pattern. Hidden off-screen (translated down + faded) until ≥1 row is
+     ticked, then it slides up via the `.is-visible` class. */
+  .inv-bulkbar {
+    position: fixed; left: 50%; bottom: 1.25rem;
+    transform: translate(-50%, calc(100% + 30px));
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    padding: .6rem .9rem; border-radius: 14px;
+    background: #1e293b; color: #f8fafc;
+    box-shadow: 0 14px 32px rgba(0,0,0,.25);
+    z-index: 2070; pointer-events: none; opacity: 0;
+    transition: transform .22s ease-out, opacity .22s ease-out;
+    max-width: calc(100vw - 2rem);
+  }
+  .inv-bulkbar.is-visible {
+    transform: translate(-50%, 0); opacity: 1; pointer-events: auto;
+  }
+  /* Reserve scroll space so the floating bar never hides the last rows. */
+  body:has(.inv-bulkbar.is-visible) { padding-bottom: 120px; }
+  .inv-bulk-count {
+    font-weight: 700; font-size: .92rem;
+    padding-right: .6rem; margin-right: .1rem;
+    border-right: 1px solid rgba(255,255,255,.18);
+  }
+  .inv-bulk-count strong { color: #fff; }
+  .inv-bulk-actions { display: flex; gap: .5rem; align-items: center; }
+  /* The akt button — purple gradient (same family as the orders page's
+     `.is-postavka`), with a hover lift + shine sweep. */
+  .inv-bulk-btn {
+    position: relative; overflow: hidden;
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .58rem 1.25rem; border-radius: 12px;
+    font-size: .92rem; font-weight: 600; cursor: pointer; color: #fff;
+    background: linear-gradient(135deg, #9061f9, #7c3aed);
+    border: 1px solid #7c3aed;
+    transition: background .15s, transform .14s ease, box-shadow .18s ease;
+  }
+  .inv-bulk-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(124, 58, 237, .5);
+  }
+  .inv-bulk-btn:active:not(:disabled) { transform: translateY(0) scale(.99); }
+  .inv-bulk-btn:disabled {
+    background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08);
+    color: #64748b; cursor: progress;
+  }
+  .inv-bulk-btn::after {
+    content: ""; position: absolute; top: 0; left: -120%;
+    width: 55%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,.38), transparent);
+    transform: skewX(-20deg); pointer-events: none;
+    transition: left .55s ease;
+  }
+  .inv-bulk-btn:hover:not(:disabled)::after { left: 135%; }
+
+  .inv-status-badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .22rem .55rem; border-radius: 999px;
+    font-size: .73rem; font-weight: 700;
+    border: 1px solid transparent;
+  }
+  .inv-status-CREATED { background: #ecfdf3; color: #027a48; border-color: #abefc6; }
+  .inv-status-ACCEPTANCE_IN_PROGRESS { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+  .inv-status-ACCEPTED { background: #f0f9ff; color: #026aa2; border-color: #b9e6fe; }
+  .inv-status-CANCELLED { background: #fef3f2; color: #b42318; border-color: #fecdca; }
+
+  /* ── Topshirish-deadline countdown (Sana katakchasi tagida) ──────
+     Active invoices (CREATED / ACCEPTANCE_IN_PROGRESS) get a pill
+     under the date showing how many hours remain until the seller
+     must hand the parcel over at the drop-off point. Colour escalates
+     with urgency: green (>24h), amber (6–24h), red+pulse (<6h),
+     dark slate (past). display:flex + width:max-content stacks it
+     beneath the date text without breaking the row layout. */
+  .inv-deadline {
+    display: flex; align-items: center; gap: .3rem;
+    width: max-content;
+    margin-top: .3rem;
+    padding: .16rem .55rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .inv-deadline svg { width: 11px; height: 11px; flex: none; opacity: .95; }
+  .inv-deadline--ok   { background: #ecfdf3; color: #027a48; border-color: #abefc6; }
+  .inv-deadline--warn { background: #fffaeb; color: #b54708; border-color: #fedf89; }
+  .inv-deadline--hot  { background: #fef3f2; color: #b42318; border-color: #fecdca;
+                        animation: invDeadlinePulse 2s ease-in-out infinite; }
+  .inv-deadline--past { background: #475467; color: #ffffff; border-color: #344054; }
+  @keyframes invDeadlinePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 68, 56, 0); }
+    50%      { box-shadow: 0 0 0 4px rgba(240, 68, 56, .15); }
+  }
+  [data-bs-theme="dark"] .inv-deadline--ok   { background: rgba(18,183,106,.18); color: #6ee7a8; border-color: rgba(18,183,106,.4); }
+  [data-bs-theme="dark"] .inv-deadline--warn { background: rgba(247,144,9,.18); color: #fed793; border-color: rgba(247,144,9,.4); }
+  [data-bs-theme="dark"] .inv-deadline--hot  { background: rgba(240,68,56,.18); color: #fca5a5; border-color: rgba(240,68,56,.4); }
+  [data-bs-theme="dark"] .inv-deadline--past { background: #2b3346; color: #c4cad8; border-color: #2b3346; }
+
+  .inv-btn {
+    background: #fff; border: 1px solid #d0d5dd; color: #344054;
+    border-radius: 8px; padding: .3rem .6rem;
+    font-size: .8rem; font-weight: 600; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .inv-btn:hover { background: #f4f6fb; }
+
+  /* Expanded detail row — strong visual treatment to clearly show
+     "this is the open drawer for the row above". Gradient bg + thick
+     left accent + soft top inset shadow give the panel a "dropped
+     from above" feel. */
+  .inv-detail-row td {
+    background: linear-gradient(180deg, #f3effd 0%, #f9f7ff 35%, #fafbff 100%) !important;
+    border-bottom: 2px solid #ddd4ff;
+    padding: 0 !important;
+    position: relative;
+    box-shadow:
+      inset 5px 0 0 #6938ef,
+      inset 0 8px 14px -10px rgba(105, 56, 239, .22);
+  }
+  .inv-detail-row {
+    animation: invDetailSlideIn .22s cubic-bezier(.16,.84,.36,1);
+  }
+  @keyframes invDetailSlideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .inv-detail-row td > .inv-detail-body {
+    padding: 1rem 1.1rem 1.25rem;
+    display: grid; gap: 1rem;
+  }
+  [data-bs-theme="dark"] .inv-detail-row td {
+    background: linear-gradient(180deg, #251c45 0%, #1f1a36 35%, #1c2334 100%) !important;
+    border-bottom-color: #382870;
+    box-shadow:
+      inset 5px 0 0 #7b4eff,
+      inset 0 8px 14px -10px rgba(123, 78, 255, .35);
+  }
+  .inv-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .75rem 1.25rem;
+  }
+  .inv-detail-grid .field { display: flex; flex-direction: column; gap: .15rem; }
+  .inv-detail-grid .label {
+    font-size: .68rem; font-weight: 700; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .inv-detail-grid .value { font-size: .9rem; color: #101828; word-break: break-word; }
+  .inv-detail-grid .value.muted { color: #98a2b3; }
+  .inv-detail-section-title {
+    margin: 0; font-size: .82rem; font-weight: 700;
+    color: #344054; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .inv-orders-table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: .35rem; }
+  .inv-orders-table th, .inv-orders-table td {
+    text-align: left; padding: .45rem .55rem;
+    border-bottom: 1px solid #eaecf0;
+  }
+  .inv-orders-table th { color: #667085; font-weight: 700; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; }
+  .inv-orders-table tbody tr:hover td { background: rgba(99,132,255,.04); }
+  .inv-orders-empty { padding: .6rem; color: #98a2b3; font-size: .85rem; }
+  [data-bs-theme="dark"] .inv-detail-row td { background: #232a3d !important; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-detail-grid .value { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-detail-grid .value.muted { color: #6b7689; }
+  [data-bs-theme="dark"] .inv-detail-grid .label { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-detail-section-title { color: #c4cad8; }
+  [data-bs-theme="dark"] .inv-orders-table th { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-orders-table th, [data-bs-theme="dark"] .inv-orders-table td { border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-orders-table tbody tr:hover td { background: rgba(99,132,255,.08); }
+  [data-bs-theme="dark"] .inv-orders-empty { color: #6b7689; }
+
+  /* Action bar at top of detail body — "Akt отправки (PDF)" etc. */
+  .inv-detail-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .25rem; }
+  .inv-akt-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem .9rem; border-radius: .55rem;
+    background: #6938ef; color: #fff !important; text-decoration: none !important;
+    font-size: .85rem; font-weight: 600;
+    border: 1px solid #6938ef; transition: background .15s, transform .05s;
+  }
+  .inv-akt-btn:hover { background: #5524d6; border-color: #5524d6; }
+  .inv-akt-btn:active { transform: translateY(1px); }
+  [data-bs-theme="dark"] .inv-akt-btn { background: #7b4eff; border-color: #7b4eff; }
+  [data-bs-theme="dark"] .inv-akt-btn:hover { background: #6938ef; border-color: #6938ef; }
+
+  /* ── Detail panel v2 — card-based redesign ─────────────────────────
+     Mirrors Uzum's seller-cabinet order view (hierarchy + product
+     cards) but uses our own typography, spacing, and accent colors.
+     Empty fields are dropped so the panel only renders signal, no
+     em-dash noise. */
+  .inv-detail-v2 {
+    display: flex; flex-direction: column; gap: 1rem;
+    /* Parent td has `padding: 0 !important` (table styling) — we own
+       the inset here so the cards have breathing room. */
+    padding: 1rem 1.1rem 1.25rem;
+  }
+  .inv-detail-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: .75rem; flex-wrap: wrap;
+  }
+  .inv-detail-header-left { min-width: 0; }
+  .inv-detail-h-title {
+    margin: 0; font-size: 1.05rem; font-weight: 700; color: #101828;
+    line-height: 1.3;
+  }
+  .inv-detail-h-meta {
+    margin-top: .35rem;
+    display: flex; gap: .35rem; flex-wrap: wrap; align-items: center;
+  }
+  .inv-akt-btn-v2 {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem .85rem;
+    border-radius: 10px;
+    background: #6938ef; color: #fff !important; text-decoration: none !important;
+    font-size: .82rem; font-weight: 600;
+    border: 1px solid #6938ef;
+    transition: background .15s, transform .05s;
+  }
+  .inv-akt-btn-v2:hover { background: #5524d6; border-color: #5524d6; }
+  .inv-akt-btn-v2:active { transform: translateY(1px); }
+
+  /* Fact strip — icon + label + value, auto-wrapping grid. White
+     card on the purple drawer bg → strong figure/ground separation. */
+  .inv-fact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .7rem 1rem;
+    padding: 1rem 1.1rem;
+    background: #fff;
+    border: 1px solid rgba(105, 56, 239, .12);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(105, 56, 239, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  }
+  .inv-fact { display: flex; gap: .55rem; align-items: flex-start; }
+  .inv-fact-icon {
+    flex: none;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(99,132,255,.12);
+    color: #3456b9;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .inv-fact-body { display: flex; flex-direction: column; min-width: 0; }
+  .inv-fact-label {
+    font-size: .68rem; font-weight: 700; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .inv-fact-value {
+    font-size: .9rem; font-weight: 600; color: #101828;
+    word-break: break-word; line-height: 1.3;
+  }
+  .inv-fact.is-primary .inv-fact-icon { background: rgba(105,56,239,.12); color: #6938ef; }
+  .inv-fact.is-primary .inv-fact-value { color: #6938ef; font-size: 1.02rem; }
+
+  /* Pickup-address card — prominent, with map-pin icon. The Izmenit
+     button sits at the far right (only when invoice is still CREATED). */
+  .inv-address-card {
+    display: flex; gap: .75rem; align-items: center;
+    padding: .9rem 1.1rem;
+    background: #fff;
+    border: 1px solid rgba(105, 56, 239, .12);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(105, 56, 239, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  }
+  .inv-address-body { flex: 1 1 auto; min-width: 0; }
+  .inv-pickup-edit-btn-v2 {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .5rem .85rem;
+    border-radius: 10px;
+    border: 1px solid rgba(105, 56, 239, .35);
+    background: rgba(105, 56, 239, .08);
+    color: #6938ef;
+    font-size: .82rem; font-weight: 600;
+    cursor: pointer;
+    flex: none;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .inv-pickup-edit-btn-v2:hover {
+    background: #6938ef; color: #fff; border-color: #6938ef;
+  }
+  .inv-pickup-edit-btn-v2:active { transform: translateY(1px); }
+  [data-bs-theme="dark"] .inv-pickup-edit-btn-v2 {
+    background: rgba(123, 78, 255, .14);
+    border-color: rgba(123, 78, 255, .4);
+    color: #b8a8ff;
+  }
+  [data-bs-theme="dark"] .inv-pickup-edit-btn-v2:hover {
+    background: #7b4eff; color: #fff; border-color: #7b4eff;
+  }
+  .inv-address-icon {
+    flex: none;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(105,56,239,.10);
+    color: #6938ef;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .inv-address-body { min-width: 0; }
+  .inv-address-label {
+    font-size: .68rem; font-weight: 700; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: .15rem;
+  }
+  .inv-address-value { font-size: .95rem; font-weight: 600; color: #101828; line-height: 1.35; }
+
+  /* Mini status pill — used for per-order status + ETTN. */
+  .inv-mini-pill {
+    display: inline-flex; align-items: center;
+    padding: .18rem .5rem;
+    border-radius: 999px;
+    font-size: .7rem; font-weight: 700;
+    line-height: 1;
+  }
+  .inv-mini-pill--green { background: #ecfdf3; color: #027a48; }
+  .inv-mini-pill--blue  { background: #eff8ff; color: #175cd3; }
+  .inv-mini-pill--amber { background: #fffaeb; color: #b54708; }
+  .inv-mini-pill--red   { background: #fef3f2; color: #b42318; }
+  .inv-mini-pill--grey  { background: #f2f4f7; color: #475467; }
+
+  /* Orders block + cards */
+  .inv-orders-block { display: flex; flex-direction: column; gap: .6rem; }
+  .inv-orders-block-title {
+    font-size: .9rem; font-weight: 700; color: #101828;
+    display: flex; align-items: center; gap: .45rem;
+  }
+  .inv-orders-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; padding: 0 .35rem;
+    border-radius: 999px;
+    background: #f2f4f7; color: #475467;
+    font-size: .72rem; font-weight: 700;
+  }
+  /* Buyurtma qatori — orders jadvalidagi (fbs_orders) qator uslubiga moslangan:
+     toza oq karta, neytral ingichka ramka, hover'da yengil ko'tariladi.
+     Avvalgi kulrang sarlavha strip va binafsha tus olib tashlandi. */
+  .inv-order-card {
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 14px;
+    overflow: hidden;
+    transition: box-shadow .16s ease, transform .12s ease, border-color .15s ease;
+  }
+  .inv-order-card:hover {
+    border-color: #d7deea;
+    box-shadow: 0 10px 26px rgba(16, 24, 40, .10);
+    transform: translateY(-1px);
+  }
+  .inv-order-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .7rem .9rem .6rem;
+    background: transparent;
+    border-bottom: 1px solid #f2f4f7;
+    gap: .75rem;
+  }
+  .inv-order-head-left {
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  }
+  .inv-order-num { font-size: .92rem; font-weight: 700; color: #101828; }
+  .inv-order-total { font-size: .95rem; font-weight: 700; color: #101828; white-space: nowrap; }
+  .inv-item-row {
+    display: flex; gap: .75rem; align-items: flex-start;
+    padding: .75rem .9rem;
+    border-top: 1px solid #f2f4f7;
+  }
+  .inv-item-row:first-of-type { border-top: 0; }
+  .inv-item-thumb {
+    flex: none;
+    width: 56px; height: 56px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f5f7fb;
+    border: 1px solid #eaecf0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .inv-item-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .inv-item-noimg { font-size: 1.2rem; opacity: .55; }
+  .inv-item-body { flex: 1 1 auto; min-width: 0; }
+  .inv-item-title {
+    font-size: .9rem; font-weight: 600; color: #101828;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .inv-item-meta {
+    margin-top: .25rem;
+    font-size: .76rem; color: #667085;
+    display: flex; gap: .3rem; flex-wrap: wrap;
+  }
+  .inv-item-money {
+    flex: none; text-align: right; white-space: nowrap;
+  }
+  .inv-item-price { font-size: .9rem; font-weight: 700; color: #101828; }
+  .inv-item-qty { font-size: .75rem; color: #667085; margin-top: .15rem; }
+  .inv-item-empty {
+    padding: 1rem; text-align: center;
+    color: #98a2b3; font-size: .85rem;
+  }
+  .inv-empty {
+    padding: 1.2rem; text-align: center;
+    color: #98a2b3; font-size: .9rem;
+    background: #f9fafc;
+    border: 1px dashed #e4e9f3;
+    border-radius: 12px;
+  }
+
+  /* ── Buyurtmalar jadvali (накладная ichida) — orders jadvali (image 2)
+     uslubida: ustunli, dumaloq oq qator-kartalar, hover'da ko'tariladi.
+     border-spacing qatorlar orasiga bo'shliq beradi (fbs_orders kabi). */
+  .inv-otable-wrap { width: 100%; overflow-x: auto; }
+  .inv-otable {
+    width: 100%; border-collapse: separate; border-spacing: 0 8px;
+    font-size: .85rem; margin-top: .15rem;
+  }
+  .inv-otable thead th {
+    text-transform: uppercase; letter-spacing: .055em;
+    color: #98a2b3; font-weight: 600; font-size: .66rem;
+    padding: .1rem .8rem .35rem; text-align: left; white-space: nowrap;
+  }
+  .inv-otable th.ta-c, .inv-otable td.ta-c { text-align: center; }
+  .inv-otable th.ta-r, .inv-otable td.ta-r { text-align: right; }
+  .inv-otable tbody td {
+    background: #fff; padding: .7rem .8rem; vertical-align: middle;
+    border-top: 1px solid #eaecf0; border-bottom: 1px solid #eaecf0;
+    transition: background .15s, border-color .15s;
+  }
+  .inv-otable tbody td:first-child {
+    border-left: 1px solid #eaecf0;
+    border-top-left-radius: 12px; border-bottom-left-radius: 12px;
+  }
+  .inv-otable tbody td:last-child {
+    border-right: 1px solid #eaecf0;
+    border-top-right-radius: 12px; border-bottom-right-radius: 12px;
+  }
+  .inv-otable tbody tr { transition: box-shadow .16s ease, transform .12s ease; }
+  .inv-otable tbody tr:hover td { background: #fafbfe; border-color: #d7deea; }
+  .inv-otable tbody tr:hover { box-shadow: 0 8px 22px rgba(16, 24, 40, .09); }
+  .inv-orow-num { font-weight: 700; color: #101828; white-space: nowrap; }
+  .inv-orow-sum { font-weight: 700; color: #101828; white-space: nowrap; }
+  .inv-orow-qty { color: #667085; white-space: nowrap; }
+  .inv-orow-status { white-space: nowrap; }
+  .inv-oprod { display: flex; align-items: center; gap: .6rem; }
+  .inv-oprod + .inv-oprod {
+    margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #eef0f4;
+  }
+  .inv-oprod-thumb {
+    flex: none; width: 44px; height: 44px; border-radius: 9px;
+    overflow: hidden; background: #f5f7fb; border: 1px solid #eaecf0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .inv-oprod-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .inv-oprod-noimg { font-size: 1.1rem; opacity: .55; }
+  .inv-oprod-info { min-width: 0; }
+  .inv-oprod-title {
+    font-weight: 600; color: #101828; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .inv-oprod-meta { margin-top: .15rem; font-size: .74rem; color: #667085; }
+  .inv-oprod-empty { color: #98a2b3; font-size: .82rem; }
+  [data-bs-theme="dark"] .inv-otable thead th { color: #64748b; }
+  [data-bs-theme="dark"] .inv-otable tbody td { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .inv-otable tbody tr:hover td { background: #1e2233; border-color: #3a4058; }
+  [data-bs-theme="dark"] .inv-otable tbody tr:hover { box-shadow: 0 8px 22px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .inv-orow-num,
+  [data-bs-theme="dark"] .inv-orow-sum { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-orow-qty,
+  [data-bs-theme="dark"] .inv-oprod-meta { color: #94a3b8; }
+  [data-bs-theme="dark"] .inv-oprod-thumb { background: #161c2b; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-oprod-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-oprod + .inv-oprod { border-top-color: #2b3346; }
+
+  /* MUHIM tuzatish: `.inv-detail-row td` (drawer) qoidasi !important bilan
+     fon-gradient, padding:0 va binafsha `inset` chap soyani HAR BIR ichki
+     td'ga ham beradi → jadval kataklarida binafsha vertikal chiziqlar chiqadi.
+     Yuqori spetsifika + !important bilan bekor qilamiz (toza oq qatorlar). */
+  .inv-detail-row .inv-otable thead th {
+    background: transparent !important; padding: .1rem .8rem .35rem !important;
+    box-shadow: none !important; border: 0;
+  }
+  .inv-detail-row .inv-otable tbody td {
+    background: #fff !important; padding: .7rem .8rem !important;
+    box-shadow: none !important; border-bottom: 1px solid #eaecf0;
+  }
+  .inv-detail-row .inv-otable tbody tr:hover td { background: #fafbfe !important; }
+  [data-bs-theme="dark"] .inv-detail-row .inv-otable thead th { color: #64748b; }
+  [data-bs-theme="dark"] .inv-detail-row .inv-otable tbody td {
+    background: #1a1d27 !important; border-color: #2d3148;
+  }
+  [data-bs-theme="dark"] .inv-detail-row .inv-otable tbody tr:hover td {
+    background: #1e2233 !important; border-color: #3a4058;
+  }
+
+  /* Skeleton loader shown while invoice detail is fetched — mirrors
+     the real layout so the user sees structure immediately. */
+  .inv-skel-bar {
+    background: linear-gradient(110deg, #e6ebf4 8%, #f0f3fa 18%, #e6ebf4 33%);
+    background-size: 200% 100%;
+    animation: invSkelShim 1.4s linear infinite;
+    border-radius: 8px;
+    height: 14px;
+  }
+  .inv-skel-header {
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  }
+  .inv-skel-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .7rem 1rem;
+    padding: 1rem 1.1rem;
+    background: #fff;
+    border: 1px solid rgba(105, 56, 239, .12);
+    border-radius: 14px;
+  }
+  .inv-skel-card {
+    height: 34px; border-radius: 8px;
+    background: linear-gradient(110deg, #e6ebf4 8%, #f0f3fa 18%, #e6ebf4 33%);
+    background-size: 200% 100%;
+    animation: invSkelShim 1.4s linear infinite;
+  }
+  .inv-skel-address {
+    height: 70px; border-radius: 14px;
+  }
+  .inv-skel-order {
+    height: 130px; border-radius: 14px;
+  }
+  @keyframes invSkelShim {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  [data-bs-theme="dark"] .inv-skel-bar,
+  [data-bs-theme="dark"] .inv-skel-card {
+    background: linear-gradient(110deg, #232a3d 8%, #2b3346 18%, #232a3d 33%);
+    background-size: 200% 100%;
+  }
+  [data-bs-theme="dark"] .inv-skel-facts {
+    background: #232a3d; border-color: #2b3346;
+  }
+
+  /* Dark mode */
+  [data-bs-theme="dark"] .inv-detail-h-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-akt-btn-v2 { background: #7b4eff; border-color: #7b4eff; }
+  [data-bs-theme="dark"] .inv-akt-btn-v2:hover { background: #6938ef; border-color: #6938ef; }
+  [data-bs-theme="dark"] .inv-fact-grid { background: #1a2030; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-fact-icon { background: rgba(123,78,255,.16); color: #b8a8ff; }
+  [data-bs-theme="dark"] .inv-fact-label { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-fact-value { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-fact.is-primary .inv-fact-icon { background: rgba(123,78,255,.22); color: #d6cdff; }
+  [data-bs-theme="dark"] .inv-fact.is-primary .inv-fact-value { color: #d6cdff; }
+  [data-bs-theme="dark"] .inv-address-card { background: #232a3d; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-address-icon { background: rgba(123,78,255,.18); color: #d6cdff; }
+  [data-bs-theme="dark"] .inv-address-label { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-address-value { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-mini-pill--green { background: rgba(18,183,106,.18); color: #6ee7a8; }
+  [data-bs-theme="dark"] .inv-mini-pill--blue  { background: rgba(46,144,250,.18); color: #84c5ff; }
+  [data-bs-theme="dark"] .inv-mini-pill--amber { background: rgba(247,144,9,.18); color: #fed793; }
+  [data-bs-theme="dark"] .inv-mini-pill--red   { background: rgba(240,68,56,.18); color: #fca5a5; }
+  [data-bs-theme="dark"] .inv-mini-pill--grey  { background: #2b3346; color: #c4cad8; }
+  [data-bs-theme="dark"] .inv-orders-block-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-orders-count { background: #2b3346; color: #c4cad8; }
+  [data-bs-theme="dark"] .inv-order-card { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .inv-order-card:hover { border-color: #3a4058; box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .inv-order-head { background: transparent; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-order-num { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-order-total { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-item-row { border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-item-thumb { background: #161c2b; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-item-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-item-meta { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-item-price { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-item-qty { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-empty { background: #1a2030; border-color: #2b3346; color: #6b7689; }
+
+  /* "Detali" button toggle state */
+  .inv-btn.is-open { background: #101828; color: #fff; border-color: #101828; }
+  [data-bs-theme="dark"] .inv-btn.is-open { background: #6384ff; border-color: #6384ff; }
+
+  /* Pagination */
+  .inv-pager {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-top: .9rem;
+    color: #667085; font-size: .85rem;
+  }
+  .inv-pager-buttons { display: flex; gap: .5rem; }
+  .inv-pager .inv-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Empty / loading / error */
+  .inv-state {
+    padding: 2.2rem 1rem; text-align: center; color: #667085;
+    font-size: .92rem;
+  }
+  .inv-state strong { color: #101828; }
+
+  /* Dark mode */
+  [data-bs-theme="dark"] .inv-hero {
+    background: linear-gradient(160deg, #1a1f2e 0%, #1e2333 60%, #232a3d 100%);
+    border-color: rgba(99,132,255,.18);
+  }
+  [data-bs-theme="dark"] .inv-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-subtitle { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-card { background: #1a1f2e; border-color: #2b3346; color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-table thead th { background: #232a3d; border-color: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-table tbody td { border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-table tbody tr:hover td { background: rgba(99,132,255,.08); }
+  [data-bs-theme="dark"] .inv-table .col-num { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-btn { background: #232a3d; color: #c4cad8; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-btn:hover { background: #2b3346; }
+  [data-bs-theme="dark"] .inv-state { color: #9aa3b2; }
+  [data-bs-theme="dark"] .inv-state strong { color: #e8edf5; }
+  [data-bs-theme="dark"] .inv-warning {
+    background: rgba(252, 211, 77, .08); border-color: rgba(252, 211, 77, .35); color: #fbbf24;
+  }
+
+  .inv-warning {
+    border: 1px solid #fcd34d; background: #fff7e6; color: #92400e;
+    padding: .85rem 1rem; border-radius: 12px; font-size: .9rem;
+  }
+
+  /* ── Pickup-point picker modal ─────────────────────────────────────
+     Triggered by the per-row "Изменить" button. Two-step UX: pick a
+     drop-off point, then pick a time-slot. Both steps share the same
+     panel; we just swap visibility of the two sections. */
+  .pp-modal {
+    position: fixed; inset: 0; z-index: 1080;
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .pp-modal.is-open { display: flex; }
+  .pp-modal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(8, 13, 26, .55);
+    backdrop-filter: blur(2px);
+    animation: ppFadeIn .18s ease;
+  }
+  .pp-card {
+    position: relative;
+    width: min(720px, 100%);
+    max-height: 86vh;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(8,13,26,.32), 0 0 0 1px rgba(53,86,185,.08);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: ppSlideUp .22s cubic-bezier(.16,.84,.36,1);
+  }
+  @keyframes ppFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ppSlideUp {
+    from { transform: translateY(14px) scale(.98); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .pp-head {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #eaecf0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem;
+  }
+  .pp-head-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #101828; }
+  .pp-head-sub { margin: .15rem 0 0; font-size: .82rem; color: #667085; }
+  .pp-head-x {
+    flex: none;
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    border: 1px solid #eaecf0;
+    background: #fff;
+    cursor: pointer;
+    color: #475467;
+    font-size: 1.1rem; line-height: 1;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .pp-head-x:hover { background: #f5f7fb; color: #101828; border-color: #d0d5dd; }
+  /* Step pill indicator */
+  .pp-steps {
+    display: flex; gap: .35rem; align-items: center;
+    padding: .55rem 1.25rem;
+    background: #f9fafc;
+    border-bottom: 1px solid #eef0f4;
+    font-size: .78rem;
+  }
+  .pp-step {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .22rem .6rem; border-radius: 999px;
+    color: #667085; font-weight: 600;
+  }
+  .pp-step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #e4e9f3; color: #667085;
+    font-size: .68rem; font-weight: 700;
+  }
+  .pp-step.is-active { background: rgba(99,132,255,.12); color: #3456b9; }
+  .pp-step.is-active .pp-step-num { background: #3456b9; color: #fff; }
+  .pp-step.is-done .pp-step-num { background: #12b76a; color: #fff; }
+  .pp-step-sep { color: #d0d5dd; font-weight: 700; }
+  /* Search bar */
+  .pp-search-row {
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid #eef0f4;
+    position: relative;
+  }
+  .pp-search-input {
+    width: 100%;
+    padding: .65rem 2.4rem .65rem 2.4rem;
+    border-radius: 12px;
+    border: 1px solid #d0d5dd;
+    background: #fafbfc;
+    font-size: .9rem;
+    transition: border-color .15s, background .15s;
+  }
+  .pp-search-input:focus {
+    outline: none;
+    border-color: #6938ef;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(105, 56, 239, .08);
+  }
+  .pp-search-icon {
+    position: absolute;
+    left: 1.85rem; top: 50%; transform: translateY(-50%);
+    color: #98a2b3;
+    pointer-events: none;
+  }
+  .pp-search-count {
+    position: absolute;
+    right: 1.85rem; top: 50%; transform: translateY(-50%);
+    font-size: .72rem; color: #98a2b3; font-weight: 600;
+  }
+  /* Body — scrollable list area */
+  .pp-body {
+    overflow-y: auto;
+    padding: .6rem 1.25rem .85rem;
+    flex: 1 1 auto;
+  }
+  .pp-state { padding: 1.4rem 0; text-align: center; color: #98a2b3; font-size: .9rem; }
+  /* Drop-off point card */
+  .pp-point {
+    display: flex; align-items: flex-start; gap: .75rem;
+    padding: .75rem .85rem;
+    border: 1px solid #eaecf0;
+    border-radius: 14px;
+    margin-bottom: .5rem;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color .15s, background .15s, transform .05s;
+  }
+  .pp-point:hover { border-color: #c7d2fe; background: #fafbff; }
+  .pp-point.is-active {
+    border-color: #6938ef; background: rgba(105,56,239,.05);
+    box-shadow: 0 0 0 3px rgba(105,56,239,.08);
+  }
+  .pp-point-icon {
+    flex: none;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(99,132,255,.12);
+    color: #3456b9;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pp-point.is-active .pp-point-icon { background: rgba(105,56,239,.16); color: #6938ef; }
+  .pp-point-body { flex: 1 1 auto; min-width: 0; }
+  .pp-point-addr {
+    font-size: .9rem; font-weight: 600; color: #101828;
+    line-height: 1.35; margin-bottom: .15rem;
+  }
+  .pp-point-meta {
+    font-size: .72rem; color: #667085;
+    display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
+  }
+  .pp-point-badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .12rem .5rem; border-radius: 999px;
+    background: rgba(18,183,106,.12); color: #027a48;
+    font-size: .68rem; font-weight: 700;
+  }
+  .pp-point-badge--closest {
+    background: #12b76a; color: #fff;
+    letter-spacing: .04em;
+  }
+  .pp-point-dist {
+    display: inline-flex; align-items: center;
+    padding: .12rem .5rem; border-radius: 999px;
+    background: rgba(99, 132, 255, .12); color: #3456b9;
+    font-size: .68rem; font-weight: 700;
+  }
+  [data-bs-theme="dark"] .pp-point-badge--closest { background: #12b76a; color: #fff; }
+  [data-bs-theme="dark"] .pp-point-dist {
+    background: rgba(123, 78, 255, .18); color: #b8a8ff;
+  }
+  /* Time slot grid (Step 2) */
+  .pp-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: .55rem;
+    padding-bottom: .35rem;
+  }
+  .pp-slot {
+    padding: .65rem .8rem;
+    border: 1px solid #eaecf0;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color .15s, background .15s, transform .05s;
+  }
+  .pp-slot:hover { border-color: #c7d2fe; background: #fafbff; }
+  .pp-slot.is-active {
+    border-color: #6938ef; background: rgba(105,56,239,.05);
+    box-shadow: 0 0 0 3px rgba(105,56,239,.08);
+  }
+  .pp-slot-day { font-size: .72rem; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: .04em; }
+  .pp-slot-time { font-size: .95rem; font-weight: 700; color: #101828; margin-top: .15rem; }
+  /* Footer */
+  .pp-foot {
+    padding: .85rem 1.25rem;
+    border-top: 1px solid #eaecf0;
+    background: #fafbfc;
+    display: flex; gap: .55rem; align-items: center; justify-content: space-between;
+  }
+  .pp-foot-selected { font-size: .78rem; color: #667085; flex: 1 1 auto; min-width: 0; }
+  .pp-foot-selected strong { color: #101828; font-weight: 700; }
+  .pp-btn {
+    padding: .55rem 1rem;
+    border-radius: 10px;
+    font-size: .88rem; font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .pp-btn:active { transform: translateY(1px); }
+  .pp-btn-secondary { background: #fff; color: #475467; border-color: #d0d5dd; }
+  .pp-btn-secondary:hover { background: #f5f7fb; color: #101828; }
+  .pp-btn-primary { background: #6938ef; color: #fff; }
+  .pp-btn-primary:hover:not(:disabled) { background: #5524d6; }
+  .pp-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .pp-error {
+    margin: .5rem 1.25rem;
+    padding: .55rem .75rem;
+    border-radius: 10px;
+    background: #fef3f2; border: 1px solid #fecdca;
+    color: #b42318; font-size: .82rem;
+  }
+  /* Dark mode */
+  [data-bs-theme="dark"] .pp-card {
+    background: #1c2334;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04);
+  }
+  [data-bs-theme="dark"] .pp-head { border-color: #2b3346; }
+  [data-bs-theme="dark"] .pp-head-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-head-sub { color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-head-x { background: #232a3d; border-color: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-head-x:hover { background: #2a3349; color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-steps { background: #161c2b; border-color: #2b3346; }
+  [data-bs-theme="dark"] .pp-step-num { background: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-step.is-active { background: rgba(123,78,255,.16); color: #b8a8ff; }
+  [data-bs-theme="dark"] .pp-step.is-active .pp-step-num { background: #7b4eff; }
+  [data-bs-theme="dark"] .pp-search-row { border-color: #2b3346; }
+  [data-bs-theme="dark"] .pp-search-input {
+    background: #232a3d; border-color: #2b3346; color: #e8edf5;
+  }
+  [data-bs-theme="dark"] .pp-search-input:focus {
+    background: #161c2b; border-color: #7b4eff;
+    box-shadow: 0 0 0 4px rgba(123,78,255,.14);
+  }
+  [data-bs-theme="dark"] .pp-state { color: #6b7689; }
+  [data-bs-theme="dark"] .pp-point {
+    background: #232a3d; border-color: #2b3346;
+  }
+  [data-bs-theme="dark"] .pp-point:hover { background: #2a3349; border-color: #3a4566; }
+  [data-bs-theme="dark"] .pp-point.is-active {
+    background: rgba(123,78,255,.12); border-color: #7b4eff;
+    box-shadow: 0 0 0 3px rgba(123,78,255,.14);
+  }
+  [data-bs-theme="dark"] .pp-point-addr { color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-point-meta { color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-slot { background: #232a3d; border-color: #2b3346; }
+  [data-bs-theme="dark"] .pp-slot:hover { background: #2a3349; border-color: #3a4566; }
+  [data-bs-theme="dark"] .pp-slot.is-active {
+    background: rgba(123,78,255,.12); border-color: #7b4eff;
+    box-shadow: 0 0 0 3px rgba(123,78,255,.14);
+  }
+  [data-bs-theme="dark"] .pp-slot-day { color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-slot-time { color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-foot { background: #161c2b; border-color: #2b3346; }
+  [data-bs-theme="dark"] .pp-foot-selected { color: #9aa3b2; }
+  [data-bs-theme="dark"] .pp-foot-selected strong { color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-btn-secondary { background: #232a3d; border-color: #2b3346; color: #e8edf5; }
+  [data-bs-theme="dark"] .pp-btn-secondary:hover { background: #2a3349; color: #fff; }
+  [data-bs-theme="dark"] .pp-error {
+    background: rgba(244, 67, 54, .12); border-color: rgba(244, 67, 54, .35); color: #fca5a5;
+  }
+
+  /* ── Detail-only rejim (?detail=<id>) — KENG MODAL ichidagi iframe ────
+     Orders sahifasi «Поставка» ro'yxatida qator bosilganda, bu sahifa
+     `?embed=1&detail=<id>` bilan KENG MODAL (parent) ichidagi iframe sifatida
+     ochiladi. Bu yerda ro'yxat/filtr yashirin; faqat #invStandaloneDetail
+     ko'rsatiladi. Och-binafsha fon inline drawer bilan bir xil (ichki oq
+     fact/manzil kartalari ajralib tursin). Parent modal fonni o'zgartirmaydi.
+     Standalone /fbs/invoices sahifasida (detail_id yo'q) hech narsa o'zgarmaydi. */
+  .inv-detail-mode .inv-card,
+  .inv-detail-mode .inv-hero { display: none !important; }
+  .inv-standalone {
+    background: linear-gradient(180deg, #f3effd 0%, #f9f7ff 35%, #fafbff 100%);
+    min-height: 120px;
+  }
+  [data-bs-theme="dark"] .inv-standalone {
+    background: linear-gradient(180deg, #251c45 0%, #1f1a36 35%, #1c2334 100%);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inv-page{% if detail_id %} inv-detail-mode{% endif %}">
+  {% if detail_id %}
+  {# Detail-only rejim — orders «Поставка» ro'yxati qator bosganda KENG MODAL
+     ichida iframe sifatida ochiladi. Faqat shu konteyner ko'rinadi; ro'yxat
+     va hero CSS bilan yashiriladi (.inv-detail-mode). #}
+  <div id="invStandaloneDetail" class="inv-standalone"></div>
+  {% endif %}
+  {% if not embed %}
+  <section class="inv-hero">
+    <div class="inv-hero-main">
+      <span class="inv-kicker">FBS / DBS</span>
+      <h1 class="inv-title">Накладные</h1>
+      <p class="inv-subtitle">
+        Sizning FBS «Накладные» ro'yxatingiz. Yaratish, qabul holati,
+        bekor qilish va detallarni shu yerdan ko'rasiz. Ma'lumotlar Uzum Seller OpenAPI orqali
+        to'g'ridan-to'g'ri olinadi.
+      </p>
+    </div>
+
+    <nav class="fbs-section-tabs" aria-label="FBS bo'limi">
+    <a href="/fbs">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Buyurtmalar
+    </a>
+    <a href="/fbs/stock">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+      Ombor
+    </a>
+    </nav>
+  </section>
+  {% endif %}
+
+  {% if not has_token %}
+  <div class="inv-warning">
+    Uzum Seller OpenAPI tokeni o'rnatilmagan. Накладные ro'yxatini ko'rish uchun
+    <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+  </div>
+  {% endif %}
+
+  <section class="inv-card">
+    <div class="inv-filter-row">
+      <div class="inv-select-wrap">
+        <select id="invStatusSelect" class="inv-select" aria-label="Status bo'yicha filtr">
+          <option value="">Hamma statuslar</option>
+          <option value="CREATED" selected>Yaratilgan</option>
+          <option value="ACCEPTANCE_IN_PROGRESS">Qabul jarayonida</option>
+          <option value="ACCEPTED">Qabul qilindi</option>
+          <option value="CANCELLED">Bekor qilindi</option>
+        </select>
+        <svg class="inv-select-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <!-- Bulk-action bar — bottom-centred floating pill, shown when ≥1 row
+         is ticked (Vazifa: ko'p akt). Visibility toggled via `.is-visible`. -->
+    <div class="inv-bulkbar" id="invBulkBar">
+      <span class="inv-bulk-count"><strong id="invBulkN">0</strong> ta tanlandi</span>
+      <div class="inv-bulk-actions">
+        <button type="button" class="inv-bulk-btn" id="invBulkAkt">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span>Akt отправки (PDF)</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="inv-table-wrap">
+      <table class="inv-table" id="invTable">
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" class="inv-check" id="invCheckAll" aria-label="Hammasini belgilash"></th>
+            <th class="col-num">№</th>
+            <th class="col-date">Sana</th>
+            <th>Ombor</th>
+            <th class="col-orders">Buyurtmalar</th>
+            <th class="col-price">Narx</th>
+            <th class="col-addr">Manzil</th>
+            <th class="col-slot">Slot</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="invBody">
+          <tr><td colspan="9" class="inv-state">Yuklanmoqda…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="inv-pager">
+      <span id="invPageInfo">—</span>
+      <div class="inv-pager-buttons">
+        <button type="button" class="inv-btn" id="invPrev" disabled>◀ Oldingi</button>
+        <button type="button" class="inv-btn" id="invNext" disabled>Keyingi ▶</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Qabul-punkti tahrirlash modali — ro'yxat sahifasidagi boy «Qabul
+     punktlari» modali (fbsDropoffModal) bilan BIR XIL dizayn. Per-row
+     «Изменить» tugmasidan ochiladi; oxirida slot bosilganda накладна
+     punkti /change-pickup orqali o'zgartiriladi. -->
+<div id="fbsDropoffModal" class="fbs-dropoff-modal" role="dialog"
+     aria-hidden="true" aria-labelledby="fbsDropoffTitle">
+  <div class="fbs-dropoff-backdrop" data-dropoff-close="1"></div>
+  <div class="fbs-dropoff-card">
+    <div class="fbs-dropoff-head">
+      <div>
+        <h3 id="fbsDropoffTitle">📍 Qabul punktini o'zgartirish</h3>
+        <p id="fbsDropoffSubtitle" style="margin:.2rem 0 0; font-size:.85rem; opacity:.7;">Накладная <strong></strong></p>
+      </div>
+      <button type="button" class="fbs-dropoff-x" data-dropoff-close="1"
+              aria-label="Yopish">×</button>
+    </div>
+    <div class="fbs-dropoff-tools">
+      <div class="fbs-dropoff-source" role="tablist" aria-label="Source">
+        <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
+                data-source="db" role="tab">
+          {{ list_labels.dropoff_src_db }}
+        </button>
+        <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
+                data-source="uzum" role="tab">
+          {{ list_labels.dropoff_src_uzum }}
+        </button>
+      </div>
+      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
+        <span aria-hidden="true">🧭</span>
+        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+      </button>
+      <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
+    </div>
+    <div class="fbs-dropoff-match-row">
+      <label class="fbs-dropoff-match">
+        <input type="checkbox" id="fbsDropoffMatchOnly" checked>
+        <span class="fbs-dropoff-match-track"><span class="fbs-dropoff-match-thumb"></span></span>
+        <span class="fbs-dropoff-match-label">{{ list_labels.dropoff_match_only }}</span>
+      </label>
+      <span class="fbs-dropoff-match-help" tabindex="0"
+            title="{{ list_labels.dropoff_match_hint }}"
+            aria-label="{{ list_labels.dropoff_match_hint }}">?</span>
+    </div>
+    <div class="fbs-dropoff-search-row">
+      <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
+      <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
+             placeholder="{{ list_labels.dropoff_search_ph }}"
+             autocomplete="off" spellcheck="false">
+      <button type="button" id="fbsDropoffSearchClear"
+              class="fbs-dropoff-search-clear" hidden aria-label="Yopish">×</button>
+      <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
+    </div>
+    <div id="fbsDropoffBody" class="fbs-dropoff-body">
+      <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast konteyneri — ko'chirilgan modal funksiyalari showListToast() ni
+     ishlatadi (nusxalandi/xato/muvaffaqiyat xabarlari uchun). -->
+<div id="fbsListToastHost" class="fbs-list-toast-host" aria-live="polite"></div>
+
+{# Maxsus tasdiqlash modali — slot bosilganda «o'zgartirasizmi?» dialogi. #}
+{% include "_fbs_confirm_modal.html" %}
+
+<style>
+  /* ── Boy «Qabul punktlari» modali (fbs_orders.html dan ko'chirilgan) ── */
+  .fbs-dropoff-modal { position: fixed; inset: 0; display: none;
+    z-index: 1050; align-items: center; justify-content: center; }
+  .fbs-dropoff-modal.is-open { display: flex; }
+  .fbs-dropoff-backdrop { position: absolute; inset: 0;
+    background: rgba(0,0,0,.55); }
+  .fbs-dropoff-card { position: relative; background: var(--bs-body-bg, #fff);
+    color: var(--bs-body-color, #111); border-radius: 12px;
+    width: min(720px, 92vw); max-height: 86vh; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+  .fbs-dropoff-head { display: flex; justify-content: space-between;
+    align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(128,128,128,.2); }
+  .fbs-dropoff-head h3 { margin: 0; font-size: 1.05rem; }
+  .fbs-dropoff-x { background: transparent; border: 0; font-size: 1.6rem;
+    cursor: pointer; color: inherit; line-height: 1; padding: 0 6px; }
+  .fbs-dropoff-body { padding: 14px 18px; overflow-y: auto; }
+  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
+    padding: 28px 8px; opacity: .7; }
+  .fbs-dropoff-item { padding: 12px 14px; border: 1px solid rgba(128,128,128,.2);
+    border-radius: 10px; margin-bottom: 10px; display: flex;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  .fbs-dropoff-item .addr { font-weight: 600; font-size: 1rem; flex: 1 1 280px; }
+  .fbs-dropoff-item .shops { font-size: .85rem; opacity: .75; margin-top: 4px; }
+  .fbs-dropoff-item .counts { display: flex; gap: 10px; align-items: center;
+    flex: 0 0 auto; }
+  .fbs-dropoff-item .badge-active { background: #f59e0b; color: #1a1300;
+    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+  .fbs-dropoff-item .badge-total { background: rgba(128,128,128,.18);
+    padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
+  .fbs-dropoff-item .btn-copy { background: transparent; border: 1px solid rgba(128,128,128,.4);
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; color: inherit;
+    font-size: .85rem; }
+  .fbs-dropoff-item .btn-copy:hover { background: rgba(128,128,128,.12); }
+  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
+  .fbs-dropoff-tools { padding: 10px 18px; display: flex; gap: 10px;
+    align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid rgba(128,128,128,.15); }
+  .fbs-dropoff-source { display: inline-flex; border: 1px solid rgba(128,128,128,.3);
+    border-radius: 8px; overflow: hidden; }
+  .fbs-dropoff-src-btn { background: transparent; border: 0; padding: 6px 14px;
+    cursor: pointer; color: inherit; font-size: .85rem; font-weight: 600;
+    border-right: 1px solid rgba(128,128,128,.3); }
+  .fbs-dropoff-src-btn:last-child { border-right: 0; }
+  .fbs-dropoff-src-btn.is-active { background: #3456b9; color: #fff; }
+  .fbs-dropoff-src-btn:hover:not(.is-active) { background: rgba(128,128,128,.12); }
+  /* «Faqat mos keladigan» toggle */
+  .fbs-dropoff-match-row { padding: 9px 18px; display: flex; align-items: center;
+    gap: 8px; border-bottom: 1px solid rgba(128,128,128,.15); }
+  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 9px;
+    cursor: pointer; font-size: .88rem; font-weight: 600; user-select: none; }
+  .fbs-dropoff-match input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .fbs-dropoff-match-track { width: 38px; height: 22px; border-radius: 999px;
+    background: rgba(128,128,128,.4); position: relative; transition: background .15s;
+    flex: 0 0 auto; }
+  .fbs-dropoff-match-thumb { position: absolute; top: 2px; left: 2px; width: 18px;
+    height: 18px; border-radius: 50%; background: #fff; transition: transform .15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track { background: #3456b9; }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track .fbs-dropoff-match-thumb { transform: translateX(16px); }
+  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(52,86,185,.55); outline-offset: 2px; }
+  .fbs-dropoff-match-help { width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(128,128,128,.25); color: inherit; font-size: .75rem;
+    font-weight: 700; display: inline-flex; align-items: center;
+    justify-content: center; cursor: help; }
+  .fbs-dropoff-search-row { padding: 8px 18px; display: flex; gap: 8px;
+    align-items: center; border-bottom: 1px solid rgba(128,128,128,.15);
+    position: relative; }
+  .fbs-dropoff-search-icon { opacity: .6; font-size: 1rem; }
+  .fbs-dropoff-search { flex: 1; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(128,128,128,.3); background: transparent;
+    color: inherit; font-size: .9rem; outline: none; }
+  .fbs-dropoff-search:focus { border-color: #3456b9;
+    box-shadow: 0 0 0 3px rgba(52,86,185,.15); }
+  .fbs-dropoff-search-clear { background: rgba(128,128,128,.18);
+    border: 0; width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    color: inherit; font-size: 1rem; line-height: 1; padding: 0; }
+  .fbs-dropoff-search-clear:hover { background: rgba(128,128,128,.3); }
+  .fbs-dropoff-search-count { font-size: .8rem; opacity: .7;
+    background: rgba(128,128,128,.15); padding: 3px 8px; border-radius: 999px; }
+  .fbs-dropoff-item mark { background: #fde68a; color: inherit;
+    padding: 0 2px; border-radius: 3px; }
+  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
+  .fbs-dropoff-geo-btn { background: transparent; border: 1px solid #3456b9;
+    color: #3456b9; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    font-size: .9rem; display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 600; }
+  .fbs-dropoff-geo-btn:hover { background: rgba(52,86,185,.1); }
+  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-geo-status { font-size: .85rem; opacity: .75; }
+  .fbs-dropoff-item.is-favorite { border-color: #f59e0b;
+    background: rgba(245,158,11,.06); }
+  .fbs-dropoff-item .btn-fav { background: transparent; border: 0;
+    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px;
+    color: rgba(128,128,128,.45); margin-right: 2px; }
+  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
+  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; }
+  .fbs-dropoff-item .badge-dist { background: rgba(52,86,185,.12);
+    color: #3456b9; padding: 4px 10px; border-radius: 999px;
+    font-weight: 700; font-size: .85rem; }
+  .fbs-dropoff-item .badge-nearest { background: #10b981; color: #fff;
+    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .8rem; }
+  .fbs-dropoff-item .btn-slots { background: transparent; border: 1px solid #3456b9;
+    color: #3456b9; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    font-size: .85rem; font-weight: 600; }
+  .fbs-dropoff-item .btn-slots:hover { background: rgba(52,86,185,.1); }
+  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-slots { width: 100%; margin-top: 10px;
+    border-top: 1px dashed rgba(128,128,128,.3); padding-top: 10px;
+    display: flex; flex-wrap: wrap; gap: 8px; }
+  .fbs-dropoff-slots .slot-empty, .fbs-dropoff-slots .slot-loading,
+  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .85rem;
+    opacity: .75; text-align: center; padding: 8px; }
+  .fbs-dropoff-slots .slot-error { color: #dc2626; }
+  .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12);
+    color: #047857; padding: 5px 11px; border-radius: 8px;
+    font-size: .85rem; font-weight: 600; border: 1px solid rgba(16,185,129,.3); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { color: #34d399; }
+  .fbs-dropoff-slots .slot-pill.is-clickable { cursor: pointer;
+    transition: transform .08s ease, background .15s ease; }
+  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22);
+    transform: translateY(-1px); }
+  .fbs-dropoff-slots .slot-pill.is-clickable:active { transform: translateY(0); }
+  .fbs-dropoff-slots .slot-pill.is-clickable:disabled { opacity: .55; cursor: progress; }
+  /* Toast */
+  .fbs-list-toast-host { position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%); z-index: 2100; display: flex;
+    flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .fbs-list-toast { pointer-events: auto; background: #1e293b; color: #f8fafc;
+    padding: 10px 16px; border-radius: 10px; font-size: .9rem; font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3); display: flex; gap: 10px;
+    align-items: center; max-width: 90vw; }
+  .fbs-list-toast.is-error { background: #b91c1c; }
+  .fbs-list-toast.is-success { background: #047857; }
+  .fbs-list-toast.is-warn { background: #b45309; }
+  .fbs-list-toast .close-btn { background: transparent; border: 0; color: inherit;
+    font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0; opacity: .8; }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Embed rejimida (orders sahifasidagi «Поставка» iframe) — kontent
+  // balandligini parent'ga yuboramiz, u iframe'ni shu balandlikka moslaydi
+  // (viewport bilan cheklab → modallar markazda ko'rinadi, ichki skroll).
+  const INV_EMBED = {{ 'true' if embed else 'false' }};
+  // ?detail=<id> bo'lsa — bu sahifa KENG MODAL ichidagi detail-only iframe.
+  const INV_DETAIL_ID = {{ (detail_id or '')|tojson }};
+  if (INV_EMBED && window.parent && window.parent !== window) {
+    // Detail-only rejimda balandlikni boshqa xabar turi bilan yuboramiz
+    // (fbs-invoice-detail-height) — parent uni modal iframe'iga, oddiy
+    // ro'yxat balandligini (fbs-invoices-height) esa «Поставка» iframe'iga
+    // bog'laydi; ikkalasi aralashmaydi.
+    const postH = () => window.parent.postMessage(
+      INV_DETAIL_ID
+        ? { type: "fbs-invoice-detail-height", height: document.documentElement.scrollHeight }
+        : { type: "fbs-invoices-height", height: document.documentElement.scrollHeight }, "*");
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => requestAnimationFrame(postH)).observe(document.body);
+    } else {
+      window.addEventListener("load", postH);
+    }
+    // Parent «Поставка» ro'yxatiga: detal modalda punkt/slot o'zgargach
+    // parent `fbs-reload` yuboradi → ro'yxatni jimgina yangilaymiz.
+    if (!INV_DETAIL_ID) {
+      window.addEventListener("message", (e) => {
+        if (e.data && e.data.type === "fbs-reload") reloadInvoices();
+      });
+    }
+  }
+
+  // ── Account-wide invoice page (Bosqich 4) ─────────────────────────
+  // TRUE server-side pagination. Uzum caps every page at 20 rows and has
+  // no count endpoint, so we never sweep the whole history — we fetch ONE
+  // page at a time via the `page` param (proven to work; `size` is 400):
+  //   • open / status change → fetch page 0 of that status = 1 call;
+  //   • "Keyingi" / "Oldingi"  → fetch that page          = 1 call;
+  //   • visited pages cached    → going back              = 0 calls.
+  // Cost is O(1) per action no matter how many invoices exist (20 or
+  // 20 000). Trade-off: no exact "Jami: N" — we show "Sahifa N" instead,
+  // and disable "Keyingi" once a short (<20) page comes back.
+  const PAGE_SIZE = 20;
+  // Default view = CREATED. Must match the `selected` <option> in markup.
+  let _invFilter = "CREATED";
+  let _invPage = 0;
+  // Per-(filter, page) cache so flipping back to a seen page costs nothing.
+  // Key = `${filter}:${page}` → invoice array for that page.
+  const _invPageCache = new Map();
+  // Monotonic request id — guards against a slow earlier fetch painting
+  // over a newer selection (user clicks B while A is still in flight).
+  let _invReqSeq = 0;
+  // Bulk-akt selection — invoice ids (as strings) ticked across pages.
+  // Persists while navigating so the seller can gather invoices from
+  // several pages before merging their akts into one PDF.
+  const _invSelected = new Set();
+  const BULK_AKT_MAX = 30;   // mirror of server cap
+
+  const tbody = document.getElementById("invBody");
+  const pageInfo = document.getElementById("invPageInfo");
+  const btnPrev = document.getElementById("invPrev");
+  const btnNext = document.getElementById("invNext");
+  const statusSelect = document.getElementById("invStatusSelect");
+  const checkAll  = document.getElementById("invCheckAll");
+  const bulkBar   = document.getElementById("invBulkBar");
+  const bulkN     = document.getElementById("invBulkN");
+  const bulkAkt   = document.getElementById("invBulkAkt");
+
+  function escapeHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function fmtPriceUzs(n){
+    if (n == null || isNaN(n)) return "—";
+    return new Intl.NumberFormat("ru-RU").format(Number(n)) + " UZS";
+  }
+
+  function fmtDateMs(ms){
+    if (!ms) return "—";
+    try {
+      const d = new Date(Number(ms));
+      // 25.05.2026, 14:30
+      return d.toLocaleString("ru-RU", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return "—"; }
+  }
+
+  function fmtSlot(slot){
+    if (!slot) return "—";
+    const from = slot.timeFrom, to = slot.timeTo;
+    if (!from || !to) return "—";
+    try {
+      const a = new Date(Number(from));
+      const b = new Date(Number(to));
+      const day = a.toLocaleDateString("ru-RU", {day: "2-digit", month: "2-digit"});
+      const ah = a.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit"});
+      const bh = b.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit"});
+      return `${day} ${ah}–${bh}`;
+    } catch { return "—"; }
+  }
+
+  // Deadline badge — sits under the SANA cell on active invoices.
+  // ``timeToMs`` is the timeSlot.timeTo epoch (ms); we render a pill
+  // whose colour escalates as the deadline approaches. The data-deadline
+  // attr lets a 60s tick re-render the text in place without reloading
+  // the list (so expanded detail rows stay open).
+  const _IC_DEADLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  function fmtDeadlineBadge(timeToMs){
+    if (!timeToMs) return "";
+    const t = Number(timeToMs);
+    if (!isFinite(t)) return "";
+    const diffMs = t - Date.now();
+    let label, klass;
+    if (diffMs <= 0) {
+      label = "Muddat o'tdi";
+      klass = "inv-deadline--past";
+    } else {
+      const hours = Math.floor(diffMs / 3600000);
+      if (hours >= 1) {
+        label = `${hours} soat qoldi`;
+      } else {
+        const mins = Math.max(1, Math.floor(diffMs / 60000));
+        label = `${mins} daq qoldi`;
+      }
+      if (hours >= 24)      klass = "inv-deadline--ok";
+      else if (hours >= 6)  klass = "inv-deadline--warn";
+      else                  klass = "inv-deadline--hot";
+    }
+    return `<div class="inv-deadline ${klass}" data-deadline="${t}" title="Qabul punktiga topshirish muddati">${_IC_DEADLINE}<span>${escapeHtml(label)}</span></div>`;
+  }
+
+  function statusBadge(status){
+    if (!status) return "—";
+    const value = status.value || status;
+    const text = status.text || value;
+    return `<span class="inv-status-badge inv-status-${escapeHtml(value)}">${escapeHtml(text)}</span>`;
+  }
+
+  function renderRow(inv){
+    const number  = inv.number || inv.id || "—";
+    const date    = fmtDateMs(inv.dateCreated);
+    const stockTitle = (inv.stock && inv.stock.title) || "—";
+    const ordersText = `${inv.numberAcceptedOrders ?? 0} / ${inv.numberOrders ?? 0}`;
+    const price   = fmtPriceUzs(inv.fullPrice);
+    const addr    = (inv.dropOffPoint && inv.dropOffPoint.address) || "—";
+    const slot    = fmtSlot(inv.timeSlot);
+    const badge   = statusBadge(inv.status);
+    // Deadline pill — only meaningful while the invoice is still active
+    // (CREATED / ACCEPTANCE_IN_PROGRESS). Once ACCEPTED/CANCELLED, the
+    // countdown carries no signal so we skip it.
+    const statusValue = inv.status && (inv.status.value || inv.status);
+    const slotTo = inv.timeSlot && inv.timeSlot.timeTo;
+    const deadline = (slotTo && (statusValue === "CREATED" || statusValue === "ACCEPTANCE_IN_PROGRESS"))
+      ? fmtDeadlineBadge(slotTo) : "";
+    // The "Изменить" pickup button moved into the expanded detail panel
+    // (next to the address card) — see renderDetailBody. Keeping the
+    // row markup clean here.
+    // Whole-row click expands the detail panel — no "Detali" button
+    // needed. We stash the invoice id on the <tr> so click delegation
+    // can route from any cell in the row.
+    // Bulk akt selection is limited to CREATED ("Yaratilgan") invoices —
+    // those are the ones you print at hand-off, and the only ones the worker
+    // keeps cached (so bulk print is always instant + 429-free). Other
+    // statuses get a disabled checkbox: their akt is still printable, but one
+    // at a time from the detail panel (live fetch), not in bulk.
+    const canSelect = statusValue === "CREATED";
+    const checkbox = canSelect
+      ? `<input type="checkbox" class="inv-check inv-rowcheck" data-id="${escapeHtml(inv.id)}"${_invSelected.has(String(inv.id)) ? " checked" : ""} aria-label="Belgilash">`
+      : `<input type="checkbox" class="inv-check inv-rowcheck" disabled aria-label="Belgilab bo'lmaydi" title="Faqat «Yaratilgan» накладнойlarni belgilab, ko'p akt chop etish mumkin">`;
+    return `<tr data-detail-id="${escapeHtml(inv.id)}">
+      <td class="col-check">${checkbox}</td>
+      <td class="col-num">№${escapeHtml(number)}</td>
+      <td class="col-date">${escapeHtml(date)}${deadline}</td>
+      <td>${escapeHtml(stockTitle)}</td>
+      <td class="col-orders">${escapeHtml(ordersText)}</td>
+      <td class="col-price">${escapeHtml(price)}</td>
+      <td class="col-addr" title="${escapeHtml(addr)}">${escapeHtml(addr)}</td>
+      <td class="col-slot">${escapeHtml(slot)}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }
+
+  // Load ONE server page (`page`, 0-based) of one filter value, painting it
+  // into the table. value === "" → all statuses; otherwise that one status.
+  //   • cache hit (`${filter}:${page}` seen) → paint instantly, 0 network;
+  //   • else fetch exactly that page (1 paced Uzum call) and cache it.
+  // "Keyingi" is enabled only when a FULL page (20 rows) came back — a
+  // shorter page means we've reached the end. `_invReqSeq` discards a stale
+  // response if the user navigated again before it landed.
+  async function loadPage(value, page, _attempt){
+    _attempt = _attempt || 0;
+    _invFilter = value;
+    _invPage = Math.max(0, page);
+    const key = `${value}:${_invPage}`;
+
+    // Cache hit → no network.
+    if (_invPageCache.has(key)) {
+      renderPage(_invPageCache.get(key));
+      return;
+    }
+
+    const myReq = ++_invReqSeq;
+    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_attempt ? "Uzum band — qayta urinilmoqda…" : "Yuklanmoqda…"}</td></tr>`;
+    btnPrev.disabled = true;
+    btnNext.disabled = true;
+
+    // Empty value = "Hamma statuslar" → no `statuses` param (backend returns
+    // all statuses, one page). Otherwise fetch just the one status.
+    const qs = new URLSearchParams();
+    if (value) qs.set("statuses", value);
+    qs.set("page", String(_invPage));
+    const _ctrl = new AbortController();
+    const _to = setTimeout(() => _ctrl.abort(), 25000);
+    try {
+      const r = await fetch(`/fbs/api/invoices?${qs.toString()}`, {credentials: "same-origin", signal: _ctrl.signal});
+      const data = await r.json().catch(() => ({}));
+      // A newer navigation started after us — discard this stale response.
+      if (myReq !== _invReqSeq) return;
+      if (!r.ok || !data.ok) {
+        // 429 / "Uzum band" — vaqtinchalik per-token rate-limit (ayniqsa
+        // punkt o'zgartirgandan keyin, burst paytida). Qattiq xato o'rniga
+        // bir necha soniya kutib, jim qayta urinamiz (gate ~3-4s da tiklanadi).
+        const busy = r.status === 429
+          || /band|429|busy|too many|hozir|rate.?limit/i.test(String(data.error || ""));
+        if (busy && _attempt < 2) {
+          clearTimeout(_to);
+          setTimeout(() => { if (myReq === _invReqSeq) loadPage(value, page, _attempt + 1); }, 2800);
+          return;
+        }
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Xato:</strong> ${escapeHtml(data.error || r.status)}</td></tr>`;
+        pageInfo.textContent = "—";
+        return;
+      }
+      // Uzum returns this single page already newest-first; keep its order.
+      const list = (data.invoices || []);
+      _invPageCache.set(key, list);
+      renderPage(list);
+    } catch (e) {
+      if (myReq !== _invReqSeq) return;
+      if (e && e.name === "AbortError") {
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Uzum javob bermadi.</strong> Birozdan keyin qayta urinib ko'ring.</td></tr>`;
+      } else {
+        console.error("[invoices/list] fetch failed:", e);
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message || "")}</td></tr>`;
+      }
+    } finally {
+      clearTimeout(_to);
+    }
+  }
+
+  // Paint one page's rows + sync the pager. A full (20-row) page implies a
+  // possible next page → "Keyingi" stays enabled; a short page is the end.
+  function renderPage(list){
+    _invExpandedId = null;
+    if (!list.length) {
+      // Empty page 0 = nothing in this status; empty page N = walked past end.
+      tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_invPage === 0 ? "Bu statusda накладные yo'q" : "Boshqa накладные yo'q"}</td></tr>`;
+      pageInfo.textContent = `Sahifa ${_invPage + 1}`;
+      btnPrev.disabled = (_invPage === 0);
+      btnNext.disabled = true;
+      syncCheckAll();   // no rows → clear "hammasini" state
+      return;
+    }
+    tbody.innerHTML = list.map(renderRow).join("");
+    pageInfo.textContent = `Sahifa ${_invPage + 1}`;
+    btnPrev.disabled = (_invPage === 0);
+    btnNext.disabled = (list.length < PAGE_SIZE);
+    syncCheckAll();   // reflect persisted ticks on the freshly drawn rows
+  }
+
+  // ── Bulk-akt selection ──────────────────────────────────────────────
+  // Show/hide the bulk bar + update the "N ta tanlandi" count from the Set.
+  function updateBulkBar(){
+    const n = _invSelected.size;
+    bulkBar.classList.toggle("is-visible", n > 0);
+    bulkN.textContent = String(n);
+  }
+  // "Hammasini belgilash" reflects whether every SELECTABLE (CREATED) row on
+  // this page is ticked. Non-CREATED rows have disabled checkboxes and are
+  // ignored; if a page has no selectable rows, the header box disables too.
+  function syncCheckAll(){
+    const boxes = Array.from(tbody.querySelectorAll(".inv-rowcheck:not(:disabled)"));
+    if (!boxes.length) {
+      checkAll.checked = false;
+      checkAll.indeterminate = false;
+      checkAll.disabled = true;
+      updateBulkBar();
+      return;
+    }
+    checkAll.disabled = false;
+    const allOn = boxes.every(b => _invSelected.has(b.dataset.id));
+    checkAll.checked = allOn;
+    checkAll.indeterminate = !allOn && boxes.some(b => _invSelected.has(b.dataset.id));
+    updateBulkBar();
+  }
+
+  // After a mutation (pickup change) the invoice may move status, so every
+  // cached page is suspect. Drop all caches and reload the current page.
+  function reloadInvoices(){
+    _invPageCache.clear();
+    _invDetailCache.clear();
+    // Detail-only rejim: ro'yxat yo'q — shu накладна detalini qayta yuklaymiz,
+    // hamda parent'ga xabar beramiz → orqada turgan «Поставка» ro'yxati ham
+    // yangilanadi (punkt/slot o'zgargani aks etsin).
+    if (INV_DETAIL_ID) {
+      if (window.parent && window.parent !== window) {
+        try { window.parent.postMessage({ type: "fbs-invoice-changed", id: String(INV_DETAIL_ID) }, "*"); }
+        catch (_) { /* ahamiyatsiz */ }
+      }
+      setTimeout(() => initStandaloneDetail(), 1200);
+      return;
+    }
+    // Mutatsiyadan (punkt o'zgartirish) keyin Uzum per-token gate'i hali band
+    // bo'lishi mumkin — darhol urmay, bir oz kutib yuklaymiz. Bu burst 429ни
+    // kamaytiradi; loadPage qolganini jim qayta urinish bilan ushlaydi.
+    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">Yangilanmoqda…</td></tr>`;
+    setTimeout(() => loadPage(_invFilter, _invPage), 1200);
+  }
+
+  // ── Row expand (Detali tugmasi) ─────────────────────────────────
+  // State: which invoice id is currently expanded. Only one open at a
+  // time — opening a new one collapses the previous. Cache the detail
+  // payload so re-opening the same invoice doesn't re-hit Uzum.
+  let _invExpandedId = null;
+  const _invDetailCache = new Map(); // id -> { invoice, orders }
+
+  function escapeStatus(value){
+    if (!value) return "";
+    return String(value).replace(/[^A-Z_]/g, "");
+  }
+
+  // Inline icon set for the detail card — tiny SVGs keep the bundle
+  // small and let CSS color them via ``stroke="currentColor"``.
+  const _IC_CLOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  const _IC_CAL   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  const _IC_MONEY = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+  const _IC_BOX   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+  const _IC_PIN   = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  const _IC_PRINT = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+
+  // Per-order status pill — translates the Uzum enum into a short
+  // Uzbek-readable label + colors it by family.
+  const _ORDER_STATUS = {
+    PACKING:           {t: "Yig'ilmoqda",   c: "amber"},
+    PENDING_DELIVERY:  {t: "Jo'natishga tayyor", c: "green"},
+    DELIVERING:        {t: "Yo'lda",         c: "blue"},
+    DELIVERED:         {t: "Yetkazildi",     c: "blue"},
+    READY_FOR_PICKUP:  {t: "PVZ'da",         c: "blue"},
+    COMPLETED:         {t: "Yakunlandi",     c: "grey"},
+    CANCELLED:         {t: "Bekor qilindi",  c: "red"},
+    RETURNED:          {t: "Qaytarildi",     c: "red"},
+    CANCELLING:        {t: "Bekor qilinmoqda", c: "amber"},
+  };
+  function statusMini(value){
+    const info = _ORDER_STATUS[value] || {t: value || "—", c: "grey"};
+    return `<span class="inv-mini-pill inv-mini-pill--${info.c}">${escapeHtml(info.t)}</span>`;
+  }
+  // Short slot renderer for the fact strip — empty if the invoice has no
+  // slot yet (rare, but a fresh CREATED invoice may not).
+  function fmtSlotShort(slot){
+    if (!slot || !slot.timeFrom || !slot.timeTo) return "";
+    try {
+      const a = new Date(Number(slot.timeFrom));
+      const b = new Date(Number(slot.timeTo));
+      const day = a.toLocaleDateString("ru-RU", {day:"2-digit", month:"2-digit"});
+      const ah  = a.toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"});
+      const bh  = b.toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"});
+      return `${day} ${ah}–${bh}`;
+    } catch { return ""; }
+  }
+  function fmtNumberLite(n){
+    if (n == null || n === "") return "";
+    const num = Number(n);
+    if (!isFinite(num)) return String(n);
+    return num.toLocaleString("ru-RU").replace(/,/g, " ");
+  }
+
+  // Bitta mahsulot satri — jadvaldagi «Mahsulot» katagiga joylashadi
+  // (rasm + nom + SKU·ШК). Ko'p mahsulotli buyurtmada bir nechta bo'ladi.
+  function renderItemRow(it){
+    const img = it.image
+      ? `<img src="${escapeHtml(it.image)}" alt="" loading="lazy" decoding="async">`
+      : '<div class="inv-oprod-noimg">📦</div>';
+    return `<div class="inv-oprod">
+      <div class="inv-oprod-thumb">${img}</div>
+      <div class="inv-oprod-info">
+        <div class="inv-oprod-title">${escapeHtml(it.title || "—")}</div>
+        <div class="inv-oprod-meta">${it.sku ? escapeHtml(it.sku) : ""}${it.barcode ? ` · ШК ${escapeHtml(String(it.barcode))}` : ""}</div>
+      </div>
+    </div>`;
+  }
+
+  // Bitta buyurtma — jadval qatori (orders jadvali uslubida):
+  // № · Mahsulot · Status · Dona · Summa. Funksiyalar o'zgarmadi, faqat
+  // ko'rinish karta'dan jadval-qatorga o'tdi.
+  function renderOrderCard(o){
+    const items = Array.isArray(o.items) ? o.items : [];
+    const oid = escapeHtml(o.order_id);
+    const totalQty = items.reduce((s, it) => s + (Number(it.amount) || 0), 0) || items.length;
+    const prods = items.length
+      ? items.map(renderItemRow).join("")
+      : '<span class="inv-oprod-empty">Mahsulot ma\'lumotlari topilmadi</span>';
+    return `<tr class="inv-orow">
+      <td class="inv-orow-num">№${oid}</td>
+      <td class="inv-orow-prod">${prods}</td>
+      <td class="inv-orow-status">${statusMini(o.status)}</td>
+      <td class="inv-orow-qty ta-c">${escapeHtml(String(totalQty))} dona</td>
+      <td class="inv-orow-sum ta-r">${escapeHtml(fmtPriceUzs(o.price))}</td>
+    </tr>`;
+  }
+
+  function renderDetailBody(inv, orders){
+    const aktUrl = `/fbs/api/invoices/${encodeURIComponent(inv.id)}/akt.pdf`;
+    // Cancelled invoices have no akt (Uzum returns HTTP 400 "Validation
+    // failed"), so don't offer the print button for them.
+    const hasAkt = (inv.status && (inv.status.value || inv.status)) !== "CANCELLED";
+    const stock = inv.stock || {};
+    const dop = inv.dropOffPoint || {};
+    const ettn = inv.ettn || null;
+    const slotText = fmtSlotShort(inv.timeSlot);
+    const createdAt = fmtDateMs(inv.dateCreated);
+    const acceptStarted = inv.acceptanceStartedDate ? fmtDateMs(inv.acceptanceStartedDate) : "";
+    const acceptDone = inv.acceptedDate ? fmtDateMs(inv.acceptedDate) : "";
+
+    // Compact fact strip — skip anything we don't actually have so the
+    // user sees only information that's useful, not a wall of em-dashes.
+    function fact(icon, label, value, klass){
+      if (!value) return "";
+      return `<div class="inv-fact ${klass||""}">
+        <span class="inv-fact-icon">${icon}</span>
+        <span class="inv-fact-body">
+          <span class="inv-fact-label">${label}</span>
+          <span class="inv-fact-value">${escapeHtml(value)}</span>
+        </span>
+      </div>`;
+    }
+
+    const facts = [
+      fact(_IC_CLOCK, "Vaqt slot",   slotText),
+      fact(_IC_CAL,   "Yaratilgan",  createdAt),
+      fact(_IC_MONEY, "To'liq summa", fmtPriceUzs(inv.fullPrice), "is-primary"),
+      fact(_IC_BOX,   "Ombor",       stock.title),
+      acceptStarted ? fact(_IC_CLOCK, "Qabul boshlandi", acceptStarted) : "",
+      acceptDone    ? fact(_IC_CLOCK, "Qabul tugadi",   acceptDone)    : "",
+    ].filter(Boolean).join("");
+
+    // ETTN — show only when populated, as an inline pill (no full section).
+    const ettnPill = ettn && ettn.ettnId
+      ? `<span class="inv-mini-pill inv-mini-pill--blue">ETTN ${escapeHtml(ettn.status || "")}</span>`
+      : "";
+
+    const ordersHtml = orders && orders.length
+      ? `<div class="inv-otable-wrap"><table class="inv-otable">
+          <thead><tr>
+            <th>№</th><th>Mahsulot</th><th>Status</th>
+            <th class="ta-c">Dona</th><th class="ta-r">Summa</th>
+          </tr></thead>
+          <tbody>${orders.map(renderOrderCard).join("")}</tbody>
+        </table></div>`
+      : '<div class="inv-empty">Bu накладная uchun buyurtmalar topilmadi (eski yoki sinxron qilinmagan bo\'lishi mumkin)</div>';
+
+    return `<div class="inv-detail-v2">
+      <div class="inv-detail-header">
+        <div class="inv-detail-header-left">
+          <h3 class="inv-detail-h-title">Накладная №${escapeHtml(inv.number || inv.id)}</h3>
+          <div class="inv-detail-h-meta">${ettnPill}</div>
+        </div>
+        ${hasAkt ? `<a href="${aktUrl}" target="_blank" rel="noopener" class="inv-akt-btn-v2">
+          ${_IC_PRINT}<span>Akt отправки</span>
+        </a>` : ""}
+      </div>
+
+      <div class="inv-fact-grid">
+        ${facts}
+      </div>
+
+      ${dop.address ? `<div class="inv-address-card">
+        <div class="inv-address-icon">${_IC_PIN}</div>
+        <div class="inv-address-body">
+          <div class="inv-address-label">Qabul punkti</div>
+          <div class="inv-address-value">${escapeHtml(dop.address)}</div>
+        </div>
+        ${(inv.status && (inv.status.value || inv.status)) === "CREATED"
+          ? `<button type="button" class="inv-pickup-edit-btn-v2" data-edit-pickup="${escapeHtml(inv.id)}" title="Qabul punkti va vaqt slotini o'zgartirish">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+               <span>Изменить</span>
+             </button>`
+          : ""}
+      </div>` : ""}
+
+      <div class="inv-orders-block">
+        <div class="inv-orders-block-title">Buyurtmalar <span class="inv-orders-count">${orders ? orders.length : 0}</span></div>
+        ${ordersHtml}
+      </div>
+    </div>`;
+  }
+
+  function collapseDetail(){
+    if (!_invExpandedId) return;
+    const detailRow = document.querySelector(`.inv-detail-row[data-detail-for="${_invExpandedId}"]`);
+    if (detailRow) detailRow.remove();
+    // The trigger row carries the id directly now (no Detali button).
+    const triggerRow = document.querySelector(`tr[data-detail-id="${_invExpandedId}"]`);
+    if (triggerRow) triggerRow.classList.remove("is-expanded");
+    _invExpandedId = null;
+  }
+
+  async function expandDetail(invoiceId, triggerRow){
+    // Embed («Поставка») rejimida iframe balandligi cheklangan — inline
+    // ochilsa Buyurtmalar ko'rinmas qismda qoladi. Shu sabab parent'ga xabar
+    // yuboramiz → u detalni KENG MODAL (parent darajasida) ochadi. Orqa fon
+    // o'zgarmaydi; modal bizning buyurtma-detal modali bilan bir xil naqsh.
+    if (INV_EMBED && window.parent && window.parent !== window) {
+      // Ro'yxat qatorida то'liq header bor (slot/manzil/ombor/narx/ettn) —
+      // uni ham yuboramiz. Modal detal sahifasi shu header bilan DARHOL
+      // ko'rinadi va faqat orders_only=1 (1 so'rov) qiladi → tez ochiladi,
+      // skeleton qotmaydi (aks holda to'liq fetch 2 so'rov + band gate'da qotardi).
+      const pageList = _invPageCache.get(`${_invFilter}:${_invPage}`) || [];
+      const headerInv = pageList.find(x => String(x.id) === String(invoiceId)) || null;
+      try { window.parent.postMessage({ type: "fbs-invoice-open", id: String(invoiceId), header: headerInv }, "*"); }
+      catch (_) { /* ahamiyatsiz */ }
+      return;
+    }
+    // Collapse previously open row first
+    if (_invExpandedId && String(_invExpandedId) !== String(invoiceId)) {
+      collapseDetail();
+    }
+    if (_invExpandedId && String(_invExpandedId) === String(invoiceId)) {
+      // Click on the same row → toggle off
+      collapseDetail();
+      return;
+    }
+    if (!triggerRow) return;
+
+    // Insert placeholder row immediately
+    const detailRow = document.createElement("tr");
+    detailRow.className = "inv-detail-row";
+    detailRow.setAttribute("data-detail-for", String(invoiceId));
+    // Skeleton placeholder — mirrors the real layout (fact strip,
+    // address card, two order cards) so the eye doesn't see a blank
+    // gap during the ~500 ms Uzum call. Animated shimmer = "loading".
+    detailRow.innerHTML = `<td colspan="9"><div class="inv-detail-v2">
+      <div class="inv-skel inv-skel-header">
+        <div class="inv-skel-bar" style="width: 220px; height: 22px;"></div>
+        <div class="inv-skel-bar" style="width: 130px; height: 36px; border-radius: 10px;"></div>
+      </div>
+      <div class="inv-skel inv-skel-facts">
+        <div class="inv-skel-card"></div>
+        <div class="inv-skel-card"></div>
+        <div class="inv-skel-card"></div>
+        <div class="inv-skel-card"></div>
+      </div>
+      <div class="inv-skel-bar inv-skel-address"></div>
+      <div class="inv-skel-bar inv-skel-order"></div>
+    </div></td>`;
+    triggerRow.after(detailRow);
+    // Highlight the trigger row so the user sees which one is open.
+    triggerRow.classList.add("is-expanded");
+    _invExpandedId = invoiceId;
+
+    // Use cache if available
+    const cached = _invDetailCache.get(String(invoiceId));
+    if (cached) {
+      detailRow.querySelector("td").innerHTML = renderDetailBody(cached.invoice, cached.orders);
+      return;
+    }
+
+    // We ALREADY have the full invoice header (stock, slot, address, ettn)
+    // from the list row, so skip the heavy fetch_fbs_invoice_detail call and
+    // ask the backend ONLY for the orders (?orders_only=1). That halves the
+    // paced Uzum round-trips (2 → 1) per open, so a card opens ~twice as fast
+    // and is far less likely to stall behind a busy per-token gate (bulk akt,
+    // background sync). Fallback to the full fetch if the header isn't cached.
+    const pageList = _invPageCache.get(`${_invFilter}:${_invPage}`) || [];
+    const headerInv = pageList.find(x => String(x.id) === String(invoiceId)) || null;
+    const url = headerInv
+      ? `/fbs/api/invoices/${encodeURIComponent(invoiceId)}?orders_only=1`
+      : `/fbs/api/invoices/${encodeURIComponent(invoiceId)}`;
+
+    // Bound the wait — the per-token gate can be busy, and an un-timed fetch
+    // would leave the skeleton spinning forever (the "qotmoqda" the seller saw).
+    const _ctrl = new AbortController();
+    const _to = setTimeout(() => _ctrl.abort(), 22000);
+    try {
+      const r = await fetch(url, {credentials: "same-origin", signal: _ctrl.signal});
+      const data = await r.json().catch(() => ({}));
+      // Row collapsed / another opened while we waited → drop this result.
+      if (String(_invExpandedId) !== String(invoiceId)) return;
+      if (!r.ok || !data.ok) {
+        detailRow.querySelector("td").innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>Xato:</strong> ${escapeHtml(data.error || r.status)}</div></div>`;
+        return;
+      }
+      const inv = headerInv || data.invoice || {};
+      const orders = data.orders || [];
+      _invDetailCache.set(String(invoiceId), { invoice: inv, orders });
+      detailRow.querySelector("td").innerHTML = renderDetailBody(inv, orders);
+    } catch (e) {
+      if (String(_invExpandedId) !== String(invoiceId)) return;
+      const msg = (e && e.name === "AbortError")
+        ? "Uzum javob bermadi (band). Birozdan keyin qayta urinib ko'ring."
+        : "Tarmoq xatosi: " + escapeHtml(e.message || "");
+      detailRow.querySelector("td").innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>${msg}</strong></div></div>`;
+      console.error("[invoices/detail] fetch failed:", e);
+    } finally {
+      clearTimeout(_to);
+    }
+  }
+
+  // ── Detail-only rejim (?detail=<id>) ──────────────────────────────
+  // Bu sahifa KENG MODAL (parent) ichidagi iframe bo'lib ochilganda faqat
+  // bitta накладна detalini ko'rsatadi. renderDetailBody() qayta ishlatiladi
+  // (inline drawer / ro'yxat bilan bir xil HTML). Balandlikни parent'ga
+  // yuboramiz → u modal iframe'ini kontentga moslab o'lchaydi.
+  const _invDetailHost = document.getElementById("invStandaloneDetail");
+  function postDetailHeight(){
+    if (INV_EMBED && window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage(
+          { type: "fbs-invoice-detail-height", height: document.documentElement.scrollHeight },
+          "*");
+      } catch (_) { /* ahamiyatsiz */ }
+    }
+  }
+  // Parent'dan ro'yxat-qatori header'ini so'raymiz (tez yo'l uchun). Parent
+  // {fbs-detail-header} bilan javob beradi; ~500ms ichida kelmasa — null.
+  function requestHeaderFromParent(timeoutMs){
+    return new Promise((resolve) => {
+      if (!(window.parent && window.parent !== window)) return resolve(null);
+      let done = false;
+      const onMsg = (e) => {
+        if (e.data && e.data.type === "fbs-detail-header") {
+          done = true; window.removeEventListener("message", onMsg);
+          resolve(e.data.header || null);
+        }
+      };
+      window.addEventListener("message", onMsg);
+      try { window.parent.postMessage({ type: "fbs-detail-ready", id: String(INV_DETAIL_ID) }, "*"); }
+      catch (_) { /* ahamiyatsiz */ }
+      setTimeout(() => { if (!done) { window.removeEventListener("message", onMsg); resolve(null); } }, timeoutMs || 500);
+    });
+  }
+
+  async function initStandaloneDetail(){
+    if (!_invDetailHost || !INV_DETAIL_ID) return;
+    // Skeleton — inline drawer bilan bir xil tuzilma (shimmer = yuklanmoqda).
+    _invDetailHost.innerHTML = `<div class="inv-detail-v2">
+      <div class="inv-skel inv-skel-header">
+        <div class="inv-skel-bar" style="width: 220px; height: 22px;"></div>
+        <div class="inv-skel-bar" style="width: 130px; height: 36px; border-radius: 10px;"></div>
+      </div>
+      <div class="inv-skel inv-skel-facts">
+        <div class="inv-skel-card"></div><div class="inv-skel-card"></div>
+        <div class="inv-skel-card"></div><div class="inv-skel-card"></div>
+      </div>
+      <div class="inv-skel-bar inv-skel-address"></div>
+      <div class="inv-skel-bar inv-skel-order"></div>
+    </div>`;
+    postDetailHeight();
+
+    // ── TEZ YO'L: header parent'dan kelsa, uni DARHOL ko'rsatamiz (накладна
+    //    ma'lumoti zudlik bilan chiqadi, skeleton qotmaydi) va faqat orders_only=1
+    //    (1 so'rov) qilamiz — inline'dagi tezlik bilan bir xil.
+    // ── SEKIN YO'L (fallback): header kelmasa to'liq fetch (invoice+orders).
+    const header = await requestHeaderFromParent(500);
+    const ordersOnly = !!header;
+    if (header) {
+      // Header bilan darhol render (накладна ma'lumoti zudlik bilan ko'rinadi).
+      _invDetailHost.innerHTML = renderDetailBody(header, []);
+      // Buyurtmalar hali yuklanmoqda — "topilmadi" xabari o'rniga skeleton.
+      const empty = _invDetailHost.querySelector(".inv-orders-block .inv-empty");
+      if (empty) empty.outerHTML = '<div class="inv-skel-bar inv-skel-order"></div>';
+      postDetailHeight();
+    }
+
+    const url = ordersOnly
+      ? `/fbs/api/invoices/${encodeURIComponent(INV_DETAIL_ID)}?orders_only=1`
+      : `/fbs/api/invoices/${encodeURIComponent(INV_DETAIL_ID)}`;
+    const _ctrl = new AbortController();
+    const _to = setTimeout(() => _ctrl.abort(), 22000);
+    try {
+      const r = await fetch(url, {credentials: "same-origin", signal: _ctrl.signal});
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        // Header bo'lsa uni qoldiramiz (накладна ko'rinib turadi), faqat
+        // Buyurtmalar joyiga xato; aks holda to'liq xato.
+        if (!header) {
+          _invDetailHost.innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>Xato:</strong> ${escapeHtml(data.error || r.status)}</div></div>`;
+        }
+        postDetailHeight();
+        return;
+      }
+      const inv = header || data.invoice || {};
+      const orders = data.orders || [];
+      _invDetailCache.set(String(INV_DETAIL_ID), { invoice: inv, orders });
+      _invDetailHost.innerHTML = renderDetailBody(inv, orders);
+    } catch (e) {
+      if (!header) {
+        const msg = (e && e.name === "AbortError")
+          ? "Uzum javob bermadi (band). Birozdan keyin qayta urinib ko'ring."
+          : "Tarmoq xatosi: " + escapeHtml(e.message || "");
+        _invDetailHost.innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>${msg}</strong></div></div>`;
+      }
+      console.error("[invoices/detail-only] fetch failed:", e);
+    } finally {
+      clearTimeout(_to);
+      postDetailHeight();
+    }
+  }
+
+  // Wire detail clicks (event delegation on tbody — survives re-render).
+  // Each invoice row carries ``data-detail-id`` directly; clicking
+  // anywhere on the row toggles its detail panel. Clicks on interactive
+  // descendants (links, buttons, inputs) are excluded so they handle
+  // their own behavior.
+  tbody.addEventListener("click", (ev) => {
+    // The checkbox column is selection-only — never expand from it.
+    if (ev.target.closest("button, a, input, select, textarea, label, .col-check")) return;
+    const tr = ev.target.closest("tr[data-detail-id]");
+    if (!tr) return;
+    expandDetail(tr.dataset.detailId, tr);
+  });
+
+  // Row checkbox toggled — add/remove its id from the selection (delegated
+  // so it survives table re-renders).
+  tbody.addEventListener("change", (ev) => {
+    const box = ev.target.closest(".inv-rowcheck");
+    if (!box) return;
+    if (box.checked) _invSelected.add(box.dataset.id);
+    else _invSelected.delete(box.dataset.id);
+    syncCheckAll();
+  });
+
+  // "Hammasini belgilash" — tick/untick every SELECTABLE (CREATED) row on the
+  // current page. Disabled (non-CREATED) checkboxes are left untouched.
+  checkAll.addEventListener("change", () => {
+    tbody.querySelectorAll(".inv-rowcheck:not(:disabled)").forEach(box => {
+      box.checked = checkAll.checked;
+      if (checkAll.checked) _invSelected.add(box.dataset.id);
+      else _invSelected.delete(box.dataset.id);
+    });
+    updateBulkBar();
+  });
+
+  // Open a PDF as an IN-PAGE overlay (NOT a separate tab) and auto-pop the
+  // print dialog. The PDF renders in Chrome's native viewer inside the
+  // overlay — so it carries its own print/save toolbar as a backup — over a
+  // dark backdrop with a ✕ (and Esc / backdrop-click) to close. Everything
+  // stays on the invoices page; nothing navigates away.
+  function printPdf(srcUrl, { revoke = false } = {}) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:24px;";
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "width:min(960px,100%);height:100%;border:0;border-radius:10px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4);";
+    iframe.src = srcUrl;
+
+    const close = document.createElement("button");
+    close.textContent = "✕";
+    close.setAttribute("aria-label", "Yopish");
+    close.style.cssText = "position:absolute;top:16px;right:20px;width:42px;height:42px;border:0;border-radius:50%;background:#111;color:#fff;font-size:20px;cursor:pointer;z-index:100001;";
+
+    const cleanup = () => {
+      try { document.body.removeChild(overlay); } catch (_) {}
+      document.removeEventListener("keydown", onKey);
+      if (revoke) URL.revokeObjectURL(srcUrl);
+    };
+    const onKey = (e) => { if (e.key === "Escape") cleanup(); };
+
+    close.onclick = cleanup;
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) cleanup(); });
+    document.addEventListener("keydown", onKey);
+
+    // Auto-pop the print dialog once the PDF is ready.
+    iframe.onload = () => {
+      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (_) {}
+    };
+
+    overlay.appendChild(iframe);
+    overlay.appendChild(close);
+    document.body.appendChild(overlay);
+  }
+
+  // Single akt (detail panel «Akt отправки» button) — fetch FIRST, then show.
+  // We must not pipe the endpoint URL straight into the print iframe: if the
+  // akt is unavailable (e.g. a cancelled invoice → Uzum HTTP 400) the endpoint
+  // returns a JSON error, and a raw iframe would happily render that error as
+  // "the PDF" and auto-print it. So we fetch, verify the response is really a
+  // PDF, and only then open the overlay — otherwise show a friendly message.
+  // Delegated so it survives detail re-renders.
+  document.addEventListener("click", async (e) => {
+    const a = e.target.closest(".inv-akt-btn-v2");
+    if (!a) return;
+    e.preventDefault();
+    const url = a.getAttribute("href");
+    a.style.pointerEvents = "none";
+    a.style.opacity = "0.6";
+    try {
+      const r = await fetch(url, { credentials: "same-origin" });
+      const ct = r.headers.get("content-type") || "";
+      if (!r.ok || !ct.includes("pdf")) {
+        let msg = `HTTP ${r.status}`;
+        try { const j = await r.json(); msg = j.error || j.uzum_message || msg; } catch (_) {}
+        alert("Akt mavjud emas yoki olishda xato:\n" + msg);
+        return;
+      }
+      const blob = await r.blob();
+      printPdf(URL.createObjectURL(blob), { revoke: true });  // in-page overlay + auto-pechat
+    } catch (err) {
+      alert("Tarmoq xatosi: " + (err.message || err));
+    } finally {
+      a.style.pointerEvents = "";
+      a.style.opacity = "";
+    }
+  });
+
+  // Merge the selected invoices' akts into one PDF (server-side), then open it
+  // as an IN-PAGE overlay with the print dialog (printPdf) — no separate tab.
+  // The merge can take a while (each akt is a paced Uzum call + 429 retries),
+  // so we show a button progress state while fetching. If the server had to
+  // skip any akt (X-Akt-Skipped) we warn so the result is never a
+  // silently-incomplete PDF.
+  bulkAkt.addEventListener("click", async () => {
+    const ids = Array.from(_invSelected);
+    if (!ids.length) return;
+    if (ids.length > BULK_AKT_MAX) {
+      alert(`Bir vaqtda ${BULK_AKT_MAX} tagacha akt birlashtiriladi. Kamroq tanlang.`);
+      return;
+    }
+    bulkAkt.disabled = true;
+    const label = bulkAkt.querySelector("span");
+    const prev = label ? label.textContent : "";
+    if (label) label.textContent = "Tayyorlanmoqda…";
+    try {
+      const r = await fetch(`/fbs/api/invoices/akt-merged.pdf?ids=${encodeURIComponent(ids.join(","))}`, {credentials: "same-origin"});
+      if (!r.ok) {
+        let msg = `HTTP ${r.status}`;
+        try { const j = await r.json(); msg = j.error || msg; } catch (_) {}
+        alert("Akt olishda xato: " + msg);
+        return;
+      }
+      const skipped = r.headers.get("X-Akt-Skipped");
+      const blob = await r.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      if (skipped) {
+        alert(`Diqqat: ba'zi aktlar olinmadi (id: ${skipped}). Qolganlari PDFда. Birozdan keyin qayta urinib ko'ring.`);
+      }
+      // In-page overlay + auto-pechat on the merged PDF (no separate tab).
+      printPdf(blobUrl, { revoke: true });
+    } catch (e) {
+      alert("Tarmoq xatosi: " + (e.message || e));
+    } finally {
+      bulkAkt.disabled = false;
+      if (label) label.textContent = prev;
+    }
+  });
+
+  // Status dropdown — load page 0 of the picked status (one paced call).
+  statusSelect.addEventListener("change", () => {
+    loadPage(statusSelect.value, 0);
+  });
+
+  // Pagination — each click fetches that server page (cached after first
+  // visit, so flipping back costs nothing).
+  btnPrev.addEventListener("click", () => {
+    if (_invPage > 0) loadPage(_invFilter, _invPage - 1);
+  });
+  btnNext.addEventListener("click", () => {
+    loadPage(_invFilter, _invPage + 1);
+  });
+
+  // Initial load. Detail-only rejimda (?detail=<id>) ro'yxat yashirin —
+  // o'rniga bitta накладна detalini yuklaymiz. Aks holda — odatdagi ro'yxat.
+  if (INV_DETAIL_ID) {
+    initStandaloneDetail();
+  } else {
+    loadPage(_invFilter, 0);
+  }
+
+  // Re-tick deadline badges every minute so "X soat qoldi" stays
+  // accurate when the seller keeps the tab open. We swap each badge's
+  // outerHTML in place — no full list reload, so any open detail row
+  // stays intact. The tick is cheap (a handful of pills, simple math).
+  setInterval(() => {
+    document.querySelectorAll("[data-deadline]").forEach(el => {
+      const t = Number(el.getAttribute("data-deadline"));
+      if (!isFinite(t)) return;
+      const fresh = fmtDeadlineBadge(t);
+      if (fresh) el.outerHTML = fresh;
+    });
+  }, 60000);
+
+  // ── Qabul-punkti tahrirlash modali ────────────────────────────────
+  // Ro'yxat sahifasidagi (fbs_orders.html) boy «Qabul punktlari» modali
+  // (fbsDropoff*) shu yerga AYNAN ko'chirilgan — tablar (Mening/Uzum),
+  // 🧭 joylashuv, ★ sevimli, ∑ slot, manzil nusxalash, slot pill'lari.
+  // YAGONA farq: slot bosilganda накладна yaratish o'rniga MAVJUD
+  // накладна punkti /change-pickup orqali o'zgartiriladi.
+  const LIST_LBL = {{ list_labels|tojson }};
+
+  // Minimal toast — ko'chirilgan funksiyalar showListToast() ni kutadi.
+  const _toastHost = document.getElementById("fbsListToastHost");
+  function showListToast(message, kind, durationMs){
+    if (!_toastHost) return;
+    const cls = kind === "error" ? "is-error" : kind === "warn" ? "is-warn" : "is-success";
+    const div = document.createElement("div");
+    div.className = "fbs-list-toast " + cls;
+    div.innerHTML = `<div>${escapeHtml(message)}</div>`
+      + `<button type="button" class="close-btn" aria-label="Yopish">×</button>`;
+    div.querySelector(".close-btn").onclick = () => div.remove();
+    _toastHost.appendChild(div);
+    // error → qo'lda yopiladi; warn → 3.5s; success → 2.4s.
+    const auto = (durationMs != null) ? durationMs
+               : (kind === "error" ? null : kind === "warn" ? 3500 : 2400);
+    if (auto != null) setTimeout(() => div.remove(), auto);
+  }
+
+  // ── Maxsus tasdiqlash modali (_fbs_confirm_modal.html partial) ──────
+  // Slot bosilganda «o'zgartirasizmi?» dialogi. fbs_orders.html bilan
+  // bir xil interfeys: async fbsConfirm({...}) → Promise<bool>.
+  const _confirmModal  = document.getElementById("fbsConfirmModal");
+  const _confirmIcon   = document.getElementById("fbsConfirmIcon");
+  const _confirmTitle  = document.getElementById("fbsConfirmTitle");
+  const _confirmMsg    = document.getElementById("fbsConfirmMsg");
+  const _confirmOk     = document.getElementById("fbsConfirmOk");
+  const _confirmCancel = document.getElementById("fbsConfirmCancel");
+  let _confirmResolve  = null;
+  function _closeConfirm(result){
+    _confirmModal.classList.remove("is-open");
+    _confirmModal.setAttribute("aria-hidden", "true");
+    if (_confirmResolve){ const r = _confirmResolve; _confirmResolve = null; r(result); }
+  }
+  function fbsConfirm(opts){
+    opts = opts || {};
+    const variant = opts.okVariant === "postavka" ? "is-postavka"
+                  : opts.okVariant === "danger"   ? "is-danger"
+                  : "is-confirm";
+    _confirmIcon.textContent = opts.icon || "✓";
+    _confirmIcon.className = "fbs-confirm-icon " + variant;
+    _confirmTitle.textContent = opts.title || "";
+    _confirmMsg.textContent = opts.message || "";
+    _confirmOk.textContent = opts.okLabel || "OK";
+    _confirmOk.className = "fbs-confirm-ok " + variant;
+    _confirmCancel.textContent = LIST_LBL.confirm_cancel || "Bekor qilish";
+    _confirmModal.classList.add("is-open");
+    _confirmModal.setAttribute("aria-hidden", "false");
+    setTimeout(() => _confirmOk.focus(), 30);
+    return new Promise(resolve => { _confirmResolve = resolve; });
+  }
+  _confirmOk.addEventListener("click", () => _closeConfirm(true));
+  _confirmModal.querySelectorAll("[data-confirm-cancel]").forEach(el =>
+    el.addEventListener("click", () => _closeConfirm(false)));
+  document.addEventListener("keydown", (e) => {
+    if (!_confirmModal.classList.contains("is-open")) return;
+    // stopImmediatePropagation: aks holda quyidagi drop-off Esc handleri
+    // (ayni shu document'da) ham ishlab, butun modal yopilib ketadi.
+    if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); _closeConfirm(false); }
+    else if (e.key === "Enter") { e.preventDefault(); e.stopImmediatePropagation(); _closeConfirm(true); }
+  });
+
+  // ── Drop-off modal: DOM refs + holat ───────────────────────────────
+  const dropoffModal       = document.getElementById("fbsDropoffModal");
+  const dropoffBody        = document.getElementById("fbsDropoffBody");
+  const dropoffSubtitle    = document.getElementById("fbsDropoffSubtitle");
+  const dropoffGeoBtn      = document.getElementById("fbsDropoffGeoBtn");
+  const dropoffGeoLabel    = document.getElementById("fbsDropoffGeoLabel");
+  const dropoffGeoStatus   = document.getElementById("fbsDropoffGeoStatus");
+  const dropoffSrcDbBtn    = document.getElementById("fbsDropoffSrcDb");
+  const dropoffSrcUzumBtn  = document.getElementById("fbsDropoffSrcUzum");
+  const dropoffSearchInput = document.getElementById("fbsDropoffSearch");
+  const dropoffSearchClear = document.getElementById("fbsDropoffSearchClear");
+  const dropoffSearchCount = document.getElementById("fbsDropoffSearchCount");
+  const dropoffMatchOnly = document.getElementById("fbsDropoffMatchOnly");
+  let _matchOnly = true;      // «Faqat mos keladigan» — ON=shu накладна buyurtmalariga moslab
+  let _dropoffSource = "db";  // "db" (Mening punktlarim) | "uzum" (to'liq)
+  let _dropoffQuery = "";
+  let _dropoffPoints = [];
+  let _userLatLng = null;     // FAQAT real geolokatsiya (🧭 / kesh) bilan o'rnatiladi
+  let _anchorLatLng = null;   // tahrirlanayotgan накладна punkti — har ochilishda yangilanadi
+  const FAV_KEY = "fbs_dropoff_favorite_addr";
+  const _dropoffPrefetch = {};
+  const _DROPOFF_PREFETCH_TTL = 60 * 1000;
+  const _addrCoordsKey = "fbs_dropoff_addr_coords";
+  // Tahrirlanayotgan накладна konteksti.
+  let _editInvoiceId = null;
+  let _editInvoiceNum = null;
+  let _editOrderIds = [];     // shu накладна buyurtma ID'lari — «mos» filtri uchun
+
+  function loadAddrCoords(){
+    try {
+      const raw = sessionStorage.getItem(_addrCoordsKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveAddrCoords(map){
+    try { sessionStorage.setItem(_addrCoordsKey, JSON.stringify(map)); }
+    catch (e) {}
+  }
+  function isPrefetchFresh(source){
+    const e = _dropoffPrefetch[source];
+    return e && (Date.now() - e.ts < _DROPOFF_PREFETCH_TTL);
+  }
+  // "(lat lng)" ni Uzum manzil matnidan ajratib oladi (ba'zi punktlar
+  // koordinatani manzil ichida olib yuradi).
+  function extractLatLng(address){
+    if (!address) return null;
+    const m = address.match(/\(?\s*(3[89]|4[0-6])\.(\d{3,8})[\s,]+\s*(5[5-9]|6\d|7[0-4])\.(\d{3,8})\s*\)?/);
+    if (!m) return null;
+    return { lat: parseFloat(`${m[1]}.${m[2]}`), lng: parseFloat(`${m[3]}.${m[4]}`) };
+  }
+  function haversineKm(a, b){
+    if (!a || !b) return null;
+    const R = 6371;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2
+            + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+  function getFavoriteAddr(){
+    try { return localStorage.getItem(FAV_KEY) || ""; } catch (e) { return ""; }
+  }
+  function setFavoriteAddr(addr){
+    try {
+      if (addr) localStorage.setItem(FAV_KEY, addr);
+      else localStorage.removeItem(FAV_KEY);
+    } catch (e) {}
+  }
+  const _CYR2LAT = {
+    "а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ё":"yo","ж":"j",
+    "з":"z","и":"i","й":"y","к":"k","л":"l","м":"m","н":"n","о":"o",
+    "п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"x","ц":"ts",
+    "ч":"ch","ш":"sh","щ":"sh","ъ":"","ы":"i","ь":"","э":"e","ю":"yu","я":"ya",
+    "ў":"o","қ":"q","ғ":"g","ҳ":"h",
+  };
+  function normalizeForSearch(s){
+    if (!s) return "";
+    let t = String(s).toLowerCase();
+    try { t = t.normalize("NFD").replace(/[̀-ͯ]/g, ""); } catch(e){}
+    let out = "";
+    for (const ch of t) out += (_CYR2LAT[ch] !== undefined ? _CYR2LAT[ch] : ch);
+    return out.replace(/['`’"]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function highlightMatch(original, terms){
+    if (!terms.length) return escapeHtml(original);
+    let out = escapeHtml(original);
+    for (const term of terms) {
+      if (!term) continue;
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = out.replace(new RegExp("(" + safe + ")", "gi"), "<mark>$1</mark>");
+    }
+    return out;
+  }
+  function filterPointsByQuery(points){
+    const q = _dropoffQuery.trim();
+    if (!q) return { filtered: points, terms: [] };
+    const terms = normalizeForSearch(q).split(" ").filter(Boolean);
+    if (!terms.length) return { filtered: points, terms: [] };
+    const filtered = points.filter(p => {
+      const haystack = normalizeForSearch((p.address || "") + " " + (p.shops || []).join(" "));
+      return terms.every(t => haystack.includes(t));
+    });
+    return { filtered, terms };
+  }
+  function renderDropoffPoints(){
+    const points = _dropoffPoints.slice();
+    if (!points.length) {
+      dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${LIST_LBL.dropoff_empty}</div>`;
+      updateSearchCount(0, 0);
+      return;
+    }
+    const fav = getFavoriteAddr();
+    const addrCoords = loadAddrCoords();
+    let addrCoordsDirty = false;
+    points.forEach(p => {
+      if (typeof p.latitude === "number" && typeof p.longitude === "number") {
+        p._coords = { lat: p.latitude, lng: p.longitude };
+        if (p.address && !addrCoords[p.address]) {
+          addrCoords[p.address] = { lat: p.latitude, lng: p.longitude };
+          addrCoordsDirty = true;
+        }
+      } else if (p.address && addrCoords[p.address]) {
+        p._coords = addrCoords[p.address];
+      } else {
+        p._coords = extractLatLng(p.address);
+      }
+      // Masofa langari: real geolokatsiya ustun, bo'lmasa накладна punkti.
+      const _ref = _userLatLng || _anchorLatLng;
+      p._distKm = (_ref && p._coords) ? haversineKm(_ref, p._coords) : null;
+      p._isFav = (fav && p.address === fav);
+    });
+    if (addrCoordsDirty) saveAddrCoords(addrCoords);
+    const { filtered: shown, terms } = filterPointsByQuery(points);
+    updateSearchCount(shown.length, points.length);
+    if (!shown.length) {
+      dropoffBody.innerHTML = `
+        <div class="fbs-dropoff-empty">
+          ${LIST_LBL.dropoff_search_empty}
+          <div style="margin-top:8px"><code>${escapeHtml(_dropoffQuery)}</code></div>
+        </div>`;
+      return;
+    }
+    const pointsToRender = shown;
+    pointsToRender.sort((a, b) => {
+      if (a._isFav !== b._isFav) return a._isFav ? -1 : 1;
+      const da = a._distKm, db = b._distKm;
+      if (da !== null && db !== null) return da - db;
+      if (da !== null) return -1;
+      if (db !== null) return 1;
+      if (b.active !== a.active) return b.active - a.active;
+      return b.total - a.total;
+    });
+    let nearestIdx = -1, nearestDist = Infinity;
+    pointsToRender.forEach((p, i) => {
+      if (p._distKm !== null && p._distKm < nearestDist) { nearestDist = p._distKm; nearestIdx = i; }
+    });
+    dropoffBody.innerHTML = pointsToRender.map((p, idx) => {
+      const shopsLine = (p.shops || []).length
+        ? `<div class="shops">${LIST_LBL.dropoff_shops_prefix} ${highlightMatch((p.shops || []).join(", "), terms)}</div>`
+        : "";
+      const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+      const todayKey = WEEKDAYS[new Date().getDay()];
+      const wh = (p.workingHours && p.workingHours[todayKey]) || null;
+      const hoursLine = wh
+        ? `<div class="shops">🕒 ${LIST_LBL.dropoff_hours_today}: ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</div>`
+        : "";
+      const activeBadge = p.active
+        ? `<span class="badge-active" title="${LIST_LBL.dropoff_active_hint}">${p.active}</span>`
+        : "";
+      const distBadge = (p._distKm !== null)
+        ? `<span class="badge-dist" title="${LIST_LBL.dropoff_dist_hint}">${p._distKm.toFixed(1)} km</span>`
+        : "";
+      const nearestBadge = (idx === nearestIdx)
+        ? `<span class="badge-nearest">${LIST_LBL.dropoff_nearest}</span>`
+        : "";
+      const favOn = p._isFav ? "is-on" : "";
+      const favTitle = p._isFav ? LIST_LBL.dropoff_fav_remove : LIST_LBL.dropoff_fav_add;
+      const slotsBtn = p.uuid
+        ? `<button type="button" class="btn-slots" data-slots-idx="${idx}"
+                  data-uuid="${escapeHtml(p.uuid)}">
+             🕒 ${LIST_LBL.dropoff_slots_btn}
+           </button>`
+        : "";
+      return `
+        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}">
+          <div style="flex:1 1 280px; display:flex; align-items:flex-start;">
+            <button type="button" class="btn-fav ${favOn}"
+                    data-fav-idx="${idx}" title="${favTitle}">
+              ${p._isFav ? '★' : '☆'}
+            </button>
+            <div>
+              <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
+              ${shopsLine}
+              ${hoursLine}
+            </div>
+          </div>
+          <div class="counts">
+            ${nearestBadge}
+            ${distBadge}
+            ${activeBadge}
+            <span class="badge-total" title="${LIST_LBL.dropoff_total_hint}">∑ ${Number(p.total) || 0}</span>
+            ${slotsBtn}
+            <button type="button" class="btn-copy" data-copy-idx="${idx}">
+              ${LIST_LBL.dropoff_copy}
+            </button>
+          </div>
+          <div class="fbs-dropoff-slots" data-slots-host="${idx}" hidden></div>
+        </div>`;
+    }).join("");
+    dropoffBody.querySelectorAll(".btn-copy").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.copyIdx);
+        const addr = (pointsToRender[idx] || {}).address || "";
+        if (!addr) return;
+        navigator.clipboard.writeText(addr).then(() => {
+          btn.classList.add("copied");
+          const orig = btn.textContent;
+          btn.textContent = LIST_LBL.dropoff_copied;
+          setTimeout(() => { btn.classList.remove("copied"); btn.textContent = orig; }, 1500);
+        }).catch(() => showListToast(LIST_LBL.dropoff_copy_fail, "error"));
+      });
+    });
+    dropoffBody.querySelectorAll(".btn-fav").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.favIdx);
+        const p = pointsToRender[idx];
+        if (!p) return;
+        if (p._isFav) setFavoriteAddr(""); else setFavoriteAddr(p.address);
+        renderDropoffPoints();
+      });
+    });
+    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.slotsIdx);
+        const uuid = btn.dataset.uuid;
+        const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
+        if (!host) return;
+        if (!host.hidden) {
+          host.hidden = true;
+          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_btn}`;
+          return;
+        }
+        host.hidden = false;
+        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
+        btn.disabled = true;
+        loadTimeSlots(uuid, host).finally(() => {
+          btn.disabled = false;
+          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_hide}`;
+        });
+      });
+    });
+  }
+  // Slot pill matni — ro'yxat sahifasidagi fmtSlot bilan bir xil, lekin
+  // bu sahifadagi fmtSlot(slot) bilan to'qnashmaslik uchun boshqa nom.
+  function _doFmtSlot(timeFrom, timeTo){
+    try {
+      const a = new Date(timeFrom);
+      const b = new Date(timeTo);
+      const pad = (n) => String(n).padStart(2, "0");
+      const sameDay = a.toDateString() === b.toDateString();
+      const date = `${pad(a.getDate())}.${pad(a.getMonth()+1)}`;
+      const tA = `${pad(a.getHours())}:${pad(a.getMinutes())}`;
+      const tB = `${pad(b.getHours())}:${pad(b.getMinutes())}`;
+      return sameDay ? `${date} ${tA}–${tB}` : `${date} ${tA} → ${pad(b.getDate())}.${pad(b.getMonth()+1)} ${tB}`;
+    } catch (e) { return `${timeFrom} – ${timeTo}`; }
+  }
+  // Slotlarni yuklash. change-pickup uchun order_ids KERAK EMAS —
+  // backend накладнаning buyurtmalarini DB'dan o'zi oladi (eski pp ham
+  // shunday qilardi). Slot bosilganda changeInvoicePickup chaqiriladi.
+  async function loadTimeSlots(uuid, host){
+    try {
+      // «Faqat mos keladigan» ON → shu накладна buyurtmalariga moslab
+      // (backend ularning deadline oynasini hisoblaydi). OFF → order_ids'siz
+      // → backend barcha aktiv buyurtmalar bo'yicha kengroq oyna beradi.
+      let qs = "";
+      if (_matchOnly && _editOrderIds.length) {
+        qs = `?order_ids=${_editOrderIds.join(",")}`;
+      }
+      const res = await fetch(`/fbs/api/dropoff-points/${encodeURIComponent(uuid)}/time-slots${qs}`,
+                              {credentials: "same-origin"});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // fbs-19: bu накладна buyurtmasining yetkazish muddati o'tgan →
+        // Uzum mos slot bermaydi. ON'da bu chiqsa, foydalanuvchiga BIR
+        // BOSISHDA «Faqat mos»ni o'chirib, hamma vaqtni ko'rsatadigan tugma
+        // beramiz — qo'rqinchli «xato» o'rniga aksiya. (Uzum kodi `fbs-19`
+        // eng ishonchli belgi; o'zbekcha matn regexga tushmaydi.)
+        const code = String(data.uzum_code || "");
+        const em = String(data.error || data.uzum_message || "");
+        const overdue = /fbs-19/i.test(code)
+          || /time.?is.?up|muddati o'tib|deadline|муддат/i.test(em);
+        if (overdue && _matchOnly) {
+          host.innerHTML =
+            `<div class="slot-error" style="display:flex;flex-direction:column;gap:8px;align-items:center;">`
+            + `<span>⏰ Bu buyurtma muddati o'tgan — unга mos slot yo'q.</span>`
+            + `<button type="button" class="pp-show-all" style="background:#3456b9;color:#fff;border:0;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem;">Hamma vaqtni ko'rsatish</button>`
+            + `</div>`;
+          const _b = host.querySelector(".pp-show-all");
+          if (_b) _b.addEventListener("click", () => {
+            _matchOnly = false;
+            if (dropoffMatchOnly) dropoffMatchOnly.checked = false;
+            host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
+            loadTimeSlots(uuid, host);
+          });
+          return;
+        }
+        host.innerHTML = `<div class="slot-error">${escapeHtml(overdue ? "⏰ Buyurtma muddati o'tgan." : (em || LIST_LBL.dropoff_slots_fail))}</div>`;
+        return;
+      }
+      if (data.reason === "no_active_orders") {
+        host.innerHTML = `<div class="slot-empty">${escapeHtml(LIST_LBL.dropoff_slots_no_orders || "Aktiv buyurtma yo'q")}</div>`;
+        return;
+      }
+      const slots = data.slots || [];
+      if (!slots.length) {
+        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_empty}</div>`;
+        return;
+      }
+      host.innerHTML = slots.map((s, i) =>
+        `<button type="button" class="slot-pill is-clickable"
+                 data-slot-idx="${i}"
+                 data-slot-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
+                 data-slot-from="${escapeHtml(s.timeFrom || '')}"
+                 data-slot-to="${escapeHtml(s.timeTo || '')}"
+                 title="${LIST_LBL.dropoff_slot_click_hint}">
+           ${escapeHtml(_doFmtSlot(s.timeFrom, s.timeTo))}
+         </button>`
+      ).join("");
+      const pointCard = host.closest(".fbs-dropoff-item");
+      const slotsBtn = pointCard ? pointCard.querySelector(".btn-slots") : null;
+      const dopUuid = slotsBtn ? slotsBtn.dataset.uuid : "";
+      const pointAddr = pointCard ? (pointCard.querySelector(".addr")?.textContent || "").trim() : "";
+      host.querySelectorAll(".slot-pill.is-clickable").forEach(pill => {
+        pill.addEventListener("click", () => {
+          changeInvoicePickup({
+            dopUuid: dopUuid,
+            pointAddr: pointAddr,
+            slotUuid: pill.dataset.slotUuid || null,
+            slotFrom: pill.dataset.slotFrom || null,
+            slotTo: pill.dataset.slotTo || null,
+            slotLabel: pill.textContent.trim(),
+          });
+        });
+      });
+    } catch (e) {
+      host.innerHTML = `<div class="slot-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
+    }
+  }
+  // Mavjud накладна punkti+slotini o'zgartirish (createInvoiceForSlot
+  // o'rniga). Avval seller'dan tasdiq so'raydi.
+  async function changeInvoicePickup(opts){
+    if (!_editInvoiceId) { showListToast("Накладна tanlanmagan", "error"); return; }
+    if (!opts || !opts.dopUuid) { showListToast(LIST_LBL.invoice_no_dop || "Punkt tanlanmadi", "error"); return; }
+    if (!opts.slotUuid) { showListToast("Bu slot yaroqsiz (uuid yo'q) — boshqa slot tanlang", "error"); return; }
+    const msg = `Накладна №${_editInvoiceNum} qabul punktini «${opts.pointAddr || "—"}»`
+      + (opts.slotLabel ? ` (${opts.slotLabel})` : "") + " ga o'zgartirasizmi?";
+    if (!await fbsConfirm({
+      title: "Qabul punktini o'zgartirish",
+      message: msg,
+      okLabel: "O'zgartirish",
+      okVariant: "postavka",
+      icon: "📍",
+    })) return;
+    try {
+      const res = await fetch(`/fbs/api/invoices/${encodeURIComponent(_editInvoiceId)}/change-pickup`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify({
+          point_uuid: opts.dopUuid,
+          slot_uuid: opts.slotUuid || "",
+          time_from: opts.slotFrom || "",
+          time_to: opts.slotTo || "",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        // seller-order-53: tanlangan slot buyurtma yetkazish muddatidan kech
+        // (ko'pincha «Faqat mos» OFF da kengroq, lekin yaroqsiz slot tanlanса).
+        const code = String(data.uzum_code || "");
+        let emsg = data.uzum_message || data.error || "O'zgartirishda xato";
+        if (/seller-order-53/i.test(code) || /oldin yetkazilishi kerak|раньше/i.test(emsg)) {
+          emsg = "Tanlangan slot juda kech — bu накладна uchun ERTAROQ slot tanlang. (" + emsg + ")";
+        } else if (res.status === 429 || /band|429/i.test(emsg)) {
+          emsg = "Uzum hozir band — bir-ikki soniyadan keyin qayta urinib ko'ring.";
+        }
+        showListToast(emsg, "error", 6000);
+        return;
+      }
+      showListToast("✅ Qabul punkti o'zgartirildi", "success");
+      closeDropoffModal();
+      reloadInvoices();
+    } catch (e) {
+      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+    }
+  }
+  async function loadDropoffPoints(){
+    const fresh = isPrefetchFresh(_dropoffSource);
+    if (fresh) {
+      _dropoffPoints = _dropoffPrefetch[_dropoffSource].points;
+      renderDropoffPoints();
+    } else {
+      dropoffBody.innerHTML = `<div class="fbs-dropoff-loading">${LIST_LBL.dropoff_loading}</div>`;
+    }
+    try {
+      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}`;
+      const res = await fetch(url, {credentials: "same-origin"});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (!fresh) {
+          dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(data.error || LIST_LBL.dropoff_load_fail)}</div>`;
+        }
+        return;
+      }
+      _dropoffPoints = data.points || [];
+      _dropoffPrefetch[_dropoffSource] = { points: _dropoffPoints, ts: Date.now() };
+      if (_dropoffSource === "uzum" && data.source === "db") {
+        showListToast(LIST_LBL.dropoff_uzum_fallback, "warn");
+        _dropoffSource = "db";
+        syncSourceButtons();
+      }
+      renderDropoffPoints();
+    } catch (e) {
+      if (!fresh) {
+        dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(LIST_LBL.dropoff_load_fail + ": " + (e.message || ""))}</div>`;
+      }
+    }
+  }
+  function syncSourceButtons(){
+    dropoffSrcDbBtn.classList.toggle("is-active", _dropoffSource === "db");
+    dropoffSrcUzumBtn.classList.toggle("is-active", _dropoffSource === "uzum");
+  }
+  function updateSearchCount(visible, total){
+    const q = _dropoffQuery.trim();
+    if (!q || total === 0) { dropoffSearchCount.hidden = true; return; }
+    dropoffSearchCount.hidden = false;
+    dropoffSearchCount.textContent = `${visible} / ${total}`;
+  }
+  let _searchDebounce = null;
+  function onSearchInput(){
+    const v = dropoffSearchInput.value;
+    dropoffSearchClear.hidden = !v;
+    if (_searchDebounce) clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(() => { _dropoffQuery = v; renderDropoffPoints(); }, 120);
+  }
+  function clearDropoffSearch(){
+    dropoffSearchInput.value = "";
+    _dropoffQuery = "";
+    dropoffSearchClear.hidden = true;
+    renderDropoffPoints();
+    dropoffSearchInput.focus();
+  }
+  // Geolocation cache (sessionStorage), 10-minutlik TTL.
+  const GEO_CACHE_KEY = "fbs_dropoff_user_geo";
+  const GEO_CACHE_TTL_MS = 10 * 60 * 1000;
+  function readGeoCache(){
+    try {
+      const raw = sessionStorage.getItem(GEO_CACHE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj.lat !== "number" || typeof obj.lng !== "number") return null;
+      if (Date.now() - (obj.ts || 0) > GEO_CACHE_TTL_MS) return null;
+      return { lat: obj.lat, lng: obj.lng };
+    } catch (e) { return null; }
+  }
+  function writeGeoCache(latLng){
+    try {
+      sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ lat: latLng.lat, lng: latLng.lng, ts: Date.now() }));
+    } catch (e) {}
+  }
+  function requestUserLocation(opts){
+    opts = opts || {};
+    const silent = !!opts.silent;
+    if (!navigator.geolocation) {
+      if (!silent) { dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_unsupported; dropoffGeoStatus.style.color = "#dc2626"; }
+      return;
+    }
+    if (!window.isSecureContext) {
+      if (!silent) {
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_insecure + " (" + location.protocol + "//" + location.host + ")";
+        dropoffGeoStatus.style.color = "#dc2626";
+      }
+      return;
+    }
+    dropoffGeoBtn.disabled = true;
+    dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_busy;
+    dropoffGeoStatus.textContent = "";
+    dropoffGeoStatus.style.color = "";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        _userLatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        writeGeoCache(_userLatLng);
+        dropoffGeoBtn.disabled = false;
+        dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_refresh;
+        dropoffGeoStatus.textContent = LIST_LBL.dropoff_geo_ok;
+        dropoffGeoStatus.style.color = "#10b981";
+        renderDropoffPoints();
+      },
+      (err) => {
+        dropoffGeoBtn.disabled = false;
+        dropoffGeoLabel.textContent = LIST_LBL.dropoff_geo_btn;
+        if (silent) return;
+        let msg;
+        if (err && err.code === 1)      msg = LIST_LBL.dropoff_geo_denied;
+        else if (err && err.code === 2) msg = LIST_LBL.dropoff_geo_unavailable;
+        else if (err && err.code === 3) msg = LIST_LBL.dropoff_geo_timeout;
+        else                            msg = LIST_LBL.dropoff_geo_fail;
+        dropoffGeoStatus.textContent = msg + (err && err.message ? " (" + err.message + ")" : "");
+        dropoffGeoStatus.style.color = "#dc2626";
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    );
+  }
+  // Modalни ochish — per-row «Изменить» dan chaqiriladi.
+  function openEditPickupModal(invoiceId, invoiceNumber, anchorPoint, orderIds){
+    _editInvoiceId = invoiceId;
+    _editInvoiceNum = invoiceNumber || invoiceId;
+    _editOrderIds = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
+    // Har ochilishda «Faqat mos keladigan» standart holatga (ON) qaytadi.
+    _matchOnly = true;
+    if (dropoffMatchOnly) dropoffMatchOnly.checked = true;
+    _dropoffQuery = "";
+    dropoffSearchInput.value = "";
+    dropoffSearchClear.hidden = true;
+    dropoffSearchCount.hidden = true;
+    if (dropoffSubtitle) dropoffSubtitle.innerHTML = `Накладная <strong>№${escapeHtml(_editInvoiceNum)}</strong>`;
+    // Masofa langari: накладнаning joriy punkti HAR ochilishda yangi
+    // o'rnatiladi (oldingi накладнаdan "yopishib" qolmaydi). Real
+    // geolokatsiya bo'lsa renderda u ustun turadi (_userLatLng || _anchorLatLng).
+    _anchorLatLng = (anchorPoint && anchorPoint.latitude != null && anchorPoint.longitude != null)
+      ? { lat: Number(anchorPoint.latitude), lng: Number(anchorPoint.longitude) }
+      : null;
+    if (!_userLatLng) {
+      const cached = readGeoCache();
+      if (cached) _userLatLng = cached;
+    }
+    dropoffModal.classList.add("is-open");
+    dropoffModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    loadDropoffPoints();
+    setTimeout(() => dropoffSearchInput.focus(), 150);
+  }
+  function closeDropoffModal(){
+    dropoffModal.classList.remove("is-open");
+    dropoffModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    _editInvoiceId = null;
+  }
+
+  // ── Listeners ───────────────────────────────────────────────────
+  dropoffGeoBtn.addEventListener("click", requestUserLocation);
+  dropoffSrcDbBtn.addEventListener("click", () => {
+    if (_dropoffSource === "db") return;
+    _dropoffSource = "db"; syncSourceButtons(); loadDropoffPoints();
+  });
+  dropoffSrcUzumBtn.addEventListener("click", () => {
+    if (_dropoffSource === "uzum") return;
+    _dropoffSource = "uzum"; syncSourceButtons(); loadDropoffPoints();
+  });
+  dropoffSearchInput.addEventListener("input", onSearchInput);
+  dropoffSearchClear.addEventListener("click", clearDropoffSearch);
+  if (dropoffMatchOnly) {
+    dropoffMatchOnly.addEventListener("change", () => {
+      _matchOnly = dropoffMatchOnly.checked;
+      refreshOpenSlots();
+    });
+  }
+  function refreshOpenSlots(){
+    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
+      const idx = Number(btn.dataset.slotsIdx);
+      const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
+      if (host && !host.hidden) {
+        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
+        loadTimeSlots(btn.dataset.uuid, host);
+      }
+    });
+  }
+  dropoffSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dropoffSearchInput.value) { e.stopPropagation(); clearDropoffSearch(); }
+  });
+  dropoffModal.addEventListener("click", (e) => {
+    if (e.target && e.target.getAttribute("data-dropoff-close")) closeDropoffModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    // Confirm dialog ochiq bo'lsa, Esc avval uni yopadi (yuqoridagi
+    // handler), bu yerda drop-off modal yopilib ketmasin.
+    if (e.key === "Escape" && dropoffModal.classList.contains("is-open")
+        && !_confirmModal.classList.contains("is-open")) closeDropoffModal();
+  });
+
+  // ── «Изменить» tugmasi (inline drawer YOKI embed modal ichida) ─────
+  // `document` ga delegatsiya: tugma inline `.inv-detail-row` da ham,
+  // embed `.inv-modal` ichida ham bo'lishi mumkin (ikkalasini ham qamraydi).
+  document.addEventListener("click", (ev) => {
+    const editBtn = ev.target.closest("[data-edit-pickup]");
+    if (!editBtn) return;
+    const invoiceId = editBtn.getAttribute("data-edit-pickup");
+    const cached = _invDetailCache.get(String(invoiceId));
+    const invoiceNum = cached?.invoice?.number || invoiceId;
+    const anchorPoint = cached?.invoice?.dropOffPoint || null;
+    // Накладна buyurtma ID'lari — «mos keladigan» filtri uchun (backend
+    // shu PENDING_DELIVERY buyurtmalar deadline'iga moslab slot beradi).
+    const orderIds = (cached?.orders || [])
+      .map(o => o.order_id != null ? o.order_id : (o.orderId != null ? o.orderId : o.id))
+      .filter(v => v != null);
+    openEditPickupModal(invoiceId, invoiceNum, anchorPoint, orderIds);
+  });
+</script>
+{% endblock %}

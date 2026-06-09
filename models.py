@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from decimal import Decimal
-from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, Numeric, Index, CheckConstraint, text as sql_text
+from sqlalchemy import BigInteger, String, Integer, Date, DateTime, ForeignKey, Boolean, Float, Text, Numeric, Index, CheckConstraint, LargeBinary, text as sql_text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from flask_login import UserMixin
@@ -169,6 +169,21 @@ class User(UserMixin, Base):
     # Pasted by the user in My Shops to discover their owned shops; persisted
     # on first successful /v1/shops probe.
     uzum_openapi_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Uzum seller account ID — visible as ?sId=<N> in the seller cabinet URL
+    # (e.g. seller.uzum.uz/seller/fbs/orders/.../order/XYZ?sId=95673). Required
+    # by POST /v1/fbs/invoice's sellerId field; NOT exposed by /v1/shops or
+    # any other OpenAPI endpoint, so the user must paste it manually once.
+    # Account-wide (one value for all shops the seller owns).
+    uzum_seller_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # ── Komitent (legal entity) fields for FBS "Akt отправки" PDF ─────
+    # Uzum OpenAPI does NOT expose any of these (verified by 35-endpoint
+    # probe — all 403 RBAC). The user fills them in once on the profile
+    # page; the PDF generator reads them when building the act header.
+    full_name_legal: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    contract_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pinfl: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    legal_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inn: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # True for the platform admin (you). Only admins can set the Uzum token,
     # create other users, and assign shops.
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -563,6 +578,18 @@ class ShopSyncState(Base):
     last_hourly_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_nightly_refetch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_expenses_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Stage 4: FBS/DBS background sync. `fbs_active` gates which shops the
+    # worker polls — set to True for shops that have stock with
+    # quantity_fbs > 0. `last_fbs_sync_at` is the wall-clock of the most
+    # recent successful list+detail refresh; the worker uses it for the
+    # "every 10 min" scheduler and the UI shows "Oxirgi yangilangan: N min".
+    fbs_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    last_fbs_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -651,4 +678,225 @@ class FinanceHourlySnapshot(Base):
 
     __table_args__ = (
         Index("ix_finance_hourly_shop_hour", "shop_id", "snapshot_hour"),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Stage 4 — FBS/DBS order cache (2026-05-21).
+#
+# Read path through ``core.fbs_data`` will switch from "every call hits
+# Uzum" to "DB first, ?refresh=1 hits Uzum + invalidates row" once the
+# background worker (Stage 4b) starts populating this table. This file
+# only declares the schema — no writer yet.
+#
+# FBS and DBS orders share one table; ``order_type`` differentiates.
+# Stage 1 enum from ``core/uzum_openapi.py``:
+#   FBS_ORDER_STATUSES = (CREATED, PACKING, PENDING_DELIVERY,
+#       DELIVERING, DELIVERED, ACCEPTED_AT_DP,
+#       DELIVERED_TO_CUSTOMER_DELIVERY_POINT, COMPLETED, CANCELED,
+#       PENDING_CANCELLATION, RETURNED)
+# The CHECK constraint hardcodes these so a runtime drift in the Python
+# enum doesn't quietly accept invalid rows; bump the constraint when
+# updating FBS_ORDER_STATUSES.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class FbsOrder(Base):
+    """Cached FBS/DBS orders synced from Uzum every ~10 min by the
+    background worker (Stage 4b).
+
+    Write strategy: UPSERT by ``order_id`` (Bosqich 4f) — every tick
+    fetches all 11 statuses with no date filter and INSERTs new orders
+    + UPDATEs existing rows. No DELETE: historical orders accumulate
+    in the DB indefinitely (subject to the Stage 4d cleanup loop).
+
+    FBS and DBS orders share this table; ``order_type`` differentiates.
+    Only shops with ``ShopSyncState.fbs_active=True`` are synced.
+
+    Notes on shop_id type
+    ---------------------
+    ``shop_id`` is ``String(64)`` to match ``Shop.uzum_id`` (and the
+    sibling ``FinanceOrder.shop_id``) — Uzum's shop identifier is a
+    numeric string, not a foreign-key int. Same convention across the
+    OpenAPI-cache tables.
+    """
+
+    __tablename__ = "fbs_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # ── Identity ───────────────────────────────────────────────────
+    shop_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Uzum's orderId is int64 — stored as string for headroom and to match
+    # the pattern other Uzum identifiers use here. Unique because Uzum's
+    # space is global; one orderId never belongs to two shops.
+    order_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    # "FBS" | "DBS" — CHECK constraint enforced below.
+    order_type: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
+    # One of the 11 FBS_ORDER_STATUSES values — CHECK constraint enforced.
+    status: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    # ── Customer ───────────────────────────────────────────────────
+    customer_fullname: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    customer_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ── Money (UZS, integer — Uzum returns whole-soum integers) ────
+    price: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0"),
+    )
+
+    # ── Life-cycle dates — naive UTC; parsed from Uzum ISO strings ─
+    date_created: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    accept_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deliver_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    accepted_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivering_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivery_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivered_to_dp_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    return_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # ── Misc ───────────────────────────────────────────────────────
+    cancel_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    identifier_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sql_text("false"),
+    )
+    stock_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stock_title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    drop_off_point_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    drop_off_point_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # ── JSONB — order items + full Uzum payload for forward compat ─
+    # `items_json` holds the orderItems array verbatim; the worker won't
+    # bother projecting every nested field onto its own column. `raw_json`
+    # keeps the whole Uzum response for debugging or surfacing a future
+    # field without a migration.
+    items_json: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=sql_text("'[]'::jsonb"),
+    )
+    raw_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=sql_text("'{}'::jsonb"),
+    )
+
+    # ── Sync infra ─────────────────────────────────────────────────
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=sql_text("CURRENT_TIMESTAMP"),
+        index=True,
+    )
+
+    __table_args__ = (
+        # Primary listing query — /fbs page filters by shop_id + status and
+        # orders by date_created DESC (newest first). The composite index
+        # serves both the WHERE filter and the ORDER BY in one B-tree pass.
+        Index(
+            "ix_fbs_orders_shop_status_date",
+            "shop_id", "status", sql_text("date_created DESC"),
+        ),
+        # Worker iteration order — find rows older than X by shop, regardless
+        # of status (e.g. for stale-detection or shop-wide purge).
+        Index("ix_fbs_orders_shop_synced", "shop_id", "synced_at"),
+        # ── CHECK constraints ──
+        # Hardcoded enum values mirror core/uzum_openapi.py constants.
+        # Bumping either enum requires a migration that drops + recreates
+        # the constraint with the new value list.
+        CheckConstraint(
+            "order_type IN ('FBS', 'DBS')",
+            name="ck_fbs_orders_order_type",
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'CREATED', 'PACKING', 'PENDING_DELIVERY', 'DELIVERING', "
+            "'DELIVERED', 'ACCEPTED_AT_DP', "
+            "'DELIVERED_TO_CUSTOMER_DELIVERY_POINT', 'COMPLETED', "
+            "'CANCELED', 'PENDING_CANCELLATION', 'RETURNED'"
+            ")",
+            name="ck_fbs_orders_status",
+        ),
+    )
+
+
+class FbsDropoffPoint(Base):
+    """Global catalog of Uzum drop-off (qabul) points the platform has
+    seen, accumulated across every seller.
+
+    Why global, not per-user: Uzum's drop-off network is shared — every
+    seller can ship to any point in principle. The per-call endpoint
+    (``GET /v1/fbs/invoice/dop/drop-off-points``) only returns points
+    matching the caller's *current* orders' dimensional groups + capacity,
+    so a seller with few active orders sees few points. Pooling every
+    point any seller has ever fetched into one table gives newer/quieter
+    sellers an immediate full picker.
+
+    Refresh strategy: every successful Uzum call upserts each returned
+    point here (updates ``last_seen_at`` + metadata). The picker UI
+    serves Uzum's live response merged with this catalog. Points whose
+    ``last_seen_at`` is older than ~30 days are considered stale (likely
+    disabled by Uzum) and filtered out at query time.
+    """
+
+    __tablename__ = "fbs_dropoff_points_catalog"
+
+    # Uzum's uuid is the natural primary key — globally unique, stable.
+    uuid: Mapped[str] = mapped_column(String(64), primary_key=True)
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Uzum returns workingHours as {"MONDAY": {"start": "09:00", "end": "21:00"}, ...}
+    working_hours_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=sql_text("'{}'::jsonb"),
+    )
+    dimensional_group_is_large: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sql_text("false"),
+    )
+    point_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False,
+        default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False,
+        default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
+        index=True,
+    )
+
+
+class FbsInvoiceAkt(Base):
+    """Cached "Акт приема-передачи" (akt отправки) PDF per FBS invoice.
+
+    Why cache: Uzum's ``/v1/fbs/invoice/{id}/print`` endpoint rate-limits
+    hard (~4 quick calls → HTTP 429, ~4s recovery — see the akt-print rate
+    -limit reference). Bulk-printing many akts at hand-off time burst-trips
+    that limit. The background sync worker PRE-FETCHES each active invoice's
+    akt here (paced, no burst), so the seller's "Akt отправки (PDF)" print
+    reads straight from the DB — instant, zero Uzum calls, never 429.
+
+    Freshness: keyed by ``invoice_id`` with ``date_updated`` (the invoice's
+    Uzum ``dateUpdated`` epoch-ms) as the version stamp. The akt content can
+    change while an invoice is still CREATED (e.g. the seller changes the
+    drop-off point / time slot), which bumps ``dateUpdated`` — the prefetch
+    re-fetches when it differs, and the pickup-change endpoint deletes the
+    row outright. ``user_id`` scopes reads so one seller can't pull another's
+    cached akt by guessing an invoice id.
+    """
+
+    __tablename__ = "fbs_invoice_akts"
+
+    # Uzum's invoice id is globally unique → natural primary key.
+    invoice_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # Invoice's Uzum ``dateUpdated`` (epoch ms) at fetch time — the cache
+    # version. NULL only for legacy rows fetched before we tracked it.
+    date_updated: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False,
+        default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
     )

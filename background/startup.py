@@ -60,5 +60,23 @@ def start_background_threads():
         threading.Thread(target=_app._nightly_finance_refetch_loop, daemon=True, name="finance-nightly-refetch").start()
         threading.Thread(target=_app._daily_expenses_loop, daemon=True, name="expenses-daily").start()
         print("[Background] Started: legacy-style finance loops (hourly, nightly-refetch, expenses-daily)")
+    # Stage 4b — FBS/DBS sync loop. Off-switch via FBS_SYNC_LOOP=0 in .env
+    # (useful if the loop ever destabilises and we want to keep the rest
+    # of the app running while debugging).
+    if os.environ.get("FBS_SYNC_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._fbs_sync_loop, daemon=True, name="fbs-sync").start()
+        print("[Background] Started: fbs-sync loop")
+    # Stage 4d — daily DELETE of old terminal-state orders so fbs_orders
+    # doesn't grow unbounded. Off-switch via FBS_CLEANUP_LOOP=0.
+    if os.environ.get("FBS_CLEANUP_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._fbs_cleanup_loop, daemon=True, name="fbs-cleanup").start()
+        print("[Background] Started: fbs-cleanup loop")
+    # sinxro_2 — server-side product sync loop. Replaces the old
+    # browser-side setInterval in static/uzum_ui.js (removed 2026-05-24
+    # because it froze the tab for 30-50s every 10 min). Off-switch via
+    # PRODUCTS_SYNC_LOOP=0 in .env.
+    if os.environ.get("PRODUCTS_SYNC_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._products_sync_loop, daemon=True, name="products-sync").start()
+        print("[Background] Started: products-sync loop (sinxro_2)")
     _app._start_auto_login_scheduler()
     print("[Background] Started: hourly finance, Telegram bot, auto-login")

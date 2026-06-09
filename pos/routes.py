@@ -9,8 +9,9 @@ import debug_routes
 from flask import Blueprint, render_template, request, send_file
 from flask_login import current_user, login_required
 from sqlalchemy import delete, func, select
+from sqlalchemy.orm import contains_eager
 
-from core.auth_helpers import _json_response, _user_shop_ids
+from core.auth_helpers import _json_response, _user_shop_ids, _get_admin_token
 from core.http_client import http_json
 from core.parsers import _safe_qty
 from extensions import SessionLocal
@@ -385,7 +386,7 @@ def pos_fetch_invoice():
 
     url = f"https://api-seller.uzum.uz/api/seller/shop/{shop_id}/invoice/getInvoiceProducts?invoiceId={invoice_id}"
     try:
-        raw_data = http_json(url)
+        raw_data = http_json(url, _get_admin_token=_get_admin_token)
     except Exception as exc:
         return _json_response({"error": f"Failed to fetch invoice from API: {exc}"}, 500)
 
@@ -406,7 +407,15 @@ def pos_fetch_invoice():
     allowed_shop_ids = _user_shop_ids(uid)
 
     with SessionLocal() as db:
-        stmt = select(Variant).join(ProductGroup, Variant.group_id == ProductGroup.id)
+        # Eager-load the parent group via the same join used for the shop
+        # filter, so reading ``variant.group`` below does NOT fire one extra
+        # query per matched row (N+1). Cost stays at a single query no matter
+        # how many products the invoice has.
+        stmt = (
+            select(Variant)
+            .join(Variant.group)
+            .options(contains_eager(Variant.group))
+        )
         if allowed_shop_ids:
             stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
         else:

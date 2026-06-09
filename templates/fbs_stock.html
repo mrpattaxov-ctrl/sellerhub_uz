@@ -1,0 +1,930 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+  .stk-page { max-width: 1200px; margin: 0 auto; display: grid; gap: 1.25rem; }
+
+  /* ── Hero + section tabs — shared look with the other FBS pages ── */
+  .stk-hero {
+    border: 1px solid rgba(53, 86, 185, .12);
+    border-radius: 20px;
+    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
+    box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
+    padding: 1.3rem 1.4rem;
+    /* Tab'lar hero ichida (o'ng yuqorida) — bitta yaxlit karta. */
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: .9rem 1.5rem; flex-wrap: wrap;
+  }
+  .stk-hero-main { flex: 1 1 340px; min-width: 0; }
+  .stk-kicker {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .32rem .7rem; border-radius: 999px;
+    background: rgba(52, 86, 185, .1); color: #3456b9;
+    font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; margin-bottom: .6rem;
+  }
+  .stk-title { margin: 0; font-size: 1.6rem; font-weight: 700; color: #101828; }
+  .stk-subtitle { margin: .35rem 0 0; color: #667085; font-size: .95rem; line-height: 1.5; max-width: 660px; }
+
+  .fbs-section-tabs {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: #f1f4fa; border: 1px solid #e4e9f3; border-radius: 14px;
+    flex: none; align-self: flex-start;
+  }
+  .fbs-section-tabs a {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem 1rem; border-radius: 10px;
+    color: #475467; font-weight: 600; font-size: .88rem;
+    text-decoration: none; transition: background .15s, color .15s;
+  }
+  .fbs-section-tabs a:hover { color: #101828; background: rgba(255,255,255,.55); }
+  .fbs-section-tabs a.active {
+    background: #fff; color: #101828;
+    box-shadow: 0 1px 2px rgba(16,24,40,.08), 0 1px 3px rgba(16,24,40,.06);
+  }
+  .fbs-section-tabs a svg { flex: none; }
+
+  .stk-warning {
+    border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412;
+    border-radius: 14px; padding: .85rem 1.1rem; font-size: .92rem;
+  }
+  .stk-warning a { color: #9a3412; font-weight: 700; }
+
+  /* ── Content card ───────────────────────────────────────────── */
+  .stk-card {
+    background: #fff; border: 1px solid #eaecf0; border-radius: 18px;
+    padding: 1rem 1.1rem; box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  }
+  /* Availability segments — Hammasi / Mavjud / Tugagan (client-side). */
+  .stk-seg {
+    display: inline-flex; gap: 4px; padding: 4px; margin-bottom: .9rem;
+    background: #f1f4fa; border: 1px solid #e4e9f3; border-radius: 12px;
+  }
+  .stk-seg-btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .45rem .85rem; border-radius: 9px; border: none; background: transparent;
+    color: #475467; font-weight: 600; font-size: .85rem; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .stk-seg-btn:hover { color: #101828; }
+  .stk-seg-btn.is-active { background: #fff; color: #101828; box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+  .stk-seg-count {
+    font-size: .72rem; font-weight: 700; color: #98a2b3;
+    background: rgba(16,24,40,.06); padding: .05rem .42rem; border-radius: 999px;
+  }
+  .stk-seg-btn.is-active .stk-seg-count { color: #3456b9; background: rgba(52,86,185,.12); }
+
+  .stk-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .7rem;
+    margin-bottom: .9rem;
+  }
+  .stk-search {
+    position: relative; flex: 1 1 280px; min-width: 220px;
+  }
+  .stk-search svg {
+    position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+    color: #98a2b3; pointer-events: none;
+  }
+  .stk-search input {
+    width: 100%; padding: .6rem .8rem .6rem 2.2rem;
+    border: 1px solid #e4e7ec; border-radius: 12px;
+    font-size: .9rem; color: #101828; background: #fcfcfd;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .stk-search input:focus {
+    outline: none; border-color: #3456b9;
+    box-shadow: 0 0 0 3px rgba(52, 86, 185, .12); background: #fff;
+  }
+  .stk-summary { color: #667085; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+  .stk-summary b { color: #101828; }
+  .stk-summary .stk-zero { color: #b42318; }
+
+  .stk-refresh {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .55rem .9rem; border-radius: 12px;
+    border: 1px solid #e4e7ec; background: #fff; color: #475467;
+    font-weight: 600; font-size: .85rem; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .stk-refresh:hover { background: #f9fafb; color: #101828; border-color: #d0d5dd; }
+  .stk-shop {
+    padding: .55rem .8rem; border: 1px solid #e4e7ec; border-radius: 12px;
+    font-size: .85rem; font-weight: 600; color: #344054; background: #fff;
+    cursor: pointer; max-width: 230px;
+  }
+  .stk-shop:focus { outline: none; border-color: #3456b9; box-shadow: 0 0 0 3px rgba(52,86,185,.12); }
+
+  .stk-table-wrap { overflow-x: auto; border-radius: 12px; }
+  .stk-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .stk-table thead th {
+    text-align: left; padding: .55rem .7rem;
+    font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+    text-transform: uppercase; color: #98a2b3;
+    border-bottom: 1px solid #eaecf0; white-space: nowrap;
+  }
+  .stk-table th.stk-col-amount { text-align: right; }
+  .stk-table tbody td { padding: .6rem .7rem; border-bottom: 1px solid #f2f4f7; vertical-align: middle; }
+  .stk-table tbody tr:last-child td { border-bottom: none; }
+  .stk-table tbody tr { transition: background .12s; }
+  .stk-table tbody tr:hover { background: #fcfcfd; }
+  .stk-table tbody tr.is-dirty { background: #fffbeb; }
+  .stk-table tbody tr.is-dirty:hover { background: #fff7e0; }
+
+  .stk-prod { display: flex; align-items: center; gap: .65rem; min-width: 260px; }
+  .stk-thumb {
+    width: 44px; height: 44px; flex: none; border-radius: 10px;
+    object-fit: cover; background: #f2f4f7; border: 1px solid #eaecf0;
+    cursor: zoom-in; transition: transform .14s ease, box-shadow .14s ease;
+  }
+  .stk-thumb:hover { transform: scale(1.08); box-shadow: 0 3px 10px rgba(16,24,40,.20); }
+  .stk-thumb-ph {
+    width: 44px; height: 44px; flex: none; border-radius: 10px;
+    display: grid; place-items: center; font-size: 1.1rem;
+    background: #f2f4f7; border: 1px solid #eaecf0; color: #98a2b3;
+  }
+  /* Floating hover zoom preview (appended to <body> so the table's overflow
+     never clips it). Toggled via .is-on. */
+  .stk-zoom {
+    position: fixed; z-index: 4000; pointer-events: none;
+    width: 320px; height: 320px; border-radius: 16px; overflow: hidden;
+    background: #fff; border: 1px solid #eaecf0; padding: 6px;
+    box-shadow: 0 18px 50px rgba(16,24,40,.30);
+    opacity: 0; transform: scale(.90); transform-origin: center left;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .stk-zoom.is-on { opacity: 1; transform: scale(1); }
+  .stk-zoom img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    border-radius: 11px; background: #f8fafc;
+  }
+  /* Excel export/import buttons */
+  .stk-xls { display: inline-flex; gap: .4rem; }
+  .stk-xls-btn {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .5rem .8rem; border-radius: 10px; font-size: .85rem; font-weight: 600;
+    border: 1px solid #d0d5dd; background: #fff; color: #344054; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .stk-xls-btn:hover { background: #f9fafb; border-color: #b2b8c2; }
+  .stk-xls-up { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+  .stk-xls-up:hover { background: #d1fadf; }
+  /* Import preview modal */
+  .stk-modal-overlay {
+    position: fixed; inset: 0; z-index: 5000; display: none;
+    align-items: center; justify-content: center; padding: 1rem;
+    background: rgba(16,24,40,.55);
+  }
+  .stk-modal-overlay.show { display: flex; }
+  .stk-modal {
+    width: 100%; max-width: 720px; max-height: 86vh; display: flex; flex-direction: column;
+    background: #fff; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 24px 64px rgba(16,24,40,.34);
+  }
+  .stk-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.2rem; border-bottom: 1px solid #eaecf0;
+  }
+  .stk-modal-head h3 { margin: 0; font-size: 1.05rem; color: #101828; }
+  .stk-modal-x { border: none; background: none; font-size: 1.1rem; cursor: pointer; color: #667085; }
+  .stk-modal-sum { padding: .7rem 1.2rem; font-size: .9rem; color: #344054; background: #f9fafb; border-bottom: 1px solid #eaecf0; }
+  .stk-imp-warn { color: #b54708; font-weight: 600; }
+  .stk-modal-body { overflow: auto; padding: 0 1.2rem; }
+  .stk-imp-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .stk-imp-table th { position: sticky; top: 0; background: #fff; text-align: left; color: #667085; font-weight: 600; padding: .55rem .5rem; border-bottom: 1px solid #eaecf0; }
+  .stk-imp-table td { padding: .5rem .5rem; border-bottom: 1px solid #f2f4f7; color: #101828; }
+  .stk-imp-amt s { color: #98a2b3; }
+  .stk-imp-empty { text-align: center; color: #98a2b3; padding: 1.5rem 0; }
+  .stk-modal-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 1rem 1.2rem; border-top: 1px solid #eaecf0;
+  }
+  .stk-modal-note { font-size: .8rem; color: #667085; }
+  .stk-modal-foot-btns { display: flex; gap: .6rem; }
+  [data-bs-theme="dark"] .stk-xls-btn { background: #1a2030; border-color: #2b3346; color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-xls-btn:hover { background: #222a3a; }
+  [data-bs-theme="dark"] .stk-xls-up { background: rgba(16,185,129,.12); border-color: #1f5f43; color: #6ee7b7; }
+  [data-bs-theme="dark"] .stk-modal { background: #141a26; }
+  [data-bs-theme="dark"] .stk-modal-head, [data-bs-theme="dark"] .stk-modal-foot { border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-modal-head h3 { color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-modal-sum { background: #1a2132; border-color: #2b3346; color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-imp-table th { background: #141a26; color: #94a3b8; border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-imp-table td { color: #e8edf5; border-color: #222a3a; }
+  [data-bs-theme="dark"] .stk-modal-note { color: #94a3b8; }
+  .stk-prod-body { min-width: 0; }
+  .stk-prod-title {
+    font-weight: 600; color: #101828; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .stk-prod-meta { color: #98a2b3; font-size: .76rem; margin-top: .1rem; }
+  .stk-prod-meta span + span::before { content: "·"; margin: 0 .35rem; }
+
+  .stk-barcode { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; color: #475467; font-size: .82rem; white-space: nowrap; }
+
+  .stk-schemes { display: inline-flex; gap: .85rem; }
+  .stk-scheme-toggle {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: .8rem; font-weight: 700; color: #344054; cursor: pointer;
+    user-select: none;
+  }
+  .stk-scheme-toggle input {
+    width: 17px; height: 17px; margin: 0; flex: none; cursor: pointer;
+    accent-color: #3456b9;
+  }
+  .stk-scheme-toggle.is-off { color: #98a2b3; }
+  .stk-scheme-toggle.is-disabled { opacity: .4; cursor: not-allowed; }
+  .stk-scheme-toggle.is-disabled input { cursor: not-allowed; }
+
+  .stk-amount-cell { text-align: right; white-space: nowrap; }
+  .stk-amount {
+    width: 92px; text-align: right; padding: .45rem .6rem;
+    border: 1px solid #e4e7ec; border-radius: 10px;
+    font-size: .9rem; font-weight: 600; color: #101828; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+    -moz-appearance: textfield;
+  }
+  .stk-amount::-webkit-outer-spin-button,
+  .stk-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .stk-amount:focus {
+    outline: none; border-color: #3456b9; box-shadow: 0 0 0 3px rgba(52,86,185,.12);
+  }
+  tr.is-dirty .stk-amount { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.14); }
+
+  .stk-state { text-align: center; color: #667085; padding: 2.2rem 1rem; }
+
+  /* ── Pager ──────────────────────────────────────────────────── */
+  .stk-pager { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .85rem; }
+  .stk-pager-info { color: #667085; font-size: .82rem; }
+  .stk-pager-btns { display: inline-flex; gap: .4rem; }
+  .stk-btn {
+    padding: .45rem .8rem; border-radius: 10px; border: 1px solid #e4e7ec;
+    background: #fff; color: #475467; font-weight: 600; font-size: .82rem; cursor: pointer;
+  }
+  .stk-btn:disabled { opacity: .45; cursor: default; }
+  .stk-btn:not(:disabled):hover { background: #f9fafb; color: #101828; }
+
+  /* ── Sticky save bar ────────────────────────────────────────── */
+  .stk-savebar {
+    position: fixed; left: 50%; bottom: 1.4rem; transform: translate(-50%, 160%);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .65rem .7rem .65rem 1.1rem; border-radius: 16px;
+    background: #101828; color: #fff; box-shadow: 0 18px 40px rgba(16,24,40,.28);
+    z-index: 60; transition: transform .32s cubic-bezier(.2,.8,.2,1);
+  }
+  .stk-savebar.show { transform: translate(-50%, 0); }
+  .stk-savebar-text { font-size: .9rem; font-weight: 600; }
+  .stk-savebar-text b { color: #fdb022; }
+  .stk-savebar-actions { display: inline-flex; gap: .5rem; }
+  .stk-savebar .stk-cancel {
+    padding: .5rem .9rem; border-radius: 11px; border: 1px solid rgba(255,255,255,.18);
+    background: transparent; color: #cdd5e0; font-weight: 600; font-size: .85rem; cursor: pointer;
+  }
+  .stk-savebar .stk-cancel:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .stk-savebar .stk-save {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem 1.1rem; border-radius: 11px; border: none;
+    background: linear-gradient(135deg, #4f7cf0, #3456b9); color: #fff;
+    font-weight: 700; font-size: .85rem; cursor: pointer;
+  }
+  .stk-savebar .stk-save:disabled { opacity: .6; cursor: default; }
+  .stk-savebar .stk-save:not(:disabled):hover { filter: brightness(1.07); }
+
+  /* ── Toast ──────────────────────────────────────────────────── */
+  .stk-toast-wrap { position: fixed; top: 1rem; right: 1rem; display: grid; gap: .5rem; z-index: 70; }
+  .stk-toast {
+    padding: .7rem 1rem; border-radius: 12px; font-size: .88rem; font-weight: 600;
+    box-shadow: 0 10px 26px rgba(16,24,40,.18); animation: stkToastIn .25s ease;
+    max-width: 340px;
+  }
+  .stk-toast.ok   { background: #ecfdf3; color: #027a48; border: 1px solid #abefc6; }
+  .stk-toast.err  { background: #fef3f2; color: #b42318; border: 1px solid #fecdca; }
+  @keyframes stkToastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  [data-bs-theme="dark"] .stk-hero {
+    background: linear-gradient(160deg, #161c2b 0%, #141a28 60%, #131a2e 100%);
+    border-color: #2b3346; box-shadow: 0 12px 28px rgba(0,0,0,.3);
+  }
+  [data-bs-theme="dark"] .stk-kicker { background: rgba(79,124,240,.16); color: #93b1ff; }
+  [data-bs-theme="dark"] .stk-title { color: #f3f6fb; }
+  [data-bs-theme="dark"] .stk-subtitle { color: #98a2b3; }
+  [data-bs-theme="dark"] .fbs-section-tabs { background: #1c2334; border-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-section-tabs a { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-section-tabs a:hover { color: #e8edf5; background: rgba(255,255,255,.04); }
+  [data-bs-theme="dark"] .fbs-section-tabs a.active { background: #2a3349; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  [data-bs-theme="dark"] .stk-warning { background: rgba(234,88,12,.12); border-color: rgba(234,88,12,.35); color: #fdba74; }
+  [data-bs-theme="dark"] .stk-warning a { color: #fdba74; }
+  [data-bs-theme="dark"] .stk-card { background: #161c2b; border-color: #2b3346; box-shadow: none; }
+  [data-bs-theme="dark"] .stk-seg { background: #1c2334; border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-seg-btn { color: #9aa3b2; }
+  [data-bs-theme="dark"] .stk-seg-btn:hover { color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-seg-btn.is-active { background: #2a3349; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  [data-bs-theme="dark"] .stk-seg-count { color: #6b7589; background: rgba(255,255,255,.06); }
+  [data-bs-theme="dark"] .stk-seg-btn.is-active .stk-seg-count { color: #93b1ff; background: rgba(79,124,240,.18); }
+  [data-bs-theme="dark"] .stk-search input { background: #11172250; border-color: #2b3346; color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-search input:focus { border-color: #4f7cf0; box-shadow: 0 0 0 3px rgba(79,124,240,.18); background: #1a2030; }
+  [data-bs-theme="dark"] .stk-summary { color: #98a2b3; }
+  [data-bs-theme="dark"] .stk-summary b { color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-refresh { background: #1a2030; border-color: #2b3346; color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-refresh:hover { background: #222a3d; color: #fff; }
+  [data-bs-theme="dark"] .stk-shop { background: #1a2030; border-color: #2b3346; color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-table thead th { color: #6b7589; border-bottom-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-table tbody td { border-bottom-color: #222a3a; }
+  [data-bs-theme="dark"] .stk-table tbody tr:hover { background: #1a2132; }
+  [data-bs-theme="dark"] .stk-table tbody tr.is-dirty { background: rgba(245,158,11,.10); }
+  [data-bs-theme="dark"] .stk-prod-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-prod-meta { color: #6b7589; }
+  [data-bs-theme="dark"] .stk-barcode { color: #9aa3b2; }
+  [data-bs-theme="dark"] .stk-thumb, [data-bs-theme="dark"] .stk-thumb-ph { background: #1a2030; border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-zoom { background: #141a26; border-color: #2b3346; box-shadow: 0 18px 50px rgba(0,0,0,.62); }
+  [data-bs-theme="dark"] .stk-zoom img { background: #0f1420; }
+  [data-bs-theme="dark"] .stk-scheme-toggle { color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-scheme-toggle.is-off { color: #6b7589; }
+  [data-bs-theme="dark"] .stk-scheme-toggle input { accent-color: #4f7cf0; }
+  [data-bs-theme="dark"] .stk-amount { background: #11172250; border-color: #2b3346; color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-amount:focus { border-color: #4f7cf0; box-shadow: 0 0 0 3px rgba(79,124,240,.18); }
+  [data-bs-theme="dark"] .stk-btn { background: #1a2030; border-color: #2b3346; color: #cdd5e0; }
+  [data-bs-theme="dark"] .stk-btn:not(:disabled):hover { background: #222a3d; color: #fff; }
+  [data-bs-theme="dark"] .stk-pager-info, [data-bs-theme="dark"] .stk-state { color: #98a2b3; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stk-page">
+  <section class="stk-hero">
+    <div class="stk-hero-main">
+      <span class="stk-kicker">FBS / DBS</span>
+      <h1 class="stk-title">Ombor</h1>
+      <p class="stk-subtitle">
+        FBS va DBS qoldiqlaringiz (<em>ostatki</em>). Mahsulot qoldig'ini shu yerdan
+        ko'ring va yangilang — Uzum kabinetiga kirmasdan. Ma'lumotlar Uzum Seller
+        OpenAPI orqali to'g'ridan-to'g'ri olinadi.
+      </p>
+    </div>
+
+    <nav class="fbs-section-tabs" aria-label="FBS bo'limi">
+    <a href="/fbs">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Buyurtmalar
+    </a>
+    <a href="/fbs/stock" class="active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+      Ombor
+    </a>
+    </nav>
+  </section>
+
+  {% if not has_token %}
+  <div class="stk-warning">
+    Uzum Seller OpenAPI tokeni o'rnatilmagan. Qoldiqlarni ko'rish uchun
+    <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+  </div>
+  {% endif %}
+
+  <section class="stk-card">
+    <div class="stk-seg" id="stkSeg">
+      <button type="button" class="stk-seg-btn is-active" data-avail="all">Hammasi <span class="stk-seg-count" data-seg="all">·</span></button>
+      <button type="button" class="stk-seg-btn" data-avail="in">Mavjud <span class="stk-seg-count" data-seg="in">·</span></button>
+      <button type="button" class="stk-seg-btn" data-avail="out">Tugagan <span class="stk-seg-count" data-seg="out">·</span></button>
+    </div>
+    <div class="stk-toolbar">
+      <div class="stk-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="stkSearch" placeholder="Nomi, SKU yoki shtrix-kod bo'yicha qidirish…" autocomplete="off">
+      </div>
+      <select id="stkShop" class="stk-shop" aria-label="Do'kon">
+        <option value="">Barcha do'konlar</option>
+      </select>
+      <span class="stk-summary" id="stkSummary">—</span>
+      <button type="button" class="stk-refresh" id="stkRefresh">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Yangilash
+      </button>
+      <div class="stk-xls">
+        <button type="button" class="stk-xls-btn" id="stkExport" title="Hozirgi qoldiqni Excel'ga yuklab olish">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+        <button type="button" class="stk-xls-btn stk-xls-up" id="stkImport" title="Excel fayldan ommaviy yangilash">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Yuklash
+        </button>
+        <input type="file" id="stkImportFile" accept=".xlsx,.xlsm" hidden>
+      </div>
+    </div>
+
+    <div class="stk-table-wrap">
+      <table class="stk-table" id="stkTable">
+        <thead>
+          <tr>
+            <th>Mahsulot / SKU</th>
+            <th>Shtrix-kod</th>
+            <th>Sxema</th>
+            <th class="stk-col-amount">Qoldiq, dona</th>
+          </tr>
+        </thead>
+        <tbody id="stkBody">
+          <tr><td colspan="4" class="stk-state">Yuklanmoqda…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stk-pager">
+      <span class="stk-pager-info" id="stkPageInfo">—</span>
+      <div class="stk-pager-btns">
+        <button type="button" class="stk-btn" id="stkPrev" disabled>◀ Oldingi</button>
+        <button type="button" class="stk-btn" id="stkNext" disabled>Keyingi ▶</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Sticky save bar — slides up when there are unsaved edits -->
+<div class="stk-savebar" id="stkSaveBar">
+  <span class="stk-savebar-text"><b id="stkDirtyCount">0</b> ta o'zgartirildi</span>
+  <div class="stk-savebar-actions">
+    <button type="button" class="stk-cancel" id="stkCancel">Bekor</button>
+    <button type="button" class="stk-save" id="stkSave">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Saqlash
+    </button>
+  </div>
+</div>
+
+<!-- Excel import preview modal (two-step: preview → confirm → apply) -->
+<div class="stk-modal-overlay" id="stkImportModal" aria-hidden="true">
+  <div class="stk-modal" role="dialog" aria-modal="true" aria-labelledby="stkImpTitle">
+    <div class="stk-modal-head">
+      <h3 id="stkImpTitle">Excel'dan yangilash</h3>
+      <button type="button" class="stk-modal-x" id="stkImpCancel" aria-label="Yopish">✕</button>
+    </div>
+    <div class="stk-modal-sum" id="stkImpSummary">—</div>
+    <div class="stk-modal-body">
+      <table class="stk-imp-table">
+        <thead><tr><th>SKU</th><th>Shtrix-kod</th><th>Qoldiq</th><th>Sxema</th></tr></thead>
+        <tbody id="stkImpTbody"></tbody>
+      </table>
+    </div>
+    <div class="stk-modal-foot">
+      <span class="stk-modal-note">Faqat o'zgargan qatorlar Uzum'ga yoziladi.</span>
+      <div class="stk-modal-foot-btns">
+        <button type="button" class="stk-cancel" id="stkImpClose">Bekor</button>
+        <button type="button" class="stk-save" id="stkImpApply">Tasdiqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stk-toast-wrap" id="stkToasts"></div>
+
+<script>
+(function () {
+  "use strict";
+  const PAGE_SIZE = 50;
+  const body = document.getElementById("stkBody");
+  const searchInput = document.getElementById("stkSearch");
+  const summary = document.getElementById("stkSummary");
+  const pageInfo = document.getElementById("stkPageInfo");
+  const btnPrev = document.getElementById("stkPrev");
+  const btnNext = document.getElementById("stkNext");
+  const saveBar = document.getElementById("stkSaveBar");
+  const dirtyCountEl = document.getElementById("stkDirtyCount");
+  const saveBtn = document.getElementById("stkSave");
+  const cancelBtn = document.getElementById("stkCancel");
+  const refreshBtn = document.getElementById("stkRefresh");
+  const shopSel = document.getElementById("stkShop");
+  const toasts = document.getElementById("stkToasts");
+
+  let _all = [];          // all SKUs (each: original Uzum row + image)
+  let _byId = new Map();  // skuId(str) -> row
+  let _filtered = [];     // current search result
+  let _edited = new Map();// skuId(str) -> new amount (only when != original)
+  let _page = 0;
+  let _avail = "all";     // availability filter: all | in | out
+  let _shop = "";         // shop filter: "" = all shops, else shop id
+  let _loading = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function fmtInt(n) {
+    const v = Number(n);
+    if (!isFinite(v)) return "0";
+    return v.toLocaleString("ru-RU").replace(/,/g, " ");
+  }
+  function showToast(msg, kind) {
+    const el = document.createElement("div");
+    el.className = "stk-toast " + (kind === "err" ? "err" : "ok");
+    el.textContent = msg;
+    toasts.appendChild(el);
+    setTimeout(() => { el.style.transition = "opacity .3s"; el.style.opacity = "0";
+      setTimeout(() => el.remove(), 320); }, 3200);
+  }
+
+  // Current editable state of a row = its edited values if any, else the
+  // loaded originals. amount + the two scheme flags are all editable.
+  function origState(row) {
+    return { amount: Number(row.amount) || 0, fbsLinked: !!row.fbsLinked, dbsLinked: !!row.dbsLinked };
+  }
+  function stateOf(row) {
+    return _edited.get(String(row.skuId)) || origState(row);
+  }
+  // Record one field edit; a row stays "dirty" only while its current state
+  // differs from the loaded original (toggling back clears it cleanly).
+  function setField(sid, field, value) {
+    const row = _byId.get(sid);
+    if (!row) return;
+    const orig = origState(row);
+    const cur = Object.assign({}, _edited.get(sid) || orig);
+    cur[field] = value;
+    if (cur.amount === orig.amount && cur.fbsLinked === orig.fbsLinked && cur.dbsLinked === orig.dbsLinked) {
+      _edited.delete(sid);
+    } else {
+      _edited.set(sid, cur);
+    }
+  }
+
+  function schemeToggles(row, st) {
+    const sid = String(row.skuId);
+    function one(scheme, on, allowed) {
+      const dis = allowed === false;  // SKU not eligible for this scheme
+      return `<label class="stk-scheme-toggle ${on ? "" : "is-off"} ${dis ? "is-disabled" : ""}" title="${dis ? "Bu sxema bu SKU uchun mavjud emas" : "Yoqish / o'chirish"}">
+        <input type="checkbox" class="stk-scheme-cb" data-sku-id="${escapeHtml(sid)}" data-scheme="${scheme}" ${on ? "checked" : ""} ${dis ? "disabled" : ""}>
+        <span>${scheme.toUpperCase()}</span>
+      </label>`;
+    }
+    return `<span class="stk-schemes">${one("fbs", st.fbsLinked, row.fbsAllowed)}${one("dbs", st.dbsLinked, row.dbsAllowed)}</span>`;
+  }
+
+  function renderRow(row) {
+    const sid = String(row.skuId);
+    const st = stateOf(row);
+    const dirty = _edited.has(sid);
+    const thumb = row.image
+      ? `<img class="stk-thumb" src="${escapeHtml(row.image)}" alt="" loading="lazy" decoding="async">`
+      : '<div class="stk-thumb-ph">📦</div>';
+    const meta = [];
+    if (row.skuTitle) meta.push(`<span>${escapeHtml(row.skuTitle)}</span>`);
+    if (row.sellerSkuCode) meta.push(`<span>${escapeHtml(row.sellerSkuCode)}</span>`);
+    return `
+      <tr data-sku-id="${escapeHtml(sid)}" class="${dirty ? "is-dirty" : ""}">
+        <td>
+          <div class="stk-prod">
+            ${thumb}
+            <div class="stk-prod-body">
+              <div class="stk-prod-title">${escapeHtml(row.productTitle || row.skuTitle || "—")}</div>
+              <div class="stk-prod-meta">${meta.join("")}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="stk-barcode">${escapeHtml(row.barcode || "—")}</span></td>
+        <td>${schemeToggles(row, st)}</td>
+        <td class="stk-amount-cell">
+          <input type="number" class="stk-amount" min="0" step="1"
+                 inputmode="numeric" value="${escapeHtml(st.amount)}"
+                 data-sku-id="${escapeHtml(sid)}" aria-label="Qoldiq">
+        </td>
+      </tr>`;
+  }
+
+  function render() {
+    const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE));
+    if (_page >= totalPages) _page = totalPages - 1;
+    if (_page < 0) _page = 0;
+    const start = _page * PAGE_SIZE;
+    const slice = _filtered.slice(start, start + PAGE_SIZE);
+
+    if (!_filtered.length) {
+      body.innerHTML = `<tr><td colspan="4" class="stk-state">${
+        _all.length ? "Hech narsa topilmadi" : "Bu yerda SKU yo'q"}</td></tr>`;
+    } else {
+      body.innerHTML = slice.map(renderRow).join("");
+    }
+    pageInfo.textContent = _filtered.length
+      ? `${start + 1}–${Math.min(start + PAGE_SIZE, _filtered.length)} / ${_filtered.length} ta`
+      : "0 ta";
+    btnPrev.disabled = (_page === 0);
+    btnNext.disabled = (_page >= totalPages - 1);
+  }
+
+  function updateSummary() {
+    const scope = _shop ? _all.filter(r => String(r.shopId) === _shop) : _all;
+    let inN = 0;
+    for (const r of scope) { if (stateOf(r).amount > 0) inN++; }
+    const outN = scope.length - inN;
+    summary.innerHTML = `Jami <b>${fmtInt(scope.length)}</b> SKU · <span class="stk-zero">${fmtInt(outN)} tugagan</span>`;
+    const setSeg = (seg, n) => {
+      const el = document.querySelector(`.stk-seg-count[data-seg="${seg}"]`);
+      if (el) el.textContent = fmtInt(n);
+    };
+    setSeg("all", scope.length); setSeg("in", inN); setSeg("out", outN);
+  }
+
+  function updateSaveBar() {
+    const n = _edited.size;
+    dirtyCountEl.textContent = String(n);
+    saveBar.classList.toggle("show", n > 0);
+    saveBtn.disabled = (n === 0);
+  }
+
+  function matchesAvail(row) {
+    if (_avail === "all") return true;
+    const amt = stateOf(row).amount;
+    return _avail === "in" ? amt > 0 : amt === 0;
+  }
+  function applyFilter() {
+    const q = (searchInput.value || "").trim().toLowerCase();
+    _filtered = _all.filter(r => {
+      if (_shop && String(r.shopId) !== _shop) return false;
+      if (!matchesAvail(r)) return false;
+      if (!q) return true;
+      return (r.productTitle && r.productTitle.toLowerCase().includes(q)) ||
+             (r.skuTitle && r.skuTitle.toLowerCase().includes(q)) ||
+             (r.barcode && String(r.barcode).toLowerCase().includes(q)) ||
+             (r.sellerSkuCode && r.sellerSkuCode.toLowerCase().includes(q));
+    });
+    _page = 0;
+    render();
+  }
+
+  // Edits are delegated and survive pagination/search via the _edited map.
+  // Amount = live "input"; the FBS/DBS checkboxes = "change".
+  body.addEventListener("input", (e) => {
+    const input = e.target.closest(".stk-amount");
+    if (!input) return;
+    const sid = input.getAttribute("data-sku-id");
+    let val = parseInt(input.value, 10);
+    if (!isFinite(val) || val < 0) val = 0;
+    setField(sid, "amount", val);
+    const tr = input.closest("tr");
+    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    updateSaveBar();
+    updateSummary();
+  });
+  body.addEventListener("change", (e) => {
+    const cb = e.target.closest(".stk-scheme-cb");
+    if (!cb) return;
+    const sid = cb.getAttribute("data-sku-id");
+    const field = cb.getAttribute("data-scheme") === "fbs" ? "fbsLinked" : "dbsLinked";
+    setField(sid, field, cb.checked);
+    const tr = cb.closest("tr");
+    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    const lbl = cb.closest(".stk-scheme-toggle");
+    if (lbl) lbl.classList.toggle("is-off", !cb.checked);  // dim label live
+    updateSaveBar();
+    updateSummary();
+  });
+
+  // ── Hover zoom preview ───────────────────────────────────────────────
+  // One floating card, appended to <body> (escapes the table's overflow).
+  // On hover over a thumbnail it shows a high-res (540px) version anchored
+  // beside the row, flipping to the other side near the viewport edge.
+  const zoomEl = document.createElement("div");
+  zoomEl.className = "stk-zoom";
+  const zoomImg = document.createElement("img");
+  zoomImg.alt = "";
+  zoomImg.decoding = "async";
+  zoomEl.appendChild(zoomImg);
+  document.body.appendChild(zoomEl);
+  const ZW = 320, ZH = 320, ZGAP = 14;
+
+  function placeZoom(thumb) {
+    const r = thumb.getBoundingClientRect();
+    let left = r.right + ZGAP;
+    if (left + ZW > window.innerWidth - 8) left = r.left - ZGAP - ZW; // flip
+    left = Math.max(8, Math.min(left, window.innerWidth - ZW - 8));
+    let top = r.top + r.height / 2 - ZH / 2;
+    top = Math.max(8, Math.min(top, window.innerHeight - ZH - 8));
+    zoomEl.style.left = left + "px";
+    zoomEl.style.top = top + "px";
+  }
+  function showZoom(thumb) {
+    const src = thumb.getAttribute("src") || "";
+    if (!src) return;
+    const hi = src.replace("/t_product_240_high.jpg", "/t_product_540_high.jpg");
+    if (zoomImg.src !== hi) zoomImg.src = hi;
+    placeZoom(thumb);
+    zoomEl.classList.add("is-on");
+  }
+  function hideZoom() { zoomEl.classList.remove("is-on"); }
+
+  body.addEventListener("mouseover", (e) => {
+    const t = e.target.closest(".stk-thumb");
+    if (t) showZoom(t);
+  });
+  body.addEventListener("mouseout", (e) => {
+    if (e.target.closest(".stk-thumb")) hideZoom();
+  });
+  window.addEventListener("scroll", hideZoom, true);
+
+  searchInput.addEventListener("input", applyFilter);
+  document.getElementById("stkSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest(".stk-seg-btn");
+    if (!btn) return;
+    _avail = btn.getAttribute("data-avail") || "all";
+    document.querySelectorAll(".stk-seg-btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    applyFilter();
+  });
+  shopSel.addEventListener("change", () => { _shop = shopSel.value; applyFilter(); updateSummary(); });
+  btnPrev.addEventListener("click", () => { if (_page > 0) { _page--; render(); } });
+  btnNext.addEventListener("click", () => { _page++; render(); });
+
+  cancelBtn.addEventListener("click", () => {
+    _edited.clear();
+    updateSaveBar();
+    updateSummary();
+    render();
+  });
+
+  async function save() {
+    if (!_edited.size) return;
+    const payload = [];
+    _edited.forEach((st, sid) => {
+      const row = _byId.get(sid);
+      if (row) payload.push(Object.assign({}, row, {
+        amount: st.amount, fbsLinked: st.fbsLinked, dbsLinked: st.dbsLinked,
+      }));
+    });
+    saveBtn.disabled = true;
+    const oldHtml = saveBtn.innerHTML;
+    saveBtn.textContent = "Saqlanmoqda…";
+    try {
+      const r = await fetch("/fbs/api/sku-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ skuAmountList: payload }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        showToast(data.uzum_message || data.error || `Xato (HTTP ${r.status})`, "err");
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = oldHtml;
+        return;
+      }
+      // Commit edits into the base data so the view reflects the new truth.
+      _edited.forEach((st, sid) => {
+        const row = _byId.get(sid);
+        if (row) { row.amount = st.amount; row.fbsLinked = st.fbsLinked; row.dbsLinked = st.dbsLinked; }
+      });
+      const n = _edited.size;
+      _edited.clear();
+      saveBtn.innerHTML = oldHtml;
+      updateSaveBar();
+      updateSummary();
+      applyFilter();
+      showToast(`${n} ta qoldiq saqlandi ✓`, "ok");
+    } catch (e) {
+      showToast("Tarmoq xatosi: " + (e.message || e), "err");
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = oldHtml;
+    }
+  }
+  saveBtn.addEventListener("click", save);
+
+  async function load() {
+    if (_loading) return;
+    _loading = true;
+    _edited.clear();
+    updateSaveBar();
+    body.innerHTML = `<tr><td colspan="4" class="stk-state">Yuklanmoqda…</td></tr>`;
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const r = await fetch("/fbs/api/sku-stocks", { credentials: "same-origin", signal: ctrl.signal });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        body.innerHTML = `<tr><td colspan="4" class="stk-state"><strong>Xato:</strong> ${escapeHtml(data.error || r.status)}</td></tr>`;
+        summary.textContent = "—";
+        return;
+      }
+      _all = (data.skus || []).filter(s => s && s.skuId != null);
+      // Neat, stable order: sort by SKU code (skuTitle) so variants of the
+      // same product sit together; `numeric` keeps -16/-17/-43 in order.
+      _all.sort((a, b) => String(a.skuTitle || "").localeCompare(
+        String(b.skuTitle || ""), "ru", { numeric: true, sensitivity: "base" }));
+      _byId = new Map(_all.map(r => [String(r.skuId), r]));
+      const shops = data.shops || [];
+      const keepShop = shopSel.value;
+      shopSel.innerHTML = '<option value="">Barcha do\'konlar</option>' +
+        shops.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");
+      shopSel.value = (keepShop && shops.some(s => String(s.id) === keepShop)) ? keepShop : "";
+      _shop = shopSel.value;
+      applyFilter();
+      updateSummary();
+    } catch (e) {
+      if (e && e.name === "AbortError") {
+        body.innerHTML = `<tr><td colspan="4" class="stk-state"><strong>Uzum javob bermadi.</strong> Birozdan keyin qayta urinib ko'ring.</td></tr>`;
+      } else {
+        body.innerHTML = `<tr><td colspan="4" class="stk-state"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message || "")}</td></tr>`;
+      }
+    } finally {
+      clearTimeout(to);
+      _loading = false;
+    }
+  }
+  refreshBtn.addEventListener("click", load);
+
+  // Warn before leaving with unsaved edits.
+  window.addEventListener("beforeunload", (e) => {
+    if (_edited.size) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // ── Excel export / import («Обновить через файл») ──────────────────
+  // Export = plain download. Import = two-step: upload → server diffs vs
+  // live stock → preview modal → confirm → apply (writes ONLY the diff).
+  const exportBtn = document.getElementById("stkExport");
+  const importBtn = document.getElementById("stkImport");
+  const importFile = document.getElementById("stkImportFile");
+  const impModal = document.getElementById("stkImportModal");
+  const impSummary = document.getElementById("stkImpSummary");
+  const impTbody = document.getElementById("stkImpTbody");
+  const impApply = document.getElementById("stkImpApply");
+  let _pendingChanges = [];
+
+  function closeImpModal() { if (impModal) impModal.classList.remove("show"); }
+  ["stkImpCancel", "stkImpClose"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", closeImpModal);
+  });
+  if (impModal) impModal.addEventListener("click", (e) => { if (e.target === impModal) closeImpModal(); });
+
+  if (exportBtn) exportBtn.addEventListener("click", () => {
+    window.location.href = "/fbs/api/sku-stocks/export";
+  });
+  if (importBtn) importBtn.addEventListener("click", () => importFile && importFile.click());
+
+  if (importFile) importFile.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";  // allow re-picking the same file
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    const old = importBtn.innerHTML;
+    importBtn.disabled = true; importBtn.textContent = "Tekshirilmoqda…";
+    try {
+      const r = await fetch("/fbs/api/sku-stocks/import-preview", {
+        method: "POST", body: fd, credentials: "same-origin",
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) { showToast(data.error || `Xato (${r.status})`, "error"); return; }
+      _pendingChanges = data.changes || [];
+      renderImportPreview(data.counts || {}, _pendingChanges);
+    } catch (err) {
+      showToast("Tarmoq xatosi: " + err.message, "error");
+    } finally {
+      importBtn.disabled = false; importBtn.innerHTML = old;
+    }
+  });
+
+  function renderImportPreview(c, changes) {
+    impSummary.innerHTML =
+      `<b>${c.changed || 0}</b> ta o'zgaradi · ${c.unchanged || 0} o'zgarmaydi`
+      + (c.unknown ? ` · <span class="stk-imp-warn">${c.unknown} noma'lum SKU</span>` : "")
+      + (((c.skipped_no_amount || 0) + (c.skipped_no_id || 0))
+          ? ` · ${(c.skipped_no_amount || 0) + (c.skipped_no_id || 0)} o'tkazib yuborildi` : "");
+    impTbody.innerHTML = changes.slice(0, 300).map(ch => {
+      const amt = (ch.old_amount !== ch.amount)
+        ? `<s>${ch.old_amount}</s> → <b>${ch.amount}</b>` : `${ch.amount}`;
+      const fbs = `${ch.old_fbsLinked ? "✓" : "–"}→${ch.fbsLinked ? "✓" : "–"}`;
+      const dbs = `${ch.old_dbsLinked ? "✓" : "–"}→${ch.dbsLinked ? "✓" : "–"}`;
+      return `<tr><td>${escapeHtml(ch.skuTitle || String(ch.skuId))}</td>`
+        + `<td>${escapeHtml(ch.barcode || "")}</td>`
+        + `<td class="stk-imp-amt">${amt}</td>`
+        + `<td>FBS ${fbs} · DBS ${dbs}</td></tr>`;
+    }).join("") || `<tr><td colspan="4" class="stk-imp-empty">O'zgarish topilmadi</td></tr>`;
+    impApply.disabled = !changes.length;
+    impApply.textContent = changes.length ? `Tasdiqlash (${changes.length})` : "O'zgarish yo'q";
+    impModal.classList.add("show");
+  }
+
+  if (impApply) impApply.addEventListener("click", async () => {
+    if (!_pendingChanges.length) return;
+    const old = impApply.textContent;
+    impApply.disabled = true; impApply.textContent = "Saqlanmoqda…";
+    try {
+      const r = await fetch("/fbs/api/sku-stocks/import-apply", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "same-origin", body: JSON.stringify({ changes: _pendingChanges }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        showToast(data.error || `Xato (${r.status})`, "error");
+        impApply.disabled = false; impApply.textContent = old;
+        return;
+      }
+      closeImpModal();
+      showToast(`${data.applied} ta SKU yangilandi`, "success");
+      _pendingChanges = [];
+      load();  // refresh the grid from Uzum
+    } catch (err) {
+      showToast("Tarmoq xatosi: " + err.message, "error");
+      impApply.disabled = false; impApply.textContent = old;
+    }
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+  .fbs-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .fbs-hero {
+    border: 1px solid rgba(53, 86, 185, .12);
+    border-radius: 20px;
+    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
+    box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
+    padding: 1.3rem 1.4rem;
+  }
+  .fbs-kicker {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .32rem .7rem;
+    border-radius: 999px;
+    background: rgba(52, 86, 185, .1);
+    color: #3456b9;
+    font-size: .72rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    margin-bottom: .6rem;
+  }
+  .fbs-title { margin: 0; font-size: 1.6rem; font-weight: 700; color: #101828; }
+  .fbs-subtitle { margin: .35rem 0 0; color: #667085; font-size: .95rem; line-height: 1.5; max-width: 640px; }
+
+  .fbs-card {
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 18px;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+
+  .fbs-toolbar {
+    display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end;
+  }
+  .fbs-toolbar > div { display: flex; flex-direction: column; }
+  .fbs-toolbar label { font-size: .72rem; color: #667085; font-weight: 600;
+                       margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .04em; }
+  .fbs-toolbar select,
+  .fbs-toolbar input {
+    border: 1px solid #d0d5dd; border-radius: 10px;
+    padding: .45rem .7rem; font-size: .88rem; min-width: 160px;
+  }
+
+  /* ── Status badge row (top of card) ─────────────────────────── */
+  .fbs-status-row {
+    display: flex; gap: .4rem; flex-wrap: wrap;
+    margin: 1rem 0 .25rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid #eaecf0;
+  }
+  .fbs-status-chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .3rem .7rem; border-radius: 8px;
+    font-size: .78rem; font-weight: 600;
+    background: #f3f4f6; border: 1px solid transparent;
+    color: #475569; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .fbs-status-chip:hover { background: #e5e7eb; color: #1e293b; }
+  .fbs-status-chip.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+  .fbs-status-chip-count {
+    display: inline-flex; min-width: 18px; padding: 0 6px; border-radius: 999px;
+    background: rgba(255,255,255,.25); font-size: .68rem; font-weight: 700;
+  }
+  .fbs-status-chip:not(.active) .fbs-status-chip-count {
+    background: #fff; color: #475569;
+  }
+
+  /* ── Status pill (inside table) ──────────────────────────────── */
+  .fbs-status-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  /* Status colour map — see dark.md "fbs_orders.html" section */
+  .fbs-status-CREATED                              { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .fbs-status-PACKING                              { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+  .fbs-status-PENDING_DELIVERY                     { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .fbs-status-DELIVERING                           { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+  .fbs-status-DELIVERED                            { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .fbs-status-ACCEPTED_AT_DP                       { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+  .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+  .fbs-status-COMPLETED                            { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+  .fbs-status-CANCELED                             { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .fbs-status-PENDING_CANCELLATION                 { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+  .fbs-status-RETURNED                             { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+
+  .fbs-empty {
+    padding: 2.5rem 1rem; text-align: center; color: #667085;
+  }
+  .fbs-empty strong { color: #101828; }
+
+  .fbs-meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: .75rem; flex-wrap: wrap;
+    font-size: .8rem; color: #667085;
+    margin-top: .65rem;
+  }
+  .fbs-meta-row code {
+    background: #f3f4f6; padding: 2px 6px; border-radius: 6px;
+    color: #475569; font-size: .76rem;
+  }
+
+  .fbs-table th { white-space: nowrap; font-size: .72rem; }
+  .fbs-table td { vertical-align: middle; font-size: .88rem; }
+  .fbs-table tbody tr { cursor: pointer; }
+  .fbs-id { font-weight: 700; color: #101828; }
+  .fbs-customer { color: #475569; }
+  .fbs-scheme {
+    display: inline-block; padding: 1px 8px; border-radius: 6px;
+    font-size: .68rem; font-weight: 700;
+    background: #e0e7ff; color: #3730a3;
+  }
+  .fbs-scheme.dbs { background: #fef3c7; color: #92400e; }
+
+  .fbs-warning {
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 12px; padding: .8rem 1rem; font-size: .9rem;
+  }
+  .fbs-warning a { color: #92400e; text-decoration: underline; font-weight: 700; }
+
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  [data-bs-theme="dark"] .fbs-hero {
+    background: linear-gradient(160deg, #0f1117 0%, #131625 56%, #111420 100%);
+    border-color: #2d3148;
+    box-shadow: 0 12px 28px rgba(0,0,0,.3);
+  }
+  [data-bs-theme="dark"] .fbs-kicker { background: rgba(99,132,255,.15); color: #93b4ff; }
+  [data-bs-theme="dark"] .fbs-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-subtitle { color: #8892a4; }
+  [data-bs-theme="dark"] .fbs-card { background: #1a1d27; border-color: #2d3148; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  [data-bs-theme="dark"] .fbs-toolbar label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-toolbar select,
+  [data-bs-theme="dark"] .fbs-toolbar input { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+
+  [data-bs-theme="dark"] .fbs-status-row { border-bottom-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-status-chip { background: #1e2130; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-chip:hover { background: #252a3f; color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-status-chip.active { background: #e2e8f0; color: #0f1117; border-color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-status-chip:not(.active) .fbs-status-chip-count { background: #0f1117; color: #94a3b8; }
+
+  [data-bs-theme="dark"] .fbs-empty { color: #8892a4; }
+  [data-bs-theme="dark"] .fbs-empty strong { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-meta-row { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-meta-row code { background: #1e2130; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-id { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-customer { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-scheme { background: #1e2d4a; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-scheme.dbs { background: #2a1d0a; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-warning { background: #2a1d0a; border-color: #92400e; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-warning a { color: #fbbf24; }
+
+  [data-bs-theme="dark"] .fbs-status-CREATED                              { background: rgba(96,165,250,.12); border-color: #1e4080; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-status-PACKING                              { background: rgba(251,191,36,.12); border-color: #b45309; color: #fcd34d; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_DELIVERY                     { background: rgba(74,222,128,.12); border-color: #166534; color: #6ee7b7; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERING                           { background: rgba(251,146,60,.12); border-color: #c2410c; color: #fdba74; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED                            { background: rgba(52,211,153,.16); border-color: #047857; color: #34d399; }
+  [data-bs-theme="dark"] .fbs-status-ACCEPTED_AT_DP                       { background: rgba(167,139,250,.12); border-color: #6d28d9; color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: rgba(167,139,250,.08); border-color: #7c3aed; color: #ddd6fe; }
+  [data-bs-theme="dark"] .fbs-status-COMPLETED                            { background: #1e2130; border-color: #2d3148; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-CANCELED                             { background: rgba(248,113,113,.12); border-color: #b91c1c; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_CANCELLATION                 { background: rgba(220,38,38,.10); border-color: #991b1b; color: #f87171; }
+  [data-bs-theme="dark"] .fbs-status-RETURNED                             { background: rgba(159,18,57,.12); border-color: #9f1239; color: #fda4af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fbs-page">
+  <section class="fbs-hero">
+    <span class="fbs-kicker">FBS / DBS</span>
+    <h1 class="fbs-title">Buyurtmalar</h1>
+    <p class="fbs-subtitle">
+      Uzum'ning FBS («Fulfillment by Seller») va DBS («Delivery by Seller»)
+      buyurtmalari. Ma'lumotlar Seller OpenAPI orqali shaxsiy token bilan olinadi.
+    </p>
+  </section>
+
+  {% if not has_token %}
+  <div class="fbs-warning">
+    Uzum Seller OpenAPI tokeni o'rnatilmagan. Buyurtmalarni ko'rish uchun
+    avval <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+  </div>
+  {% endif %}
+
+  <section class="fbs-card">
+    <div class="fbs-toolbar">
+      <div>
+        <label for="fbsShop">Do'kon</label>
+        <select id="fbsShop">
+          {% if not shops %}
+          <option value="">— do'kon yo'q —</option>
+          {% else %}
+          {% for s in shops %}
+          <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }} ({{ s.uzum_id }})</option>
+          {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div>
+        <label for="fbsScheme">Sxema</label>
+        <select id="fbsScheme">
+          <option value="">FBS + DBS (hammasi)</option>
+          <option value="FBS">FBS</option>
+          <option value="DBS">DBS</option>
+        </select>
+      </div>
+      <div>
+        <label for="fbsSize">Sahifada</label>
+        <select id="fbsSize">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+      <div>
+        <button id="fbsReload" class="btn btn-dark">Yangilash</button>
+      </div>
+    </div>
+
+    {# Status chip row — counts come from /fbs/api/count (Stage 1: stub, 501) #}
+    <div class="fbs-status-row" id="fbsStatusRow">
+      {% for st in status_enum %}
+      <button type="button"
+              class="fbs-status-chip {% if st == default_status %}active{% endif %}"
+              data-status="{{ st }}">
+        <span>{{ st }}</span>
+        <span class="fbs-status-chip-count" data-status-count="{{ st }}">·</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div id="fbsResult" style="margin-top: 1rem">
+      <div class="fbs-empty">
+        Yuklash uchun «Yangilash» tugmasini bosing yoki status tanlang.
+      </div>
+    </div>
+
+    <div class="fbs-meta-row" id="fbsMeta" style="display:none">
+      <span>
+        Topildi: <strong id="fbsTotal">0</strong> ·
+        Sahifa: <strong id="fbsPage">0</strong> ·
+        Status: <strong id="fbsCurStatus">—</strong>
+      </span>
+      <span>
+        Endpoint: <code id="fbsUsedUrl">—</code>
+      </span>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const shopSel = $("fbsShop");
+  const schemeSel = $("fbsScheme");
+  const sizeSel = $("fbsSize");
+  const btnReload = $("fbsReload");
+  const out = $("fbsResult");
+  const meta = $("fbsMeta");
+  const metaTotal = $("fbsTotal");
+  const metaPage = $("fbsPage");
+  const metaStatus = $("fbsCurStatus");
+  const metaUrl = $("fbsUsedUrl");
+  const statusRow = $("fbsStatusRow");
+
+  let currentStatus = "{{ default_status }}";
+  const HAS_TOKEN = {{ 'true' if has_token else 'false' }};
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function formatDate(value){
+    if (!value) return "—";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function formatMoney(n){
+    if (n == null) return "—";
+    return Number(n).toLocaleString("ru-RU") + " UZS";
+  }
+
+  function statusPill(status){
+    const s = String(status || "—");
+    return `<span class="fbs-status-pill fbs-status-${escapeHtml(s)}">${escapeHtml(s)}</span>`;
+  }
+
+  function schemeBadge(scheme){
+    const s = String(scheme || "FBS");
+    const cls = s === "DBS" ? "fbs-scheme dbs" : "fbs-scheme";
+    return `<span class="${cls}">${escapeHtml(s)}</span>`;
+  }
+
+  function renderOrders(orders){
+    if (!orders.length) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Buyurtmalar topilmadi.</strong><br>Boshqa status tanlang yoki sxemani o'zgartiring.</div>`;
+      return;
+    }
+    const rows = orders.map(o => {
+      const id = o.id;
+      const di = o.deliveryInfo || {};
+      const customer = di.customerFullname || "—";
+      const phone = di.customerPhone || "";
+      const items = Array.isArray(o.orderItems) ? o.orderItems : [];
+      const itemsCount = items.length;
+      const firstItemTitle = items[0]?.productTitle || items[0]?.skuTitle || "";
+      const moreItems = itemsCount > 1 ? ` +${itemsCount - 1}` : "";
+
+      return `
+        <tr data-order-id="${escapeHtml(id)}">
+          <td class="fbs-id">№${escapeHtml(id)}</td>
+          <td>${statusPill(o.status)}</td>
+          <td>${schemeBadge(o.scheme)}</td>
+          <td>${escapeHtml(formatDate(o.dateCreated))}</td>
+          <td class="fbs-customer">
+            ${escapeHtml(customer)}
+            ${phone ? `<br><small>${escapeHtml(phone)}</small>` : ""}
+          </td>
+          <td>
+            <span class="text-truncate d-inline-block" style="max-width: 260px" title="${escapeHtml(firstItemTitle)}">
+              ${escapeHtml(firstItemTitle || "—")}
+            </span>${moreItems ? `<small class="text-muted">${escapeHtml(moreItems)}</small>` : ""}
+          </td>
+          <td class="text-end"><strong>${escapeHtml(formatMoney(o.price))}</strong></td>
+        </tr>
+      `;
+    }).join("");
+
+    out.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-hover fbs-table mb-0">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Status</th>
+              <th>Sxema</th>
+              <th>Yaratildi</th>
+              <th>Mijoz</th>
+              <th>Mahsulot</th>
+              <th class="text-end">Summa</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+    // Wire row clicks → detail page.
+    out.querySelectorAll("tbody tr[data-order-id]").forEach(tr => {
+      tr.addEventListener("click", () => {
+        const oid = tr.getAttribute("data-order-id");
+        if (oid) window.location.href = `/fbs/${oid}`;
+      });
+    });
+  }
+
+  async function loadOrders(){
+    const shop = shopSel.value;
+    if (!shop) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Do'kon tanlanmagan.</strong></div>`;
+      meta.style.display = "none";
+      return;
+    }
+    out.innerHTML = `<div class="fbs-empty">Yuklanmoqda…</div>`;
+    meta.style.display = "none";
+
+    const qs = new URLSearchParams({
+      shop_id: shop,
+      status: currentStatus,
+      size: sizeSel.value,
+      page: "0",
+    });
+    if (schemeSel.value) qs.set("scheme", schemeSel.value);
+
+    try {
+      const res = await fetch(`/fbs/api/orders?${qs.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        out.innerHTML = `<div class="fbs-empty"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        return;
+      }
+      renderOrders(data.orders || []);
+      metaTotal.textContent = data.total || 0;
+      metaPage.textContent = (data.page ?? 0);
+      metaStatus.textContent = data.status || "—";
+      metaUrl.textContent = data.used_url || "—";
+      meta.style.display = "";
+    } catch (e) {
+      out.innerHTML = `<div class="fbs-empty"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // Uzum's count endpoint returns one number per status, so we fan out
+  // 11 parallel requests. Uzum's burst-capacity header on /v2/fbs/orders
+  // shows headroom; 11 calls is well within it.
+  async function loadCounts(){
+    const shop = shopSel.value;
+    if (!shop) return;
+    // Reset chip counts to "·" while loading
+    statusRow.querySelectorAll("[data-status-count]").forEach(el => {
+      el.textContent = "·";
+    });
+    const allStatuses = Array.from(
+      statusRow.querySelectorAll(".fbs-status-chip"),
+      c => c.getAttribute("data-status")
+    );
+
+    await Promise.all(allStatuses.map(async (status) => {
+      const qs = new URLSearchParams({ shop_id: shop, status });
+      try {
+        const res = await fetch(`/fbs/api/count?${qs.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const el = statusRow.querySelector(`[data-status-count="${status}"]`);
+        if (el) el.textContent = String(data.count ?? 0);
+      } catch (e) { /* silent — counts are nice-to-have */ }
+    }));
+  }
+
+  function setActiveStatus(status){
+    currentStatus = status;
+    statusRow.querySelectorAll(".fbs-status-chip").forEach(c => {
+      c.classList.toggle("active", c.getAttribute("data-status") === status);
+    });
+  }
+
+  // Wire up controls.
+  statusRow.querySelectorAll(".fbs-status-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      setActiveStatus(chip.getAttribute("data-status"));
+      loadOrders();
+    });
+  });
+  btnReload.addEventListener("click", () => { loadOrders(); loadCounts(); });
+  schemeSel.addEventListener("change", () => { loadOrders(); loadCounts(); });
+
+  // Auto-load if a shop is preselected and the user has a token.
+  if (shopSel.value && HAS_TOKEN) {
+    loadOrders();
+    loadCounts();
+  }
+})();
+</script>
+{% endblock %}

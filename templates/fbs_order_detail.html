@@ -1,0 +1,1316 @@
+{% extends layout|default("base.html") %}
+
+{% block extra_css %}
+<style>
+  .fbs-detail {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: .6rem;
+  }
+  .fbs-detail-back {
+    display: inline-flex; align-items: center; gap: .3rem;
+    color: #475569; text-decoration: none;
+    font-size: .82rem; font-weight: 600;
+  }
+  .fbs-detail-back:hover { color: #1e293b; }
+
+  .fbs-detail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .8rem; flex-wrap: wrap;
+    padding: .25rem 0 .1rem;
+  }
+  .fbs-detail-head h1 {
+    margin: 0; font-size: 1.2rem; font-weight: 700; color: #101828;
+    display: inline-flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+    letter-spacing: -.01em;
+  }
+  .fbs-detail-head .meta { color: #94a3b8; font-size: .76rem; }
+
+  .fbs-detail-card {
+    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
+    padding: .8rem 1rem;
+  }
+  .fbs-detail-card h3 {
+    font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
+    color: #94a3b8; margin: 0 0 .55rem; font-weight: 600;
+  }
+  /* Side-by-side card row on wide screens — collapses to stacked on mobile.
+     Used to pair "Yetkazib berish" with "Ombor" so the page reads in 2
+     columns instead of one long vertical stack. */
+  .fbs-detail-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: .6rem;
+  }
+  .fbs-detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: .55rem 1.1rem;
+  }
+  .fbs-detail-grid dt {
+    font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #94a3b8; margin: 0 0 .1rem; font-weight: 600;
+  }
+  .fbs-detail-grid dd {
+    margin: 0; color: #101828; font-size: .86rem; word-break: break-word;
+    line-height: 1.35;
+  }
+  .fbs-detail-grid dd.muted { color: #94a3b8; font-style: italic; }
+
+  /* ── Header pills ────────────────────────────────────────────── */
+  .fbs-status-pill {
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: .76rem; font-weight: 700;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .fbs-status-CREATED                              { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .fbs-status-PACKING                              { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+  .fbs-status-PENDING_DELIVERY                     { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .fbs-status-DELIVERING                           { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+  .fbs-status-DELIVERED                            { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .fbs-status-ACCEPTED_AT_DP                       { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+  .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+  .fbs-status-COMPLETED                            { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+  .fbs-status-CANCELED                             { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .fbs-status-PENDING_CANCELLATION                 { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+  .fbs-status-RETURNED                             { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+
+  .fbs-scheme-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: .72rem; font-weight: 700;
+    background: #e0e7ff; color: #3730a3;
+  }
+  .fbs-scheme-badge.dbs { background: #fef3c7; color: #92400e; }
+  .fbs-flag {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: .72rem; font-weight: 700;
+    background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+  }
+
+  /* ── Items table ─────────────────────────────────────────────── */
+  .fbs-items {
+    width: 100%; margin: 0;
+  }
+  .fbs-items th {
+    text-align: left; font-size: .62rem; text-transform: uppercase;
+    letter-spacing: .06em; color: #94a3b8; font-weight: 600;
+    padding: .4rem .6rem; border-bottom: 1px solid #eaecf0;
+  }
+  .fbs-items td {
+    padding: .55rem .6rem; border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle; font-size: .85rem;
+  }
+  .fbs-items tr:last-child td { border-bottom: none; }
+  .fbs-items img {
+    width: 40px; height: 40px; object-fit: cover; border-radius: 6px;
+    background: #f1f5f9; border: 1px solid #eaecf0;
+  }
+  /* Hover-zoom: floating high-res preview anchored to the thumbnail. */
+  .fbs-items .item-img-wrap {
+    position: relative; display: inline-block; line-height: 0;
+  }
+  .fbs-items .item-img-wrap .item-img-zoom {
+    display: none; position: absolute; left: 56px; top: -100px;
+    width: 320px; height: 320px; object-fit: cover;
+    z-index: 100; border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.25);
+    border: 1px solid #d0d5dd; background: #fff;
+    pointer-events: none;
+  }
+  .fbs-items .item-img-wrap:hover .item-img-zoom { display: block; }
+  .fbs-items .item-title { font-weight: 600; color: #101828; }
+  .fbs-items .item-sku { font-size: .76rem; color: #667085; }
+  .fbs-items .item-amount { font-weight: 600; }
+  .fbs-items .item-total { font-weight: 700; color: #101828; }
+
+  .fbs-totals-row {
+    margin-top: 1rem; padding-top: .75rem;
+    border-top: 2px solid #f1f5f9;
+    display: flex; justify-content: flex-end; gap: 1.5rem;
+    font-size: .95rem;
+  }
+  .fbs-totals-row .total-label { color: #667085; }
+  .fbs-totals-row .total-value { font-weight: 700; color: #101828; }
+
+  /* ── Minimal flat detail (Uzum-style) ──────────────────────── */
+  .fbs-od { max-width: 860px; margin: 0 auto; }
+  .fbs-od-sub { color: #94a3b8; font-size: .82rem; margin-top: .1rem; }
+  .fbs-od-divider { height: 1px; background: #eaecf0; margin: .95rem 0; }
+  .fbs-od-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem 1.4rem;
+  }
+  .fbs-od-field .k {
+    font-size: .8rem; color: #94a3b8; margin-bottom: .15rem; font-weight: 500;
+  }
+  .fbs-od-field .v {
+    font-size: .98rem; color: #101828; font-weight: 600; line-height: 1.3;
+    word-break: break-word;
+  }
+  .fbs-od-field .sub { font-size: .8rem; color: #94a3b8; margin-top: .12rem; font-weight: 500; }
+  .fbs-od-field .sub.is-urgent { color: #d97706; }
+  .fbs-od-field .sub.is-over { color: #dc2626; font-weight: 600; }
+  .fbs-od-field.wide { grid-column: 1 / -1; }
+
+  /* Product card */
+  .fbs-od-product {
+    border: 1px solid #eaecf0; border-radius: 14px; padding: 1rem 1.1rem;
+    margin-top: .9rem; background: #fff;
+  }
+  .fbs-od-product .p-main { display: flex; gap: .9rem; align-items: flex-start; }
+  .fbs-od-product .p-title { font-weight: 600; color: #101828; font-size: .98rem; line-height: 1.35; }
+  .fbs-od-product .p-meta { font-size: .82rem; color: #667085; margin-top: .28rem; line-height: 1.45; }
+  .fbs-od-product .p-thumb { position: relative; display: inline-block; line-height: 0; flex: none; }
+  .fbs-od-product .p-thumb img.thumb {
+    width: 60px; height: 60px; object-fit: cover; border-radius: 10px;
+    border: 1px solid #eaecf0; background: #f1f5f9;
+  }
+  .fbs-od-product .p-thumb img.zoom {
+    display: none; position: absolute; left: 70px; top: -90px;
+    width: 300px; height: 300px; object-fit: cover; z-index: 100;
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.25);
+    border: 1px solid #d0d5dd; background: #fff; pointer-events: none;
+  }
+  .fbs-od-product .p-thumb:hover img.zoom { display: block; }
+  .fbs-od-product .p-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: .7rem 1.2rem; margin-top: .95rem; padding-top: .9rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .fbs-od-product .p-grid .k { font-size: .76rem; color: #94a3b8; margin-bottom: .12rem; }
+  .fbs-od-product .p-grid .v { font-size: .92rem; color: #101828; font-weight: 600; }
+
+  .fbs-od-total {
+    display: flex; justify-content: flex-end; align-items: baseline; gap: .7rem;
+    margin-top: 1.1rem; font-size: 1rem;
+  }
+  .fbs-od-total .lbl { color: #667085; }
+  .fbs-od-total .val { font-weight: 700; font-size: 1.15rem; color: #101828; }
+
+  /* Bottom action bar — right aligned, top divider, no box */
+  .fbs-od .fbs-actions-bar {
+    justify-content: flex-end; border: none; border-top: 1px solid #eaecf0;
+    border-radius: 0; background: transparent; margin-top: 1.3rem;
+    padding: 1rem 0 0;
+  }
+  .fbs-od .fbs-actions-bar .fbs-action-btn { padding: .55rem 1.3rem; font-size: .9rem; border-radius: 10px; }
+
+  /* ── Action bar ─────────────────────────────────────────────── */
+  .fbs-actions-bar {
+    display: flex; flex-wrap: wrap; gap: .4rem;
+    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
+    padding: .55rem .7rem;
+  }
+  .fbs-actions-bar .fbs-action-btn {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .4rem .8rem;
+    border-radius: 8px;
+    font-size: .82rem; font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: filter .12s, transform .08s;
+  }
+  .fbs-actions-bar .fbs-action-btn:active:not(:disabled) { transform: translateY(1px); }
+  .fbs-actions-bar .fbs-action-btn:hover:not(:disabled) { filter: brightness(.94); }
+  .fbs-actions-bar .fbs-action-btn:disabled { opacity: .55; cursor: not-allowed; }
+  .fbs-action-btn-primary  { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+  .fbs-action-btn-success  { background: #047857; color: #fff; border-color: #047857; }
+  .fbs-action-btn-warning  { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+  .fbs-action-btn-danger   { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+  .fbs-action-empty {
+    color: #94a3b8; font-size: .86rem; font-style: italic; padding: .3rem;
+  }
+  .fbs-action-btn .spinner-border-sm {
+    width: 14px; height: 14px; border-width: 2px;
+  }
+
+  /* IMEI modal — per-item input row */
+  .fbs-imei-item { border-top: 1px solid #eaecf0; padding-top: .85rem; margin-top: .85rem; }
+  .fbs-imei-item:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .fbs-imei-item .item-head { font-weight: 600; margin-bottom: .5rem; }
+  .fbs-imei-item .item-sub { color: #667085; font-size: .8rem; margin-bottom: .55rem; }
+  .fbs-imei-inputs { display: grid; gap: .45rem; }
+
+  /* Toast container — top right, stacks on multi-shoot */
+  .fbs-toast-container {
+    position: fixed; top: 1rem; right: 1rem; z-index: 2080;
+    display: flex; flex-direction: column; gap: .55rem;
+    max-width: min(360px, calc(100vw - 2rem));
+  }
+  .fbs-toast {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .75rem .9rem; border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.12);
+    font-size: .88rem; line-height: 1.35;
+    animation: fbs-toast-in .18s ease-out;
+  }
+  @keyframes fbs-toast-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fbs-toast-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+  .fbs-toast-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .fbs-toast .fbs-toast-close {
+    margin-left: auto; background: transparent; border: 0;
+    color: inherit; opacity: .6; font-size: 1.1rem; line-height: 1; cursor: pointer;
+  }
+  .fbs-toast .fbs-toast-close:hover { opacity: 1; }
+
+  /* ── States ──────────────────────────────────────────────────── */
+  .fbs-detail-loading {
+    padding: 2.5rem 1rem; text-align: center; color: #667085;
+  }
+  .fbs-detail-error {
+    background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+    padding: 1rem 1.2rem; border-radius: 12px; font-size: .9rem;
+  }
+  .fbs-detail-pending {
+    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    padding: 1rem 1.2rem; border-radius: 12px; font-size: .9rem;
+  }
+  .fbs-detail-pending code {
+    background: rgba(0,0,0,.05); padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  [data-bs-theme="dark"] .fbs-detail-back { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-back:hover { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-head h1 { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-head .meta { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-card { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-detail-card h3 { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-grid dt { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-detail-grid dd { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-detail-grid dd.muted { color: #64748b; }
+
+  [data-bs-theme="dark"] .fbs-items th { color: #94a3b8; border-bottom-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-items td { border-bottom-color: #252a3f; }
+  [data-bs-theme="dark"] .fbs-items img { background: #1e2130; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-items .item-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-items .item-sku { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-items .item-total { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-items .item-img-wrap .item-img-zoom {
+    border-color: #2d3148; background: #1a1d27;
+    box-shadow: 0 12px 32px rgba(0,0,0,.7);
+  }
+  [data-bs-theme="dark"] .fbs-totals-row { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-totals-row .total-label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-totals-row .total-value { color: #e2e8f0; }
+
+  [data-bs-theme="dark"] .fbs-detail-loading { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-detail-error { background: #2a0e0e; border-color: #7f1d1d; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-detail-pending { background: #2a1d0a; border-color: #92400e; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-detail-pending code { background: rgba(255,255,255,.06); }
+  [data-bs-theme="dark"] .fbs-scheme-badge { background: #1e2d4a; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-scheme-badge.dbs { background: #2a1d0a; color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-flag { background: #2a1d0a; color: #fbbf24; border-color: #92400e; }
+
+  [data-bs-theme="dark"] .fbs-status-CREATED                              { background: rgba(96,165,250,.12); border-color: #1e4080; color: #93c5fd; }
+  [data-bs-theme="dark"] .fbs-status-PACKING                              { background: rgba(251,191,36,.12); border-color: #b45309; color: #fcd34d; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_DELIVERY                     { background: rgba(74,222,128,.12); border-color: #166534; color: #6ee7b7; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERING                           { background: rgba(251,146,60,.12); border-color: #c2410c; color: #fdba74; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED                            { background: rgba(52,211,153,.16); border-color: #047857; color: #34d399; }
+  [data-bs-theme="dark"] .fbs-status-ACCEPTED_AT_DP                       { background: rgba(167,139,250,.12); border-color: #6d28d9; color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-status-DELIVERED_TO_CUSTOMER_DELIVERY_POINT { background: rgba(167,139,250,.08); border-color: #7c3aed; color: #ddd6fe; }
+  [data-bs-theme="dark"] .fbs-status-COMPLETED                            { background: #1e2130; border-color: #2d3148; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-status-CANCELED                             { background: rgba(248,113,113,.12); border-color: #b91c1c; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-status-PENDING_CANCELLATION                 { background: rgba(220,38,38,.10); border-color: #991b1b; color: #f87171; }
+  [data-bs-theme="dark"] .fbs-status-RETURNED                             { background: rgba(159,18,57,.12); border-color: #9f1239; color: #fda4af; }
+
+  /* Action bar — dark */
+  [data-bs-theme="dark"] .fbs-actions-bar { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-action-btn-primary { background: #3b82f6; border-color: #3b82f6; }
+  [data-bs-theme="dark"] .fbs-action-btn-success { background: #10b981; border-color: #10b981; }
+  [data-bs-theme="dark"] .fbs-action-btn-warning { background: #8b5cf6; border-color: #8b5cf6; }
+  [data-bs-theme="dark"] .fbs-action-btn-danger  { background: #ef4444; border-color: #ef4444; }
+  [data-bs-theme="dark"] .fbs-action-empty { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-imei-item { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-imei-item .item-sub { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-toast-success { background: #052e23; color: #6ee7b7; border-color: #064e3b; }
+  [data-bs-theme="dark"] .fbs-toast-error { background: #2a0e0e; color: #fca5a5; border-color: #7f1d1d; }
+
+  /* Minimal flat detail — dark */
+  [data-bs-theme="dark"] .fbs-od-sub { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-divider { background: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-field .k { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-field .v { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-field .sub { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-field .sub.is-urgent { color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-od-field .sub.is-over { color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-od-product { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-product .p-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-product .p-meta { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-product .p-grid { border-top-color: #252a3f; }
+  [data-bs-theme="dark"] .fbs-od-product .p-grid .k { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-product .p-grid .v { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-product .p-thumb img.thumb { background: #1e2130; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-product .p-thumb img.zoom { background: #1a1d27; border-color: #2d3148; box-shadow: 0 12px 32px rgba(0,0,0,.7); }
+  [data-bs-theme="dark"] .fbs-od-total .lbl { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-total .val { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od .fbs-actions-bar { border-top-color: #2d3148; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fbs-od">
+  <a class="fbs-detail-back" href="/fbs">{{ labels.back_to_list }}</a>
+
+  <div class="fbs-detail-head" style="display:block">
+    <h1 id="fbsDetailTitle">
+      <span>{{ labels.order_no }}{{ order_id }}</span>
+    </h1>
+    <div class="fbs-od-sub" id="fbsDetailMeta">{{ labels.loading_meta }}</div>
+  </div>
+
+  <div id="fbsDetailBody">
+    <div class="fbs-detail-loading">{{ labels.loading_body }}</div>
+  </div>
+
+  <div id="fbsActionsHost"></div>
+</div>
+
+<!-- ── Cancel modal ────────────────────────────────────────────── -->
+<div class="modal fade" id="fbsCancelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ labels.cancel_title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ labels.aria_close }}"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="fbsCancelReason">{{ labels.cancel_reason_label }}</label>
+          <select id="fbsCancelReason" class="form-select" required>
+            <option value="" disabled selected>{{ labels.cancel_reason_placeholder }}</option>
+          </select>
+          <div id="fbsCancelReasonHint" class="form-text">{{ labels.cancel_reason_loading }}</div>
+        </div>
+        <div class="mb-1">
+          <label class="form-label" for="fbsCancelComment">{{ labels.cancel_comment_label }}</label>
+          <textarea id="fbsCancelComment" class="form-control" rows="3" maxlength="500" placeholder="{{ labels.cancel_comment_placeholder }}"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ labels.btn_close }}</button>
+        <button type="button" class="btn btn-danger" id="fbsCancelSubmit">
+          <span class="btn-label">{{ labels.act_cancel }}</span>
+          <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMEI / identifier modal ─────────────────────────────────── -->
+<div class="modal fade" id="fbsImeiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ labels.imei_title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ labels.aria_close }}"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">{{ labels.imei_desc }}</p>
+        <div id="fbsImeiItems"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ labels.btn_close }}</button>
+        <button type="button" class="btn btn-primary" id="fbsImeiSubmit">
+          <span class="btn-label">{{ labels.btn_attach }}</span>
+          <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ────────────────────────────────────────── -->
+<div class="fbs-toast-container" id="fbsToastContainer" aria-live="polite" aria-atomic="true"></div>
+
+{# Maxsus tasdiqlash modali — ro'yxat sahifasi bilan bir xil partial.
+   Eski brauzer confirm() o'rniga (qabul/yetkazish/qaytarish). #}
+{% include "_fbs_confirm_modal.html" %}
+
+<script>
+(function(){
+  const ORDER_ID = {{ order_id|tojson }};
+  // Server-injected i18n bundle (mirrors fbs/routes.py DETAIL_LABELS).
+  // Every user-visible string in this script comes from LBL. Adding a
+  // new visible string means adding a key to both DETAIL_LABELS["uz"]
+  // and DETAIL_LABELS["ru"] in routes.py.
+  const LBL = {{ labels|tojson }};
+  // Status enum → localized label, matches the chip row on /fbs.
+  const STATUS_LABELS = {{ status_labels|tojson }};
+  const body = document.getElementById("fbsDetailBody");
+  const titleEl = document.getElementById("fbsDetailTitle");
+  const metaEl = document.getElementById("fbsDetailMeta");
+  const actionsHost = document.getElementById("fbsActionsHost");
+  const toastContainer = document.getElementById("fbsToastContainer");
+
+  // EMBED = rendered inside the orders-list modal (via ?embed=1 + iframe).
+  // In that mode an action shouldn't reload just the iframe — it should
+  // tell the parent list to refresh and close the modal, so the seller
+  // lands back on an up-to-date list instead of a stale row behind a modal.
+  const EMBED = new URLSearchParams(location.search).has("embed");
+  function afterActionReload(){
+    if (EMBED && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "fbs-order-changed", orderId: ORDER_ID }, "*");
+    } else {
+      window.location.reload();
+    }
+  }
+  // When embedded, keep the parent modal sized to our content so the card
+  // hugs the detail (no empty space) and grows/shrinks as the layout does.
+  if (EMBED && window.parent && window.parent !== window) {
+    const postHeight = () => window.parent.postMessage(
+      { type: "fbs-detail-height", height: document.documentElement.scrollHeight }, "*");
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => requestAnimationFrame(postHeight)).observe(document.body);
+    } else {
+      window.addEventListener("load", postHeight);
+    }
+  }
+
+  // Holds the latest fetched order so action handlers don't have to
+  // re-fetch (they only need shopId for display + orderItems for IMEI).
+  let CURRENT_ORDER = null;
+  // Once-loaded enum for the cancel modal dropdown (lazy on first open).
+  let RETURN_REASONS = null;
+
+  // ─── Maxsus tasdiqlash modali (_fbs_confirm_modal.html partial) ───
+  // Brauzerning tug'ma confirm() o'rniga. Promise<bool> qaytaradi.
+  // okVariant: "confirm" (yashil) | "postavka" (binafsha) | "danger" (qizil).
+  const _confirmModal  = document.getElementById("fbsConfirmModal");
+  const _confirmIcon   = document.getElementById("fbsConfirmIcon");
+  const _confirmTitle  = document.getElementById("fbsConfirmTitle");
+  const _confirmMsg    = document.getElementById("fbsConfirmMsg");
+  const _confirmOk     = document.getElementById("fbsConfirmOk");
+  const _confirmCancel = document.getElementById("fbsConfirmCancel");
+  let _confirmResolve  = null;
+  function _closeConfirm(result){
+    _confirmModal.classList.remove("is-open");
+    _confirmModal.setAttribute("aria-hidden", "true");
+    if (_confirmResolve){ const r = _confirmResolve; _confirmResolve = null; r(result); }
+  }
+  function fbsConfirm(opts){
+    opts = opts || {};
+    const variant = opts.okVariant === "postavka" ? "is-postavka"
+                  : opts.okVariant === "danger"   ? "is-danger"
+                  : "is-confirm";
+    _confirmIcon.textContent = opts.icon || "✓";
+    _confirmIcon.className = "fbs-confirm-icon " + variant;
+    _confirmTitle.textContent = opts.title || "";
+    _confirmMsg.textContent = opts.message || "";
+    _confirmOk.textContent = opts.okLabel || "OK";
+    _confirmOk.className = "fbs-confirm-ok " + variant;
+    _confirmCancel.textContent = LBL.confirm_cancel || "Bekor qilish";
+    _confirmModal.classList.add("is-open");
+    _confirmModal.setAttribute("aria-hidden", "false");
+    setTimeout(() => _confirmOk.focus(), 30);
+    return new Promise(resolve => { _confirmResolve = resolve; });
+  }
+  _confirmOk.addEventListener("click", () => _closeConfirm(true));
+  _confirmModal.querySelectorAll("[data-confirm-cancel]").forEach(el =>
+    el.addEventListener("click", () => _closeConfirm(false)));
+  document.addEventListener("keydown", (e) => {
+    if (!_confirmModal.classList.contains("is-open")) return;
+    if (e.key === "Escape") { e.preventDefault(); _closeConfirm(false); }
+    else if (e.key === "Enter") { e.preventDefault(); _closeConfirm(true); }
+  });
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function formatDate(value){
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function formatMoney(n){
+    if (n == null) return "—";
+    return Number(n).toLocaleString("ru-RU") + " UZS";
+  }
+
+  // Human countdown to an ISO deadline: "2 kun 5 soat", "37 daqiqa", or
+  // "Muddat o'tdi" when past. `cls` drives the color (urgent <2h, over=past).
+  function countdownTo(iso){
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return null;
+    const diffMin = Math.floor((t - Date.now()) / 60000);
+    if (diffMin <= 0) return { text: LBL.cd_overdue, cls: "is-over" };
+    const days = Math.floor(diffMin / 1440);
+    const hours = Math.floor((diffMin % 1440) / 60);
+    const mins = diffMin % 60;
+    let text;
+    if (days > 0)       text = `${days} ${LBL.cd_days} ${hours} ${LBL.cd_hours}`;
+    else if (hours > 0) text = `${hours} ${LBL.cd_hours} ${mins} ${LBL.cd_min}`;
+    else                text = `${mins} ${LBL.cd_min}`;
+    return { text, cls: diffMin < 120 ? "is-urgent" : "" };
+  }
+
+  // One label/value cell for the flat info grid. Returns "" when the value
+  // is empty, so the page only renders fields that actually carry data —
+  // no "—" placeholders, no empty cards. `sub` is an optional {text, cls}
+  // countdown shown under the value; `wide` spans both grid columns.
+  function infoField(label, value, sub, wide){
+    const has = value != null && value !== "" && value !== "string";
+    if (!has) return "";
+    return `
+      <div class="fbs-od-field${wide ? " wide" : ""}">
+        <div class="k">${escapeHtml(label)}</div>
+        <div class="v">${escapeHtml(value)}</div>
+        ${sub ? `<div class="sub ${sub.cls || ""}">${escapeHtml(sub.text)}</div>` : ""}
+      </div>`;
+  }
+
+  // Uzum's productImage.photo is a dict with dynamic resolution keys
+  // (additionalProp1/2/3 or pixel-named). Walk it and pick the first
+  // URL we find, preferring "high" over "low".
+  function extractImageUrl(productImage, preferLarge){
+    if (!productImage || typeof productImage !== "object") return null;
+    const photo = productImage.photo;
+    if (!photo || typeof photo !== "object") return null;
+    // Uzum exposes the same image at multiple resolutions keyed by
+    // pixel size: 60, 80, 120, 240, 480, 540, 720, 800. Pick from the
+    // top end for the hover-zoom preview, from the small end for the
+    // 48×48 thumbnail. Anything outside the known set falls back to
+    // first-found at the bottom.
+    const known = ["60", "80", "120", "240", "480", "540", "720", "800"];
+    const order = preferLarge ? known.slice().reverse() : known;
+    for (const size of order) {
+      const v = photo[size];
+      if (v && typeof v === "object") {
+        if (v.high) return v.high;
+        if (v.low) return v.low;
+      }
+    }
+    for (const key of Object.keys(photo)) {
+      const v = photo[key];
+      if (v && typeof v === "object") {
+        if (v.high) return v.high;
+        if (v.low) return v.low;
+      }
+    }
+    return null;
+  }
+
+  function gridItem(label, value, opts){
+    opts = opts || {};
+    const hasValue = value != null && value !== "" && value !== "string";
+    if (!hasValue && !opts.showEmpty) return "";
+    const cls = hasValue ? "" : "muted";
+    const v = hasValue ? escapeHtml(value) : (opts.emptyText || "—");
+    return `<div><dt>${escapeHtml(label)}</dt><dd class="${cls}">${v}</dd></div>`;
+  }
+
+  // Show a date only if it's a real timestamp; Uzum returns the same
+  // placeholder ISO ("2026-...") in unset slots — we can't easily tell
+  // those apart from real ones, so the consumer-facing rule is: show
+  // anything that parses as a date.
+  function gridDate(label, value){
+    const formatted = formatDate(value);
+    return gridItem(label, formatted);
+  }
+
+  function statusPill(status){
+    const s = String(status || "—");
+    // Display the localized label, keep the raw enum on the CSS class
+    // so the status-color palette in {{ extra_css }} still applies.
+    const label = STATUS_LABELS[s] || s;
+    return `<span class="fbs-status-pill fbs-status-${escapeHtml(s)}">${escapeHtml(label)}</span>`;
+  }
+
+  function schemeBadge(scheme){
+    const s = String(scheme || "FBS");
+    const cls = s === "DBS" ? "fbs-scheme-badge dbs" : "fbs-scheme-badge";
+    return `<span class="${cls}">${escapeHtml(s)}</span>`;
+  }
+
+  // Each order item as a clean bordered card (Uzum-style): thumbnail +
+  // title + "SKU · ШК" meta line, then a small price/qty/marking grid.
+  function renderProducts(orderItems){
+    if (!Array.isArray(orderItems) || orderItems.length === 0) {
+      return `<div class="fbs-od-field"><div class="v">${escapeHtml(LBL.no_items)}</div></div>`;
+    }
+    return orderItems.map(it => {
+      // Uzum /v2/fbs/orders item shape (confirmed 2026-05-22):
+      //   { id, title, skuTitle, amount, price, photo: {photoKey, photo:{...}}, ... }
+      // productTitle/productImage/sellerPrice are legacy fallbacks only.
+      const photoSrc = it.photo || it.productImage;
+      const img = extractImageUrl(photoSrc);
+      const imgLarge = extractImageUrl(photoSrc, true);
+      const title = it.title || it.productTitle || it.skuTitle || "—";
+      const sku = it.skuTitle && it.skuTitle !== title ? it.skuTitle : "";
+      const barcode = it.barcode || it.skuBarcode || "";
+      const charValue = it.skuCharValue ? `${it.skuCharTitle || ""}: ${it.skuCharValue}`.trim() : "";
+      const qty = Number(it.amount || 0);
+      const unit = Number(it.price || it.sellerPrice || 0);
+      const line = qty * unit;
+      // Bosqich A.14 (HAR audit A1) — gabarit/og'irlik (qadoqlash uchun).
+      const d = it.skuDimension || {};
+      const dimsParts = [d.length, d.width, d.height].filter(v => Number(v) > 0);
+      const dimsStr = dimsParts.length === 3 ? dimsParts.join("×") + " mm" : "";
+      const weightStr = Number(it.weight) > 0 ? `${it.weight} g` : "";
+      const idLine = [
+        sku ? `SKU: ${escapeHtml(sku)}` : "",
+        barcode ? `${escapeHtml(LBL.f_barcode)} ${escapeHtml(barcode)}` : "",
+      ].filter(Boolean).join(" · ");
+      const dimLine = [
+        dimsStr ? `${escapeHtml(LBL.item_dims)}: ${escapeHtml(dimsStr)}` : "",
+        weightStr ? `${escapeHtml(LBL.item_weight)}: ${escapeHtml(weightStr)}` : "",
+      ].filter(Boolean).join(" · ");
+      // Marking only when the order requires identifiers AND the item
+      // actually carries an identifiers array — otherwise omit it rather
+      // than show a misleading 0/N.
+      const markingCell = Array.isArray(it.identifiers)
+        ? `<div><div class="k">${escapeHtml(LBL.f_marking)}</div><div class="v">${it.identifiers.length} / ${qty}</div></div>`
+        : "";
+      return `
+        <div class="fbs-od-product">
+          <div class="p-main">
+            <span class="p-thumb">
+              ${img ? `<img class="thumb" src="${escapeHtml(img)}" alt="">
+                ${imgLarge ? `<img class="zoom" src="${escapeHtml(imgLarge)}" alt="">` : ""}`
+                : `<span class="thumb" style="display:inline-block"></span>`}
+            </span>
+            <div>
+              <div class="p-title">${escapeHtml(title)}</div>
+              ${idLine ? `<div class="p-meta">${idLine}</div>` : ""}
+              ${charValue ? `<div class="p-meta">${escapeHtml(charValue)}</div>` : ""}
+              ${dimLine ? `<div class="p-meta">${dimLine}</div>` : ""}
+              ${it.comment ? `<div class="p-meta">${escapeHtml(it.comment)}</div>` : ""}
+            </div>
+          </div>
+          <div class="p-grid">
+            <div><div class="k">${escapeHtml(LBL.f_unit_price)}</div><div class="v">${escapeHtml(formatMoney(unit))}</div></div>
+            <div><div class="k">${escapeHtml(LBL.th_qty)}</div><div class="v">${qty} ${escapeHtml(LBL.comp_unit)}</div></div>
+            ${markingCell}
+            <div><div class="k">${escapeHtml(LBL.th_total)}</div><div class="v">${escapeHtml(formatMoney(line))}</div></div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // ─── Toast ────────────────────────────────────────────────────
+  function showToast(message, kind){
+    const div = document.createElement("div");
+    div.className = "fbs-toast " + (kind === "error" ? "fbs-toast-error" : "fbs-toast-success");
+    div.innerHTML = `
+      <div>${escapeHtml(message)}</div>
+      <button type="button" class="fbs-toast-close" aria-label="${escapeHtml(LBL.aria_close)}">×</button>
+    `;
+    div.querySelector(".fbs-toast-close").onclick = () => div.remove();
+    toastContainer.appendChild(div);
+    // Auto-dismiss success after 4s; errors stay until clicked so the
+    // seller can read the Uzum code.
+    if (kind !== "error") setTimeout(() => div.remove(), 4000);
+  }
+
+  // ─── Action button row ────────────────────────────────────────
+  // Status → which buttons to show. Keep it simple: only the statuses
+  // where Uzum actually accepts the action; anything past PACKING is
+  // read-only from this UI's perspective (cancel during DELIVERING is
+  // theoretically possible but Uzum's swagger flags it as carrier-side).
+  //
+  // Scheme branch: DBS orders take a completely different workflow
+  // (the seller delivers to the customer, not Uzum's courier), so we
+  // route to renderDbsActions early. FBS orders fall through to the
+  // existing button picker below.
+  function renderActions(order){
+    const scheme = String(order.scheme || "FBS");
+    if (scheme === "DBS") {
+      renderDbsActions(order);
+      return;
+    }
+    const status = String(order.status || "");
+    const idRequired = !!order.identifierRequired;
+    const buttons = [];
+
+    if (status === "CREATED") {
+      buttons.push({key: "confirm", label: LBL.act_confirm, cls: "fbs-action-btn-success", icon: "✓"});
+      buttons.push({key: "cancel",  label: LBL.act_cancel,  cls: "fbs-action-btn-danger",  icon: "✕"});
+    }
+    if (status === "PACKING" || status === "PENDING_DELIVERY") {
+      buttons.push({key: "label",          label: LBL.act_print,           cls: "fbs-action-btn-primary", icon: "🖨"});
+      buttons.push({key: "label-qr",       label: LBL.act_print_qr,        cls: "fbs-action-btn-primary", icon: "▦"});
+      buttons.push({key: "cancel",         label: LBL.act_cancel,          cls: "fbs-action-btn-danger",  icon: "✕"});
+    }
+    if (idRequired && (status === "CREATED" || status === "PACKING")) {
+      buttons.push({key: "imei", label: LBL.act_imei, cls: "fbs-action-btn-warning", icon: "#"});
+    }
+
+    if (buttons.length === 0) {
+      actionsHost.innerHTML = `
+        <div class="fbs-actions-bar">
+          <div class="fbs-action-empty">${escapeHtml(LBL.act_empty)}</div>
+        </div>
+      `;
+      return;
+    }
+
+    actionsHost.innerHTML = `
+      <div class="fbs-actions-bar">
+        ${buttons.map(b => `
+          <button type="button" class="fbs-action-btn ${b.cls}" data-action="${b.key}">
+            <span class="icon">${b.icon}</span>
+            <span class="label">${escapeHtml(b.label)}</span>
+            <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+          </button>
+        `).join("")}
+      </div>
+    `;
+
+    actionsHost.querySelectorAll(".fbs-action-btn").forEach(btn => {
+      btn.addEventListener("click", () => handleAction(btn));
+    });
+  }
+
+  // ─── DBS action row ───────────────────────────────────────────
+  // Sotuvchi o'zi yetkazadigan workflow: PACKING → DELIVERING → COMPLETED.
+  // PACKING boshlanish nuqtasi — DBS uchun "tasdiqlash" alohida bosqich
+  // emas, ombordan olinishi bilan boshlanadi. /completed bosqichida
+  // ixtiyoriy issueCode bor (mijozga SMS bilan kelgan kod).
+  function renderDbsActions(order){
+    const status = String(order.status || "");
+    let inner = "";
+
+    if (status === "CREATED") {
+      // DBS orders ALSO start at CREATED («Новый») and must be confirmed
+      // first — lifecycle: CREATED → CONFIRMED(PACKING) → DELIVERING →
+      // COMPLETED ↘ REFUND. The confirm/cancel endpoints
+      // (/v1/fbs/order/{id}/confirm|cancel) are status-gated (CREATED),
+      // NOT scheme-gated, so the same two actions apply to DBS. After
+      // confirm the order moves to PACKING and the branch below takes over.
+      inner = `
+        <button type="button" class="fbs-action-btn fbs-action-btn-success" data-action="confirm">
+          <span class="icon">✓</span>
+          <span class="label">${escapeHtml(LBL.act_confirm)}</span>
+          <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="fbs-action-btn fbs-action-btn-danger" data-action="cancel">
+          <span class="icon">✕</span>
+          <span class="label">${escapeHtml(LBL.act_cancel)}</span>
+          <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+        </button>
+      `;
+    } else if (status === "PACKING") {
+      inner = `
+        <button type="button" class="fbs-action-btn fbs-action-btn-primary" data-action="dbs-delivering">
+          <span class="icon">🚚</span>
+          <span class="label">${escapeHtml(LBL.dbs_act_delivering)}</span>
+          <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+        </button>
+      `;
+    } else if (status === "DELIVERING") {
+      // issueCode input "agar bo'lsa" — ba'zi mijozlardan kod talab
+      // qilinmaydi, shuning uchun input ixtiyoriy. Backend bo'sh string
+      // ni None deb qaytaradi va URL'ga query qo'shmaydi.
+      // Bosqich A.14 (HAR audit B2) — necha urinish qolganini ko'rsatamiz
+      // (Uzum 3 xato kоddan keyin bloklaydi — seller-order-39). Faqat
+      // raqam bo'lsa (DBS); FBS'da deliveryInfo bo'sh → ko'rsatilmaydi.
+      const retriesLeft = (order.deliveryInfo || {}).issueCodeRetriesLeft;
+      const retriesHint = (typeof retriesLeft === "number")
+        ? `<div class="item-sku" style="flex:0 0 100%;margin-top:.35rem;color:${retriesLeft <= 1 ? "#b91c1c" : "#94a3b8"}">${escapeHtml(LBL.dbs_code_retries).replace("{n}", retriesLeft)}</div>`
+        : "";
+      inner = `
+        <input type="text" inputmode="numeric"
+               class="form-control fbs-dbs-code-input"
+               id="dbsIssueCodeInput"
+               placeholder="${escapeHtml(LBL.dbs_code_placeholder)}"
+               autocomplete="off"
+               style="max-width:240px;flex:0 0 auto;">
+        <button type="button" class="fbs-action-btn fbs-action-btn-success" data-action="dbs-completed">
+          <span class="icon">✓</span>
+          <span class="label">${escapeHtml(LBL.dbs_act_completed)}</span>
+          <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+        </button>
+        ${retriesHint}
+      `;
+    } else if (status === "COMPLETED") {
+      inner = `
+        <button type="button" class="fbs-action-btn fbs-action-btn-danger" data-action="dbs-refund">
+          <span class="icon">↩</span>
+          <span class="label">${escapeHtml(LBL.dbs_act_refund)}</span>
+          <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+        </button>
+      `;
+    } else {
+      inner = `<div class="fbs-action-empty">${escapeHtml(LBL.act_empty)}</div>`;
+    }
+
+    actionsHost.innerHTML = `<div class="fbs-actions-bar">${inner}</div>`;
+    actionsHost.querySelectorAll(".fbs-action-btn").forEach(btn => {
+      btn.addEventListener("click", () => handleAction(btn));
+    });
+  }
+
+  function setButtonLoading(btn, loading){
+    btn.disabled = loading;
+    const spinner = btn.querySelector(".spinner-border");
+    if (spinner) spinner.classList.toggle("d-none", !loading);
+    // Belt-and-suspenders against double-click: also lock siblings.
+    actionsHost.querySelectorAll(".fbs-action-btn").forEach(b => {
+      if (b !== btn) b.disabled = loading;
+    });
+  }
+
+  async function handleAction(btn){
+    const key = btn.dataset.action;
+    if (!key) return;
+    if (key === "confirm")        return doConfirm(btn);
+    if (key === "cancel")         return openCancelModal();
+    if (key === "imei")           return openImeiModal();
+    if (key === "label")          return doDownloadLabel(btn, "full");
+    if (key === "label-qr")       return doDownloadLabel(btn, "qr");
+    if (key === "dbs-delivering") return doDbsDelivering(btn);
+    if (key === "dbs-completed")  return doDbsCompleted(btn);
+    if (key === "dbs-refund")     return doDbsRefund(btn);
+  }
+
+  // ─── DBS action handlers ──────────────────────────────────────
+  async function doDbsDelivering(btn){
+    if (!await fbsConfirm({
+      title: LBL.dbs_delivering_title, message: LBL.dbs_confirm_delivering,
+      okLabel: LBL.dbs_act_delivering, okVariant: "confirm", icon: "🚚",
+    })) return;
+    setButtonLoading(btn, true);
+    try {
+      const res = await fetch(`/fbs/api/dbs/${ORDER_ID}/delivering`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      showToast(LBL.dbs_toast_delivering, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      setButtonLoading(btn, false);
+    }
+  }
+
+  async function doDbsCompleted(btn){
+    const input = document.getElementById("dbsIssueCodeInput");
+    const raw = input ? input.value.trim() : "";
+    let issueCode = null;
+    if (raw !== "") {
+      const parsed = parseInt(raw, 10);
+      if (Number.isNaN(parsed) || String(parsed) !== raw) {
+        showToast(LBL.dbs_code_invalid, "error");
+        return;
+      }
+      issueCode = parsed;
+    }
+    setButtonLoading(btn, true);
+    try {
+      const res = await fetch(`/fbs/api/dbs/${ORDER_ID}/completed`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({issue_code: issueCode}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      showToast(LBL.dbs_toast_completed, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      setButtonLoading(btn, false);
+    }
+  }
+
+  async function doDbsRefund(btn){
+    if (!await fbsConfirm({
+      title: LBL.dbs_refund_title, message: LBL.dbs_confirm_refund,
+      okLabel: LBL.dbs_act_refund, okVariant: "danger", icon: "↩",
+    })) return;
+    setButtonLoading(btn, true);
+    try {
+      const res = await fetch(`/fbs/api/dbs/${ORDER_ID}/refund`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      showToast(LBL.dbs_toast_refund, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      setButtonLoading(btn, false);
+    }
+  }
+
+  // ─── Confirm ──────────────────────────────────────────────────
+  async function doConfirm(btn){
+    if (!await fbsConfirm({
+      title: LBL.confirm_title, message: LBL.confirm_msg,
+      okLabel: LBL.act_confirm, okVariant: "confirm", icon: "✓",
+    })) return;
+    setButtonLoading(btn, true);
+    try {
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}/confirm`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      showToast(LBL.toast_confirmed, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      setButtonLoading(btn, false);
+    }
+  }
+
+  // ─── Cancel modal ─────────────────────────────────────────────
+  let cancelModalInstance = null;
+  function openCancelModal(){
+    if (!cancelModalInstance) {
+      cancelModalInstance = new bootstrap.Modal(document.getElementById("fbsCancelModal"));
+    }
+    // Reset form state on each open.
+    document.getElementById("fbsCancelReason").selectedIndex = 0;
+    document.getElementById("fbsCancelComment").value = "";
+    cancelModalInstance.show();
+    ensureReturnReasonsLoaded();
+  }
+
+  async function ensureReturnReasonsLoaded(){
+    const sel = document.getElementById("fbsCancelReason");
+    const hint = document.getElementById("fbsCancelReasonHint");
+    if (RETURN_REASONS) {
+      populateReasonsDropdown(sel, hint, RETURN_REASONS);
+      return;
+    }
+    try {
+      const res = await fetch("/fbs/api/return-reasons");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        hint.textContent = LBL.cancel_reason_load_failed + (data.error || res.statusText);
+        return;
+      }
+      RETURN_REASONS = Array.isArray(data.reasons) ? data.reasons : [];
+      populateReasonsDropdown(sel, hint, RETURN_REASONS);
+    } catch (e) {
+      hint.textContent = LBL.toast_network_error_prefix + e.message;
+    }
+  }
+
+  function populateReasonsDropdown(sel, hint, reasons){
+    // Trim everything past the placeholder option.
+    while (sel.options.length > 1) sel.remove(1);
+    if (!reasons || reasons.length === 0) {
+      hint.textContent = LBL.cancel_reason_empty;
+      return;
+    }
+    reasons.forEach(r => {
+      // Uzum's actual field names (verified 2026-05-26 against live response):
+      //   {"reason": "OUT_OF_STOCK", "title": "Tovar yo'q"}
+      // The other candidates (code/value/key/id) are kept as fallbacks in
+      // case Uzum changes the wire format later — `r.reason` wins today.
+      const code = r.reason || r.code || r.value || r.key || r.id || "";
+      const title = r.title || r.name || r.description || r.label || code;
+      if (!code) return;
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = title;
+      sel.appendChild(opt);
+    });
+    // One-line summary in the browser console — handy if backend logs
+    // aren't being tailed but you've opened DevTools to peek.
+    console.log(`[fbs.cancel] modal: ${sel.options.length - 1} reasons rendered`);
+    hint.textContent = `${sel.options.length - 1} ${LBL.cancel_reasons_loaded_suffix}`;
+  }
+
+  document.getElementById("fbsCancelSubmit").addEventListener("click", async () => {
+    const btn = document.getElementById("fbsCancelSubmit");
+    const sel = document.getElementById("fbsCancelReason");
+    const reason = sel.value;
+    const comment = document.getElementById("fbsCancelComment").value.trim();
+    if (!reason) {
+      showToast(LBL.btn_select_reason_first, "error");
+      return;
+    }
+    const spinner = btn.querySelector(".spinner-border");
+    btn.disabled = true; spinner.classList.remove("d-none");
+    try {
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}/cancel`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({reason, comment: comment || null}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const code = (data.uzum_code || "").toLowerCase();
+        // "Already cancelled" (seller-order-13), "not found" (01) and
+        // "status mismatch" (02) all mean our cached row is STALE vs Uzum —
+        // e.g. Uzum auto-cancelled an order whose deadline passed. Not a bug:
+        // the order's real state simply moved on. Surface the message, then
+        // refresh so the seller lands on the true status instead of a phantom
+        // PACKING row with dead buttons.
+        const stale = ["seller-order-13", "seller-order-01", "seller-order-02"].includes(code);
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        if (stale) {
+          cancelModalInstance.hide();
+          setTimeout(afterActionReload, 900);
+        } else {
+          btn.disabled = false; spinner.classList.add("d-none");
+        }
+        return;
+      }
+      cancelModalInstance.hide();
+      showToast(LBL.toast_cancelled, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      btn.disabled = false; spinner.classList.add("d-none");
+    }
+  });
+
+  // ─── IMEI / identifier modal ──────────────────────────────────
+  let imeiModalInstance = null;
+  function openImeiModal(){
+    const order = CURRENT_ORDER || {};
+    const items = Array.isArray(order.orderItems) ? order.orderItems : [];
+    const host = document.getElementById("fbsImeiItems");
+    host.innerHTML = items.map((it, idx) => {
+      const qty = Math.max(1, Number(it.amount || 1));
+      const title = it.title || it.productTitle || it.skuTitle || `${LBL.th_product} #${idx + 1}`;
+      const sku = it.skuTitle && it.skuTitle !== title ? it.skuTitle : "";
+      const oiId = Number(it.id);
+      const inputs = [];
+      for (let i = 0; i < qty; i++) {
+        inputs.push(`
+          <input type="text" class="form-control fbs-imei-input"
+                 data-order-item-id="${oiId}"
+                 placeholder="${escapeHtml(LBL.imei_placeholder_prefix)}${i + 1}"
+                 autocomplete="off">
+        `);
+      }
+      return `
+        <div class="fbs-imei-item">
+          <div class="item-head">${escapeHtml(title)}</div>
+          ${sku ? `<div class="item-sub">SKU: ${escapeHtml(sku)}</div>` : ""}
+          <div class="item-sub">${escapeHtml(LBL.imei_qty_prefix)} ${qty} • ${escapeHtml(LBL.imei_oi_prefix)} ${oiId}</div>
+          <div class="fbs-imei-inputs">${inputs.join("")}</div>
+        </div>
+      `;
+    }).join("");
+    if (!imeiModalInstance) {
+      imeiModalInstance = new bootstrap.Modal(document.getElementById("fbsImeiModal"));
+    }
+    imeiModalInstance.show();
+  }
+
+  document.getElementById("fbsImeiSubmit").addEventListener("click", async () => {
+    // Collect: group inputs by orderItemId, drop blanks, only submit
+    // items that have at least one value.
+    const groups = {};
+    document.querySelectorAll(".fbs-imei-input").forEach(inp => {
+      const oi = Number(inp.dataset.orderItemId);
+      const v = inp.value.trim();
+      if (!v) return;
+      if (!groups[oi]) groups[oi] = [];
+      groups[oi].push(v);
+    });
+    const items = Object.entries(groups).map(([oi, vals]) => ({
+      orderItemId: Number(oi), values: vals,
+    }));
+    if (items.length === 0) {
+      showToast(LBL.imei_no_inputs, "error");
+      return;
+    }
+    const btn = document.getElementById("fbsImeiSubmit");
+    const spinner = btn.querySelector(".spinner-border");
+    btn.disabled = true; spinner.classList.remove("d-none");
+    try {
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}/identifiers`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        btn.disabled = false; spinner.classList.add("d-none");
+        return;
+      }
+      imeiModalInstance.hide();
+      showToast(LBL.toast_imei_attached, "success");
+      setTimeout(afterActionReload, 800);
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+      btn.disabled = false; spinner.classList.add("d-none");
+    }
+  });
+
+  // ─── Label download ───────────────────────────────────────────
+  // mode="full" (default) → full Uzum label
+  // mode="qr"             → cropped to right column (date + QR + tracking)
+  async function doDownloadLabel(btn, mode){
+    setButtonLoading(btn, true);
+    try {
+      const qs = `size=LARGE${mode === "qr" ? "&mode=qr" : ""}`;
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}/label?${qs}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || `${LBL.toast_http_error_prefix}${res.status}`, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      const list = Array.isArray(data.pdfs_base64) ? data.pdfs_base64 : [];
+      if (list.length === 0) {
+        showToast(LBL.toast_no_pdf, "error");
+        setButtonLoading(btn, false);
+        return;
+      }
+      list.forEach((b64, i) => {
+        // base64 → bytes → Blob → new tab. Doing this fully client-side
+        // means the browser opens PDFs in its native viewer (Chrome/Edge
+        // show a Print button right in the toolbar).
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        const blob = new Blob([bytes], {type: "application/pdf"});
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank", "noopener");
+        // Release the object URL after a moment — the open() call has
+        // already loaded the bytes into the new tab.
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      });
+      showToast(`${list.length} ${LBL.toast_label_opened_suffix}`, "success");
+    } catch (e) {
+      showToast(`${LBL.toast_network_error_prefix}${e.message}`, "error");
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  }
+
+  function renderOrder(order){
+    CURRENT_ORDER = order;
+    renderActions(order);
+    const di = order.deliveryInfo || {};
+    const drop = order.dropOffPoint || {};
+    const stock = order.stock || {};
+    const slot = order.timeSlot || {};
+    const status = String(order.status || "");
+
+    // Header — title gets the status + scheme inline pills.
+    // Bosqich A.14 (HAR audit B1) — sotuvchi taniydigan qisqa raqamni
+    // (publicId, masalan "856114-0035") ko'rsatamiz; bo'lmasa ichki id.
+    const orderNo = order.publicId || order.id;
+    titleEl.innerHTML = `
+      <span>${escapeHtml(LBL.order_no)}${escapeHtml(orderNo)}</span>
+      ${statusPill(order.status)}
+      ${schemeBadge(order.scheme)}
+      ${order.identifierRequired ? `<span class="fbs-flag">${escapeHtml(LBL.identifier_required_flag)}</span>` : ""}
+    `;
+    // Subtitle = creation date (replaces the old dev "Endpoint" line).
+    const created = formatDate(order.dateCreated);
+    metaEl.textContent = created ? `${LBL.f_created} ${created}` : "";
+
+    // "N dona, SUM" summary, mirroring Uzum's «Состав и сумма».
+    const items = Array.isArray(order.orderItems) ? order.orderItems : [];
+    const totalQty = items.reduce((s, it) => s + Number(it.amount || 0), 0);
+    const composition = totalQty
+      ? `${totalQty} ${LBL.comp_unit}, ${formatMoney(order.price)}`
+      : null;
+
+    // Live countdown under the deadlines — only while the order is still
+    // actionable for that deadline (accept → CREATED, deliver → until
+    // it's handed to the courier).
+    const acceptCd  = status === "CREATED" ? countdownTo(order.acceptUntil) : null;
+    const deliverCd = ["CREATED", "PACKING", "PENDING_DELIVERY"].includes(status)
+      ? countdownTo(order.deliverUntil) : null;
+
+    // Pickup address only when a real drop-off is chosen — a brand-new
+    // order has none, so we skip it rather than show a placeholder.
+    const pickup = drop.address || null;
+
+    const info = [
+      infoField(LBL.f_accept_until, formatDate(order.acceptUntil), acceptCd),
+      infoField(LBL.f_deliver_until, formatDate(order.deliverUntil), deliverCd),
+      infoField(LBL.f_order_id, order.publicId),
+      infoField(LBL.f_shop, order.shopTitle || order.shopName),
+      infoField(LBL.f_composition, composition),
+      infoField(LBL.f_pickup, pickup, null, true),
+      infoField(LBL.f_slot_from, formatDate(slot.timeFrom)),
+      infoField(LBL.f_slot_to, formatDate(slot.timeTo)),
+      infoField(LBL.f_invoice, order.invoiceNumber),
+      // Customer (DBS / when Uzum exposes it).
+      infoField(LBL.f_full_name, di.customerFullname),
+      infoField(LBL.f_phone, di.customerPhone),
+      infoField(LBL.f_address, di.deliveryAddress, null, true),
+      infoField(LBL.f_comment, di.deliveryComment, null, true),
+      // Lifecycle dates — only the ones that have happened.
+      infoField(LBL.f_accepted, formatDate(order.acceptedDate)),
+      infoField(LBL.f_delivering, formatDate(order.deliveringDate)),
+      infoField(LBL.f_dp_delivered, formatDate(order.deliveredToDeliveryPointDate)),
+      infoField(LBL.f_delivered, formatDate(order.deliveryDate)),
+      infoField(LBL.f_completed, formatDate(order.completedDate)),
+      infoField(LBL.f_cancelled, formatDate(order.dateCancelled)),
+      infoField(LBL.f_returned, formatDate(order.returnDate)),
+      infoField(LBL.f_cancel_reason, order.cancelReason, null, true),
+    ].join("");
+
+    body.innerHTML = `
+      <div class="fbs-od-divider"></div>
+      <div class="fbs-od-info">${info}</div>
+      <div class="fbs-od-divider"></div>
+      ${renderProducts(items)}
+      <div class="fbs-od-total">
+        <span class="lbl">${escapeHtml(LBL.order_total)}</span>
+        <span class="val">${escapeHtml(formatMoney(order.price))}</span>
+      </div>
+    `;
+  }
+
+  async function load(){
+    try {
+      const res = await fetch(`/fbs/api/order/${ORDER_ID}`);
+      const data = await res.json();
+      if (res.status === 501) {
+        body.innerHTML = `
+          <div class="fbs-detail-pending">
+            <strong>${escapeHtml(LBL.detail_pending_strong)}</strong><br>
+            <code>GET /v1/fbs/order/{orderId}</code> ${escapeHtml(LBL.detail_pending_body)}
+          </div>
+        `;
+        metaEl.textContent = LBL.endpoint_pending;
+        return;
+      }
+      if (!res.ok) {
+        body.innerHTML = `<div class="fbs-detail-error"><strong>${escapeHtml(LBL.error_title)}</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        metaEl.textContent = LBL.error_short;
+        return;
+      }
+      renderOrder(data.order || {});
+      // Endpoint stays out of the visible UI — kept only as a hover tooltip
+      // on the subtitle for debugging (renderOrder sets the visible text).
+      metaEl.title = `${LBL.endpoint_label}: ${data.used_url || "—"}`;
+    } catch (e) {
+      body.innerHTML = `<div class="fbs-detail-error"><strong>${escapeHtml(LBL.network_error_title)}</strong> ${escapeHtml(e.message)}</div>`;
+      metaEl.textContent = LBL.network_error_title.replace(/:$/, "");
+    }
+  }
+  load();
+})();
+</script>
+{% endblock %}

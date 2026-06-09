@@ -62,20 +62,43 @@ def init_admin_routes(app_module):
 
 
 def _fire_finance_seed(uzum_id: str, shop_pk: int):
-    """Trigger background finance work for a newly added shop.
+    """Trigger background work for a newly added shop.
 
-    Two daemon threads fire:
-      1. _sync_finance_for_shop  — fast 30-day seed for Variant
+    Three daemon threads fire:
+      1. _sync_products_via_openapi (sinxro_2) — full product catalog
+         sync: every product, every variant, all colors/sizes/prices.
+         Fires FIRST so the new shop appears with stock immediately
+         (the user expects to see their goods after attach, not blank
+         placeholders). Uses the per-user OpenAPI token; falls back
+         silently if the user has no token saved yet.
+      2. _sync_finance_for_shop  — fast 30-day seed for Variant
          sales_30d_finance + avg_daily_sales (so Warehouse/POS reorder
          logic works within seconds of attach).
-      2. _run_full_backfill_for_shop — slow first-sale-year → today
+      3. _run_full_backfill_for_shop — slow first-sale-year → today
          backfill into finance_orders, day-by-day. ~30 minutes for an
          active shop. Runs sequentially; the user sees historical sales
          appear progressively in the UI.
 
-    Both threads use the shop owner's per-user OpenAPI token. No queue,
-    no chunked machinery — just thread + sleep + fetch.
+    All three threads use the shop owner's per-user OpenAPI token.
+    The product loop in app.py (sinxro_2) keeps the catalog fresh on
+    a 10-min cadence after this initial seed.
     """
+    def _run_products_seed(uzum_id=uzum_id, shop_pk=shop_pk):
+        # Look up the OpenAPI token via the same helper the periodic
+        # products loop uses — keeps token resolution in one place.
+        tok = _app._owner_openapi_token_for_shop(uzum_id)
+        if not tok:
+            print(f"[AdminShop] Products seed skipped for {uzum_id} — no OpenAPI token")
+            return
+        try:
+            _app._sync_products_via_openapi(
+                uzum_id, tok,
+                size=100, max_pages=500,
+                fetch_uz_titles=True,
+            )
+        except Exception as e:
+            print(f"[AdminShop] Products seed failed for {uzum_id}: {e}")
+
     def _run_variant_seed(uzum_id=uzum_id, shop_pk=shop_pk):
         try:
             _app._sync_finance_for_shop(uzum_id, shop_pk)
@@ -88,6 +111,7 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
         except Exception as e:
             print(f"[AdminShop] Full backfill failed for {uzum_id}: {e}")
 
+    threading.Thread(target=_run_products_seed, daemon=True).start()
     threading.Thread(target=_run_variant_seed, daemon=True).start()
     threading.Thread(target=_run_full_backfill, daemon=True).start()
 
@@ -203,6 +227,16 @@ def discover_shops_via_openapi():
 
     payload = request.get_json(force=True, silent=True) or {}
     token = str(payload.get("token") or "").strip()
+    # Optional seller_id from the cabinet URL (?sId=N). Required by
+    # POST /v1/fbs/invoice but not exposed by any other API endpoint,
+    # so the user pastes it next to the token. Empty string clears it.
+    seller_id_raw = payload.get("seller_id")
+    parsed_seller_id: int | None = None
+    if seller_id_raw is not None and str(seller_id_raw).strip():
+        try:
+            parsed_seller_id = int(str(seller_id_raw).strip())
+        except (TypeError, ValueError):
+            return _json_response({"error": "seller_id raqam bo'lishi kerak"}, 400)
 
     uid = int(current_user.get_id())
 
@@ -221,8 +255,14 @@ def discover_shops_via_openapi():
             return _json_response({"error": f"Uzum OpenAPI error: {exc}"}, 400)
 
         # Persist the token on first successful probe (or refresh it if changed)
+        changed = False
         if user.uzum_openapi_token != token:
             user.uzum_openapi_token = token
+            changed = True
+        if parsed_seller_id is not None and user.uzum_seller_id != parsed_seller_id:
+            user.uzum_seller_id = parsed_seller_id
+            changed = True
+        if changed:
             db.commit()
 
         # Annotate each shop with current ownership state

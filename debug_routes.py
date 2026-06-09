@@ -43,6 +43,105 @@ debug_bp = Blueprint("debug_bp", __name__, url_prefix="/debug")
 
 
 # ---------------------------------------------------------------------------
+# TEMPORARY probe (delete after batched-FBS refactor is verified).
+# Confirms whether /v2/fbs/orders returns per-order shopId when called
+# with multiple shopIds — the load-bearing assumption of the planned
+# batched worker. Visit:
+#   /debug/probe_batched_fbs?shopIds=19621,10920,40571
+# Returns JSON with order keys + distinct shopIds + first order dump.
+# ---------------------------------------------------------------------------
+@debug_bp.route("/probe_batched_fbs")
+@login_required
+@admin_required
+def probe_batched_fbs():
+    from collections import Counter
+    from flask import current_app
+    from flask_login import current_user
+    from core.uzum_openapi import fetch_fbs_orders_page
+    from core.fbs_locks import pace_uzum_call
+
+    raw = (request.args.get("shopIds") or "").strip()
+    if not raw:
+        return jsonify({"error": "pass ?shopIds=19621,10920,40571 (min 2 ids)"}), 400
+    shop_ids = [s.strip() for s in raw.split(",") if s.strip()]
+    if len(shop_ids) < 2:
+        return jsonify({"error": "need at least 2 shop ids"}), 400
+
+    token = (getattr(current_user, "uzum_openapi_token", None) or "").strip()
+    if not token:
+        return jsonify({"error": "current admin has no uzum_openapi_token"}), 400
+
+    statuses_to_try = (
+        "CREATED", "PACKING", "PENDING_DELIVERY", "DELIVERING",
+        "DELIVERED", "ACCEPTED_AT_DP", "DELIVERED_TO_CUSTOMER_DELIVERY_POINT",
+        "PENDING_CANCELLATION", "COMPLETED", "CANCELED", "RETURNED",
+    )
+
+    attempts = []
+    for status in statuses_to_try:
+        try:
+            # Pace through the shared per-token gate so this 11-status
+            # debug probe can't trip Uzum's per-token burst penalty (which
+            # would then throttle the real worker/JIT on the same token).
+            pace_uzum_call(token)
+            body, url = fetch_fbs_orders_page(
+                token, shop_ids, status=status, page=0, size=50,
+            )
+        except Exception as e:
+            attempts.append({"status": status, "error": repr(e)})
+            continue
+
+        payload = body.get("payload") or {}
+        orders = payload.get("orders") or []
+        attempt = {
+            "status": status,
+            "url": url,
+            "total_amount": payload.get("totalAmount"),
+            "orders_count": len(orders),
+        }
+        if not orders:
+            attempts.append(attempt)
+            continue
+
+        sample = orders[0]
+        seen = Counter()
+        for o in orders:
+            sid = (
+                o.get("shopId")
+                or o.get("shop_id")
+                or (o.get("shop") or {}).get("id")
+            )
+            seen[str(sid)] += 1
+
+        attempt.update({
+            "first_order_keys": sorted(sample.keys()),
+            "sample_shopId_field": sample.get("shopId"),
+            "sample_shop_id_field": sample.get("shop_id"),
+            "sample_shop_nested": sample.get("shop") if isinstance(sample.get("shop"), dict) else None,
+            "distinct_shopIds_in_response": dict(seen),
+            "verdict": (
+                "MULTIPLE_SHOPS_IN_ONE_RESPONSE" if len(seen) >= 2
+                else "ONLY_ONE_SHOPID" if len(seen) == 1
+                else "NO_SHOPID_FOUND"
+            ),
+            "first_order_sample": sample,
+        })
+        attempts.append(attempt)
+        return jsonify({
+            "tested_shop_ids": shop_ids,
+            "found_populated_status": status,
+            "result": attempt,
+        })
+
+    return jsonify({
+        "tested_shop_ids": shop_ids,
+        "found_populated_status": None,
+        "message": "All 11 statuses returned 0 orders for these shops.",
+        "attempts": attempts,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Helper used only by debug routes
 # ---------------------------------------------------------------------------
 def _extract_page_items(data, page_size=100):

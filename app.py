@@ -24,6 +24,14 @@ from core.time_helpers import (
 )
 from core.http_client import _get_http_session, http_post_multipart
 from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_page
+from core.uzum_openapi import FBS_ORDER_STATUSES as _FBS_ORDER_STATUSES
+from core.fbs_sync import (
+    fetch_all_pages as _fbs_fetch_all_pages,
+    upsert_orders as _fbs_upsert_orders,
+    FBS_ALL_SYNC_STATUSES as _FBS_ALL_SYNC_STATUSES,
+    FBS_ACTIVE_SYNC_STATUSES as _FBS_ACTIVE_SYNC_STATUSES,
+    fbs_statuses_for_tick as _fbs_statuses_for_tick,
+)
 from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
     _uzum_auto_login, _current_user_is_admin, admin_required, _user_shop_ids,
@@ -52,7 +60,7 @@ import requests
 from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect
+from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect, or_, and_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -64,11 +72,13 @@ except ImportError:
 
 from models import (
     Base,
+    FbsOrder,
     FinanceHourlySnapshot,
     FinanceOrder,
     NotificationSettings,
     ProductGroup,
     Shop,
+    ShopSyncState,
     SubscriptionCode,
     SubscriptionCodeActivation,
     SubscriptionSettings,
@@ -965,6 +975,12 @@ app.register_blueprint(_pos_mod.pos_bp)
 import telegram.routes as _telegram_mod
 _telegram_mod.init_telegram_routes(__import__("sys").modules[__name__])
 app.register_blueprint(_telegram_mod.telegram_bp)
+
+# ---------------------------------------------------------------------------
+# Register fbs-routes Blueprint (FBS orders viewer via Seller OpenAPI)
+# ---------------------------------------------------------------------------
+import fbs.routes as _fbs_mod
+app.register_blueprint(_fbs_mod.fbs_bp)
 
 
 # ----------------------------
@@ -3935,6 +3951,42 @@ def _nightly_refetch_loop():
             _t.sleep(60)
 
 
+def _maybe_backfill_owner_seller_id(shop_id_int: int, rows: list) -> None:
+    """Fill the shop owner's ``uzum_seller_id`` from finance-expense rows.
+
+    OpenAPI ``/v1/finance/expenses`` rows each carry ``seller_id`` (Uzum's
+    account-level ``sId``), which ``POST /v1/fbs/invoice`` needs. Capturing it
+    HERE — from rows we already fetched for the expenses ingest — means the
+    FBS invoice-create path finds it pre-filled and never has to do a live
+    finance probe (decouples накладная creation from the finance API).
+
+    Costs NO extra API call (rows are in hand), runs only until the owner's
+    id is set, and is fully isolated + defensive (own session, try/except)
+    so it can NEVER disturb the expenses ingest that follows.
+    """
+    try:
+        sid = next((r.get("seller_id") for r in rows
+                    if isinstance(r, dict) and r.get("seller_id")), None)
+        if not sid:
+            return
+        from models import Shop, User
+        with SessionLocal() as db:
+            shop = db.execute(
+                select(Shop).where(Shop.uzum_id == str(shop_id_int))
+            ).scalar_one_or_none()
+            if shop is None or shop.owner_id is None:
+                return
+            owner = db.get(User, shop.owner_id)
+            if owner is None or owner.uzum_seller_id is not None:
+                return
+            owner.uzum_seller_id = int(sid)
+            db.commit()
+            print(f"[seller-id] backfilled sellerId={sid} user_id={owner.id} "
+                  f"from finance sync (shop={shop_id_int})", flush=True)
+    except Exception as e:
+        print(f"[seller-id] backfill skipped shop={shop_id_int}: {e!r}")
+
+
 def _ingest_expenses_window_for_shop(
     shop_id: str,
     date_from_tashkent: datetime,
@@ -3994,6 +4046,12 @@ def _ingest_expenses_window_for_shop(
         file_url = _ur.wait_for_report(request_id, token_getter=_get_admin_token)
         raw = _ur.download_csv(file_url, token_getter=_get_admin_token)
         rows = _ur.parse_expenses_csv(raw)
+
+    # ── 1b. Opportunistically capture the owner's sellerId from these rows
+    # (OpenAPI expense rows carry it) so the FBS invoice-create path never
+    # has to do a live finance probe. No extra API call; self-skips once set;
+    # isolated so it can't affect the upsert below.
+    _maybe_backfill_owner_seller_id(shop_id_int, rows)
 
     # ── 2. Coercion helpers — accept str (CSV) or already-typed (OpenAPI). ──
 
@@ -4132,6 +4190,780 @@ def _daily_expenses_loop():
         except Exception as e:
             print(f"[ExpensesDaily] Unexpected error: {e}")
             _t.sleep(60)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Stage 4b — FBS/DBS background sync loop.
+#
+# Every 10 minutes, walk every shop and:
+#   1. Refresh ``shop_sync_state.fbs_active`` from ``variants.quantity_fbs``.
+#   2. If active and the owner has an OpenAPI token, fetch ALL 11 statuses
+#      (no date filter) in parallel and UPSERT into ``fbs_orders``.
+# Failures on one shop don't stop the rest. Loop survives any exception
+# in the tick body — the only way to silence it is the FBS_SYNC_LOOP=0
+# env flag (handled in background/startup.py).
+#
+# Why UPSERT (not DELETE+INSERT): historical orders should accumulate
+# in the DB across ticks so the count chips show full history (matching
+# MarketPlus). A freshly-attached shop's first tick functions as a
+# one-shot full backfill — no separate code path needed. Action
+# endpoints (Stage 2/3) invalidate the per-shop SWR cache so manual
+# state changes are reflected before the next worker tick.
+# ─────────────────────────────────────────────────────────────────────
+
+
+# Default 600s (10 min) — agreed with user 2026-05-26. Press-driven
+# freshness comes from the Yangilash button (which JIT-syncs the 3
+# active chips: CREATED/PACKING/PENDING_DELIVERY). The bg worker only
+# needs to keep the OTHER 8 chips reasonably current — sellers don't
+# watch DELIVERING/DELIVERED/COMPLETED/etc. in real time, so 10-min
+# lag is fine. Total Uzum load: 11 calls per 10 min = ~1.1 calls/min
+# per user token. Override with FBS_SYNC_INTERVAL_SEC env var if a
+# deployment wants a tighter heartbeat.
+try:
+    _FBS_SYNC_INTERVAL_SEC = max(15, int(os.environ.get("FBS_SYNC_INTERVAL_SEC", "600").strip()))
+except (TypeError, ValueError):
+    _FBS_SYNC_INTERVAL_SEC = 600
+
+# Bosqich A.10 — status sync cadence. The worker no longer re-fetches all
+# 11 statuses every tick (that burned ~66 Uzum calls/hour/token and
+# exhausted the per-token quota → 429). Instead the seller's action queue
+# (_FBS_ACTIVE_SYNC_STATUSES, 4 statuses) refreshes EVERY tick, while the
+# settled/terminal tail refreshes only every _FBS_SLOW_EVERY_N_TICKS-th
+# tick (≈ hourly). The status sets + the per-tick selection live in
+# core.fbs_sync (fbs_statuses_for_tick) so they're unit-testable without
+# the worker harness. Default N is derived from the interval so "slow"
+# lands near 1h regardless of how the heartbeat is tuned; override with
+# FBS_SLOW_SYNC_EVERY_N_TICKS (1 = disable the split, full sweep always).
+#
+# Write strategy is still UPSERT (INSERT new + UPDATE existing by
+# order_id), so historical orders accumulate across ticks; tick 0 after
+# a (re)start is always a full sweep, which doubles as the one-shot
+# backfill for freshly-attached shops.
+try:
+    _FBS_SLOW_EVERY_N_TICKS = max(1, int(
+        os.environ.get("FBS_SLOW_SYNC_EVERY_N_TICKS", "").strip()
+        or round(3600 / _FBS_SYNC_INTERVAL_SEC)
+    ))
+except (TypeError, ValueError, ZeroDivisionError):
+    _FBS_SLOW_EVERY_N_TICKS = 6
+
+# Monotonic tick counter driving the cadence above. Starts at 0 so the
+# first tick after boot is a full sweep. Only ever read/incremented from
+# _fbs_sync_tick (single worker thread), so no lock is needed.
+_fbs_sync_tick_count = 0
+
+# Two-strike guard for the active-status reconcile (2026-06-08). The
+# reconcile's riskiest move is the mass-delete when a status fetch comes
+# back EMPTY (delete EVERY row of that status for the shops). A one-off
+# buggy empty-200 from Uzum would wipe live orders. So we require TWO
+# consecutive empty observations before mass-deleting: this dict counts
+# consecutive empties per (shop-group, status); a non-empty fetch resets it.
+# Single worker thread → no lock. No extra Uzum calls — pure in-process state.
+_fbs_reconcile_empty_strikes: dict[tuple, int] = {}
+
+_FBS_PAGE_SIZE = 50  # kept for legacy callers; new code reads it from core.fbs_sync.
+
+
+def _fbs_shop_has_fbs_stock(db, shop_id_int: int) -> bool:
+    """True iff any variant in this shop has ``quantity_fbs > 0``.
+
+    The join goes variants → product_groups → shops. Using ``func.count``
+    + ``limit(1)`` so Postgres can short-circuit at the first match.
+    """
+    return bool(db.execute(
+        select(func.count(Variant.id))
+        .join(ProductGroup, ProductGroup.id == Variant.group_id)
+        .where(ProductGroup.shop_id == shop_id_int)
+        .where(Variant.quantity_fbs.is_not(None))
+        .where(Variant.quantity_fbs > 0)
+        .limit(1)
+    ).scalar() or 0)
+
+
+
+
+def _fbs_touch_shop_state(
+    db, shop_id_int: int, *,
+    fbs_active: bool,
+    last_synced: datetime | None = None,
+) -> None:
+    """Idempotent ``shop_sync_state`` row touch — INSERT if missing,
+    UPDATE otherwise. Used by the token-batched sync to keep all shops
+    in a group fresh in one transaction, including the inactive ones
+    (those still get ``last_fbs_sync_at`` bumped so the UI shows the
+    worker is alive for them too).
+    """
+    state = db.execute(
+        select(ShopSyncState).where(ShopSyncState.shop_id == shop_id_int)
+    ).scalar_one_or_none()
+    if state is None:
+        state = ShopSyncState(shop_id=shop_id_int, fbs_active=fbs_active)
+        db.add(state)
+    else:
+        state.fbs_active = fbs_active
+    state.last_fbs_sync_at = last_synced or datetime.utcnow()
+
+
+def _fbs_sync_one_token(
+    token: str, shops: list,
+    statuses: tuple[str, ...] = _FBS_ALL_SYNC_STATUSES,
+) -> dict[str, int]:
+    """Bosqich 4l — token-batched sync. One Uzum call per status
+    (with all shopIds packed as repeated ``shopIds=`` params), instead
+    of one call per (shop, status). 5 shops × 11 statuses drops from
+    55 Uzum calls to 11 — same data, fifth the load.
+
+    Bosqich A.10 — ``statuses`` is the per-tick set chosen by
+    :func:`core.fbs_sync.fbs_statuses_for_tick` (4 active statuses on
+    most ticks, all 11 on the ~hourly full sweep). Defaults to the full
+    set so any non-worker caller still gets a complete sync.
+
+    Per-shop ``shop_sync_state`` is still updated individually so the
+    UI's "last synced" indicator is per-shop. Orders are split into
+    rows by each response item's own ``shopId`` (see :func:`dict_from_order`).
+
+    Returns ``{shop_uzum_id_str: orders_synced}`` for logging.
+
+    Shops with no FBS stock are kept in the group so their state row
+    gets a timestamp touch — the worker DID look at them, found
+    nothing, moved on. They are filtered OUT of the batched Uzum call
+    itself so we don't burn a payload for "definitely zero" shops.
+    """
+    import time as _t
+
+    # Per-shop fbs_active gate (one cheap indexed query each). Active
+    # shops get their IDs into the batched Uzum call; inactive ones
+    # only get the state touch at the end.
+    with SessionLocal() as db:
+        active_shops = [s for s in shops if _fbs_shop_has_fbs_stock(db, s.id)]
+    active_uzum_ids = [str(s.uzum_id) for s in active_shops]
+
+    counts: dict[str, int] = {str(s.uzum_id): 0 for s in shops}
+    all_orders: list[dict] = []
+    # Per-active-status authoritative id set, populated ONLY when that
+    # status fetched completely and without error. Drives the reconcile
+    # step below (prune orders that silently left an active status).
+    fetched_active: dict[str, set] = {}
+
+    if active_uzum_ids:
+        # Bosqich A.6 — per-token min-interval gate (replaces the coarse
+        # "hold one lock across the whole sweep" approach). Every Uzum
+        # /orders call (each page of each status) is paced through
+        # ``pace_uzum_call`` INSIDE ``_fbs_fetch_all_pages``, enforcing
+        # >=1s between consecutive calls on the token. The JIT refresh
+        # ("Yangilash") shares the same gate, so it now interleaves paced
+        # (>=1s apart) instead of hitting a 5s lock timeout and silently
+        # skipping mid-tick. We therefore no longer hold a per-token lock
+        # here, and there is no inter-status sleep — the gate handles all
+        # pacing. (In-process scope, same as the old lock; see
+        # ``core/fbs_locks`` for the cross-process caveat.)
+        for status_name in statuses:
+            is_active = status_name in _FBS_ACTIVE_SYNC_STATUSES
+            try:
+                # ``_fbs_fetch_all_pages`` accepts a list of shop IDs and
+                # serializes them as repeated query params
+                # (``shopIds=1&shopIds=2&...``) — Uzum's OpenAPI 3 form
+                # style for an array param. It paces each page internally.
+                #
+                # Active statuses: fetch the COMPLETE list (no stop_on_known
+                # early-out) so the returned set is authoritative and the
+                # reconcile step can prune departures. Active queues are tiny
+                # (a handful of orders), so paging all of them is cheap. Slow/
+                # terminal statuses keep the quota-saving early stop.
+                page_orders = _fbs_fetch_all_pages(
+                    token, active_uzum_ids,
+                    status=status_name, stop_on_known=not is_active,
+                )
+                all_orders.extend(page_orders)
+                if is_active:
+                    fetched_active[status_name] = {
+                        str(o.get("id")) for o in page_orders if o.get("id") is not None
+                    }
+            except Exception as e:
+                print(
+                    f"[FBS Worker] token={token[:8]}.. "
+                    f"shops={','.join(active_uzum_ids)} "
+                    f"status={status_name} fetch ERROR: {e!r}"
+                )
+
+    # One transaction for the whole group: upsert + per-shop state.
+    # Crash mid-tick → everything rolls back, no half-applied state.
+    with SessionLocal() as db:
+        if all_orders:
+            # shop_uzum_id arg here is just the fallback for orders
+            # that lack ``shopId`` in the response — production never
+            # omits it, so the param's value doesn't actually matter.
+            # We pass the first active shop id as a sensible default.
+            _fbs_upsert_orders(
+                db, active_uzum_ids[0] if active_uzum_ids else "",
+                orders=all_orders,
+            )
+        # ── Reconcile active-status departures (2026-06-08 fix) ─────────
+        # UPSERT-by-id can only UPDATE orders Uzum returned; an order that
+        # silently LEFT an active status (e.g. Uzum auto-cancels an overdue
+        # PACKING order — it just stops appearing in the PACKING list) is
+        # never touched and lingers as a phantom forever. That's exactly why
+        # the live Uzum count (8) and our DB-backed list (9) drift apart.
+        # For each active status we fetched COMPLETELY and WITHOUT error, the
+        # returned id set is authoritative: delete any DB row still in that
+        # status, for THESE shops, that's absent from the fresh set (this is
+        # the ``replace_orders`` semantics the module docstring promised).
+        # Gated on ``fetched_active`` — a 429/exception never populates it, so
+        # a rate-limit hiccup skips the prune and can NEVER wipe live orders.
+        if active_uzum_ids and fetched_active:
+            from models import FbsOrder as _FbsOrder
+            from sqlalchemy import delete as _sql_delete
+            gkey = tuple(sorted(active_uzum_ids))   # stable per shop-group key
+            for status_name, fresh_ids in fetched_active.items():
+                strike_key = (gkey, status_name)
+                if not fresh_ids:
+                    # Empty result → the riskiest delete (wipe the WHOLE status
+                    # for these shops). Guard against a one-off buggy empty-200:
+                    # only mass-delete after TWO consecutive empty fetches.
+                    strikes = _fbs_reconcile_empty_strikes.get(strike_key, 0) + 1
+                    if strikes < 2:
+                        _fbs_reconcile_empty_strikes[strike_key] = strikes
+                        print(
+                            f"[FBS Worker] reconcile: {status_name} empty "
+                            f"(strike {strikes}/2) — deferring prune "
+                            f"shops={','.join(active_uzum_ids)}"
+                        )
+                        continue
+                    # Second consecutive empty → trust it and wipe the status.
+                    _fbs_reconcile_empty_strikes.pop(strike_key, None)
+                    stmt = (
+                        _sql_delete(_FbsOrder)
+                        .where(_FbsOrder.shop_id.in_(active_uzum_ids))
+                        .where(_FbsOrder.status == status_name)
+                    )
+                else:
+                    # Non-empty authoritative set → safe targeted prune, and
+                    # reset the empty-strike counter for this status.
+                    _fbs_reconcile_empty_strikes.pop(strike_key, None)
+                    stmt = (
+                        _sql_delete(_FbsOrder)
+                        .where(_FbsOrder.shop_id.in_(active_uzum_ids))
+                        .where(_FbsOrder.status == status_name)
+                        .where(~_FbsOrder.order_id.in_(fresh_ids))
+                    )
+                res = db.execute(stmt)
+                pruned = res.rowcount or 0
+                if pruned:
+                    print(
+                        f"[FBS Worker] reconcile: pruned {pruned} stale "
+                        f"{status_name} row(s) (left status on Uzum) "
+                        f"shops={','.join(active_uzum_ids)}"
+                    )
+        now = datetime.utcnow()
+        active_id_set = {s.id for s in active_shops}
+        for shop in shops:
+            _fbs_touch_shop_state(
+                db, shop.id,
+                fbs_active=(shop.id in active_id_set),
+                last_synced=now,
+            )
+        db.commit()
+
+    # Split per-shop counts by each order's reported shopId. The order
+    # might be sitting on a shop OUTSIDE the active set if Uzum is
+    # buggy — we ignore those rather than crash.
+    for o in all_orders:
+        sid = str(o.get("shopId") or "")
+        if sid in counts:
+            counts[sid] += 1
+    return counts
+
+
+def _fbs_sync_tick():
+    """One pass over every shop, grouped by token.
+
+    Bosqich 4l — token-batched sync. Shops sharing the same OpenAPI
+    token (i.e. owned by the same seller) are bundled into a single
+    Uzum call per status via the ``shopIds=...`` repeated query param.
+    For a 5-shop account that drops the per-tick load from 55 Uzum
+    calls (5 × 11 statuses) to 11. Different tokens still run in
+    parallel — Uzum's burst penalty is per-token, not global, so
+    user A's tick never blocks user B's.
+
+    ``FBS_SYNC_SHOP_PARALLELISM`` now governs the **token-group**
+    parallelism (the name is kept for env-var compat). Default 10 is
+    still safe — that's 10 concurrent users' tokens, not 10 shops.
+
+    Shops without a resolvable token (no owner, owner has no
+    uzum_openapi_token) get their ``shop_sync_state`` touched as
+    inactive — we looked at them, couldn't sync them, moved on.
+    """
+    global _fbs_sync_tick_count
+    tick_start = datetime.utcnow()
+
+    # Bosqich A.10 — pick this tick's status set (active-only vs full
+    # sweep) BEFORE any work, then advance the counter. Active statuses
+    # sync every tick; the settled/terminal tail only every Nth tick, so
+    # the worker stops exhausting the per-token Uzum quota (the 429 root
+    # cause). Closed over by _sync_token_group below.
+    statuses_this_tick = _fbs_statuses_for_tick(
+        _fbs_sync_tick_count, _FBS_SLOW_EVERY_N_TICKS
+    )
+    _fbs_sync_tick_count += 1
+    is_full_sweep = len(statuses_this_tick) == len(_FBS_ALL_SYNC_STATUSES)
+    sweep_label = "full" if is_full_sweep else "active"
+
+    with SessionLocal() as db:
+        shops = db.execute(select(Shop).order_by(Shop.id)).scalars().all()
+    print(
+        f"[FBS Worker] Tick start: {len(shops)} shops, "
+        f"sweep={sweep_label} ({len(statuses_this_tick)} statuses)"
+    )
+
+    # Group shops by token. Token lookup goes through the same helper
+    # as the finance path (``_owner_openapi_token_for_shop``) so any
+    # future change to "how do we get a shop's token" stays in one
+    # place. Shops with no token go in the ``None`` bucket and only
+    # get a state-row touch — no Uzum call.
+    groups: dict[str | None, list] = {}
+    for s in shops:
+        tok = _owner_openapi_token_for_shop(s.uzum_id)
+        groups.setdefault(tok, []).append(s)
+
+    # Bosqich A.6 — reclaim pace-gate slots for tokens that no longer have
+    # any shop (deactivated sellers), so core.fbs_locks._token_next_slot
+    # doesn't grow unbounded over the process lifetime.
+    from core.fbs_locks import prune_token_slots as _fbs_prune_token_slots
+    _pruned = _fbs_prune_token_slots([t for t in groups if t is not None])
+    if _pruned:
+        print(f"[FBS Worker] pruned {_pruned} stale pace-gate token slot(s)")
+
+    def _sync_tokenless(shops_in_group: list):
+        """Touch state for shops we can't sync. Keeps the UI honest:
+        ``last_fbs_sync_at`` still updates so the seller sees the worker
+        is running, but ``fbs_active=False`` flags that no sync happened.
+        """
+        try:
+            with SessionLocal() as db:
+                now = datetime.utcnow()
+                for s in shops_in_group:
+                    _fbs_touch_shop_state(db, s.id, fbs_active=False, last_synced=now)
+                db.commit()
+        except Exception as e:
+            print(f"[FBS Worker] tokenless group ERROR: {e!r}")
+
+    def _sync_token_group(token: str, shops_in_group: list):
+        """One token's full tick — runs inside the thread pool."""
+        ids_str = ",".join(str(s.uzum_id) for s in shops_in_group)
+        try:
+            counts = _fbs_sync_one_token(
+                token, shops_in_group, statuses=statuses_this_tick
+            )
+            total = sum(counts.values())
+            print(
+                f"[FBS Worker] token={token[:8]}.. shops=[{ids_str}] "
+                f"orders synced={total} ({counts})"
+            )
+        except Exception as e:
+            print(f"[FBS Worker] token={token[:8]}.. shops=[{ids_str}] ERROR: {e!r}")
+
+        # Warm the akt cache for this token's active (CREATED) invoices so the
+        # seller's bulk "Akt отправки (PDF)" print reads from the DB — instant
+        # and never tripping Uzum's /print 429. Best-effort + bounded: in
+        # steady state it only fetches NEW/changed invoices (the list call +
+        # a handful of akts), all paced through the same per-token gate.
+        try:
+            owner_id = next((s.owner_id for s in shops_in_group if s.owner_id), None)
+            if owner_id:
+                from core.fbs_akt_cache import prefetch_akts_for_token
+                n_fetched, n_pruned = prefetch_akts_for_token(token, owner_id)
+                if n_fetched or n_pruned:
+                    print(f"[FBS Worker] token={token[:8]}.. akts prefetched={n_fetched} pruned={n_pruned}")
+        except Exception as e:
+            print(f"[FBS Worker] token={token[:8]}.. akt prefetch ERROR: {e!r}")
+
+    try:
+        max_parallel = int(os.environ.get("FBS_SYNC_SHOP_PARALLELISM", "10").strip())
+    except ValueError:
+        max_parallel = 10
+    # ``or 1`` guards against empty Shop table on first boot.
+    num_token_groups = sum(1 for t in groups if t is not None)
+    max_parallel = max(1, min(max_parallel, num_token_groups or 1))
+
+    # Handle the tokenless bucket first (synchronously, fast — just a
+    # state touch). Then submit one task per real token group.
+    if None in groups:
+        _sync_tokenless(groups[None])
+
+    with ThreadPoolExecutor(max_workers=max_parallel) as pool:
+        for tok, group in groups.items():
+            if tok is None:
+                continue
+            pool.submit(_sync_token_group, tok, group)
+
+    elapsed = (datetime.utcnow() - tick_start).total_seconds()
+    print(
+        f"[FBS Worker] Tick done in {elapsed:.1f}s "
+        f"(token_groups={num_token_groups}, parallelism={max_parallel}, "
+        f"sweep={sweep_label})"
+    )
+
+
+def _fbs_sync_loop():
+    """Run _fbs_sync_tick every ``_FBS_SYNC_INTERVAL_SEC`` seconds.
+
+    Mirrors the structure of ``_hourly_finance_loop`` — exception in the
+    tick is logged with full traceback and the loop sleeps then retries.
+    A KeyboardInterrupt / SystemExit propagates out so shutdown signals
+    can stop the thread cleanly.
+    """
+    import time as _t
+    import traceback
+
+    # First tick fires after a brief warm-up so the app has time to
+    # finish booting (background tables aren't queried before they're
+    # ready). Choosing 30s rather than 0s also smooths out start-up
+    # log spam during dev.
+    _t.sleep(30)
+
+    while True:
+        try:
+            _fbs_sync_tick()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            print(f"[FBS Worker] Tick unexpected error: {e!r}")
+            traceback.print_exc()
+        _t.sleep(_FBS_SYNC_INTERVAL_SEC)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Stage 4d — FBS cleanup loop.
+#
+# DELETE old terminal-status orders once a day so ``fbs_orders`` doesn't
+# grow unbounded. Worker (4b) already overwrites the per-(shop, status)
+# row set on every tick, so for active statuses the table self-bounds.
+# COMPLETED grows because the worker syncs the last 30 days every tick
+# — older completed orders fall outside that window and would otherwise
+# sit forever; same with CANCELED/RETURNED/PENDING_CANCELLATION which
+# the worker doesn't touch at all.
+#
+# Retention chosen for the seller-UX use case:
+#   * COMPLETED orders — 90 days. Enough for refund disputes (Uzum's
+#     own dispute window is ~30 days) and quarterly reconciliation.
+#   * CANCELED / RETURNED / PENDING_CANCELLATION — 30 days. Sellers
+#     rarely need these after a month; they're for visibility, not
+#     legal records.
+#
+# Tick logs row counts so a sudden mass deletion (bug, clock skew)
+# shows up loud. FBS_CLEANUP_LOOP=0 disables the whole thing.
+# ─────────────────────────────────────────────────────────────────────
+
+
+_FBS_CLEANUP_INTERVAL_SEC = 86400  # 24h
+# Bosqich 4f: extended retention so full UPSERT-accumulated history
+# isn't pruned away — sellers want a MarketPlus-style multi-month view
+# of COMPLETED / CANCELED / RETURNED, not a 30-day sliding window.
+_FBS_COMPLETED_RETENTION_DAYS = 365
+_FBS_TERMINAL_RETENTION_DAYS = 365
+_FBS_TERMINAL_STATUSES = ("CANCELED", "RETURNED", "PENDING_CANCELLATION")
+
+
+def _fbs_cleanup_tick():
+    """One pass of retention pruning. Returns ``(n_completed, n_terminal)``."""
+    now = datetime.utcnow()
+    completed_cutoff = now - timedelta(days=_FBS_COMPLETED_RETENTION_DAYS)
+    terminal_cutoff = now - timedelta(days=_FBS_TERMINAL_RETENTION_DAYS)
+    with SessionLocal() as db:
+        # COMPLETED — compare against ``completed_date``. Fall back to
+        # ``synced_at`` for rows that somehow lack completed_date (Uzum
+        # has been seen to omit it on rare races): a row that hasn't
+        # been touched by the worker for 90 days is also safe to drop.
+        n_completed = db.execute(
+            delete(FbsOrder).where(
+                FbsOrder.status == "COMPLETED",
+                or_(
+                    FbsOrder.completed_date < completed_cutoff,
+                    and_(
+                        FbsOrder.completed_date.is_(None),
+                        FbsOrder.synced_at < completed_cutoff,
+                    ),
+                ),
+            )
+        ).rowcount or 0
+
+        # CANCELED / RETURNED / PENDING_CANCELLATION — use the most
+        # relevant date per status, falling back to synced_at when the
+        # status-specific date is NULL.
+        n_terminal = db.execute(
+            delete(FbsOrder).where(
+                FbsOrder.status.in_(_FBS_TERMINAL_STATUSES),
+                or_(
+                    and_(
+                        FbsOrder.cancelled_date.is_not(None),
+                        FbsOrder.cancelled_date < terminal_cutoff,
+                    ),
+                    and_(
+                        FbsOrder.return_date.is_not(None),
+                        FbsOrder.return_date < terminal_cutoff,
+                    ),
+                    and_(
+                        FbsOrder.cancelled_date.is_(None),
+                        FbsOrder.return_date.is_(None),
+                        FbsOrder.synced_at < terminal_cutoff,
+                    ),
+                ),
+            )
+        ).rowcount or 0
+        db.commit()
+    print(
+        f"[FBS Cleanup] Removed: {n_completed} COMPLETED (>365d), "
+        f"{n_terminal} CANCELED/RETURNED/PENDING_CANCELLATION (>365d)"
+    )
+    return (n_completed, n_terminal)
+
+
+def _fbs_cleanup_loop():
+    """Run :func:`_fbs_cleanup_tick` once a day.
+
+    Off-switch via ``FBS_CLEANUP_LOOP=0`` in the env (handled in
+    ``background/startup.py``). First tick fires after ~60s so the
+    sync worker has time to do its initial pass — otherwise the
+    cleanup might run on an empty table at boot, which is harmless
+    but wastes a log line.
+    """
+    import time as _t
+    import traceback
+
+    _t.sleep(60)
+    while True:
+        try:
+            _fbs_cleanup_tick()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            print(f"[FBS Cleanup] Tick unexpected error: {e!r}")
+            traceback.print_exc()
+        _t.sleep(_FBS_CLEANUP_INTERVAL_SEC)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# sinxro_2 — server-side product sync loop.
+#
+# Replaces the old browser-side setInterval in static/uzum_ui.js that
+# fired 5×N Uzum calls every 10 minutes from EVERY open tab, then
+# window.location.reload()'d — guaranteeing a 30–50s tab freeze per
+# user per tick. That code was removed 2026-05-24.
+#
+# This loop does the same product refresh but server-side, so:
+#   * No tab freezes — runs in a background thread, browser is idle.
+#   * One global cadence — N tabs no longer multiply load.
+#   * Uses the per-user OpenAPI token (richer data: purchase price,
+#     quantity breakdown, blocked reasons, ikpu, UZ titles) — same
+#     path as the manual "Yangilash" button.
+#
+# Sync covers: every Shop row that has a resolvable OpenAPI token via
+# its owner's User.uzum_openapi_token. Per-shop work goes through the
+# existing ``_sync_products_via_openapi(shop_uzum_id, token, ...)``
+# helper so this loop never duplicates the product-projection logic.
+#
+# Initial seed for newly attached shops fires in admin/routes.py via
+# ``_fire_finance_seed`` — that function gained a parallel product seed
+# thread 2026-05-24, so a fresh shop has its products in ~seconds, not
+# the up-to-10-min worst case of waiting for the next tick.
+# ─────────────────────────────────────────────────────────────────────
+
+
+# 10 minutes — same cadence as the old browser auto-sync so users see
+# the same freshness without changing expectations. Configurable via
+# the ``PRODUCTS_SYNC_INTERVAL_SEC`` env var if a future tuning need
+# arises (faster = more Uzum load, slower = staler stock counts).
+_PRODUCTS_SYNC_INTERVAL_SEC = int(os.environ.get("PRODUCTS_SYNC_INTERVAL_SEC", "600") or "600")
+
+# Cap on how many shops we sync in parallel inside one tick. Same
+# default as FBS_SYNC_SHOP_PARALLELISM since the rate-limit constraint
+# is per-token, not global — different tokens can run concurrently
+# without tripping any one user's burst budget.
+_PRODUCTS_SYNC_PARALLELISM = int(os.environ.get("PRODUCTS_SYNC_PARALLELISM", "5") or "5")
+
+
+# Per-SKU (per-colour) product images live ONLY in the seller-cabinet
+# sku-list endpoint (field ``imageHigh``). The OpenAPI /v1/product/shop
+# endpoint returns a product-level ``previewImage`` — the SAME photo for
+# every colour of a product — so colour variants would otherwise look
+# identical. After the OpenAPI pass sets the product-level image, we overlay
+# the true per-SKU image here. Auth is the admin cabinet session
+# (Bearer _get_admin_token), exactly like _discover_seller_shops.
+_CABINET_SKULIST_MAX_PAGES = 60  # 100 SKUs/page -> up to 6000 SKUs per shop
+
+
+def _cabinet_photo_key(url: str) -> str | None:
+    """Extract the bare photoKey from any images.uzum.uz URL, or None."""
+    marker = "images.uzum.uz/"
+    i = (url or "").find(marker)
+    if i < 0:
+        return None
+    rest = url[i + len(marker):]
+    for sep in ("/", "?"):
+        j = rest.find(sep)
+        if j >= 0:
+            rest = rest[:j]
+    return rest or None
+
+
+def _sync_cabinet_sku_images(shop_uzum_id: str) -> int:
+    """Overlay true per-SKU images onto Variant.image_url from the cabinet
+    /api/seller/shop/{shopId}/sku-list endpoint. Returns the number of
+    variants whose image changed. Best-effort: any failure leaves the
+    product-level image in place and returns what was done so far."""
+    token = (_get_admin_token() or "").strip()
+    if not token:
+        return 0
+    auth = token if token.startswith("Bearer ") else f"Bearer {token}"
+    headers = {"Authorization": auth, "Origin": "https://seller.uzum.uz",
+               "Referer": "https://seller.uzum.uz/"}
+    img_by_sku: dict[str, str] = {}
+    page = 0
+    while page < _CABINET_SKULIST_MAX_PAGES:
+        url = (f"https://api-seller.uzum.uz/api/seller/shop/{shop_uzum_id}"
+               f"/sku-list?page={page}&size=100&search=")
+        try:
+            raw = http_json(url, headers=headers)
+        except Exception as e:
+            print(f"[Products Sync] shop={shop_uzum_id} sku-list p{page} error: {e}")
+            break
+        lst = ((raw.get("payload") or {}).get("skuList") or raw.get("skuList") or [])
+        if not lst:
+            break
+        for s in lst:
+            sid = s.get("skuId")
+            key = _cabinet_photo_key(s.get("imageHigh") or s.get("image") or "")
+            if sid is not None and key:
+                img_by_sku[str(sid)] = f"https://images.uzum.uz/{key}/t_product_540_high.jpg"
+        if len(lst) < 100:
+            break
+        page += 1
+    if not img_by_sku:
+        return 0
+    updated = 0
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(Variant).where(Variant.uzum_sku_id.in_(list(img_by_sku.keys())))
+        ).scalars().all()
+        for v in rows:
+            new_url = img_by_sku.get(v.uzum_sku_id)
+            if new_url and v.image_url != new_url:
+                v.image_url = new_url
+                updated += 1
+        if updated:
+            db.commit()
+    return updated
+
+
+def _products_sync_tick():
+    """One pass: sync products for every shop that has an OpenAPI token.
+
+    Shops without an owner, or whose owner has no
+    ``User.uzum_openapi_token``, are skipped silently — there's no path
+    to sync them without a token, and the manual /api/uzum/sync route
+    handles the legacy admin-token fallback for those edge cases.
+
+    Per-shop work is sequential inside one thread; the ThreadPool
+    spreads DIFFERENT shops across threads. ``_sync_products_via_openapi``
+    is a blocking HTTP-heavy call (~2-10s per shop depending on catalog
+    size), so threading is essential to keep the tick under a minute
+    for a 5-shop account.
+    """
+    tick_start = datetime.utcnow()
+    with SessionLocal() as db:
+        shops = db.execute(select(Shop).order_by(Shop.id)).scalars().all()
+    if not shops:
+        print("[Products Sync] No shops, nothing to do")
+        return
+
+    # Resolve each shop's token once, up-front. Skip the ones we can't
+    # sync; the rest are queued into the pool. Doing this in the
+    # caller thread avoids a DB hit inside every worker.
+    work: list[tuple[int, str, str]] = []  # (shop.id, shop.uzum_id, token)
+    for s in shops:
+        tok = _owner_openapi_token_for_shop(s.uzum_id)
+        if not tok:
+            # Owner missing or no token saved — manual sync only.
+            continue
+        work.append((s.id, str(s.uzum_id), tok))
+
+    print(f"[Products Sync] Tick start: {len(work)}/{len(shops)} shops have tokens")
+    if not work:
+        return
+
+    def _sync_one(shop_id_int: int, shop_uzum_id: str, token: str) -> None:
+        try:
+            result = _sync_products_via_openapi(
+                shop_uzum_id, token,
+                size=100, max_pages=500,
+                fetch_uz_titles=True,
+            )
+            # Result dict shape: total_products / fetched (variants) /
+            # active_groups / uz_titles_updated. We only log the
+            # high-signal counts so the loop doesn't spam multi-line
+            # dicts every tick.
+            if isinstance(result, dict):
+                n_p = result.get("total_products")
+                n_v = result.get("fetched")
+                n_uz = result.get("uz_titles_updated")
+                print(
+                    f"[Products Sync] shop={shop_uzum_id} "
+                    f"products={n_p} variants={n_v} uz_updates={n_uz}"
+                )
+            else:
+                print(f"[Products Sync] shop={shop_uzum_id} done (no result dict)")
+            # Overlay true per-SKU (per-colour) images from the cabinet
+            # sku-list — OpenAPI only carries a product-level previewImage.
+            try:
+                n_img = _sync_cabinet_sku_images(str(shop_uzum_id))
+                if n_img:
+                    print(f"[Products Sync] shop={shop_uzum_id} sku_images={n_img}")
+            except Exception as e:
+                print(f"[Products Sync] shop={shop_uzum_id} sku_images ERROR: {e!r}")
+        except Exception as e:
+            # Single bad shop must NOT kill the tick — log and move on.
+            print(f"[Products Sync] shop={shop_uzum_id} ERROR: {e!r}")
+
+    max_parallel = max(1, min(_PRODUCTS_SYNC_PARALLELISM, len(work)))
+    with ThreadPoolExecutor(max_workers=max_parallel) as pool:
+        for shop_id_int, shop_uzum_id, token in work:
+            pool.submit(_sync_one, shop_id_int, shop_uzum_id, token)
+
+    elapsed = (datetime.utcnow() - tick_start).total_seconds()
+    print(
+        f"[Products Sync] Tick done in {elapsed:.1f}s "
+        f"(synced={len(work)}, parallelism={max_parallel})"
+    )
+
+
+def _products_sync_loop():
+    """Run :func:`_products_sync_tick` every
+    ``_PRODUCTS_SYNC_INTERVAL_SEC`` seconds.
+
+    Mirrors :func:`_fbs_sync_loop` exactly — first tick after a 30s
+    warm-up, then on a steady cadence, with a try/except that logs
+    unexpected errors and keeps the loop alive.
+
+    Off-switch via the ``PRODUCTS_SYNC_LOOP`` env var (handled in
+    background/startup.py). Useful if a future Uzum-side change breaks
+    the OpenAPI product endpoint and we want to keep everything else
+    running while we triage.
+    """
+    import time as _t
+    import traceback
+
+    _t.sleep(30)
+
+    while True:
+        try:
+            _products_sync_tick()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            print(f"[Products Sync] Tick unexpected error: {e!r}")
+            traceback.print_exc()
+        _t.sleep(_PRODUCTS_SYNC_INTERVAL_SEC)
 
 
 def _parse_backfill_start_date() -> date:
@@ -4879,7 +5711,12 @@ def _sync_products_for_shop(shop_uzum_id: str, size: int = 100,
                     if barcode:
                         v.barcode = barcode
                         _v_by_barcode[barcode] = v
-                    if sku_image:
+                    # Seed only — the per-SKU (per-colour) image is OWNED by the
+                    # cabinet overlay (_sync_cabinet_sku_images). Never clobber an
+                    # already-set image with this product-level previewImage, or
+                    # colour variants (e.g. СЕРЕБРН) flash the product's main photo
+                    # (e.g. ЗОЛОТ) every sync tick until the overlay re-corrects.
+                    if sku_image and not (v.image_url or "").strip():
                         v.image_url = sku_image
                     if characteristics:
                         v.color = characteristics
@@ -5249,7 +6086,12 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                     if barcode:
                         v.barcode = barcode
                         _v_by_barcode[barcode] = v
-                    if sku_image:
+                    # Seed only — the per-SKU (per-colour) image is OWNED by the
+                    # cabinet overlay (_sync_cabinet_sku_images). Never clobber an
+                    # already-set image with this product-level previewImage, or
+                    # colour variants (e.g. СЕРЕБРН) flash the product's main photo
+                    # (e.g. ЗОЛОТ) every sync tick until the overlay re-corrects.
+                    if sku_image and not (v.image_url or "").strip():
                         v.image_url = sku_image
                     if characteristics:
                         v.color = characteristics

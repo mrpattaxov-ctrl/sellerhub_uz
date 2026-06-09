@@ -14,6 +14,7 @@ from sqlalchemy.orm import contains_eager
 from core.auth_helpers import _json_response, _user_shop_ids, _get_admin_token
 from core.http_client import http_json
 from core.parsers import _safe_qty
+from core.uzum_skulist import normalize_uzum_image_url
 from extensions import SessionLocal
 from models import PosActionLog, ProductGroup, Shop, Variant, VariantSale
 
@@ -98,7 +99,7 @@ def pos_search():
                 "barcode": variant.barcode,
                 "price": variant.price_sum or 0,
                 "stock": variant.warehouse_quantity,
-                "image_url": variant.image_url or group.image_url,
+                "image_url": normalize_uzum_image_url(variant.image_url or group.image_url),
             })
 
     return _json_response({"items": items})
@@ -448,7 +449,7 @@ def pos_fetch_invoice():
                     "sku": matched_variant.sku,
                     "barcode": matched_variant.barcode,
                     "stock": matched_variant.warehouse_quantity,
-                    "image_url": matched_variant.image_url or group.image_url,
+                    "image_url": normalize_uzum_image_url(matched_variant.image_url or group.image_url),
                     "qty": qty,
                 })
 

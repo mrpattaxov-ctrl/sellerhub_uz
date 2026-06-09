@@ -39,12 +39,9 @@ PAYME_TEST_KEY = str(os.getenv("PAYME_TEST_KEY", "")).strip()
 PAYME_USE_TEST = str(os.getenv("PAYME_USE_TEST", "1")).strip().lower() in ("1", "true", "yes")
 
 # ── Finance sync ───────────────────────────────────────────────────────
-# Start of history for the new-shop initial backfill (Phase 1 sales reports).
-# Plan §10: default is 2022-01-01. Accepts an ISO date string from the env.
+# Start of history for the new-shop initial backfill. Default 2022-01-01;
+# accepts an ISO date string from the env.
 FINANCE_BACKFILL_START_DATE = os.getenv("FINANCE_BACKFILL_START_DATE", "2022-01-01").strip() or "2022-01-01"
-# Size of each chunk enqueued by `_onboarding_backfill_loop`. Plan §10 says
-# start at 60 days, shrink to 30 on OOM/timeout — this is the initial value.
-SALES_BACKFILL_CHUNK_DAYS = max(1, int(os.getenv("SALES_BACKFILL_CHUNK_DAYS", "60")))
 FINANCE_REFRESH_DAYS = max(1, int(os.getenv("FINANCE_REFRESH_DAYS", "45")))
 
 # ── Hourly sales burst ────────────────────────────────────────────────

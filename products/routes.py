@@ -10,8 +10,9 @@ from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update
 
 from extensions import SessionLocal
-from models import ProductGroup, Variant, VariantSale, Shop, User
+from models import ProductGroup, Variant, VariantSale, Shop, User, ExpensesLedger
 from core.parsers import _safe_qty
+from core.uzum_skulist import normalize_uzum_image_url
 from core.sales_reads import (
     day_bounds_tashkent,
     read_sales_aggregated,
@@ -160,22 +161,57 @@ def groups_page():
                 Variant.group_id,
                 func.count(Variant.id),
                 func.coalesce(func.sum(Variant.uzum_quantity), 0),
+                func.coalesce(func.sum(Variant.quantity_fbs), 0),
                 func.coalesce(func.sum(Variant.warehouse_quantity), 0),
                 func.min(Variant.sku),
             )
             .where(Variant.group_id.in_(group_ids) if group_ids else False)
             .group_by(Variant.group_id)
         )
-        agg = {gid: {"variants": c, "uzum_qty": int(u), "wh_qty": int(w), "sku": "-".join(str(s).split("-")[:2]) if s else ""} for (gid, c, u, w, s) in db.execute(vstmt).all()}
+        agg = {
+            gid: {
+                "variants": c,
+                "fbo": int(u),
+                "fbs": int(fbs),
+                "wh": int(w),
+                "uzum_qty": int(u),  # kept for backward compat with other templates/JS
+                "wh_qty": int(w),
+                "sku": "-".join(str(s).split("-")[:2]) if s else "",
+            }
+            for (gid, c, u, fbs, w, s) in db.execute(vstmt).all()
+        }
 
-        # Fetch shops for the picker
+        # Fetch shops for the picker (with name lookup used by the cards)
         shops = db.execute(
             select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop)
         ).scalars().all()
+        shops_by_id = {s.id: s for s in shops}
 
-    return render_template("groups.html", groups=groups, agg=agg, q=q,
-                           current_status=display_status, shops=shops, current_shop_id=shop_filter,
-                           page=page, total_pages=total_pages, total_count=total_count, per_page=per_page)
+        # Tab totals (Активные / Архив) over the *visible* set (allowed shops + store filter, ignoring search)
+        tab_base = select(func.count(ProductGroup.id))
+        if allowed_shop_ids:
+            tab_base = tab_base.where(
+                ProductGroup.shop_id.in_(allowed_shop_ids) | (ProductGroup.shop_id == None)
+            )
+        else:
+            tab_base = tab_base.where(ProductGroup.shop_id == None)
+        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+            tab_base = tab_base.where(ProductGroup.shop_id == int(shop_filter))
+        count_active = db.execute(
+            tab_base.where((ProductGroup.is_archived == False) | (ProductGroup.is_archived == None))
+        ).scalar() or 0
+        count_archived = db.execute(
+            tab_base.where(ProductGroup.is_archived == True)
+        ).scalar() or 0
+
+    return render_template(
+        "groups.html",
+        groups=groups, agg=agg, q=q,
+        current_status=display_status, shops=shops, shops_by_id=shops_by_id,
+        current_shop_id=shop_filter,
+        page=page, total_pages=total_pages, total_count=total_count, per_page=per_page,
+        count_active=count_active, count_archived=count_archived,
+    )
 
 @products_bp.get("/fetch")
 @login_required
@@ -194,8 +230,10 @@ def group_detail(group_id: int):
         if not _current_user_is_admin() and group.shop_id not in allowed_shop_ids:
             return render_template("not_found.html", message="Product not found"), 404
 
+        # Sort variants by color first (groups same color together), then SKU.
         variants = db.execute(
-            select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
+            select(Variant).where(Variant.group_id == group_id)
+            .order_by(func.lower(func.coalesce(Variant.color, "")), func.lower(Variant.sku))
         ).scalars().all()
 
         # 30d sales from sales_lines (Tashkent window [today-30, today+1)).
@@ -203,6 +241,7 @@ def group_detail(group_id: int):
         # equivalent is `created_at >= today-30d 00:00 AND created_at < today+1d 00:00`.
         shop = db.get(Shop, group.shop_id)
         sales_30d_map: dict[int, int] = {}
+        cost_map: dict[int, int] = {}
         if shop:
             today = _today_app_tz()
             start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
@@ -219,17 +258,27 @@ def group_detail(group_id: int):
             # which matches `Variant.sku` — NOT the numeric `Variant.uzum_sku_id`.
             by_title: dict[str, int] = {}
             by_sku_id: dict[str, int] = {}
+            cost_by_title: dict[str, int] = {}
+            cost_by_sku_id: dict[str, int] = {}
             for row in agg_rows:
                 title = (row.get("sku_title") or "").strip()
                 qty = int(row.get("qty_sum") or 0)
+                cost_sum = int(row.get("purchase_price_sum") or 0)
+                cost_unit = cost_sum // qty if qty > 0 and cost_sum > 0 else 0
                 if title:
                     by_title[title] = qty
                     by_title[title.upper()] = qty
+                    if cost_unit > 0:
+                        cost_by_title[title] = cost_unit
+                        cost_by_title[title.upper()] = cost_unit
                 sid = row.get("sku_id")
                 if sid:
                     sid_s = str(sid)
                     by_sku_id[sid_s] = qty
                     by_sku_id[sid_s.upper()] = qty
+                    if cost_unit > 0:
+                        cost_by_sku_id[sid_s] = cost_unit
+                        cost_by_sku_id[sid_s.upper()] = cost_unit
             for v in variants:
                 vsku = v.sku or ""
                 matched = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
@@ -239,8 +288,16 @@ def group_detail(group_id: int):
                     matched = by_title.get(vsku) or by_title.get(vsku.upper()) or 0
                 sales_30d_map[v.id] = matched
 
+                cost = cost_by_sku_id.get(vsku) or cost_by_sku_id.get(vsku.upper()) or 0
+                if cost == 0 and v.uzum_sku_id:
+                    cost = cost_by_sku_id.get(v.uzum_sku_id, 0)
+                if cost == 0:
+                    cost = cost_by_title.get(vsku) or cost_by_title.get(vsku.upper()) or 0
+                if cost > 0:
+                    cost_map[v.id] = cost
+
     return render_template("group_detail.html", group=group, variants=variants,
-                           sales_30d_map=sales_30d_map)
+                           sales_30d_map=sales_30d_map, cost_map=cost_map)
 
 
 @products_bp.get("/economics")
@@ -256,6 +313,7 @@ def economics_data_api():
     today = _today_app_tz()
     raw_from = request.args.get("date_from", "").strip()
     raw_to   = request.args.get("date_to",   "").strip()
+    raw_shop = request.args.get("shop_id",   "").strip()  # "" or "all" → all owned shops; else uzum_id
     try:
         date_from = date.fromisoformat(raw_from) if raw_from else today.replace(day=1)
     except ValueError:
@@ -270,18 +328,62 @@ def economics_data_api():
 
     with SessionLocal() as db:
         # Get uzum_ids for allowed shops + mapping from internal shop_id to uzum_id
-        shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all() if allowed_shop_ids else []
-        shop_uzum_ids = [s.uzum_id for s in shops]
-        shop_id_to_uzum = {s.id: s.uzum_id for s in shops}
+        owned_shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all() if allowed_shop_ids else []
+        # Optional ?shop_id= filter, validated against ownership
+        active_shops = owned_shops
+        if raw_shop and raw_shop.lower() != "all":
+            active_shops = [s for s in owned_shops if str(s.uzum_id) == raw_shop]
+        shop_uzum_ids   = [s.uzum_id for s in active_shops]
+        active_shop_ids = [s.id for s in active_shops]
+        shop_id_to_uzum = {s.id: s.uzum_id for s in active_shops}
+        uzum_to_name    = {s.uzum_id: (s.name or s.uzum_id) for s in active_shops}
 
-        # Aggregate sales_lines per (shop_uzum_id, sku) for the Tashkent window
-        # [date_from 00:00, date_to+1 00:00). Old path filtered
-        # `period_from >= date_from AND period_to <= date_to` — the new path
-        # is the equivalent right-open `created_at` window.
+        # Shops list for the picker (always returned regardless of filter)
+        shops_list = [{"uzum_id": s.uzum_id, "name": s.name or s.uzum_id} for s in owned_shops]
+
+        # Aggregate finance_orders per (shop, sku) and per (shop) for the window
         per_shop_sales: dict[tuple[str, str], dict] = {}
+        per_shop_totals: dict[str, dict] = {}  # uzum_id → {revenue, commission, logistics, qty, purchase_price}
+        daily_revenue: dict[str, int] = {}
+        daily_profit_proxy: dict[str, int] = {}  # revenue - commission - logistics (no per-day cost in finance_orders)
+        daily_qty: dict[str, int] = {}
+        # Period-independent per-SKU unit cost (purchase_price/qty over a wide
+        # window). Used for "Вложено в товар" / stock_cost so the displayed
+        # inventory value doesn't change when the user toggles date ranges.
+        # Stock_qty already comes from Variant.uzum_quantity/warehouse_quantity
+        # — those are also period-independent — so cost must be too.
+        cost_map: dict[tuple[str, str], int] = {}
         if shop_uzum_ids:
             start_ts, _ = day_bounds_tashkent(date_from)
             _, end_ts = day_bounds_tashkent(date_to)
+
+            # All-time cost lookup, always anchored to TODAY so the per-SKU
+            # average cost is identical no matter which period chip the user
+            # picks. Floor at 2020-01-01 (older than any data we have).
+            cost_floor = date(2020, 1, 1)
+            cost_start_ts, _ = day_bounds_tashkent(cost_floor)
+            _, cost_end_ts   = day_bounds_tashkent(today)
+            cost_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                cost_start_ts,
+                cost_end_ts,
+                group_by="sku",
+                session=db,
+            )
+            for row in cost_rows:
+                sid = str(row.get("shop_id"))
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                pp  = int(row.get("purchase_price_sum") or 0)
+                if qty <= 0 or pp <= 0:
+                    continue
+                uc = pp // qty
+                if title:
+                    cost_map[(sid, title)] = uc
+                    cost_map[(sid, title.upper())] = uc
+                if row.get("sku_id"):
+                    cost_map[(sid, str(row["sku_id"]))] = uc
+
             agg_rows = read_sales_aggregated(
                 shop_uzum_ids,
                 start_ts,
@@ -289,8 +391,6 @@ def economics_data_api():
                 group_by="sku",
                 session=db,
             )
-            # `sales_lines.shop_id` is int but the rest of this module keys
-            # lookups by the string uzum_id — cast back to str.
             for row in agg_rows:
                 sid = str(row.get("shop_id"))
                 title = (row.get("sku_title") or "").strip()
@@ -298,17 +398,123 @@ def economics_data_api():
                 sell = int(row.get("revenue_sum") or 0)
                 comm = int(row.get("commission_sum") or 0)
                 logi = int(row.get("logistics_sum") or 0)
+                pp   = int(row.get("purchase_price_sum") or 0)
                 entry = {"qty": qty, "sell_price": sell,
-                         "commission": comm, "logistics": logi}
+                         "commission": comm, "logistics": logi,
+                         "purchase_price": pp}
                 if title:
                     per_shop_sales[(sid, title)] = entry
                     per_shop_sales[(sid, title.upper())] = entry
                 if row.get("sku_id"):
                     per_shop_sales[(sid, str(row["sku_id"]))] = entry
+                # Per-shop totals (sum across all SKUs, no double-counting since
+                # each finance_orders SKU row appears once)
+                pst = per_shop_totals.setdefault(sid, {
+                    "revenue": 0, "commission": 0, "logistics": 0,
+                    "qty": 0, "purchase_price": 0,
+                })
+                pst["revenue"]        += sell
+                pst["commission"]     += comm
+                pst["logistics"]      += logi
+                pst["qty"]            += qty
+                pst["purchase_price"] += pp
+
+            # Daily breakdown for "Продажи по дням" chart
+            day_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                start_ts,
+                end_ts,
+                group_by="day",
+                session=db,
+            )
+            for row in day_rows:
+                bucket = row.get("bucket")
+                if bucket is None:
+                    continue
+                bkey = bucket.date().isoformat() if hasattr(bucket, "date") else str(bucket)
+                rev = int(row.get("revenue_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                qty = int(row.get("qty_sum") or 0)
+                daily_revenue[bkey] = daily_revenue.get(bkey, 0) + rev
+                daily_profit_proxy[bkey] = daily_profit_proxy.get(bkey, 0) + (rev - comm - logi)
+                daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
+
+        # ── Categorized expenses from expenses_ledger ────────────────────
+        # Logistics outflow ("Оплата") rows are skipped here: they're already
+        # counted via finance_orders.logistics_sum (Uzum's payments report
+        # exposes the same logistics fee, so double-counting would inflate
+        # расходы). BUT logistics REFUND ("Возврат") rows are kept and netted
+        # against the logistics total — those are credits Uzum issues when a
+        # parcel comes back, and the seller should see them reduce Логистика.
+        # Net per category = sum(Оплата) - sum(Возврат).
+        t_exp_warehouse = t_exp_marketing = t_exp_misc = 0
+        t_log_refunds = 0  # cumulative — negative when there are refunds
+        per_shop_log_refund: dict[str, int] = {}
+        per_shop_exp: dict[str, dict] = {}  # uzum_id (str) → {warehouse, marketing, misc}
+        if shop_uzum_ids:
+            # ExpensesLedger.shop_id is int; cast our str uzum_ids.
+            int_shop_ids = []
+            for sid in shop_uzum_ids:
+                try: int_shop_ids.append(int(sid))
+                except (TypeError, ValueError): pass
+            if int_shop_ids:
+                exp_rows = db.execute(
+                    select(ExpensesLedger).where(
+                        ExpensesLedger.shop_id.in_(int_shop_ids),
+                        ExpensesLedger.day >= date_from,
+                        ExpensesLedger.day <= date_to,
+                    )
+                ).scalars().all()
+                for r in exp_rows:
+                    svc_raw = (r.service or "").lower()
+                    # Normalize Uzbek apostrophe variants (U+02BB, U+2019, U+02BC)
+                    # to ASCII so substring matches work consistently.
+                    svc = svc_raw
+                    for _ap in ("ʻ", "’", "ʼ"):
+                        svc = svc.replace(_ap, "'")
+                    op = (r.op_type or "").strip()
+                    sign = 1 if op == "Оплата" else -1
+                    amt = int(float(r.amount or 0)) * sign
+                    # Logistics handling:
+                    #   • "Оплата" (forward delivery outflow) — skip; already in
+                    #     finance_orders.logistics_fee, so counting it again
+                    #     would double-charge.
+                    #   • "Возврат" (Uzum credits the seller back when a parcel
+                    #     comes home or the fee was miscalculated) — KEEP and
+                    #     route into a dedicated refund bucket so it nets
+                    #     against the Логистика total.
+                    if "logistika" in svc or "logistic" in svc:
+                        if op == "Оплата":
+                            continue
+                        # amt is already negative because sign == -1
+                        t_log_refunds += amt
+                        sid_lr = str(r.shop_id)
+                        per_shop_log_refund[sid_lr] = per_shop_log_refund.get(sid_lr, 0) + amt
+                        continue
+                    # Skip inter-shop balance redistribution — it's an internal
+                    # transfer between the seller's own shops, not a real cost.
+                    if "balansni qayta taqsimlash" in svc:
+                        continue
+                    if ("saqlash" in svc) or ("ombor" in svc) or ("qaytarish" in svc):
+                        cat = "warehouse"
+                    # Marketing = paid promotion ("pulli targ'ibot") +
+                    # boost orders ("buyurtmalarni ko'paytirish to'lovi") only.
+                    # Photoshoot/other services fall through to misc.
+                    elif ("pulli targ" in svc) or ("paytirish" in svc):
+                        cat = "marketing"
+                    else:
+                        cat = "misc"
+                    if cat == "warehouse":   t_exp_warehouse += amt
+                    elif cat == "marketing": t_exp_marketing += amt
+                    else:                    t_exp_misc      += amt
+                    sid_str = str(r.shop_id)
+                    bucket = per_shop_exp.setdefault(sid_str, {"warehouse": 0, "marketing": 0, "misc": 0})
+                    bucket[cat] += amt
 
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        if active_shop_ids:
+            stmt = stmt.where(ProductGroup.shop_id.in_(active_shop_ids))
         else:
             stmt = stmt.where(False)
         groups = db.execute(stmt).scalars().all()
@@ -316,17 +522,28 @@ def economics_data_api():
         items = []
         t_stock_cost = t_stock_qty = t_sales_rev = 0
         t_sales_qty  = t_sales_profit = t_commission = t_logistics = 0
+        t_sales_cost = 0
+        t_stock_qty_uzum = t_stock_qty_wh = 0
+        t_stock_cost_uzum = t_stock_cost_wh = 0
+        active_skus = 0
 
         for g in groups:
             g_stock_qty = g_stock_cost = g_sales_qty = 0
+            g_stock_qty_uzum = g_stock_qty_wh = 0
+            g_stock_cost_uzum = g_stock_cost_wh = 0
             g_sales_rev = g_sales_cost = g_commission = g_logistics = 0
             g_uzum_id = shop_id_to_uzum.get(g.shop_id, "")
 
             for v in g.variants:
-                cost      = v.purchase_price or 0
-                stock_qty = (v.uzum_quantity or 0) + (v.warehouse_quantity or 0)
-                g_stock_qty  += stock_qty
-                g_stock_cost += stock_qty * cost
+                v_cost_db = v.purchase_price or 0  # cost from local Variant.purchase_price (may be 0)
+                qty_uzum  = v.uzum_quantity or 0
+                qty_wh    = v.warehouse_quantity or 0
+                stock_qty = qty_uzum + qty_wh
+
+                # "Active SKU" = currently on sale on Uzum (has stock available to buy).
+                # Counts unique variants with Uzum stock > 0; not affected by period.
+                if qty_uzum > 0:
+                    active_skus += 1
 
                 fin = None
                 for key in [v.sku, (v.sku or "").upper(), v.barcode,
@@ -335,15 +552,45 @@ def economics_data_api():
                         fin = per_shop_sales[(g_uzum_id, key)]
                         break
 
-                sq              = fin["qty"]              if fin else 0
-                # finance_orders stores period totals (not per-unit), so use directly
-                total_sell      = fin.get("sell_price", 0) if fin else 0
-                total_comm      = fin.get("commission",  0) if fin else 0
-                total_logi      = fin.get("logistics",   0) if fin else 0
+                sq         = fin["qty"]              if fin else 0
+                total_sell = fin.get("sell_price", 0) if fin else 0
+                total_comm = fin.get("commission",  0) if fin else 0
+                total_logi = fin.get("logistics",   0) if fin else 0
+                # finance.purchase_price_sum is the actual cost-of-goods Uzum reports
+                # for the sold units in this window — use it directly. If absent
+                # (variant had no sales), fall back to qty * Variant.purchase_price.
+                fin_cogs   = int(fin.get("purchase_price", 0)) if fin else 0
+                cogs       = fin_cogs if fin_cogs > 0 else (sq * v_cost_db)
+
+                # Per-unit cost for stock_cost computation. Period-INDEPENDENT
+                # so "Вложено в товар" stays stable when the user toggles
+                # date chips (qty itself is also period-independent).
+                #   1) Variant.purchase_price if set (user-entered cost)
+                #   2) cost_map: wide-window finance avg (2-year lookback)
+                #   3) Fallback: period-scoped finance (rarely needed)
+                #   4) 0 (nothing known about this SKU)
+                if v_cost_db > 0:
+                    unit_cost = v_cost_db
+                else:
+                    unit_cost = 0
+                    for key in [v.sku, (v.sku or "").upper(), v.barcode,
+                                 (v.barcode or "").upper(), v.uzum_sku_id]:
+                        if key and (g_uzum_id, key) in cost_map:
+                            unit_cost = cost_map[(g_uzum_id, key)]
+                            break
+                    if unit_cost == 0 and fin and fin.get("qty", 0) > 0 and fin.get("purchase_price", 0) > 0:
+                        unit_cost = fin["purchase_price"] // fin["qty"]
+
+                g_stock_qty       += stock_qty
+                g_stock_qty_uzum  += qty_uzum
+                g_stock_qty_wh    += qty_wh
+                g_stock_cost      += stock_qty * unit_cost
+                g_stock_cost_uzum += qty_uzum  * unit_cost
+                g_stock_cost_wh   += qty_wh    * unit_cost
 
                 g_sales_qty  += sq
                 g_sales_rev  += total_sell
-                g_sales_cost += sq * cost
+                g_sales_cost += cogs
                 g_commission += total_comm
                 g_logistics  += total_logi
 
@@ -351,28 +598,150 @@ def economics_data_api():
             roi = round(g_sales_profit / g_sales_cost * 100, 1) if g_sales_cost > 0 else 0
 
             items.append({
-                "id": g.id, "name": g.name, "image_url": g.image_url or "",
+                "id": g.id, "name": g.name, "image_url": normalize_uzum_image_url(g.image_url) or "",
                 "stock_qty": g_stock_qty, "stock_cost": g_stock_cost,
+                "stock_qty_uzum": g_stock_qty_uzum, "stock_qty_warehouse": g_stock_qty_wh,
+                "stock_cost_uzum": g_stock_cost_uzum, "stock_cost_warehouse": g_stock_cost_wh,
                 "sales_qty": g_sales_qty, "sales_revenue": g_sales_rev,
                 "sales_cost": g_sales_cost, "sales_commission": g_commission,
                 "sales_logistics": g_logistics, "sales_profit": g_sales_profit,
                 "roi": roi,
             })
-            t_stock_cost   += g_stock_cost;  t_stock_qty    += g_stock_qty
-            t_sales_rev    += g_sales_rev;   t_sales_qty    += g_sales_qty
-            t_sales_profit += g_sales_profit; t_commission   += g_commission
-            t_logistics    += g_logistics
+            t_stock_cost      += g_stock_cost;       t_stock_qty       += g_stock_qty
+            t_stock_qty_uzum  += g_stock_qty_uzum;   t_stock_qty_wh    += g_stock_qty_wh
+            t_stock_cost_uzum += g_stock_cost_uzum;  t_stock_cost_wh   += g_stock_cost_wh
+            t_sales_rev       += g_sales_rev;        t_sales_qty       += g_sales_qty
+            t_sales_profit    += g_sales_profit;     t_commission      += g_commission
+            t_logistics       += g_logistics;        t_sales_cost      += g_sales_cost
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
+
+        # Net logistics refunds (Возврат rows tagged "logistika") into the
+        # grand total and into each shop's logistics bucket BEFORE the per-shop
+        # output loop is built. t_log_refunds is ≤ 0, so this reduces the
+        # reported "Логистика" expense.
+        t_logistics += t_log_refunds
+        for _sid, _ref in per_shop_log_refund.items():
+            _pst = per_shop_totals.get(_sid)
+            if _pst is not None:
+                _pst["logistics"] += _ref
+
+        # Per-shop breakdown for hero cards (Revenue, Profit). Uses finance totals
+        # for revenue + commission/logistics; profit here is the same proxy used
+        # in the daily series (revenue - commission - logistics, no COGS) because
+        # COGS is only available at SKU resolution and accumulating it per shop
+        # would double-count variant data we already aggregated above.
+        per_shop = []
+        for s in active_shops:
+            pst = per_shop_totals.get(s.uzum_id, {})
+            exp = per_shop_exp.get(s.uzum_id, {})
+            rev  = int(pst.get("revenue", 0))
+            comm = int(pst.get("commission", 0))
+            logi = int(pst.get("logistics", 0))
+            cogs = int(pst.get("purchase_price", 0))
+            wh   = int(exp.get("warehouse", 0))
+            mkt  = int(exp.get("marketing", 0))
+            misc = int(exp.get("misc", 0))
+            shop_expenses = comm + logi + mkt + wh + misc
+            per_shop.append({
+                "uzum_id": s.uzum_id,
+                "name":    s.name or s.uzum_id,
+                "revenue":  rev,
+                "expenses": shop_expenses,
+                "profit":   rev - shop_expenses - cogs,
+            })
+        per_shop.sort(key=lambda x: x["revenue"], reverse=True)
+
+        # Build daily series (one bucket per day in range, zero-fill gaps)
+        daily_series = []
+        d = date_from
+        while d <= date_to:
+            k = d.isoformat()
+            daily_series.append({
+                "date": k,
+                "revenue": daily_revenue.get(k, 0),
+                "profit": daily_profit_proxy.get(k, 0),
+                "qty": daily_qty.get(k, 0),
+            })
+            d += timedelta(days=1)
+
+        # 12-month dynamics (revenue + profit-proxy) ending at date_to's month
+        monthly_dynamics = []
+        if shop_uzum_ids:
+            # Build a 12-month window ending at the month containing date_to
+            anchor = date(date_to.year, date_to.month, 1)
+            # Start 11 months before anchor
+            y, m = anchor.year, anchor.month
+            for _ in range(11):
+                m -= 1
+                if m == 0:
+                    m = 12; y -= 1
+            m_start = date(y, m, 1)
+            # End is first day of month AFTER anchor
+            ay, am = anchor.year, anchor.month + 1
+            if am == 13:
+                am = 1; ay += 1
+            m_end_excl = date(ay, am, 1)
+            start_ts_m, _ = day_bounds_tashkent(m_start)
+            end_ts_m, _   = day_bounds_tashkent(m_end_excl)
+            month_rows = read_sales_aggregated(
+                shop_uzum_ids,
+                start_ts_m,
+                end_ts_m,
+                group_by="month",
+                session=db,
+            )
+            monthly_map: dict[str, dict] = {}
+            for row in month_rows:
+                bucket = row.get("bucket")
+                if bucket is None:
+                    continue
+                mkey = f"{bucket.year:04d}-{bucket.month:02d}"
+                rev = int(row.get("revenue_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                prev = monthly_map.setdefault(mkey, {"revenue": 0, "profit": 0})
+                prev["revenue"] += rev
+                prev["profit"]  += rev - comm - logi
+            # Walk months chronologically and zero-fill
+            cy, cm = m_start.year, m_start.month
+            for _ in range(12):
+                mkey = f"{cy:04d}-{cm:02d}"
+                entry = monthly_map.get(mkey, {"revenue": 0, "profit": 0})
+                monthly_dynamics.append({
+                    "month": mkey,
+                    "revenue": entry["revenue"],
+                    "profit":  entry["profit"],
+                })
+                cm += 1
+                if cm == 13:
+                    cm = 1; cy += 1
+
+        # Final profit subtracts the extra expense categories on top of the
+        # per-item profit (which only subtracted commission/logistics/cogs).
+        # t_log_refunds is ≤ 0 (Возврат logistika rows), so subtracting it
+        # adds the refunded logistics back to profit.
+        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc) - t_log_refunds
 
         return _json_response({
             "items": items,
             "totals": {
                 "stock_cost": t_stock_cost, "stock_qty": t_stock_qty,
+                "stock_qty_uzum": t_stock_qty_uzum, "stock_qty_warehouse": t_stock_qty_wh,
+                "stock_cost_uzum": t_stock_cost_uzum, "stock_cost_warehouse": t_stock_cost_wh,
                 "sales_revenue": t_sales_rev, "sales_qty": t_sales_qty,
-                "sales_profit": t_sales_profit, "sales_commission": t_commission,
-                "sales_logistics": t_logistics,
+                "sales_profit": t_sales_profit_full, "sales_commission": t_commission,
+                "sales_logistics": t_logistics, "sales_cost": t_sales_cost,
+                "expenses_warehouse": t_exp_warehouse,
+                "expenses_marketing": t_exp_marketing,
+                "expenses_misc":      t_exp_misc,
+                "active_skus": active_skus,
             },
+            "shops":            shops_list,
+            "active_shop_id":   (raw_shop or "all"),
+            "per_shop":         per_shop,
+            "daily_series":     daily_series,
+            "monthly_dynamics": monthly_dynamics,
         })
 
 @products_bp.get("/calculator")
@@ -408,13 +777,11 @@ def uzum_sync():
 @login_required
 @admin_required
 def uzum_sync_all():
-    """Discover all seller shops automatically and sync all of them."""
-    try:
-        result = _app._sync_all_seller_shops()
-        return _json_response({"ok": True, **result})
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        return _json_response({"error": str(e)}, 500)
+    """Disabled — bulk admin shop sync was retired with the legacy browser pipeline."""
+    return _json_response({
+        "error": "Массовая синхронизация всех магазинов отключена. "
+                 "Синхронизируйте магазины по отдельности через OpenAPI токен."
+    }, 410)
 
 
 def _uzum_sync_inner():
@@ -435,140 +802,102 @@ def _uzum_sync_inner():
     sync_all = bool(payload.get("sync_all", True))
     max_pages = int(payload.get("max_pages") or 500)
 
-    # Prefer the OpenAPI path when the requesting user has a personal
-    # uzum_openapi_token saved. The OpenAPI response carries richer fields
-    # (purchasePrice, avgdsales, ikpu, full quantity breakdown, blocked
-    # reasons, productTitle) that the browser/admin-token endpoint omits.
-    # Falls back to the admin-token browser sync for users who haven't
-    # connected an OpenAPI token yet, or whose token failed.
+    # OpenAPI-only path. The legacy browser/admin-token products sync has been
+    # retired; users must connect a personal Uzum OpenAPI token to sync.
     openapi_token = None
-    use_openapi = bool(payload.get("use_openapi", True))
-    if use_openapi:
-        try:
-            uid = int(current_user.get_id())
-            with SessionLocal() as _db:
-                u = _db.execute(select(User).where(User.id == uid)).scalar_one_or_none()
-                openapi_token = (u.uzum_openapi_token if u else None) or None
-        except Exception:
-            openapi_token = None
+    try:
+        uid = int(current_user.get_id())
+        with SessionLocal() as _db:
+            u = _db.execute(select(User).where(User.id == uid)).scalar_one_or_none()
+            openapi_token = (u.uzum_openapi_token if u else None) or None
+    except Exception:
+        openapi_token = None
 
-    if openapi_token:
-        try:
-            result = _app._sync_products_via_openapi(
-                shop_id, openapi_token,
-                size=size, max_pages=max_pages,
-                fetch_uz_titles=bool(payload.get("fetch_uz_titles", True)),
-            )
-            return _json_response({"ok": True, "shop_id": shop_id, **result})
-        except Exception as e:
-            # Fall through to the admin-token browser sync. The OpenAPI
-            # token might have been revoked / rotated; we don't want a
-            # single user's bad token to break shop sync entirely.
-            import traceback; traceback.print_exc()
-            print(f"[uzum_sync] OpenAPI path failed for shop={shop_id}: {e!r} \u2014 falling back")
+    if not openapi_token:
+        return _json_response({"error": "Uzum OpenAPI \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d \u0432 \u043f\u0440\u043e\u0444\u0438\u043b\u0435."}, 401)
 
-    if not _get_admin_token():
-        return _json_response({"error": "Uzum \u0442\u043e\u043a\u0435\u043d \u043d\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043d."}, 401)
-
-    result = _app._sync_products_for_shop(shop_id,
-                                     size=size, sync_all=sync_all, max_pages=max_pages)
-    return _json_response({"ok": True, "shop_id": shop_id, "source": "browser", **result})
+    try:
+        result = _app._sync_products_via_openapi(
+            shop_id, openapi_token,
+            size=size, max_pages=max_pages,
+            fetch_uz_titles=bool(payload.get("fetch_uz_titles", False)),
+        )
+        return _json_response({"ok": True, "shop_id": shop_id, **result})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return _json_response({"error": f"\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044f \u043d\u0435 \u0443\u0434\u0430\u043b\u0430\u0441\u044c: {e!s}"}, 500)
 
 
 @products_bp.post("/api/uzum/sync-finance")
 @login_required
 def uzum_sync_finance():
+    """Refresh per-variant 30-day averages from the local finance_orders cache.
+
+    Reads aggregated SKU stats from finance_orders (kept fresh by the hourly +
+    nightly finance loops \u2014 no Uzum API call here). Updates each variant's
+    sales_30d_finance / avg_daily_sales / purchase_price / sell_price_uzum /
+    commission_per_unit / logistics_per_unit. Inserts today's VariantSale rows
+    for economics date-range queries.
+    """
     try:
         payload = request.get_json(force=True, silent=True) or {}
         shop_id = str(payload.get("shop_id") or "").strip()
-        api_key = _get_admin_token()
-
         if not shop_id:
             return _json_response({"error": "shop_id missing"}, 400)
 
         with SessionLocal() as db:
-            # Ensure shop exists
             shop_obj = db.execute(select(Shop).where(Shop.uzum_id == shop_id)).scalar_one_or_none()
             if not shop_obj:
-                 return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
+                return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
 
-            # Fetch 30-day sales via the SELLS_REPORT pipeline (one Uzum
-            # /documents/v2 call replaces the legacy paginated /finance/orders).
             today = _today_app_tz()
-            window_from = datetime.combine(today - timedelta(days=30), dt_time(0, 0, 0))
-            window_to   = datetime.combine(today + timedelta(days=1),  dt_time(0, 0, 0))
+            start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
+            _, end_ts = day_bounds_tashkent(today)
 
             try:
-                rows = _app._fetch_sells_report_rows_for_shops(
-                    [int(shop_id)], window_from, window_to,
-                ) or []
-            except Exception:
-                return _json_response({"error": "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u043e \u043f\u0440\u043e\u0434\u0430\u0436\u0430\u0445 (\u043e\u0448\u0438\u0431\u043a\u0430 API). \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 ID \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430."}, 500)
-
-            # Seed sales_lines for this 30-day window so the Finance page is
-            # populated immediately. Failure here must not abort the variant
-            # update \u2014 the next HH:00 hourly bulk will catch up.
-            try:
-                _app._ingest_sales_lines_window(rows, window_from, window_to)
+                agg_rows = read_sales_aggregated(
+                    shop_obj.uzum_id,
+                    start_ts,
+                    end_ts,
+                    group_by="sku",
+                    session=db,
+                )
             except Exception as e:
-                print(f"[ProductsSync] sales_lines seed failed for shop={shop_id}: {e!r}")
+                return _json_response({"error": f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u043e\u0447\u0438\u0442\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435: {e!s}"}, 500)
 
-            # Aggregate per SKU, dropping cancelled rows. Build the same
-            # {sku: {qty, price, sell_price, commission, logistics}} shape
-            # the variant loop below expects (per-unit values, int).
-            agg: dict[str, dict[str, float]] = {}
-            for r in rows:
-                if (r.get("status") or "").strip() == "\u041e\u0442\u043c\u0435\u043d\u0435\u043d":
-                    continue
-                sku = str(r.get("sku_id") or "").strip()
-                if not sku:
-                    continue
-                try:
-                    q = int(r.get("qty") or 0)
-                except (TypeError, ValueError):
-                    q = 0
-                if q <= 0:
-                    continue
-                a = agg.setdefault(sku, {
-                    "qty": 0,
-                    "purchase_price_total": 0.0,
-                    "revenue_total": 0.0,
-                    "commission_total": 0.0,
-                    "logistics_total": 0.0,
-                })
-                a["qty"] += q
-                try:
-                    a["purchase_price_total"] += float(r.get("purchase_price") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["revenue_total"] += float(r.get("revenue") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["commission_total"] += float(r.get("commission") or 0)
-                except (TypeError, ValueError):
-                    pass
-                try:
-                    a["logistics_total"] += float(r.get("logistics_fee") or 0)
-                except (TypeError, ValueError):
-                    pass
-
+            # Build {sku_key: {qty, price, sell_price, commission, logistics}} from
+            # the aggregated FinanceOrder rows. read_sales_aggregated already sums
+            # across the 30-day window per sku_title \u2014 we just convert totals to
+            # per-unit averages here.
             sales_map: dict[str, dict] = {}
-            for sku, a in agg.items():
-                qty = int(a["qty"])
-                if qty <= 0:
+            unique_skus = 0
+            for row in agg_rows:
+                title = (row.get("sku_title") or "").strip()
+                qty = int(row.get("qty_sum") or 0)
+                if not title or qty <= 0:
                     continue
-                sales_map[sku] = {
-                    "qty": qty,
-                    "price":      int(a["purchase_price_total"] / qty) if a["purchase_price_total"] > 0 else 0,
-                    "sell_price": int(a["revenue_total"]         / qty) if a["revenue_total"]         > 0 else 0,
-                    "commission": int(a["commission_total"]      / qty) if a["commission_total"]      > 0 else 0,
-                    "logistics":  int(a["logistics_total"]       / qty) if a["logistics_total"]       > 0 else 0,
+                rev  = int(row.get("revenue_sum") or 0)
+                cost = int(row.get("purchase_price_sum") or 0)
+                comm = int(row.get("commission_sum") or 0)
+                logi = int(row.get("logistics_sum") or 0)
+                entry = {
+                    "qty":        qty,
+                    "price":      cost // qty if cost > 0 else 0,
+                    "sell_price": rev  // qty if rev  > 0 else 0,
+                    "commission": comm // qty if comm > 0 else 0,
+                    "logistics":  logi // qty if logi > 0 else 0,
                 }
+                sales_map[title] = entry
+                sales_map[title.upper()] = entry
+                sid = row.get("sku_id")
+                if sid:
+                    sales_map[str(sid)] = entry
+                unique_skus += 1
 
             # Update ALL variants in DB for this shop
-            variants = db.execute(select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)).scalars().all()
+            variants = db.execute(
+                select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)
+            ).scalars().all()
             updated_count = 0
             _today = date.today()
 
@@ -583,6 +912,8 @@ def uzum_sync_finance():
             for v in variants:
                 sku_key = (v.sku or "").strip()
                 data = sales_map.get(sku_key) or sales_map.get(sku_key.upper())
+                if data is None and v.uzum_sku_id:
+                    data = sales_map.get(str(v.uzum_sku_id))
                 if data is None and v.barcode:
                     bc_key = v.barcode.strip()
                     data = sales_map.get(bc_key) or sales_map.get(bc_key.upper())
@@ -599,14 +930,13 @@ def uzum_sync_finance():
                 if data and data.get("logistics", 0) > 0:
                     v.logistics_per_unit = int(data["logistics"])
 
-                # Insert today's VariantSale so economics date-range queries work
                 if qty_val > 0:
                     db.add(VariantSale(variant_id=v.id, date=_today, qty_sold=qty_val))
                 updated_count += 1
 
             db.commit()
 
-        return _json_response({"ok": True, "updated": updated_count, "sales_records": len(sales_map)})
+        return _json_response({"ok": True, "updated": updated_count, "sales_records": unique_skus})
     except Exception as e:
         return _json_response({"error": f"\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430: {str(e)}"}, 500)
 
@@ -696,10 +1026,231 @@ def group_sales_range(group_id: int):
                            "date_from": date_from_str, "date_to": date_to_str})
 
 
+@products_bp.get("/api/groups/<int:group_id>/daily-stats")
+@login_required
+def group_daily_stats(group_id: int):
+    """Per-day sales + revenue + delta-vs-prev-period + per-variant daily series.
+
+    Used by the redesigned group detail page (hero bar chart + per-row sparklines).
+    """
+    from models import FinanceOrder
+
+    date_from_raw = (request.args.get("date_from") or "").strip()
+    date_to_raw   = (request.args.get("date_to")   or "").strip()
+    today = _today_app_tz()
+
+    if date_from_raw and date_to_raw:
+        try:
+            d_from = date.fromisoformat(date_from_raw)
+            d_to   = date.fromisoformat(date_to_raw)
+        except ValueError:
+            return _json_response({"error": "Invalid date format. Use YYYY-MM-DD."}, 400)
+        if d_to < d_from:
+            d_from, d_to = d_to, d_from
+        days = (d_to - d_from).days + 1
+        days = max(1, min(days, 365))
+    else:
+        try:
+            days = int(request.args.get("days", "30"))
+        except ValueError:
+            days = 30
+        days = max(1, min(days, 365))
+        d_to = today
+        d_from = today - timedelta(days=days - 1)
+
+    with SessionLocal() as db:
+        group = db.get(ProductGroup, group_id)
+        if not group:
+            return _json_response({"error": "Group not found"}, 404)
+
+        uid = int(current_user.get_id())
+        if not _current_user_is_admin() and group.shop_id not in _user_shop_ids(uid):
+            return _json_response({"error": "Access denied"}, 403)
+
+        shop = db.get(Shop, group.shop_id)
+        if not shop:
+            return _json_response({"error": "Shop not found"}, 404)
+
+        variants = db.execute(
+            select(Variant).where(Variant.group_id == group_id)
+        ).scalars().all()
+        # Lookup keyed by UPPER(sku) and by uzum_sku_id — match the lenient
+        # matching the page-load 30d code uses (different casing/whitespace
+        # in FinanceOrder.sku_title vs Variant.sku is common).
+        sku_to_vid: dict[str, int] = {}
+        for v in variants:
+            if v.sku:
+                sku_to_vid[v.sku.strip().upper()] = v.id
+            if v.uzum_sku_id:
+                sku_to_vid[str(v.uzum_sku_id).strip().upper()] = v.id
+
+        # Previous-period window = same length immediately before d_from
+        d_from_prev = d_from - timedelta(days=days)
+
+        # Daily aggregate for the whole shop, filtered in Python (lenient match
+        # by sku_title or sku_id). Bounded by one shop × N days.
+        if variants:
+            rows = db.execute(
+                select(
+                    FinanceOrder.period_from.label("d"),
+                    FinanceOrder.sku_title.label("sku"),
+                    FinanceOrder.sku_id.label("sid"),
+                    func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty"),
+                    func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("rev"),
+                    func.coalesce(func.sum(FinanceOrder.commission), 0).label("comm"),
+                    func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("log"),
+                    func.coalesce(func.sum(FinanceOrder.purchase_price), 0).label("cost"),
+                )
+                .where(
+                    FinanceOrder.shop_id == str(shop.uzum_id),
+                    FinanceOrder.period_from >= d_from,
+                    FinanceOrder.period_from <= d_to,
+                )
+                .group_by(FinanceOrder.period_from, FinanceOrder.sku_title, FinanceOrder.sku_id)
+            ).all()
+        else:
+            rows = []
+
+        # Build day list (chronological, oldest → today)
+        day_list = [d_from + timedelta(days=i) for i in range(days)]
+        day_index = {d: i for i, d in enumerate(day_list)}
+
+        group_daily = [0] * days
+        group_revenue_daily = [0] * days
+        group_revenue = 0
+        group_commission = 0
+        group_logistics = 0
+        group_cost = 0
+        per_variant_daily: dict[int, list[int]] = {v.id: [0] * days for v in variants}
+        per_variant_qty:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_comm: dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_rev:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_log:  dict[int, int] = {v.id: 0 for v in variants}
+        per_variant_cost: dict[int, int] = {v.id: 0 for v in variants}
+
+        for r in rows:
+            idx = day_index.get(r.d)
+            if idx is None:
+                continue
+            vid = sku_to_vid.get((r.sku or "").strip().upper())
+            if vid is None and r.sid is not None:
+                vid = sku_to_vid.get(str(r.sid).strip().upper())
+            if vid is None:
+                continue  # row belongs to a different group, skip
+            qty = int(r.qty or 0)
+            rev = int(r.rev or 0)
+            comm = int(r.comm or 0)
+            logf = int(r.log or 0)
+            cost = int(r.cost or 0)
+            group_daily[idx] += qty
+            group_revenue_daily[idx] += rev
+            group_revenue += rev
+            group_commission += comm
+            group_logistics += logf
+            group_cost += cost
+            per_variant_daily[vid][idx] += qty
+            per_variant_qty[vid] += qty
+            per_variant_comm[vid] += comm
+            per_variant_rev[vid] += rev
+            per_variant_log[vid] += logf
+            per_variant_cost[vid] += cost
+
+        total_sales = sum(group_daily)
+        avg_check = (group_revenue // total_sales) if total_sales > 0 else 0
+
+        # Previous period total (for delta %): same lenient match
+        if variants:
+            prev_rows = db.execute(
+                select(
+                    FinanceOrder.sku_title.label("sku"),
+                    FinanceOrder.sku_id.label("sid"),
+                    func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty"),
+                )
+                .where(
+                    FinanceOrder.shop_id == str(shop.uzum_id),
+                    FinanceOrder.period_from >= d_from_prev,
+                    FinanceOrder.period_from < d_from,
+                )
+                .group_by(FinanceOrder.sku_title, FinanceOrder.sku_id)
+            ).all()
+            prev_total = 0
+            for r in prev_rows:
+                vid = sku_to_vid.get((r.sku or "").strip().upper())
+                if vid is None and r.sid is not None:
+                    vid = sku_to_vid.get(str(r.sid).strip().upper())
+                if vid is not None:
+                    prev_total += int(r.qty or 0)
+        else:
+            prev_total = 0
+
+        if prev_total > 0:
+            delta_pct = round((total_sales - prev_total) * 100.0 / prev_total)
+        elif total_sales > 0:
+            delta_pct = 100
+        else:
+            delta_pct = 0
+
+    # Per-variant averages for the period:
+    #   - commission_avg = commission ÷ units sold (avg сум per unit)
+    #   - commission_pct = commission ÷ sell_price × 100 (effective rate %,
+    #     normalized for price variation across days)
+    per_variant_comm_avg: dict[int, int] = {
+        vid: (per_variant_comm[vid] // per_variant_qty[vid]) if per_variant_qty[vid] > 0 else 0
+        for vid in per_variant_comm
+    }
+    per_variant_comm_pct: dict[int, float] = {
+        vid: round(per_variant_comm[vid] * 100.0 / per_variant_rev[vid], 1) if per_variant_rev[vid] > 0 else 0.0
+        for vid in per_variant_comm
+    }
+    # Profit = revenue − commission − logistics − cost-of-goods (purchase_price
+    # as reported by Uzum's finance API). Storage cost is not subtracted here
+    # since it's not allocated per-order in finance_orders.
+    group_profit = group_revenue - group_commission - group_logistics - group_cost
+    profit_pct = round(group_profit * 100.0 / group_revenue, 1) if group_revenue > 0 else 0.0
+    per_variant_profit: dict[int, int] = {
+        vid: per_variant_rev[vid] - per_variant_comm[vid] - per_variant_log[vid] - per_variant_cost[vid]
+        for vid in per_variant_rev
+    }
+    per_variant_profit_pct: dict[int, float] = {
+        vid: round(per_variant_profit[vid] * 100.0 / per_variant_rev[vid], 1) if per_variant_rev[vid] > 0 else 0.0
+        for vid in per_variant_rev
+    }
+
+    return _json_response({
+        "days": days,
+        "date_from": d_from.isoformat(),
+        "date_to":   d_to.isoformat(),
+        "total_sales": total_sales,
+        "total_revenue": group_revenue,
+        "total_commission": group_commission,
+        "total_logistics": group_logistics,
+        "total_cost":      group_cost,
+        "total_profit":    group_profit,
+        "profit_pct":      profit_pct,
+        "avg_check": avg_check,
+        "delta_pct": delta_pct,
+        "group_daily": group_daily,
+        "group_daily_revenue": group_revenue_daily,
+        "day_labels": [d.isoformat() for d in day_list],
+        "per_variant_daily": per_variant_daily,
+        "per_variant_commission": per_variant_comm,        # total сум in period
+        "per_variant_commission_avg": per_variant_comm_avg,  # avg сум/шт
+        "per_variant_commission_pct": per_variant_comm_pct,  # effective rate %
+        "per_variant_revenue": per_variant_rev,
+        "per_variant_logistics": per_variant_log,
+        "per_variant_cost":      per_variant_cost,
+        "per_variant_profit":    per_variant_profit,
+        "per_variant_profit_pct": per_variant_profit_pct,
+        "per_variant_qty": per_variant_qty,
+    })
+
+
 @products_bp.get("/api/groups/<int:group_id>/variants")
 @login_required
 def get_group_variants_api(group_id: int):
     with SessionLocal() as db:
+        group = db.get(ProductGroup, group_id)
+        group_img = group.image_url if group else None
         variants = db.execute(
             select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
         ).scalars().all()
@@ -712,7 +1263,7 @@ def get_group_variants_api(group_id: int):
             items.append({
                 "id": v.id,
                 "sku": v.sku,
-                "image_url": v.image_url,
+                "image_url": normalize_uzum_image_url(v.image_url or group_img),
                 "sales_30d": s30,
                 "need_60d": need
             })
@@ -752,6 +1303,172 @@ def add_variant_sale(variant_id: int):
 # ----------------------------
 # Invoice / Restock Logic
 # ----------------------------
+_RESTOCK_PERIOD_DAYS = (7, 10, 15, 30, 60, 90)
+_RESTOCK_CHUNK_DEFAULT = 35
+_RESTOCK_CHUNK_MIN = 1
+_RESTOCK_CHUNK_MAX = 100
+
+
+def _resolve_restock_limit(raw):
+    """Clamp the per-invoice SKU limit to [1, 100], default 35."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return _RESTOCK_CHUNK_DEFAULT
+    return max(_RESTOCK_CHUNK_MIN, min(_RESTOCK_CHUNK_MAX, n))
+
+
+def _chunk_by_shop(items, chunk_size, shop_key):
+    """Split ``items`` into invoice chunks of at most ``chunk_size`` that never
+    span two shops. ``items`` must already be sorted so each shop's rows are
+    contiguous. A shop with more rows than ``chunk_size`` simply produces
+    several chunks. Returns ``[[]]`` when there is nothing to chunk so the
+    template can render its empty state.
+    """
+    chunks = []
+    cur_shop = object()  # sentinel that never equals a real shop key
+    for it in items:
+        sk = shop_key(it)
+        if not chunks or sk != cur_shop or len(chunks[-1]) >= chunk_size:
+            chunks.append([])
+            cur_shop = sk
+        chunks[-1].append(it)
+    return chunks or [[]]
+
+
+def _resolve_restock_window():
+    """Resolve the restock sales window from request args.
+
+    Mirrors group_sales_range: an explicit ``date_from``/``date_to`` pair wins,
+    otherwise a ``days`` chip (one of 7/10/15/30/60/90, default 30). Returns
+    ``(start_ts, end_ts, days_label, date_from_str, date_to_str)`` where the
+    timestamps are Tashkent day bounds ready for read_sales_aggregated.
+    """
+    days_param = request.args.get("days")
+    date_from_str = (request.args.get("date_from") or "").strip()
+    date_to_str = (request.args.get("date_to") or "").strip()
+    today = _today_app_tz()
+
+    if date_from_str and date_to_str:
+        try:
+            d_from = date.fromisoformat(date_from_str)
+            d_to = date.fromisoformat(date_to_str)
+            days_label = (d_to - d_from).days + 1
+        except ValueError:
+            d_from, d_to, days_label = today - timedelta(days=30), today, 30
+            date_from_str = date_to_str = ""
+    else:
+        try:
+            days_label = int(days_param) if days_param else 30
+        except (ValueError, TypeError):
+            days_label = 30
+        if days_label not in _RESTOCK_PERIOD_DAYS:
+            days_label = 30
+        d_to = today
+        d_from = today - timedelta(days=days_label)
+
+    start_ts, _ = day_bounds_tashkent(d_from)
+    _, end_ts = day_bounds_tashkent(d_to)
+    return start_ts, end_ts, days_label, date_from_str, date_to_str
+
+
+def _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts):
+    """Build per-shop live sales lookups from finance_orders for the window.
+
+    Returns ``{shop_pk: (by_sku_id, by_title)}``. Same matching keys as
+    group_sales_range so the restock page reads sales straight from finance
+    rather than the stale Variant.sales_30d_finance snapshot.
+    """
+    sales_maps: dict[int, tuple[dict, dict]] = {}
+    for shop_pk, uzum_id in shop_uzum_by_pk.items():
+        try:
+            agg_rows = read_sales_aggregated(
+                uzum_id, start_ts, end_ts, group_by="sku", session=db,
+            )
+        except Exception as e:
+            print(f"[Restock] finance read failed for shop={uzum_id}: {e!r}")
+            agg_rows = []
+        by_sku_id: dict[str, int] = {}
+        by_title: dict[str, int] = {}
+        for row in agg_rows:
+            qty = int(row.get("qty_sum") or 0)
+            title = (row.get("sku_title") or "").strip()
+            if title:
+                by_title[title] = qty
+                by_title[title.upper()] = qty
+            sid = row.get("sku_id")
+            if sid:
+                sid_s = str(sid)
+                by_sku_id[sid_s] = qty
+                by_sku_id[sid_s.upper()] = qty
+        sales_maps[shop_pk] = (by_sku_id, by_title)
+    return sales_maps
+
+
+def _restock_match(v, by_sku_id, by_title):
+    """Look a variant up in (by_sku_id, by_title) maps using the same lenient
+    matching everywhere on the restock page: sku → uzum_sku_id → title/barcode.
+    Returns 0 when nothing matches.
+    """
+    vsku = v.sku or ""
+    val = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
+    if val == 0 and v.uzum_sku_id and str(v.uzum_sku_id) in by_sku_id:
+        val = by_sku_id[str(v.uzum_sku_id)]
+    if val == 0:
+        for key in [vsku, vsku.upper(), v.barcode, (v.barcode or "").upper()]:
+            if key and key in by_title:
+                val = by_title[key]
+                break
+    return val
+
+
+def _restock_period_sales(v, by_sku_id, by_title):
+    """Per-variant sales for the window (sku_id → uzum_sku_id → title/barcode)."""
+    return _restock_match(v, by_sku_id, by_title)
+
+
+def _restock_cost_maps(db, shop_uzum_by_pk, end_ts):
+    """Per-shop average unit-cost lookups from *all-time* finance_orders.
+
+    Returns ``{shop_pk: (by_sku_id, by_title)}`` where each value is the
+    average себестоимость per unit (purchase_price_sum // qty_sum) across all
+    finance data up to ``end_ts``. Used as a fallback when a variant's stored
+    ``purchase_price`` is 0 — Uzum's product API often omits the cost, but the
+    finance/orders feed reports it on every sold unit. Mirrors the unit-cost
+    derivation on the economics page.
+    """
+    cost_floor = date(2020, 1, 1)
+    start_ts, _ = day_bounds_tashkent(cost_floor)
+    cost_maps: dict[int, tuple[dict, dict]] = {}
+    for shop_pk, uzum_id in shop_uzum_by_pk.items():
+        try:
+            rows = read_sales_aggregated(
+                uzum_id, start_ts, end_ts, group_by="sku", session=db,
+            )
+        except Exception as e:
+            print(f"[Restock] cost read failed for shop={uzum_id}: {e!r}")
+            rows = []
+        by_sku_id: dict[str, int] = {}
+        by_title: dict[str, int] = {}
+        for row in rows:
+            qty = int(row.get("qty_sum") or 0)
+            pp = int(row.get("purchase_price_sum") or 0)
+            if qty <= 0 or pp <= 0:
+                continue
+            uc = pp // qty
+            title = (row.get("sku_title") or "").strip()
+            if title:
+                by_title[title] = uc
+                by_title[title.upper()] = uc
+            sid = row.get("sku_id")
+            if sid:
+                sid_s = str(sid)
+                by_sku_id[sid_s] = uc
+                by_sku_id[sid_s.upper()] = uc
+        cost_maps[shop_pk] = (by_sku_id, by_title)
+    return cost_maps
+
+
 @products_bp.get("/invoice/restock")
 @login_required
 def invoice_restock_page():
@@ -759,58 +1476,96 @@ def invoice_restock_page():
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
 
+    start_ts, end_ts, days_label, date_from_str, date_to_str = _resolve_restock_window()
+
     with SessionLocal() as db:
         if _current_user_is_admin():
             shops = db.execute(select(Shop)).scalars().all()
         else:
             shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all()
 
+        # Shops in scope for the table (filter chip narrows to one).
+        scope_shop_ids = list(allowed_shop_ids)
+        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+            scope_shop_ids = [int(shop_filter)]
+
+        # Live per-shop sales for the chosen window, straight from finance_orders.
+        shop_uzum_by_pk = {}
+        shop_name_by_pk = {}
+        if scope_shop_ids:
+            for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
+                shop_uzum_by_pk[s.id] = s.uzum_id
+                shop_name_by_pk[s.id] = s.name
+        sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
+        # All-time per-unit cost fallback for variants with no stored purchase_price.
+        _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
+        cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
+
         stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        if scope_shop_ids:
+            stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
         else:
             stmt = stmt.where(False)
-        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id == int(shop_filter))
 
         rows = db.execute(stmt).all()
 
         items = []
         for v, g in rows:
-            s30 = v.sales_30d_finance or 0
+            by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
+            sales = _restock_period_sales(v, by_sku_id, by_title)
             u_qty = v.uzum_quantity or 0
             wh_qty = v.warehouse_quantity or 0
 
-            # Logic: needed = s30. If u_qty < needed, restock = needed - u_qty
-            if u_qty < s30:
-                needed = s30 - u_qty
+            # Logic: needed = sales in window. If u_qty < needed, restock = needed - u_qty
+            if u_qty < sales:
+                needed = sales - u_qty
                 if wh_qty > 0:
                     restock = min(needed, wh_qty)
                     price = v.purchase_price or 0
+                    if price <= 0:
+                        c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
+                        price = _restock_match(v, c_by_sku_id, c_by_title) or 0
                     items.append({
                         "id": v.id,
                         "name": g.name,
                         "sku": v.sku,
                         "barcode": v.barcode,
-                        "sales_30d": s30,
+                        "shop_id": g.shop_id,
+                        "shop_name": shop_name_by_pk.get(g.shop_id, ""),
+                        "sales_30d": sales,
                         "uzum_qty": u_qty,
                         "wh_qty": wh_qty,
                         "restock_qty": restock,
                         "price": price,
                         "total_price": restock * price,
-                        "image_url": v.image_url or g.image_url
+                        "image_url": normalize_uzum_image_url(v.image_url or g.image_url)
                     })
 
-        # Sort by SKU to keep variants together
-        items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
+        # Group invoices by shop: sort by shop name, then SKU within each shop.
+        items.sort(key=lambda x: (
+            str(x.get("shop_name") or "").strip().lower(),
+            x.get("shop_id") or 0,
+            str(x.get("sku") or "").strip().lower(),
+        ))
 
-        # Chunk into max 35 items per file/invoice
-        chunk_size = 35
-        chunks = [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
-        if not chunks:
-            chunks = [[]]
+        # Chunk into max `chunk_size` items per file/invoice (user-configurable
+        # 1–100), never mixing two shops in one invoice.
+        chunk_size = _resolve_restock_limit(request.args.get("limit"))
+        chunks = _chunk_by_shop(items, chunk_size, lambda x: x.get("shop_id"))
 
-    return render_template("invoice_restock.html", chunks=chunks, shops=shops, current_shop=shop_filter)
+    return render_template(
+        "invoice_restock.html",
+        chunks=chunks,
+        shops=shops,
+        current_shop=shop_filter,
+        days_label=days_label,
+        date_from=date_from_str,
+        date_to=date_to_str,
+        period_days=_RESTOCK_PERIOD_DAYS,
+        chunk_limit=chunk_size,
+        chunk_limit_min=_RESTOCK_CHUNK_MIN,
+        chunk_limit_max=_RESTOCK_CHUNK_MAX,
+    )
 
 @products_bp.route("/invoice/restock/download", methods=["GET", "POST"])
 @login_required
@@ -820,14 +1575,19 @@ def invoice_restock_download():
 
     try:
         data_rows = []
+        chunk_limit_raw = None
 
         if request.method == "POST":
             # Use data provided by the client (edited quantities)
             payload = request.get_json(force=True, silent=True) or {}
             items = payload.get("items") or []
+            chunk_limit_raw = payload.get("limit")
 
-            # Sort items by SKU to ensure they are grouped nicely in the Excel file
-            items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
+            # Group by shop, then SKU, so files never mix shops and variants stay together.
+            items.sort(key=lambda x: (
+                x.get("shop_id") or 0,
+                str(x.get("sku") or "").strip().lower(),
+            ))
 
             for item in items:
                 bc = str(item.get("barcode") or "").strip()
@@ -837,40 +1597,60 @@ def invoice_restock_download():
                 except (ValueError, TypeError):
                     continue
                 if qty > 0:
-                    data_rows.append([bc, price, qty])
+                    data_rows.append([bc, price, qty, item.get("shop_id")])
         else:
-            # GET request: Auto-calculate based on DB (legacy behavior)
+            # GET request: Auto-calculate based on live finance for the window.
             shop_filter = (request.args.get("shop_id") or "").strip()
             uid = int(current_user.get_id())
             allowed_shop_ids = _user_shop_ids(uid)
+            start_ts, end_ts, _dl, _df, _dt = _resolve_restock_window()
             with SessionLocal() as db:
+                scope_shop_ids = list(allowed_shop_ids)
+                if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+                    scope_shop_ids = [int(shop_filter)]
+
+                shop_uzum_by_pk = {}
+                if scope_shop_ids:
+                    for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
+                        shop_uzum_by_pk[s.id] = s.uzum_id
+                sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
+                _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
+                cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
+
                 stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-                if allowed_shop_ids:
-                    stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
+                if scope_shop_ids:
+                    stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
                 else:
                     stmt = stmt.where(False)
-                if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-                    stmt = stmt.where(ProductGroup.shop_id == int(shop_filter))
-                stmt = stmt.order_by(Variant.sku)
+                stmt = stmt.order_by(ProductGroup.shop_id, Variant.sku)
                 rows = db.execute(stmt).all()
 
                 for v, g in rows:
-                    s30 = v.sales_30d_finance or 0
+                    by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
+                    sales = _restock_period_sales(v, by_sku_id, by_title)
                     u_qty = v.uzum_quantity or 0
                     wh_qty = v.warehouse_quantity or 0
 
-                    if u_qty < s30:
-                        needed = s30 - u_qty
+                    if u_qty < sales:
+                        needed = sales - u_qty
                         if wh_qty > 0:
                             restock = min(needed, wh_qty)
                             price = v.purchase_price or 0
-                            data_rows.append([v.barcode or "", price, restock])
+                            if price <= 0:
+                                c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
+                                price = _restock_match(v, c_by_sku_id, c_by_title) or 0
+                            data_rows.append([v.barcode or "", price, restock, g.shop_id])
 
-        # Chunk into max 35 items per file
-        chunk_size = 35
-        chunks = [data_rows[i:i + chunk_size] for i in range(0, len(data_rows), chunk_size)]
-        if not chunks:
-            chunks = [[]]
+        # Chunk into max `chunk_size` items per file (user-configurable 1–100),
+        # never mixing two shops in one file. Each row carries its shop id as a
+        # trailing element used only for grouping — stripped before writing.
+        chunk_size = _resolve_restock_limit(
+            chunk_limit_raw if chunk_limit_raw is not None else request.args.get("limit")
+        )
+        _tagged = _chunk_by_shop(
+            data_rows, chunk_size, lambda r: r[3] if len(r) > 3 else None
+        )
+        chunks = [[r[:3] for r in c] for c in _tagged]
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -935,6 +1715,7 @@ def invoice_restock_upload_uzum():
         uzum_shop_id = shop.uzum_id
 
     data_rows = []
+    zero_price_barcodes = []
     items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
 
     for item in items:
@@ -945,7 +1726,17 @@ def invoice_restock_upload_uzum():
         except (ValueError, TypeError):
             continue
         if qty > 0:
+            # Uzum rejects the whole file if any cost is 0 — catch it here too.
+            if price <= 0:
+                zero_price_barcodes.append(bc or "—")
+                continue
             data_rows.append([bc, price, qty])
+
+    if zero_price_barcodes:
+        return _json_response({
+            "error": "Укажите себестоимость (больше 0) для штрихкодов: "
+                     + ", ".join(zero_price_barcodes)
+        }, 400)
 
     if not data_rows:
         return _json_response({"error": "No valid items to upload"}, 400)

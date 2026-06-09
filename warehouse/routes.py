@@ -15,6 +15,7 @@ from core.auth_helpers import (
     _json_response,
     _user_shop_ids,
 )
+from core.uzum_skulist import normalize_uzum_image_url
 
 try:
     import openpyxl
@@ -188,7 +189,7 @@ def get_products():
                 "sku": v.sku,
                 "barcode": v.barcode,
                 "quantity": v.warehouse_quantity,
-                "image_url": v.image_url or g.image_url,
+                "image_url": normalize_uzum_image_url(v.image_url or g.image_url),
                 "last30_sales": int(s_sum),
                 "created_at": v.created_at.isoformat(),
                 "updated_at": v.updated_at.isoformat(),
@@ -230,7 +231,7 @@ def get_product_detail_api(variant_id: int):
             "sku": v.sku,
             "barcode": v.barcode,
             "quantity": v.warehouse_quantity,
-            "image_url": v.image_url or g.image_url,
+            "image_url": normalize_uzum_image_url(v.image_url or g.image_url),
             "created_at": v.created_at.isoformat(),
             "updated_at": v.updated_at.isoformat(),
         })
@@ -441,7 +442,7 @@ def summary():
                 "sku": v.sku,
                 "barcode": v.barcode,
                 "quantity": v.warehouse_quantity,
-                "image_url": v.image_url or g.image_url,
+                "image_url": normalize_uzum_image_url(v.image_url or g.image_url),
                 "last30_sales": int(s_sum),
             })
 

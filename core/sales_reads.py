@@ -1,36 +1,33 @@
-"""Read-path helpers for `sales_lines` + `expenses_ledger` (Phase 2 of the
-Sales/Expenses Reports API migration).
+"""Read-path helpers for `finance_orders`, `finance_hourly_snapshots`,
+and `expenses_ledger`.
 
-All queries go through `created_at` (sales) / `charged_at` (expenses) — the
-naive-Tashkent business timestamps documented in the implementation plan
-(§10). NEVER derive filter predicates from a `day` column on `sales_lines`
-(no such column exists by design).
+Sources by helper
+-----------------
+- ``read_sales_aggregated``    → ``finance_orders`` (per-shop, per-day,
+  per-sku aggregates from /v1/finance/orders?group=true). Filtered by
+  ``period_from`` (Date).
+- ``read_expenses_range``      → ``expenses_ledger``. Filtered by
+  ``charged_at`` (naive Tashkent datetime).
+- ``read_hourly_sku_breakdown``→ ``finance_hourly_snapshots`` delta math
+  between two ``snapshot_hour`` rows (naive UTC).
+- ``read_daily_expense_breakdown`` → same as ``read_expenses_range``.
 
-Index usage
------------
-- Single-shop range / aggregate:   ix_sales_lines_shop_created
-  `WHERE shop_id = X AND created_at >= a AND created_at < b`
-- Multi-shop range:                 same index, `shop_id IN (...)`
-- Per-SKU history:                  ix_sales_lines_shop_sku_created
-  `WHERE shop_id = X AND sku_id = Y AND created_at >= a AND created_at < b`
+Timezone rules
+--------------
+Callers pass **naive Tashkent** `datetime` objects for `start_ts` / `end_ts`.
+``expenses_ledger.charged_at`` is naive Tashkent and stored verbatim.
+``finance_hourly_snapshots.snapshot_hour`` is naive UTC and the hourly
+read helper converts the caller's Tashkent boundaries internally.
+``finance_orders.period_from`` is a Date — callers should pass timestamps
+that align to midnight Tashkent.
 
-Do NOT wrap `created_at` in a function inside a WHERE clause — that breaks
-the index. `date_trunc(...)` is only allowed in SELECT / GROUP BY.
-
-Timezone rules (non-negotiable §8/§9)
--------------------------------------
-Callers pass **naive Tashkent** `datetime` objects for `start_ts` / `end_ts`
-(the column itself is naive Tashkent, stored verbatim from the CSV). Do NOT
-pass UTC. Do NOT pass aware datetimes. These helpers perform NO timezone
-conversion.
-
-A convenience `day_bounds_tashkent(d)` builder is provided so callers that
+A convenience ``day_bounds_tashkent(d)`` builder is provided so callers that
 have a `date` can trivially convert to the two `datetime` boundaries
 required here.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time as dt_time, timedelta
+from datetime import date, datetime, time as dt_time, timedelta, timezone
 from typing import Iterable, Sequence
 
 from sqlalchemy import func, select
@@ -38,7 +35,21 @@ from sqlalchemy.orm import Session
 
 from config import APP_TZ
 from extensions import SessionLocal
-from models import ExpensesLedger, FinanceOrder, SalesLine
+from models import ExpensesLedger, FinanceHourlySnapshot, FinanceOrder
+
+
+def _tashkent_naive_to_naive_utc(naive_tashkent: datetime) -> datetime:
+    """Convert a naive-Tashkent datetime to naive UTC.
+
+    `FinanceHourlySnapshot.snapshot_hour` is stored as naive UTC
+    (legacy convention). Callers of the hourly read helpers pass naive
+    Tashkent boundaries — this is the conversion they need.
+    """
+    return (
+        naive_tashkent.replace(tzinfo=APP_TZ)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
 
 # ── Aggregation granularity → date_trunc key ─────────────────────────
 # `sku` is the only non-date grouping supported here; combined modes (e.g.
@@ -115,69 +126,6 @@ def _resolve_session(session: Session | None) -> tuple[Session, bool]:
     return SessionLocal(), True
 
 
-# ── Range reads ──────────────────────────────────────────────────────
-
-def read_sales_range(
-    shop_id: int | str | Iterable[int | str],
-    start_ts: datetime,
-    end_ts: datetime,
-    *,
-    session: Session | None = None,
-) -> list[SalesLine]:
-    """Return `SalesLine` rows for a shop(s) within `[start_ts, end_ts)`.
-
-    `start_ts` / `end_ts` are **naive Tashkent** — passed through verbatim.
-    Uses `ix_sales_lines_shop_created` (or the multi-shop variant via
-    `shop_id IN (...)`).
-    """
-    shop_ids = _coerce_shop_ids(shop_id)
-    if not shop_ids:
-        return []
-
-    sess, owns = _resolve_session(session)
-    try:
-        stmt = select(SalesLine).where(
-            SalesLine.shop_id.in_(shop_ids),
-            SalesLine.created_at >= start_ts,
-            SalesLine.created_at < end_ts,
-        )
-        return list(sess.execute(stmt).scalars().all())
-    finally:
-        if owns:
-            sess.close()
-
-
-def read_sku_history(
-    shop_id: int | str,
-    sku_id: str,
-    start_ts: datetime,
-    end_ts: datetime,
-    *,
-    session: Session | None = None,
-) -> list[SalesLine]:
-    """Per-SKU history scan — uses `ix_sales_lines_shop_sku_created`."""
-    shop_ids = _coerce_shop_ids(shop_id)
-    if not shop_ids or not sku_id:
-        return []
-
-    sess, owns = _resolve_session(session)
-    try:
-        stmt = (
-            select(SalesLine)
-            .where(
-                SalesLine.shop_id == shop_ids[0],
-                SalesLine.sku_id == sku_id,
-                SalesLine.created_at >= start_ts,
-                SalesLine.created_at < end_ts,
-            )
-            .order_by(SalesLine.created_at.desc())
-        )
-        return list(sess.execute(stmt).scalars().all())
-    finally:
-        if owns:
-            sess.close()
-
-
 # ── Aggregated reads ─────────────────────────────────────────────────
 
 def read_sales_aggregated(
@@ -240,9 +188,16 @@ def read_sales_aggregated(
     group_cols: list = [FinanceOrder.shop_id]
 
     if effective_group_by == "sku":
-        sku_col = FinanceOrder.sku_id
-        sku_title_col = func.max(FinanceOrder.sku_title).label("sku_title")
-        group_cols.append(FinanceOrder.sku_id)
+        # Group by sku_title (always populated, matches Variant.sku) rather
+        # than sku_id (Integer, nullable). The group=false backfill path
+        # cannot populate sku_id because Uzum's line item response omits
+        # skuId — only skuTitle is present. Grouping by sku_id would
+        # collapse every NULL-sku_id row into a single synthetic group,
+        # showing the user one giant "SKU" with the sum of all sales.
+        # sku_id is still returned via MAX() for callers that want it.
+        sku_col = FinanceOrder.sku_title
+        sku_id_col = func.max(FinanceOrder.sku_id).label("sku_id")
+        group_cols.append(FinanceOrder.sku_title)
     else:
         trunc_key = _TRUNC_KEYS[effective_group_by]
         bucket_col = func.date_trunc(trunc_key, FinanceOrder.period_from).label("bucket")
@@ -252,8 +207,8 @@ def read_sales_aggregated(
     if bucket_col is not None:
         cols.append(bucket_col)
     if sku_col is not None:
-        cols.append(sku_col.label("sku_id"))
-        cols.append(sku_title_col)
+        cols.append(sku_col.label("sku_title"))
+        cols.append(sku_id_col)
     cols.extend(
         [
             func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty_sum"),
@@ -311,41 +266,6 @@ def read_sales_aggregated(
     return out
 
 
-def read_sales_row_counts(
-    shop_ids: Iterable[int | str],
-    *,
-    session: Session | None = None,
-    start_ts: datetime | None = None,
-    end_ts: datetime | None = None,
-) -> dict[int, int]:
-    """Return `{shop_id: count}` for `sales_lines` — used by dashboards.
-
-    If `start_ts`/`end_ts` are omitted the query is unbounded (whole history).
-    """
-    ids = _coerce_shop_ids(shop_ids)
-    if not ids:
-        return {}
-
-    sess, owns = _resolve_session(session)
-    try:
-        clauses = [SalesLine.shop_id.in_(ids)]
-        if start_ts is not None:
-            clauses.append(SalesLine.created_at >= start_ts)
-        if end_ts is not None:
-            clauses.append(SalesLine.created_at < end_ts)
-        stmt = (
-            select(SalesLine.shop_id, func.count().label("cnt"))
-            .where(*clauses)
-            .group_by(SalesLine.shop_id)
-        )
-        rows = sess.execute(stmt).all()
-    finally:
-        if owns:
-            sess.close()
-
-    return {int(r.shop_id): int(r.cnt or 0) for r in rows}
-
-
 # ── Expenses ─────────────────────────────────────────────────────────
 
 def read_expenses_range(
@@ -399,150 +319,132 @@ def read_hourly_sku_breakdown(
     *,
     session: Session | None = None,
 ) -> dict[str, dict]:
-    """Per-SKU aggregate for `[start_ts, end_ts)` keyed by `sku_id`.
+    """Per-SKU aggregate for `[start_ts, end_ts)` keyed by the seller SKU code.
 
-    Feeds the Telegram hourly notification path:
+    Feeds the Telegram hourly notification path. Output shape:
 
-        { sku_id:   { "product_title": sku_title,    # name for display
-                       "amount": qty_sum,             # total units sold
-                       "sell_price": revenue_sum,     # Выручка total (sums)
-                       "purchase_price": cost_sum,    # Себестоимость total
+        { sku_title: { "product_title": <name>,
+                       "amount": qty_sum,
+                       "sell_price": revenue_sum,
+                       "purchase_price": cost_sum,
                        "seller_profit": seller_profit_sum,
                        "commission": commission_sum,
                        "logistics_fee": logistics_sum } }
 
-    One GROUP BY query per shop. `start_ts` / `end_ts` are **naive
-    Tashkent** — the column convention. Callers must pass Tashkent-aware
-    boundaries stripped of tzinfo (e.g. via `_app_naive(...)`).
+    `start_ts` / `end_ts` are **naive Tashkent** HH:00 boundaries.
+
+    Data source: `FinanceHourlySnapshot` delta math (no API call, no
+    `sales_lines` read). Each snapshot row holds cumulative totals for
+    the calendar day in Tashkent that contains the snap_hour, so:
+
+      * Same-day window `[A, B)`: delta = snapshot(B) - snapshot(A).
+      * Window starting at Tashkent midnight: snapshot(A) is treated as
+        zero (the 00:00 tick belongs to the previous day's EOD).
+      * Cross-day window: split into per-day chunks at midnight; per-day
+        deltas are summed across SKUs.
     """
     shop_ids = _coerce_shop_ids(shop_id)
-    if not shop_ids:
+    if not shop_ids or end_ts <= start_ts:
         return {}
+    sid_str = str(shop_ids[0])
 
     sess, owns = _resolve_session(session)
     try:
-        stmt = (
-            select(
-                SalesLine.sku_id.label("sku_id"),
-                func.max(SalesLine.sku_title).label("product_title"),
-                func.coalesce(func.sum(SalesLine.qty), 0).label("qty_sum"),
-                func.coalesce(func.sum(SalesLine.revenue), 0).label("revenue_sum"),
-                func.coalesce(func.sum(SalesLine.purchase_price), 0).label("cost_sum"),
-                func.coalesce(func.sum(SalesLine.seller_profit), 0).label("seller_profit_sum"),
-                func.coalesce(func.sum(SalesLine.commission), 0).label("commission_sum"),
-                func.coalesce(func.sum(SalesLine.logistics_fee), 0).label("logistics_sum"),
+        agg: dict[str, dict] = {}
+
+        chunk_start = start_ts
+        while chunk_start < end_ts:
+            chunk_day = chunk_start.date()
+            next_midnight = datetime.combine(chunk_day + timedelta(days=1), dt_time(0, 0, 0))
+            chunk_end = min(next_midnight, end_ts)
+
+            end_utc = _tashkent_naive_to_naive_utc(chunk_end)
+            end_rows = sess.execute(
+                select(FinanceHourlySnapshot).where(
+                    FinanceHourlySnapshot.shop_id == sid_str,
+                    FinanceHourlySnapshot.snapshot_hour == end_utc,
+                )
+            ).scalars().all()
+
+            start_is_midnight = (
+                chunk_start.hour == 0
+                and chunk_start.minute == 0
+                and chunk_start.second == 0
             )
-            .where(
-                SalesLine.shop_id == shop_ids[0],
-                SalesLine.created_at >= start_ts,
-                SalesLine.created_at < end_ts,
-            )
-            .group_by(SalesLine.sku_id)
-        )
-        rows = sess.execute(stmt).all()
+            if start_is_midnight or not end_rows:
+                start_by_sku: dict[str, FinanceHourlySnapshot] = {}
+            else:
+                start_utc = _tashkent_naive_to_naive_utc(chunk_start)
+                start_rows = sess.execute(
+                    select(FinanceHourlySnapshot).where(
+                        FinanceHourlySnapshot.shop_id == sid_str,
+                        FinanceHourlySnapshot.snapshot_hour == start_utc,
+                    )
+                ).scalars().all()
+                start_by_sku = {r.sku_title: r for r in start_rows}
+
+            for end_row in end_rows:
+                key = (end_row.sku_title or "").strip()
+                if not key:
+                    continue
+                start_row = start_by_sku.get(end_row.sku_title)
+                d_amount = int(end_row.amount or 0) - (int(start_row.amount or 0) if start_row else 0)
+                if d_amount <= 0:
+                    continue
+                d_sell  = int(end_row.sell_price or 0)     - (int(start_row.sell_price or 0)     if start_row else 0)
+                d_cost  = int(end_row.purchase_price or 0) - (int(start_row.purchase_price or 0) if start_row else 0)
+                d_prof  = int(end_row.seller_profit or 0)  - (int(start_row.seller_profit or 0)  if start_row else 0)
+                d_comm  = int(end_row.commission or 0)     - (int(start_row.commission or 0)     if start_row else 0)
+                d_log   = int(end_row.logistics_fee or 0)  - (int(start_row.logistics_fee or 0)  if start_row else 0)
+
+                acc = agg.setdefault(key, {
+                    "product_title": "",
+                    "amount": 0,
+                    "sell_price": 0,
+                    "purchase_price": 0,
+                    "seller_profit": 0,
+                    "commission": 0,
+                    "logistics_fee": 0,
+                })
+                acc["amount"]         += d_amount
+                acc["sell_price"]     += d_sell
+                acc["purchase_price"] += d_cost
+                acc["seller_profit"]  += d_prof
+                acc["commission"]     += d_comm
+                acc["logistics_fee"]  += d_log
+
+            chunk_start = chunk_end
+
+        # Enrich product_title from finance_orders for the touched days.
+        # The snapshot table has no product_title column; the consumer falls
+        # back to the SKU code if missing, but we prefer the real RU name.
+        if agg:
+            day_from = start_ts.date()
+            day_to   = (end_ts - timedelta(microseconds=1)).date()
+            fo_rows = sess.execute(
+                select(
+                    FinanceOrder.sku_title.label("sku_title"),
+                    func.max(FinanceOrder.product_title).label("pt"),
+                )
+                .where(
+                    FinanceOrder.shop_id == sid_str,
+                    FinanceOrder.period_from >= day_from,
+                    FinanceOrder.period_from <= day_to,
+                    FinanceOrder.sku_title.in_(list(agg.keys())),
+                )
+                .group_by(FinanceOrder.sku_title)
+            ).all()
+            for r in fo_rows:
+                if r.sku_title in agg and r.pt:
+                    agg[r.sku_title]["product_title"] = r.pt
+            for key, entry in agg.items():
+                if not entry["product_title"]:
+                    entry["product_title"] = key
+
+        return agg
     finally:
         if owns:
             sess.close()
-
-    out: dict[str, dict] = {}
-    for r in rows:
-        key = (r.sku_id or "").strip()
-        if not key:
-            continue
-        out[key] = {
-            "product_title": r.product_title or "",
-            "amount": int(r.qty_sum or 0),
-            "sell_price": int(r.revenue_sum or 0),
-            "purchase_price": int(r.cost_sum or 0),
-            "seller_profit": int(r.seller_profit_sum or 0),
-            "commission": int(r.commission_sum or 0),
-            "logistics_fee": int(r.logistics_sum or 0),
-        }
-    return out
-
-
-def read_daily_profit_components(
-    shop_id: int | str,
-    start_ts: datetime,
-    end_ts: datetime,
-    *,
-    session: Session | None = None,
-) -> dict:
-    """Return the three totals that feed the daily profit message.
-
-    ``{
-        "seller_profit_sum":         <numeric>,  # from sales_lines
-        "non_logistics_expenses":    <numeric>,  # expenses_ledger, op_type='Оплата', source != 'Логистика'
-        "refunds_income":            <numeric>,  # expenses_ledger, op_type='Возврат'
-    }``
-
-    Timezone: `start_ts` / `end_ts` are **naive Tashkent** — same boundary
-    convention as `sales_lines.created_at` and `expenses_ledger.charged_at`.
-    Two small SUM queries; `Логистика` is excluded from the expense total
-    to avoid double-counting with `sales_lines.logistics_fee` on the sales
-    side (plan §8 profit formula).
-    """
-    shop_ids = _coerce_shop_ids(shop_id)
-    if not shop_ids:
-        return {
-            "seller_profit_sum": 0,
-            "non_logistics_expenses": 0,
-            "refunds_income": 0,
-        }
-    sid = shop_ids[0]
-
-    sess, owns = _resolve_session(session)
-    try:
-        sales_stmt = select(
-            func.coalesce(func.sum(SalesLine.seller_profit), 0).label("seller_profit_sum")
-        ).where(
-            SalesLine.shop_id == sid,
-            SalesLine.created_at >= start_ts,
-            SalesLine.created_at < end_ts,
-        )
-        seller_profit_sum = sess.execute(sales_stmt).scalar() or 0
-
-        exp_stmt = select(
-            ExpensesLedger.op_type,
-            func.coalesce(func.sum(ExpensesLedger.amount), 0).label("amt"),
-        ).where(
-            ExpensesLedger.shop_id == sid,
-            ExpensesLedger.charged_at >= start_ts,
-            ExpensesLedger.charged_at < end_ts,
-            ExpensesLedger.op_type.in_(("Оплата", "Возврат")),
-        ).group_by(ExpensesLedger.op_type)
-
-        # `Оплата` sum but EXCLUDING `Логистика` (double-counted with sales-side
-        # logistics_fee). `Возврат` has no such exclusion.
-        non_log_stmt = select(
-            func.coalesce(func.sum(ExpensesLedger.amount), 0).label("amt"),
-        ).where(
-            ExpensesLedger.shop_id == sid,
-            ExpensesLedger.charged_at >= start_ts,
-            ExpensesLedger.charged_at < end_ts,
-            ExpensesLedger.op_type == "Оплата",
-            # `source` can be NULL — include those in the non-logistics bucket
-            # so we don't silently drop rows the CSV left un-sourced.
-            (ExpensesLedger.source != "Логистика") | (ExpensesLedger.source.is_(None)),
-        )
-        non_log = sess.execute(non_log_stmt).scalar() or 0
-
-        refund_rows = sess.execute(exp_stmt).all()
-    finally:
-        if owns:
-            sess.close()
-
-    refunds = 0
-    for r in refund_rows:
-        if r.op_type == "Возврат":
-            refunds = r.amt or 0
-            break
-
-    return {
-        "seller_profit_sum": seller_profit_sum,
-        "non_logistics_expenses": non_log,
-        "refunds_income": refunds,
-    }
 
 
 def read_daily_expense_breakdown(

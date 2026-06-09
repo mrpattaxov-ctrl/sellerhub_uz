@@ -1,45 +1,24 @@
 """Per-shop OpenAPI finance fetchers + row normalizers.
 
-Bridges the new ``/v1/finance/orders`` and ``/v1/finance/expenses`` endpoints
-to the existing ``sales_lines`` / ``expenses_ledger`` ingest pipeline.
+Bridges ``/v1/finance/orders`` and ``/v1/finance/expenses`` to the
+``finance_orders`` / ``expenses_ledger`` ingest pipeline. Module exports:
 
-Design choice
--------------
-The downstream ingest functions (``_ingest_sales_lines_window``,
-``_ingest_expenses_window_for_shop``) accept ROW DICTS keyed by the canonical
-field names produced by the RU→canonical CSV header map. To minimise blast
-radius this module produces dicts with the *exact same keys* so the ingest
-functions don't have to grow a separate code path — they keep parsing the
-same canonical schema regardless of source.
-
-Additions on top of the CSV shape
----------------------------------
-OpenAPI exposes three fields the CSV never had. We pass them along as extra
-keys; the ingest function picks them up and writes them to the corresponding
-new columns (see migration 20260520_0004):
-
-  * ``shop_id``  — int. CSV never carried this (one report per shop run).
-                   With OpenAPI it's right on the row, so we skip the SKU→
-                   shop catalog lookup downstream.
-  * ``product_image`` — JSON-serializable dict. The raw ``productImage``
-                   object Uzum returns. Saved verbatim in
-                   ``sales_lines.product_image``.
-  * ``qty_cancelled`` — int. The OpenAPI ``cancelled`` field. CSV encoded
-                   cancellations as their own ``Отменен`` rows that we drop
-                   at ingest, so this stays 0 in the CSV path.
-
-For expenses, additions: ``date_created``, ``date_updated``, ``seller_id``,
-``external_id``, ``code``. ``op_type`` is translated from the OpenAPI enum
-``OUTCOME``/``INCOME`` to the Russian strings the downstream notification
-code already understands (``"Оплата"``/``"Возврат"``).
+- ``fetch_daily_aggregates_for_shop_day`` — group=true; one call per day
+  returning per-(shop, day, sku) rollups. Feeds ``_ingest_finance_orders_for_day``.
+- ``fetch_orders_ungrouped_for_window`` + ``aggregate_line_items_to_finance_orders``
+  — group=false line-item fetch + client-side roll-up, used by the
+  quarter-chunked backfill (one call per quarter rather than per day).
+- ``fetch_finance_expenses_for_shop_window`` — paginated expense fetch.
+  Feeds ``_ingest_expenses_window_for_shop``.
+- ``detect_first_sale_year`` — yearly probe used to bound the backfill.
 
 Status mapping
 --------------
-OpenAPI orders return a status enum:
-  TO_WITHDRAW, PROCESSING, CANCELED, PARTIALLY_CANCELLED.
-The ingest pipeline drops rows where ``status == "Отменен"``. We translate
-``CANCELED`` (and only CANCELED — PARTIALLY_CANCELLED still has surviving
-items) to ``"Отменен"`` so the existing filter rule applies unchanged.
+OpenAPI orders return a status enum: TO_WITHDRAW, PROCESSING, CANCELED,
+PARTIALLY_CANCELLED. ``CANCELED`` (and only CANCELED — PARTIALLY_CANCELLED
+still has surviving items) is translated to the RU label ``"Отменен"`` so
+the downstream drop-at-ingest filter applies unchanged. Expense type enum
+``OUTCOME``/``INCOME`` maps to ``"Оплата"``/``"Возврат"``.
 
 Date semantics
 --------------
@@ -51,7 +30,8 @@ Pagination
 ----------
 We walk pages until either (a) the API returns fewer rows than requested, or
 (b) we hit a safety cap. ``size=100`` is the sweet spot Uzum's rate-limit
-(2 burst / 2/sec replenish / 100k/day) tolerates well.
+(2 burst / 2/sec replenish / 100k/day) tolerates well. The process-wide
+``core.http_client.TokenBucket`` enforces the actual pacing.
 """
 from __future__ import annotations
 
@@ -98,14 +78,40 @@ def _epoch_ms_to_tashkent_naive(ms: int | None) -> datetime | None:
     )
 
 
+def _parse_uzum_date_field(val) -> datetime | None:
+    """Parse a Uzum date field that may be epoch-ms int OR ISO-ish string.
+
+    The expenses swagger documents ``date-time`` (ISO string) but live
+    responses return ``dateService`` / ``dateCreated`` / ``dateUpdated``
+    as integer epoch-milliseconds (verified 2026-05-23 against shop 10945:
+    ``dateService=1779515968928`` = 2026-05-23 05:59:28 UTC). Accept both
+    shapes so the parser is robust to whichever form the API returns —
+    pure-digit strings are treated as stringified ms-epoch.
+    """
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return _epoch_ms_to_tashkent_naive(val)
+    s = str(val).strip()
+    if not s:
+        return None
+    # Stringified integer (e.g. "1779515968928") → ms-epoch path.
+    if s.lstrip("-").isdigit():
+        try:
+            return _epoch_ms_to_tashkent_naive(int(s))
+        except (TypeError, ValueError):
+            return None
+    return _parse_isoish_to_tashkent_naive(s)
+
+
 def _parse_isoish_to_tashkent_naive(s: str | None) -> datetime | None:
     """Parse Uzum-returned ISO-ish date-time strings to naive Tashkent.
 
-    Uzum returns either ``"2026-05-20T05:56:29.767541974"`` (no tz, microsecond
-    overflow) or ``"2026-05-20T05:56:29Z"``. They appear to be UTC for
-    ``dateCreated``/``dateUpdated``/``dateService`` per the swagger
-    ``format: date-time``. We parse, treat as UTC, then convert to Tashkent
-    naive so it's directly comparable to the rest of the column.
+    Uzum may return ``"2026-05-20T05:56:29.767541974"`` (no tz, microsecond
+    overflow) or ``"2026-05-20T05:56:29Z"`` for some date-time fields.
+    Treat naive parses as UTC, convert to Tashkent naive so it's directly
+    comparable to the rest of the column. For fields that may also arrive
+    as integer epoch-ms, use ``_parse_uzum_date_field`` instead.
     """
     if not s:
         return None
@@ -244,11 +250,11 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
     type_enum = _coerce_str(row.get("type")).strip().upper()
     op_type_ru = _EXPENSE_TYPE_RU.get(type_enum, type_enum or None)
 
-    charged_at = _parse_isoish_to_tashkent_naive(row.get("dateService"))
+    charged_at = _parse_uzum_date_field(row.get("dateService"))
     # If dateService is missing, fall back to dateCreated so we still get
     # the row stored — the day bucket is computed from charged_at downstream.
     if charged_at is None:
-        charged_at = _parse_isoish_to_tashkent_naive(row.get("dateCreated"))
+        charged_at = _parse_uzum_date_field(row.get("dateCreated"))
     if charged_at is None:
         return None
 
@@ -269,8 +275,8 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
         "op_type":      op_type_ru,
 
         # ── New OpenAPI-only fields ─────────────────────────────────
-        "date_created": _parse_isoish_to_tashkent_naive(row.get("dateCreated")),
-        "date_updated": _parse_isoish_to_tashkent_naive(row.get("dateUpdated")),
+        "date_created": _parse_uzum_date_field(row.get("dateCreated")),
+        "date_updated": _parse_uzum_date_field(row.get("dateUpdated")),
         "seller_id":    _coerce_int(row.get("sellerId")) or None,
         "external_id":  _coerce_str(row.get("externalId")) or None,
         "code":         _coerce_str(row.get("code")) or None,
@@ -278,63 +284,6 @@ def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None
 
 
 # ── Per-shop paginated fetchers ──────────────────────────────────────
-
-def fetch_finance_orders_for_shop_window(
-    token: str,
-    shop_uzum_id: str | int,
-    date_from_tashkent: datetime,
-    date_to_tashkent: datetime,
-    *,
-    size: int = _PAGE_SIZE_DEFAULT,
-) -> list[dict]:
-    """Walk /v1/finance/orders pages for the given window, return canonical rows.
-
-    Window is **inclusive** on dateFrom and exclusive-ish on dateTo (we shave
-    1 second off dateTo because Uzum's filter is inclusive on both sides;
-    matches the convention the CSV path uses).
-    """
-    if date_from_tashkent >= date_to_tashkent:
-        return []
-    if not token:
-        raise RuntimeError("fetch_finance_orders_for_shop_window: empty token")
-
-    shop_int = int(shop_uzum_id)
-    date_from_sec = _tashkent_naive_to_epoch_sec(date_from_tashkent)
-    date_to_sec = _tashkent_naive_to_epoch_sec(date_to_tashkent) - 1
-
-    out: list[dict] = []
-    page = 0
-    while page < _MAX_PAGES:
-        try:
-            body = _api.fetch_finance_orders_page(
-                token, shop_int,
-                date_from_sec=date_from_sec, date_to_sec=date_to_sec,
-                page=page, size=size, group=False,
-            )
-        except Exception as e:
-            print(f"[FinanceOpenAPI] orders fetch failed shop={shop_int} page={page}: {e}")
-            raise
-        items = body.get("orderItems") if isinstance(body, dict) else None
-        items = items if isinstance(items, list) else []
-        if page == 0:
-            total = body.get("totalElements") if isinstance(body, dict) else None
-            print(f"[FinanceOpenAPI] orders shop={shop_int} window=["
-                  f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) "
-                  f"totalElements={total}")
-
-        for raw in items:
-            if not isinstance(raw, Mapping):
-                continue
-            canon = _openapi_order_to_canonical(raw, shop_int)
-            if canon is not None:
-                out.append(canon)
-
-        if len(items) < size:
-            break
-        page += 1
-        time.sleep(_BETWEEN_PAGE_SLEEP_S)
-
-    return out
 
 
 # ── Aggregated path (group=true) — feeds FinanceOrder ───────────────
@@ -553,15 +502,208 @@ def detect_first_sale_year(
     return current_year
 
 
+# ── Ungrouped + client-side aggregation backfill path ───────────────
+#
+# Why this exists: the per-day group=true approach makes 1 API call per
+# day. For a 2-year backfill that's 800+ calls, which at Uzum's 2-req/sec
+# rate limit takes 7+ minutes minimum. The group=false path can fetch a
+# much larger window per call (10k items per page at size=10000), and
+# Uzum's per-call latency depends mainly on the WINDOW SIZE, not the page
+# size — once the query is computed, returning 10000 rows costs almost
+# the same as returning 100.
+#
+# Chunking by quarter (rather than one huge 2-year call) is the sweet
+# spot — Uzum's query cost scales with window size (54s for full 2-year
+# vs ~3-7s for a quarter). Quarters keep each call fast and let us
+# parallelize across quarters.
+#
+# Aggregation correctness was verified 2026-05-22 against group=true
+# for shop=5983 day=2026-05-20: 216/216 SKUs match exactly across
+# amount, amountReturns, sellerProfit, commission, purchasePrice,
+# logisticDeliveryFee, sellerDiscountAmount, withdrawnProfit, sellPrice.
+# See scripts/smoke_aggregation_semantics.py for the test.
+
+# 10000 is Uzum's hard cap on /v1/finance/orders (size=11000 → HTTP 400
+# "Illegal argument", probed live 2026-05-25). At size=5000 a 100k-row
+# quarter took 22 pages; at 10000 it takes 11.
+_LARGE_PAGE_SIZE_DEFAULT = 10000
+
+
+def fetch_orders_ungrouped_for_window(
+    token: str,
+    shop_uzum_id: str | int,
+    date_from_tashkent: datetime,
+    date_to_tashkent: datetime,
+    *,
+    size: int = _LARGE_PAGE_SIZE_DEFAULT,
+) -> list[dict]:
+    """Walk /v1/finance/orders pages with ``group=false`` for the given window.
+
+    Returns RAW line item dicts (one per order), not aggregated. Pair with
+    :func:`aggregate_line_items_to_finance_orders` to produce FinanceOrder
+    rows for ingest.
+
+    Uzum's ``dateFrom``/``dateTo`` are SECONDS (swagger says ms, swagger
+    lies). Window is inclusive on both ends.
+    """
+    if date_from_tashkent >= date_to_tashkent:
+        return []
+    if not token:
+        raise RuntimeError("fetch_orders_ungrouped_for_window: empty token")
+
+    shop_int = int(shop_uzum_id)
+    from_sec = _tashkent_naive_to_epoch_sec(date_from_tashkent)
+    to_sec = _tashkent_naive_to_epoch_sec(date_to_tashkent) - 1
+
+    out: list[dict] = []
+    page = 0
+    while page < _MAX_PAGES:
+        try:
+            body = _api.fetch_finance_orders_page(
+                token, shop_int,
+                date_from_sec=from_sec, date_to_sec=to_sec,
+                page=page, size=size, group=False,
+            )
+        except Exception as e:
+            print(f"[FinanceOpenAPI] ungrouped fetch failed "
+                  f"shop={shop_int} window=[{date_from_tashkent.isoformat()},"
+                  f"{date_to_tashkent.isoformat()}) page={page}: {e}")
+            raise
+
+        items = body.get("orderItems") if isinstance(body, dict) else None
+        items = items if isinstance(items, list) else []
+        if page == 0:
+            total = body.get("totalElements") if isinstance(body, dict) else None
+            print(f"[FinanceOpenAPI] ungrouped shop={shop_int} window=["
+                  f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) "
+                  f"totalElements={total} size={size}")
+
+        out.extend(it for it in items if isinstance(it, Mapping))
+
+        if len(items) < size:
+            break
+        page += 1
+        # No between-page sleep — global TokenBucket in core.http_client
+        # throttles cooperatively across all callers.
+
+    return out
+
+
+def aggregate_line_items_to_finance_orders(
+    line_items: Iterable[Mapping],
+    shop_uzum_id: str | int,
+) -> list[dict]:
+    """Group raw line items by (sku_title, day_tashkent) → FinanceOrder dicts.
+
+    Output shape matches :func:`_openapi_grouped_sku_to_finance_order` so it
+    feeds directly into ``_ingest_finance_orders_for_day``.
+
+    Verified field-by-field against the group=true aggregated response for
+    shop=5983 day=2026-05-20: 216/216 SKUs match across all numeric fields
+    AND across cancelled/return-only edge cases.
+
+    Aggregation rules (from the verification):
+      * amount / amountReturns / sellerProfit / commission /
+        logisticDeliveryFee / sellerDiscountAmount / withdrawnProfit
+            → direct sum across line items.
+      * sellPrice (per-unit) → sum(sellPrice × amount) gives REVENUE.
+      * purchasePrice (per-unit cost basis) → sum(purchasePrice × amount).
+        Return-only rows (amount=0) naturally contribute 0.
+
+    All statuses (PROCESSING / TO_WITHDRAW / CANCELED /
+    PARTIALLY_CANCELLED) are INCLUDED — Uzum's group=true aggregates them
+    all, so we must too to match exactly.
+    """
+    shop_str = str(shop_uzum_id)
+
+    # Per-(sku_title, day) accumulator
+    groups: dict[tuple[str, "date"], dict] = {}
+
+    for item in line_items:
+        if not isinstance(item, Mapping):
+            continue
+        sku_title = _coerce_str(item.get("skuTitle")).strip()
+        if not sku_title:
+            continue
+        day_dt = _epoch_ms_to_tashkent_naive(item.get("date"))
+        if day_dt is None:
+            continue
+        day = day_dt.date()
+
+        key = (sku_title, day)
+        g = groups.get(key)
+        if g is None:
+            g = {
+                "shop_id":          shop_str,
+                "period_from":      day,
+                "period_to":        day,
+                "sku_title":        sku_title[:300],
+                "sku_id":           None,  # group=false omits skuId
+                "product_id":       _coerce_int(item.get("productId")) or None,
+                "product_title":    None,
+                "product_title_ru": None,
+                "image_url":        None,
+                "characteristics":  None,  # group=false has no chars array
+                "amount":           0,
+                "amount_returns":   0,
+                "sell_price":       0,
+                "purchase_price":   0,
+                "seller_discount":  0,
+                "seller_profit":    0,
+                "commission":       0,
+                "withdrawn_profit": 0,
+                "logistics_fee":    0,
+            }
+            groups[key] = g
+
+        # Lazily fill descriptive fields from the first item that has them;
+        # PROCESSING rows sometimes carry null productTitle.
+        if not g["product_title"]:
+            pt = _coerce_str(item.get("productTitle"))
+            if pt:
+                g["product_title"] = pt[:500]
+        if not g["image_url"]:
+            url = _pick_image_url(item.get("productImage"))
+            if url:
+                g["image_url"] = url[:800]
+        if not g["product_id"]:
+            pid = _coerce_int(item.get("productId"))
+            if pid:
+                g["product_id"] = pid
+
+        qty          = _coerce_int(item.get("amount"))
+        sp_per_unit  = _coerce_int(item.get("sellPrice"))
+        pp_per_unit  = _coerce_int(item.get("purchasePrice"))
+
+        g["amount"]           += qty
+        g["amount_returns"]   += _coerce_int(item.get("amountReturns"))
+        g["sell_price"]       += sp_per_unit * qty
+        g["purchase_price"]   += pp_per_unit * qty
+        g["seller_discount"]  += _coerce_int(item.get("sellerDiscountAmount"))
+        g["seller_profit"]    += _coerce_int(item.get("sellerProfit"))
+        g["commission"]       += _coerce_int(item.get("commission"))
+        g["withdrawn_profit"] += _coerce_int(item.get("withdrawnProfit"))
+        g["logistics_fee"]    += _coerce_int(item.get("logisticDeliveryFee"))
+
+    return list(groups.values())
+
+
 def fetch_finance_expenses_for_shop_window(
     token: str,
     shop_uzum_id: str | int,
     date_from_tashkent: datetime,
     date_to_tashkent: datetime,
     *,
-    size: int = _PAGE_SIZE_DEFAULT,
+    size: int = 10000,
 ) -> list[dict]:
-    """Walk /v1/finance/expenses pages for the window, return canonical rows."""
+    """Walk /v1/finance/expenses pages for the window, return canonical rows.
+
+    Page size: ``size=10000`` (re-probed live 2026-05-25; sizes up to 15000
+    returned full pages in ~1-4s with no 400). Matches the orders endpoint
+    so both finance pipes paginate at the same cap. For a 53K-row backfill
+    this is ~6 pages vs ~27 at size=2000. The daily loop's single-day
+    windows stay well under 10000 rows so the bigger default has no cost.
+    """
     if date_from_tashkent >= date_to_tashkent:
         return []
     if not token:

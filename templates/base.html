@@ -7,6 +7,7 @@
   <title>{{ title or "Склад + Uzum" }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   {% block extra_css %}{% endblock %}
   <style>
     .table-responsive {
@@ -141,6 +142,8 @@
     [data-bs-theme="dark"] .top-sub-chip--active { background:#0a2318; border-color:#166534; color:#4ade80; }
     [data-bs-theme="dark"] .top-sub-chip--expired { background:#2a0e0e; border-color:#7f1d1d; color:#f87171; }
     [data-bs-theme="dark"] .top-sub-chip--unlimited { background:#1a1040; border-color:#4c1d95; color:#a78bfa; }
+    /* Top bar + sidebar overrides now live in static/styles.css so standalone pages
+       (fetch.html, economics.html) can share the same styling. */
   </style>
 </head>
 <body
@@ -148,89 +151,7 @@
   data-subscription-href="{{ '/admin/subscriptions' if current_user.is_authenticated and current_user.is_admin else '/subscription' }}"
   data-subscription-label="{{ t.fetch_subscriptions_label if current_user.is_authenticated and current_user.is_admin else t.fetch_subscription_label }}"
   data-lang="{{ lang }}">
-<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
-  <div class="container-fluid px-3">
-    <a class="navbar-brand fw-semibold" href="/groups"></a>
-    <div class="ms-auto d-flex gap-2 align-items-center">
-      <button id="theme-toggle"
-        onclick="(function(){
-          var h=document.documentElement,
-              t=h.getAttribute('data-bs-theme')==='dark'?'light':'dark';
-          h.setAttribute('data-bs-theme',t);
-          localStorage.setItem('sh-theme',t);
-          document.getElementById('sh-icon-moon').style.display=t==='dark'?'none':'inline';
-          document.getElementById('sh-icon-sun').style.display=t==='dark'?'inline':'none';
-        })();"
-        style="background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;line-height:1;color:inherit;opacity:.75;transition:opacity .15s"
-        onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75"
-        title="Темный / светлый режим">
-        <svg id="sh-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-        <svg id="sh-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" style="display:none">
-          <circle cx="12" cy="12" r="5"/>
-          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-        </svg>
-      </button>
-      {% if current_user.is_authenticated %}
-      {% if current_user.is_admin %}
-      <a class="btn btn-outline-primary btn-sm" href="/admin/users">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        {{ t.nav_users }}
-      </a>
-      <a class="btn btn-outline-info btn-sm" href="/admin/subscriptions">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M20 12V7a2 2 0 0 0-2-2h-1V3H7v2H6a2 2 0 0 0-2 2v5"/><path d="M2 12h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M12 12v9"/></svg>
-        {{ t.nav_subscriptions }}
-      </a>
-      <a class="btn btn-outline-secondary btn-sm" href="/settings/api-key">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        {{ t.nav_token }}
-      </a>
-      <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#syncModal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        {{ t.nav_sync }}
-      </button>
-      {% endif %}
-      {% if not current_user.is_admin and subscription_context %}
-      <a
-        class="top-sub-chip {% if subscription_context.status.is_unlimited %}top-sub-chip--unlimited{% elif subscription_context.status.active and subscription_context.status.state == 'trial' %}top-sub-chip--trial{% elif subscription_context.status.active %}top-sub-chip--active{% else %}top-sub-chip--expired{% endif %}"
-        href="/subscription"
-        title="{{ 'Obunani boshqarish' if lang == 'uz' else 'Управление подпиской' }}">
-        <span class="top-sub-chip__dot"></span>
-        {% if subscription_context.status.is_unlimited %}
-          {{ t.sub_unlimited }}
-        {% elif subscription_context.status.active %}
-          {{ subscription_context.status.remaining_text }}
-        {% else %}
-          {{ t.sub_expired }}
-        {% endif %}
-      </a>
-      {% endif %}
-      <a class="btn btn-outline-secondary btn-sm {% if lang == 'uz' %}active{% endif %}" href="/set-lang/{{ 'ru' if lang == 'uz' else 'uz' }}" title="{{ 'Tilni almashtirish' if lang == 'uz' else 'Сменить язык' }}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        {{ 'UZ' if lang == 'ru' else 'RU' }}
-      </a>
-      <a class="btn btn-outline-secondary btn-sm" href="/settings/notifications">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        {{ t.nav_notifications }}
-      </a>
-      <span class="text-muted small">{{ current_user.username }}</span>
-      <a class="btn btn-outline-danger btn-sm" href="/logout">{{ t.nav_logout }}</a>
-      {% else %}
-      <a class="btn btn-outline-primary btn-sm" href="/login">{{ t.nav_login }}</a>
-      {% endif %}
-    </div>
-  </div>
-</nav>
+{% include "_topbar.html" %}
 
 {% if current_user.is_authenticated and current_user.is_admin %}
 <div id="token-warning-banner" style="display:none"
@@ -299,17 +220,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/uzum_ui.js?v=20260412b"></script>
-<script>
-(function(){
-  var t = document.documentElement.getAttribute('data-bs-theme') || 'light';
-  var moon = document.getElementById('sh-icon-moon');
-  var sun = document.getElementById('sh-icon-sun');
-  if (moon && sun) {
-    moon.style.display = t === 'dark' ? 'none' : '';
-    sun.style.display = t === 'dark' ? '' : 'none';
-  }
-})();
-</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

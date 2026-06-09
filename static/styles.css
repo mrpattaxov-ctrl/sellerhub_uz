@@ -1,9 +1,197 @@
 :root {
   --card-radius: 22px;
+
+  /* unified top-bar + sidebar tokens (used on every page) */
+  --tb-page-bg:#F4F4F7;
+  --tb-surface:#FFFFFF;
+  --tb-border:#ECECF0;
+  --tb-text:#1A1A22;
+  --tb-text-2:#5A5762;
+  --tb-text-muted:#8E8B97;
+  --tb-active-bg:#EFEEF2;
+  --tb-plan-bg:#F0EAFF;
+  --tb-plan-text:#7C3AED;
+  --tb-hover:#F8F8FA;
+  --tb-shadow-pop:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+  --tb-danger:#E84747;
+}
+[data-bs-theme="dark"] :root,
+[data-bs-theme="dark"] body {
+  --tb-page-bg:#0E0E14;
+  --tb-surface:#18181F;
+  --tb-border:#25252F;
+  --tb-text:#F0EDF5;
+  --tb-text-2:#B6B4C2;
+  --tb-text-muted:#8A8896;
+  --tb-active-bg:#22222D;
+  --tb-plan-bg:rgba(167,139,250,.18);
+  --tb-plan-text:#A78BFA;
+  --tb-hover:#1C1C26;
+  --tb-shadow-pop:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  --tb-danger:#EF4444;
 }
 
+/* ──────────── unified top bar (shared by every page) ──────────── */
+.pp-topbar {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--tb-surface);
+  border-bottom: 1px solid var(--tb-border);
+  box-shadow: 0 1px 2px rgba(20, 16, 40, .04), 0 6px 18px rgba(20, 16, 40, .05);
+  height: 64px;
+  display: flex; align-items: center;
+  padding: 0 24px;
+  gap: 10px;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+[data-bs-theme="dark"] .pp-topbar {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 18px rgba(0, 0, 0, .35);
+}
+.pp-topbar-spacer { flex: 1 1 auto; }
+.pp-tb-ghost {
+  height: 36px; min-width: 36px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  color: var(--tb-text-2);
+  cursor: pointer;
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.pp-tb-ghost:hover { background: var(--tb-hover); color: var(--tb-text); }
+.pp-tb-ghost svg { width: 18px; height: 18px; }
+.pp-tb-plan {
+  height: 32px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 999px;
+  background: var(--tb-plan-bg);
+  color: var(--tb-plan-text);
+  font-size: 13px; font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pp-tb-plan:hover { color: var(--tb-plan-text); filter: brightness(.95); }
+.pp-tb-plan .pp-tb-plan-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pp-tb-avatar-trigger {
+  height: 36px; padding: 0 10px 0 4px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--tb-text);
+  font-size: 14px; font-weight: 500;
+}
+.pp-tb-avatar-trigger:hover { background: var(--tb-hover); }
+.pp-tb-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #6E8FE8 0%, #4169E1 100%);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.pp-tb-avatar-trigger svg { width: 14px; height: 14px; color: var(--tb-text-muted); }
+
+.pp-tb-dropdown {
+  position: absolute;
+  top: 56px; right: 24px;
+  width: 260px;
+  background: var(--tb-surface);
+  border: 1px solid var(--tb-border);
+  border-radius: 14px;
+  box-shadow: var(--tb-shadow-pop);
+  padding: 6px;
+  z-index: 1060;
+  display: none;
+}
+.pp-tb-dropdown.open { display: block; }
+.pp-tb-dd-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--tb-border);
+  margin-bottom: 6px;
+}
+.pp-tb-dd-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, #6E8FE8 0%, #4169E1 100%);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.pp-tb-dd-name { font-size: 14px; font-weight: 600; color: var(--tb-text); line-height: 1.2; }
+.pp-tb-dd-sub { font-size: 12px; color: var(--tb-text-muted); margin-top: 2px; }
+.pp-tb-dd-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 14px; color: var(--tb-text);
+  text-decoration: none;
+  cursor: pointer;
+  background: transparent; border: 0; width: 100%;
+  text-align: left;
+}
+.pp-tb-dd-item:hover { background: var(--tb-hover); color: var(--tb-text); }
+.pp-tb-dd-item svg { width: 16px; height: 16px; color: var(--tb-text-muted); flex-shrink: 0; }
+.pp-tb-dd-item.danger { color: var(--tb-danger); }
+.pp-tb-dd-item.danger svg { color: var(--tb-danger); }
+.pp-tb-dd-item.danger:hover { color: var(--tb-danger); }
+.pp-tb-divider { height: 1px; background: var(--tb-border); margin: 6px 4px; }
+
+/* SellerHub sidebar adjustments (uzum_ui.js injects the sidebar; we tune its visuals here) */
+.uzum-sidebar-header {
+  min-height: 64px !important;
+  height: 64px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-shadow: 0 1px 2px rgba(20, 16, 40, .04), 0 6px 18px rgba(20, 16, 40, .05);
+}
+[data-bs-theme="dark"] .uzum-sidebar-header {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 18px rgba(0, 0, 0, .35);
+}
+.uzum-sidebar-content { padding-top: 14px !important; }
+.uzum-sidebar.closed .uzum-sidebar-content { padding-top: 14px !important; }
+.uzum-nav-item.active {
+  background: #E5E7EB !important;
+  color: #0B0B11 !important;
+  font-weight: 600 !important;
+  position: relative;
+}
+.uzum-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  background: #1A1A22;
+  border-radius: 0 3px 3px 0;
+}
+.uzum-nav-item.active svg,
+.uzum-nav-item.active .nav-icon svg,
+.uzum-nav-item.active svg.nav-icon {
+  stroke: #0B0B11 !important;
+}
+.uzum-sidebar.closed .uzum-nav-item.active::before {
+  left: 0; top: 0; bottom: 0; width: 3px; border-radius: 0;
+}
+[data-bs-theme="dark"] .uzum-nav-item.active {
+  background: #2A2D3E !important;
+  color: #F0EDF5 !important;
+}
+[data-bs-theme="dark"] .uzum-nav-item.active::before { background: #F0EDF5; }
+[data-bs-theme="dark"] .uzum-nav-item.active svg,
+[data-bs-theme="dark"] .uzum-nav-item.active .nav-icon svg,
+[data-bs-theme="dark"] .uzum-nav-item.active svg.nav-icon {
+  stroke: #F0EDF5 !important;
+}
+/* ─────────── end unified top bar / sidebar ─────────── */
+
+
 body {
-  background: #f7f7f9;
+  /* Slightly bluer-grey page bg so white cards visually separate from the page in light mode. */
+  background: #EFEEF5 !important;
+}
+[data-bs-theme="dark"] body {
+  background: #0E0E14 !important;
 }
 
 .card.product-card {

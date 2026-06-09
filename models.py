@@ -417,70 +417,6 @@ class TelegramPending(Base):
 # ─────────────────────────────────────────────────────────────────────
 
 
-class SalesLine(Base):
-    """Per-order-line sales ledger from SELLS_REPORT group=false.
-
-    PK = (shop_id, order_id, sku_id). NO `day` column — all range queries
-    go through `created_at` (the Tashkent timestamp from the CSV) with the
-    `(shop_id, created_at DESC)` index.
-    """
-    __tablename__ = "sales_lines"
-
-    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    order_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    sku_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-
-    sku_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    barcode: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    product_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # Rows with status == "Отменен" are DROPPED at ingest time; the column
-    # is kept so audit/debug can inspect statuses of rows that survived.
-    status: Mapped[str | None] = mapped_column(String(40), nullable=True)
-
-    # Business timestamps — naive Tashkent (verbatim CSV).
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    received_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
-    qty_returns: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
-    revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    seller_profit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    commission: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    promo_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    purchase_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-    logistics_fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0, server_default=sql_text("0"))
-
-    # ── OpenAPI-only fields (populated only when sales_lines ingest runs
-    # via /v1/finance/orders; NULL/0 for rows ingested via the browser CSV).
-    # product_image is the rich multi-resolution photo dict from OpenAPI
-    # (photoKey + {60..800px,original} → {high, low} URLs + color + flags).
-    # Stored verbatim so we don't lose data when Uzum adds new resolutions.
-    product_image: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    # OpenAPI splits cancelled-count from sold-count (group=false `cancelled`
-    # field). Browser CSV encodes cancellations as their own status='Отменен'
-    # rows which we drop at ingest, so this stays 0 for the CSV path.
-    qty_cancelled: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
-
-    # Infra timestamp — naive UTC via datetime.utcnow().
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        Index(
-            "ix_sales_lines_shop_created",
-            "shop_id",
-            sql_text("created_at DESC"),
-        ),
-        Index(
-            "ix_sales_lines_shop_sku_created",
-            "shop_id",
-            "sku_id",
-            sql_text("created_at DESC"),
-        ),
-    )
-
-
 class ExpensesLedger(Base):
     """Per-operation expenses from EXPENSES_REPORT.
 
@@ -530,35 +466,6 @@ class ExpensesLedger(Base):
             "shop_id",
             sql_text("charged_at DESC"),
         ),
-    )
-
-
-class ShopBackfillChunk(Base):
-    """Initial-backfill chunk state for NEW shops only (2022 → today).
-
-    NOT used for the nightly 45-day refetch — that's a single API call per
-    shop. Drained by `_onboarding_backfill_loop` via
-    `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`.
-    """
-    __tablename__ = "shop_backfill_chunks"
-
-    shop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    chunk_start: Mapped[date] = mapped_column(Date, primary_key=True)
-    chunk_end: Mapped[date] = mapped_column(Date, primary_key=True)
-
-    status: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default="pending",
-        server_default=sql_text("'pending'"),
-    )
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
-    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    # Infra timestamp — naive UTC.
-    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    __table_args__ = (
-        Index("ix_shop_backfill_chunks_status", "status", "shop_id"),
     )
 
 

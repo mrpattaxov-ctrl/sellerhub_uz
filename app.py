@@ -4912,14 +4912,13 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                     if barcode:
                         v.barcode = barcode
                         _v_by_barcode[barcode] = v
-                    # Seed only — the per-SKU (per-colour) image is OWNED by the
-                    # cabinet overlay (_sync_cabinet_sku_images) / sku-list fetcher.
-                    # Never clobber an already-set image with this product-level
-                    # previewImage, or colour variants (e.g. СЕРЕБРН) flash the
-                    # product's main photo (e.g. ЗОЛОТ) every sync tick until the
-                    # overlay re-corrects.
-                    if sku_image and not (v.image_url or "").strip():
-                        v.image_url = sku_image
+                    # v.image_url intentionally left untouched — the per-SKU
+                    # (per-colour) image is OWNED by the sku-list fetcher
+                    # (core.uzum_skulist.refresh_sku_images_for_shop) / cabinet
+                    # overlay. Seeding the product-level previewImage here would
+                    # make colour variants (e.g. СЕРЕБРН) flash the product's
+                    # main photo (e.g. ЗОЛОТ) every sync tick until the overlay
+                    # re-corrects.
                     if characteristics:
                         v.color = characteristics
                     # OpenAPI status object lives at product-level only,

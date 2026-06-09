@@ -114,6 +114,39 @@ def _ensure_postgres_runtime_schema():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_is_unlimited BOOLEAN NOT NULL DEFAULT FALSE",
         "UPDATE users SET trial_started_at = CURRENT_TIMESTAMP WHERE trial_started_at IS NULL AND COALESCE(is_admin, FALSE) = FALSE",
         "ALTER TABLE notification_settings ALTER COLUMN window_to_hour SET DEFAULT 20",
+        # ── Columns added by Alembic migrations on the products/finance +
+        # FBS branches. This deployment reconciles schema via create_all()
+        # (which only CREATES missing tables, never ALTERs existing ones), so
+        # these column-adds on pre-existing tables must be applied here. All
+        # are nullable / additive and IF NOT EXISTS, so this is idempotent and
+        # a no-op where a column already exists.
+        # expenses_ledger — OpenAPI finance fields (mig 20260520_0004)
+        "ALTER TABLE expenses_ledger ADD COLUMN IF NOT EXISTS date_created TIMESTAMP NULL",
+        "ALTER TABLE expenses_ledger ADD COLUMN IF NOT EXISTS date_updated TIMESTAMP NULL",
+        "ALTER TABLE expenses_ledger ADD COLUMN IF NOT EXISTS seller_id BIGINT NULL",
+        "ALTER TABLE expenses_ledger ADD COLUMN IF NOT EXISTS external_id VARCHAR(120) NULL",
+        "ALTER TABLE expenses_ledger ADD COLUMN IF NOT EXISTS code VARCHAR(80) NULL",
+        # users — komitent / document fields (mig 20260525_0002) + seller id (20260525_0001)
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS uzum_seller_id INTEGER NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name_legal VARCHAR(300) NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS contract_number VARCHAR(64) NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS pinfl VARCHAR(32) NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_address TEXT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS inn VARCHAR(32) NULL",
+        # variants — OpenAPI product fields (mig 20260520_0002)
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS product_title_ru VARCHAR(300) NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS product_title_uz VARCHAR(300) NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_created INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_fbs INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_additional INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_archived INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_pending INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_defected INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_missing INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS blocked BOOLEAN NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS blocking_reason VARCHAR(500) NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS sku_block_reason TEXT NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS ikpu VARCHAR(80) NULL",
     ]
     try:
         with engine.begin() as conn:

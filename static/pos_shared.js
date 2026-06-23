@@ -1,4 +1,89 @@
 (function () {
+  var _lang = (document.body && document.body.dataset.lang) || "ru";
+
+  var _POS_LABELS = {
+    ru: {
+      emptySearchTitle: "Начните поиск",
+      emptySearchText: "Введите название, SKU или штрихкод товара.",
+      emptyNoResultsTitle: "Ничего не найдено",
+      emptyNoResultsText: "Попробуйте другой запрос или загрузите накладную.",
+      emptyCartTitle: "Корзина пуста",
+      emptyCartText: "Добавьте товары из результатов поиска или загрузите накладную.",
+      actionPendingText: "Обработка...",
+      historyEmptyText: "Пока нет действий",
+      historyUndoBtnText: "Отменить",
+      historyRevertedBadgeText: "Отменено",
+      historyConfirmUndoText: "Отменить это действие?",
+      historyUndoSuccessText: "Действие отменено",
+      historyUndoFailedText: "Не удалось отменить",
+      historyUnitsText: "шт.",
+      historyLabels: { sale: "Продажа", stock_in: "Приёмка" },
+      noPhoto: "Нет фото",
+      stockPrefix: "Ост: ",
+      itemAdded: "Товар добавлен.",
+      actionDone: "Действие выполнено.",
+      actionFailed: "Не удалось выполнить действие.",
+      searchFailed: "Не удалось выполнить поиск.",
+      searchError: "Ошибка поиска.",
+      searchUnavailable: "Поиск временно недоступен",
+      searchCheckConn: "Проверьте соединение и попробуйте снова.",
+      confirmBtn: "Подтвердить",
+      noShops: "Нет доступных магазинов",
+      shopsLoadFailed: "Не удалось загрузить магазины",
+      invoiceSelectHint: "Выберите магазин и укажите ID накладной.",
+      loading: "Загрузка...",
+      invoiceLoadFailed: "Не удалось загрузить накладную.",
+      invoiceLoaded: function (n) { return "Накладная загружена: " + n + " товаров."; },
+      invoiceLoadError: "Ошибка загрузки накладной.",
+      ariaRemove: "Удалить",
+      ariaMinus: "Уменьшить",
+      ariaQty: "Количество",
+      ariaPlus: "Увеличить",
+      ariaClose: "Закрыть",
+    },
+    uz: {
+      emptySearchTitle: "Qidiruvni boshlang",
+      emptySearchText: "Mahsulot nomi, SKU yoki shtrix-kodini kiriting.",
+      emptyNoResultsTitle: "Hech narsa topilmadi",
+      emptyNoResultsText: "Boshqa so'rovni sinab ko'ring yoki hujjat yuklang.",
+      emptyCartTitle: "Savat bo'sh",
+      emptyCartText: "Qidiruv natijalaridan mahsulot qo'shing yoki hujjat yuklang.",
+      actionPendingText: "Ishlanmoqda...",
+      historyEmptyText: "Hozircha amallar yo'q",
+      historyUndoBtnText: "Bekor qilish",
+      historyRevertedBadgeText: "Bekor qilindi",
+      historyConfirmUndoText: "Ushbu amalni bekor qilinsinmi?",
+      historyUndoSuccessText: "Amal bekor qilindi",
+      historyUndoFailedText: "Bekor qilib bo'lmadi",
+      historyUnitsText: "dona",
+      historyLabels: { sale: "Sotuv", stock_in: "Qabul qilish" },
+      noPhoto: "Rasm yo'q",
+      stockPrefix: "Qold: ",
+      itemAdded: "Mahsulot qo'shildi.",
+      actionDone: "Amal bajarildi.",
+      actionFailed: "Amalni bajarib bo'lmadi.",
+      searchFailed: "Qidiruvni bajarib bo'lmadi.",
+      searchError: "Qidiruv xatosi.",
+      searchUnavailable: "Qidiruv vaqtincha mavjud emas",
+      searchCheckConn: "Ulanishni tekshiring va qayta urinib ko'ring.",
+      confirmBtn: "Tasdiqlash",
+      noShops: "Mavjud do'konlar yo'q",
+      shopsLoadFailed: "Do'konlarni yuklab bo'lmadi",
+      invoiceSelectHint: "Do'konni tanlang va hujjat ID'sini kiriting.",
+      loading: "Yuklanmoqda...",
+      invoiceLoadFailed: "Hujjatni yuklab bo'lmadi.",
+      invoiceLoaded: function (n) { return "Hujjat yuklandi: " + n + " mahsulot."; },
+      invoiceLoadError: "Hujjatni yuklashda xato.",
+      ariaRemove: "O'chirish",
+      ariaMinus: "Kamaytirish",
+      ariaQty: "Miqdor",
+      ariaPlus: "Oshirish",
+      ariaClose: "Yopish",
+    },
+  };
+
+  var _L = _POS_LABELS[_lang] || _POS_LABELS.ru;
+
   function esc(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -69,28 +154,28 @@
           showStock: true,
           showModeToggle: false,
           defaultMode: "sale",
-          emptySearchTitle: "Начните поиск",
-          emptySearchText: "Введите название, SKU или штрихкод товара.",
-          emptyNoResultsTitle: "Ничего не найдено",
-          emptyNoResultsText: "Попробуйте другой запрос или загрузите накладную.",
-          emptyCartTitle: "Корзина пуста",
-          emptyCartText: "Добавьте товары из результатов поиска или загрузите накладную.",
-          actionPendingText: "Обработка...",
+          emptySearchTitle: _L.emptySearchTitle,
+          emptySearchText: _L.emptySearchText,
+          emptyNoResultsTitle: _L.emptyNoResultsTitle,
+          emptyNoResultsText: _L.emptyNoResultsText,
+          emptyCartTitle: _L.emptyCartTitle,
+          emptyCartText: _L.emptyCartText,
+          actionPendingText: _L.actionPendingText,
           actionShortcut: "",
           clearCartOnAction: true,
           clearSearchOnAction: true,
           onAction: null,
           onActionSuccess: null,
           updateActionBtn: null,
-          historyEmptyText: "Пока нет действий",
-          historyUndoBtnText: "Отменить",
-          historyRevertedBadgeText: "Отменено",
-          historyConfirmUndoText: "Отменить это действие?",
-          historyUndoSuccessText: "Действие отменено",
-          historyUndoFailedText: "Не удалось отменить",
-          historyUnitsText: "шт.",
+          historyEmptyText: _L.historyEmptyText,
+          historyUndoBtnText: _L.historyUndoBtnText,
+          historyRevertedBadgeText: _L.historyRevertedBadgeText,
+          historyConfirmUndoText: _L.historyConfirmUndoText,
+          historyUndoSuccessText: _L.historyUndoSuccessText,
+          historyUndoFailedText: _L.historyUndoFailedText,
+          historyUnitsText: _L.historyUnitsText,
           historySkuLabelText: "SKU",
-          historyLabels: { sale: "Продажа", stock_in: "Приёмка" },
+          historyLabels: _L.historyLabels,
         },
         config || {}
       );
@@ -332,14 +417,14 @@
         var response = await fetch(this.config.searchEndpoint + "?q=" + encodeURIComponent(query));
         var data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Не удалось выполнить поиск.");
+          throw new Error(data.error || _L.searchFailed);
         }
         this.results = Array.isArray(data.items) ? data.items : [];
         this.renderResults(this.results);
       } catch (error) {
         this.results = [];
         this.renderResultsState("error");
-        this.showToast(error.message || "Ошибка поиска.", "danger");
+        this.showToast(error.message || _L.searchError, "danger");
       }
     }
 
@@ -354,8 +439,8 @@
       if (kind === "error") {
         this.refs.results.innerHTML = emptyStateMarkup(
           iconSearch(),
-          "Поиск временно недоступен",
-          "Проверьте соединение и попробуйте снова."
+          _L.searchUnavailable,
+          _L.searchCheckConn
         );
         return;
       }
@@ -379,11 +464,11 @@
           function (item, index) {
             var media = item.image_url
               ? '<img src="' + esc(item.image_url) + '" alt="' + esc(item.name) + '">'
-              : '<div class="pos-product-placeholder">Нет фото</div>';
+              : '<div class="pos-product-placeholder">' + esc(_L.noPhoto) + '</div>';
             var stock = "";
             if (this.config.showStock) {
               var stockClass = Number(item.stock) > 0 ? "pos-stock pos-stock--good" : "pos-stock pos-stock--bad";
-              stock = '<span class="' + stockClass + '">Ост: ' + esc(item.stock) + "</span>";
+              stock = '<span class="' + stockClass + '">' + esc(_L.stockPrefix) + esc(item.stock) + "</span>";
             }
 
             return [
@@ -427,7 +512,7 @@
 
       this.renderCart();
       if (!opts.silent) {
-        this.showToast("Товар добавлен.", "success");
+        this.showToast(_L.itemAdded, "success");
       }
     }
 
@@ -459,7 +544,7 @@
 
     cartMediaMarkup(item) {
       if (!item.image_url) {
-        return '<div class="pos-cart-media"><div class="pos-cart-thumb--empty">Нет фото</div></div>';
+        return '<div class="pos-cart-media"><div class="pos-cart-thumb--empty">' + esc(_L.noPhoto) + '</div></div>';
       }
 
       return [
@@ -585,19 +670,19 @@
               '<div class="pos-cart-side">',
               '<button type="button" class="pos-remove-btn" data-cart-action="remove" data-item-id="',
               item.id,
-              '" aria-label="Удалить">×</button>',
+              '" aria-label="' + esc(_L.ariaRemove) + '">×</button>',
               '<div class="pos-qty-stepper">',
               '<button type="button" data-cart-action="minus" data-item-id="',
               item.id,
-              '" aria-label="Уменьшить">-</button>',
+              '" aria-label="' + esc(_L.ariaMinus) + '">-</button>',
               '<input type="number" min="1" value="',
               row.qty,
               '" data-cart-qty-input="1" data-item-id="',
               item.id,
-              '" aria-label="Количество">',
+              '" aria-label="' + esc(_L.ariaQty) + '">',
               '<button type="button" data-cart-action="plus" data-item-id="',
               item.id,
-              '" aria-label="Увеличить">+</button>',
+              '" aria-label="' + esc(_L.ariaPlus) + '">+</button>',
               "</div>",
               "</div>",
               "</article>",
@@ -624,7 +709,7 @@
       }
 
       this.refs.actionBtn.className = "pos-primary-btn";
-      this.refs.actionBtn.textContent = totalQty ? "Подтвердить (" + totalQty + ")" : "Подтвердить";
+      this.refs.actionBtn.textContent = totalQty ? _L.confirmBtn + " (" + totalQty + ")" : _L.confirmBtn;
     }
 
     async handleAction() {
@@ -657,10 +742,10 @@
         }
 
         this.renderCart();
-        this.showToast((result && result.message) || "Действие выполнено.", "success");
+        this.showToast((result && result.message) || _L.actionDone, "success");
         this.loadHistory();
       } catch (error) {
-        this.showToast(error.message || "Не удалось выполнить действие.", "danger");
+        this.showToast(error.message || _L.actionFailed, "danger");
         this.updateActionButton();
       } finally {
         if (this.refs.actionBtn && this.refs.actionBtn.textContent === this.config.actionPendingText) {
@@ -678,7 +763,7 @@
         var data = await response.json();
         var shops = Array.isArray(data.shops) ? data.shops : [];
         if (!shops.length) {
-          this.refs.invoiceShopSelect.innerHTML = '<option disabled selected>Нет доступных магазинов</option>';
+          this.refs.invoiceShopSelect.innerHTML = '<option disabled selected>' + esc(_L.noShops) + '</option>';
           return;
         }
 
@@ -688,7 +773,7 @@
           })
           .join("");
       } catch (error) {
-        this.refs.invoiceShopSelect.innerHTML = '<option disabled selected>Не удалось загрузить магазины</option>';
+        this.refs.invoiceShopSelect.innerHTML = '<option disabled selected>' + esc(_L.shopsLoadFailed) + '</option>';
       }
     }
 
@@ -698,13 +783,13 @@
       var shopId = this.refs.invoiceShopSelect.value;
       var invoiceId = this.refs.invoiceIdInput.value.trim();
       if (!shopId || !invoiceId) {
-        this.showToast("Выберите магазин и укажите ID накладной.", "danger");
+        this.showToast(_L.invoiceSelectHint, "danger");
         return;
       }
 
       var originalText = this.refs.fetchInvoiceBtn.textContent;
       this.refs.fetchInvoiceBtn.disabled = true;
-      this.refs.fetchInvoiceBtn.textContent = "Загрузка...";
+      this.refs.fetchInvoiceBtn.textContent = _L.loading;
 
       try {
         var response = await fetch(this.config.invoiceEndpoint, {
@@ -717,7 +802,7 @@
         });
         var data = await response.json();
         if (!response.ok || data.error) {
-          throw new Error(data.error || "Не удалось загрузить накладную.");
+          throw new Error(data.error || _L.invoiceLoadFailed);
         }
 
         (data.items || []).forEach(
@@ -730,9 +815,9 @@
           bootstrap.Modal.getOrCreateInstance(this.refs.invoiceModal).hide();
         }
 
-        this.showToast("Накладная загружена: " + (data.items || []).length + " товаров.", "success");
+        this.showToast(_L.invoiceLoaded((data.items || []).length), "success");
       } catch (error) {
-        this.showToast(error.message || "Ошибка загрузки накладной.", "danger");
+        this.showToast(error.message || _L.invoiceLoadError, "danger");
       } finally {
         this.refs.fetchInvoiceBtn.disabled = false;
         this.refs.fetchInvoiceBtn.textContent = originalText;
@@ -911,7 +996,7 @@
         '<div class="toast-body">',
         esc(message),
         "</div>",
-        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>',
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="' + esc(_L.ariaClose) + '"></button>',
         "</div>",
       ].join("");
 

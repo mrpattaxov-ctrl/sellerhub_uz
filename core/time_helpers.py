@@ -9,7 +9,7 @@ from config import (
     NOTIFICATION_SETTINGS_DEFAULTS,
 )
 
-
+#get the current local (Tashkent) time.
 def _now_app_tz() -> datetime:
     return datetime.now(APP_TZ)
 

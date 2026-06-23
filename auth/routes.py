@@ -1,6 +1,7 @@
 """Auth-related routes extracted from app.py as a Flask Blueprint."""
 from __future__ import annotations
 
+import hmac
 import threading
 
 from flask import (
@@ -29,7 +30,7 @@ from core.auth_helpers import (
     _jwt_expires_in_seconds,
     _uzum_auto_login,
 )
-from core.redis_client import unrevoke_user
+from core.redis_client import unrevoke_user, is_user_revoked
 from core.subscriptions import (
     _activate_subscription_code,
     _ensure_user_trial_started,
@@ -98,7 +99,7 @@ def _finish_admin_login(*, default_endpoint: str):
 @auth_bp.get("/login")
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
     return render_template("login.html")
 
 
@@ -106,28 +107,30 @@ def login():
 def backstage_login():
     if not session.get(BACKSTAGE_LOGIN_SESSION_KEY):
         return render_template("not_found.html", message="Page not found"), 404
-    return _finish_admin_login(default_endpoint="products_bp.groups_page")
+    return _finish_admin_login(default_endpoint="products_bp.economics_page")
 
 
 @auth_bp.get("/admin")
 def admin_entry():
     if current_user.is_authenticated and _current_user_is_admin():
         return redirect(url_for("admin_bp.admin_subscriptions_page"))
-    return redirect(url_for("auth_bp.admin_login_page", next=_safe_next_url()))
+    return render_template("not_found.html", message="Page not found"), 404
 
 
-@auth_bp.route("/admin/login", methods=["GET", "POST"])
+@auth_bp.route("/admin/login", methods=["GET", "POST"]) 
 def admin_login_page():
-    return _finish_admin_login(default_endpoint="admin_bp.admin_subscriptions_page")
+    if current_user.is_authenticated and _current_user_is_admin():
+        return redirect(url_for("admin_bp.admin_subscriptions_page"))
+    return render_template("not_found.html", message="Page not found"), 404
 
 
 @auth_bp.get("/set-lang/<string:lang>")
 def set_lang(lang: str):
     if lang in ("ru", "uz"):
         session["lang"] = lang
-    return redirect(request.referrer or url_for("products_bp.groups_page"))
+    return redirect(request.referrer or url_for("products_bp.economics_page"))
 
-
+#Secret key link for admin login (no username/password, just a secret in the URL). This is a convenience for the admin to log in from a mobile device without typing credentials. The secret is stored in the .env file and should be kept private.
 @auth_bp.route("/admin-<string:secret>/login", methods=["GET", "POST"])
 def admin_login(secret: str):
     if secret != _ADMIN_SECRET:
@@ -137,50 +140,6 @@ def admin_login(secret: str):
     if next_url:
         return redirect(url_for("auth_bp.backstage_login", next=next_url))
     return redirect(url_for("auth_bp.backstage_login"))
-
-
-@auth_bp.route("/api/auth/uzum-sso", methods=["POST", "OPTIONS"])
-def api_auth_uzum_sso():
-    """Chrome Extension calls this to push a fresh Uzum Bearer token to the admin account."""
-    # Handle CORS preflight from the extension
-    if request.method == "OPTIONS":
-        resp = make_response("", 204)
-        origin = request.headers.get("Origin", "")
-        if origin.startswith("chrome-extension://"):
-            resp.headers["Access-Control-Allow-Origin"] = origin
-            resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-            resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-            resp.headers["Access-Control-Allow-Credentials"] = "true"
-        return resp
-
-    try:
-        payload = request.get_json(force=True, silent=True) or {}
-        token = str(payload.get("token") or "").strip()
-
-        if not token:
-            return _json_response({"error": "Missing token"}, 400)
-
-        if not token.startswith("Bearer "):
-            token = f"Bearer {token}"
-
-        # Save the token to the admin user (no Uzum API verification needed)
-        with SessionLocal() as db:
-            admin = db.execute(select(User).where(User.is_admin == True)).scalars().first()
-            if not admin:
-                return _json_response({"error": "No admin user found"}, 500)
-            admin.api_key = token
-            db.commit()
-
-        origin = request.headers.get("Origin", "")
-        resp = jsonify({"ok": True})
-        if origin.startswith("chrome-extension://"):
-            resp.headers["Access-Control-Allow-Origin"] = origin
-            resp.headers["Access-Control-Allow-Credentials"] = "true"
-        return resp
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
 
 @auth_bp.route("/logout")
 @login_required
@@ -218,7 +177,7 @@ def change_password():
             db.commit()
 
         flash("Пароль обновлён.")
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
 
     return render_template("change_password.html")
 
@@ -227,7 +186,7 @@ def change_password():
 def settings_api_key():
     if not _current_user_is_admin():
         flash("Только администратор может изменять Uzum API-токен.")
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
     if request.method == "POST":
         api_key = (request.form.get("api_key") or "").strip()
         uzum_phone = (request.form.get("uzum_phone") or "").strip()
@@ -388,7 +347,7 @@ def subscription_page():
 @login_required
 def subscription_expired_page():
     if _current_user_is_admin():
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
 
     user_id = int(current_user.get_id())
     with SessionLocal() as db:
@@ -399,8 +358,12 @@ def subscription_expired_page():
             db.refresh(user)
         status = _subscription_status_for_user(user, settings=settings)
 
-    if status["active"]:
-        return redirect(url_for("products_bp.groups_page"))
+    # A revoked user must stay on this page even if their DB status still looks
+    # active (e.g. an untouched trial after an admin cancel). The subscription
+    # gate blocks on the Redis revoke flag, so bouncing them back to the app
+    # would ping-pong into ERR_TOO_MANY_REDIRECTS. Honour the flag like the gate.
+    if status["active"] and not is_user_revoked(user_id):
+        return redirect(url_for("products_bp.economics_page"))
 
     return render_template("subscription_expired.html", subscription_status=status)
 

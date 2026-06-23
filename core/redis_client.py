@@ -33,6 +33,13 @@ redis_client: redis.Redis = redis.Redis(connection_pool=_pool)
 
 _REVOKED_USERS_KEY = "revoked_users"
 
+# Users whose signed-session subscription cache must be recomputed from the DB
+# on their next request. A subscription change (admin downgrade, code removal,
+# Payme event, trial start) flags the user here so the gate bypasses the
+# session fast-path exactly once and lets the change reach a live session —
+# even a sticky "unlimited" one that would otherwise never be re-checked.
+_RECHECK_USERS_KEY = "subscription_recheck_users"
+
 
 def is_user_revoked(user_id: int | str) -> bool:
     return bool(redis_client.sismember(_REVOKED_USERS_KEY, str(user_id)))
@@ -44,3 +51,25 @@ def revoke_user(user_id: int | str) -> None:
 
 def unrevoke_user(user_id: int | str) -> None:
     redis_client.srem(_REVOKED_USERS_KEY, str(user_id))
+
+
+def mark_user_for_recheck(user_id: int | str) -> None:
+    redis_client.sadd(_RECHECK_USERS_KEY, str(user_id))
+
+
+def clear_user_recheck(user_id: int | str) -> None:
+    redis_client.srem(_RECHECK_USERS_KEY, str(user_id))
+
+
+def subscription_gate_state(user_id: int | str) -> tuple[bool, bool]:
+    """Return ``(is_revoked, pending_recheck)`` in a single Redis round-trip.
+
+    Used by the per-request subscription gate so checking both sets costs the
+    same latency as the single SISMEMBER it replaced.
+    """
+    uid = str(user_id)
+    pipe = redis_client.pipeline()
+    pipe.sismember(_REVOKED_USERS_KEY, uid)
+    pipe.sismember(_RECHECK_USERS_KEY, uid)
+    revoked, recheck = pipe.execute()
+    return bool(revoked), bool(recheck)

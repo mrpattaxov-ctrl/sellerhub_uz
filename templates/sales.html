@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+[data-bs-theme="light"] .sl-page, .sl-page {
+  --sl-bg:#F4F4F7; --sl-surface:#FFFFFF; --sl-border:#ECECF0; --sl-border-strong:#E0DFE6;
+  --sl-text:#1A1A22; --sl-text-2:#5A5762; --sl-muted:#8E8B97; --sl-active:#EFEEF2; --sl-hover:#F8F8FA;
+  --sl-pill-bg:#F4F4F7; --sl-pill-text:#3A3744; --sl-head:#F9F9FB;
+  --sl-accent:#4169E1; --sl-accent-fg:#FFFFFF;
+  --sl-ok-bg:#ECFDF3; --sl-ok-fg:#0F9A6A; --sl-warn-bg:#FFF7E6; --sl-warn-fg:#B7791F; --sl-info-bg:#EAF0FF; --sl-info-fg:#4169E1;
+  --sl-danger-bg:#FEF3F2; --sl-danger-fg:#B42318;
+  --sl-shadow:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+}
+[data-bs-theme="dark"] .sl-page {
+  --sl-bg:#0E0E14; --sl-surface:#18181F; --sl-border:#25252F; --sl-border-strong:#2E2E3A;
+  --sl-text:#F0EDF5; --sl-text-2:#B6B4C2; --sl-muted:#8A8896; --sl-active:#22222D; --sl-hover:#1C1C26;
+  --sl-pill-bg:#101018; --sl-pill-text:#D7D4DF; --sl-head:#1B1B23;
+  --sl-accent:#6E8FE8; --sl-accent-fg:#0E0E14;
+  --sl-ok-bg:rgba(52,211,153,.10); --sl-ok-fg:#5EEAB0; --sl-warn-bg:rgba(251,191,36,.10); --sl-warn-fg:#FBBF24; --sl-info-bg:rgba(110,143,232,.12); --sl-info-fg:#A4B9F0;
+  --sl-danger-bg:rgba(248,113,113,.12); --sl-danger-fg:#FCA5A5;
+  --sl-shadow:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+}
+.sl-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--sl-text); }
+.sl-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-0.02em; }
+.sl-meta { font-size:13px; color:var(--sl-muted); margin:0 0 18px; }
+.sl-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+
+.sl-store-picker { position:relative; }
+.sl-store-trigger { height:42px; padding:0 14px; display:inline-flex; align-items:center; gap:10px;
+  background:var(--sl-surface); border:1px solid var(--sl-border); border-radius:12px; font-size:14px; font-weight:500; color:var(--sl-text); cursor:pointer; min-width:180px; }
+.sl-store-trigger svg { color:var(--sl-muted); width:16px; height:16px; }
+.sl-store-trigger .sl-chev { margin-left:auto; }
+.sl-store-menu { position:absolute; top:calc(100% + 6px); left:0; background:var(--sl-surface); border:1px solid var(--sl-border);
+  border-radius:12px; box-shadow:var(--sl-shadow); min-width:220px; padding:6px; z-index:25; display:none; }
+.sl-store-picker.open .sl-store-menu { display:block; }
+.sl-store-item { padding:9px 12px; font-size:14px; font-weight:500; border-radius:8px; cursor:pointer; }
+.sl-store-item:hover { background:var(--sl-hover); }
+.sl-store-item.selected { background:var(--sl-active); font-weight:600; }
+
+/* tabs */
+.sl-tabs { display:inline-flex; gap:4px; padding:4px; background:var(--sl-active); border-radius:12px; flex-wrap:wrap; }
+.sl-tab { height:34px; padding:0 14px; display:inline-flex; align-items:center; gap:7px; border:0; background:transparent;
+  border-radius:9px; font-size:13px; font-weight:600; color:var(--sl-text-2); cursor:pointer; transition:background .12s, color .12s; }
+.sl-tab:hover { color:var(--sl-text); }
+.sl-tab.active { background:var(--sl-surface); color:var(--sl-text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.sl-tab-count { font-size:11px; font-weight:700; min-width:18px; height:18px; padding:0 5px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:999px; background:var(--sl-active); color:var(--sl-text-2); }
+.sl-tab.active .sl-tab-count { background:var(--sl-accent); color:var(--sl-accent-fg); }
+
+.sl-search { flex:1 1 200px; height:40px; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--sl-bg); border:1px solid var(--sl-border); border-radius:11px; transition:border-color .15s, box-shadow .15s; }
+.sl-search:focus-within { border-color:var(--sl-text-2); box-shadow:0 0 0 4px rgba(65,105,225,.10); }
+.sl-search svg { color:var(--sl-muted); width:16px; height:16px; flex-shrink:0; }
+.sl-search input { border:0; outline:0; background:transparent; width:100%; font-size:14px; color:var(--sl-text); }
+
+/* sale cards */
+.sl-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px; }
+@media (max-width:1200px){ .sl-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:760px){ .sl-grid{ grid-template-columns:1fr; } }
+.sl-card { background:var(--sl-surface); border:1px solid var(--sl-border); border-radius:16px; overflow:hidden;
+  display:flex; flex-direction:column; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; }
+.sl-card.clickable:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(20,16,40,.08); border-color:var(--sl-border-strong); }
+.sl-card.done { cursor:default; opacity:.72; }
+.sl-card-banner { aspect-ratio:16/7; background:var(--sl-active); overflow:hidden; }
+.sl-card-banner img { width:100%; height:100%; object-fit:cover; }
+.sl-card-body { padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; }
+.sl-card-title { font-size:15px; font-weight:600; line-height:1.3; }
+.sl-card-dates { font-size:12px; color:var(--sl-muted); }
+.sl-badges { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.sl-badge { font-size:11px; font-weight:700; letter-spacing:.03em; padding:3px 9px; border-radius:999px; text-transform:uppercase; }
+.sl-badge.created { background:var(--sl-info-bg); color:var(--sl-info-fg); }
+.sl-badge.active  { background:var(--sl-ok-bg);  color:var(--sl-ok-fg); }
+.sl-badge.completed { background:var(--sl-active); color:var(--sl-muted); }
+.sl-card-stats { display:flex; gap:16px; font-size:13px; color:var(--sl-text-2); margin-top:2px; }
+.sl-card-stats b { color:var(--sl-text); font-variant-numeric:tabular-nums; }
+.sl-card-open { margin-top:auto; padding-top:4px; font-size:13px; font-weight:600; color:var(--sl-accent); display:inline-flex; align-items:center; gap:5px; }
+
+/* detail */
+.sl-back { display:inline-flex; align-items:center; gap:8px; background:none; border:0; color:var(--sl-text-2); font-size:14px; font-weight:600; cursor:pointer; padding:6px 0; margin-bottom:8px; }
+.sl-back:hover { color:var(--sl-text); }
+.sl-detail-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.sl-rule { font-size:13px; color:var(--sl-muted); margin-top:6px; }
+.sl-rule b { color:var(--sl-warn-fg); }
+
+/* two-panel layout (left suitable | right selected-SKU table) */
+.sl-panels { display:grid; grid-template-columns:minmax(250px,1fr) minmax(0,2.15fr); gap:18px; align-items:start; }
+@media (max-width:980px){ .sl-panels{ grid-template-columns:1fr; } }
+.sl-panel { background:var(--sl-surface); border:1px solid var(--sl-border); border-radius:16px; display:flex; flex-direction:column; overflow:hidden; }
+.sl-panel-head { padding:15px 16px; border-bottom:1px solid var(--sl-border); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.sl-panel-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.sl-count-pill { font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; background:var(--sl-active); color:var(--sl-text-2); }
+.sl-panel-sub { padding:12px 16px; border-bottom:1px solid var(--sl-border); }
+.sl-panel-body { overflow-y:auto; max-height:64vh; }
+@media (max-width:980px){ .sl-panel-body{ max-height:none; } }
+
+/* LEFT: suitable products */
+.sl-supp { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--sl-border); cursor:pointer; transition:background .12s; }
+.sl-supp:last-child { border-bottom:0; }
+.sl-supp:hover { background:var(--sl-hover); }
+.sl-supp.sel { background:var(--sl-info-bg); }
+.sl-supp-chk { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:var(--sl-accent); }
+.sl-supp-thumb { width:52px; height:52px; border-radius:11px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
+.sl-supp-thumb img { width:100%; height:100%; object-fit:cover; }
+.sl-supp-body { min-width:0; flex:1 1 auto; }
+.sl-supp-name { font-size:13.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sl-supp-stock { font-size:12px; color:var(--sl-muted); margin-top:4px; }
+.sl-supp.is-in { cursor:default; }
+.sl-supp.is-in:hover { background:transparent; }
+.sl-supp-inbadge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--sl-ok-bg); color:var(--sl-ok-fg); text-transform:uppercase; flex-shrink:0; }
+.sl-subhead { padding:11px 16px 5px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--sl-muted); }
+
+/* RIGHT: bulk + selected SKU table */
+.sl-bulk { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--sl-border); background:var(--sl-head); }
+.sl-bulk-label { font-size:13px; font-weight:600; display:flex; align-items:center; gap:7px; }
+.sl-bulk-label input { width:64px; height:34px; border:1px solid var(--sl-border-strong); border-radius:9px; background:var(--sl-surface); color:var(--sl-text); text-align:center; font-size:14px; font-weight:700; }
+.sl-bulk-apply { height:34px; padding:0 14px; border:0; border-radius:9px; background:var(--sl-accent); color:var(--sl-accent-fg); font-size:13px; font-weight:600; cursor:pointer; }
+.sl-bulk-hint { font-size:12px; color:var(--sl-muted); }
+
+.sl-thead, .sl-srow { display:grid; grid-template-columns:minmax(0,1fr) 88px 92px 138px 92px 96px; gap:14px; align-items:center; }
+.sl-thead { padding:11px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--sl-muted); border-bottom:1px solid var(--sl-border); position:sticky; top:0; background:var(--sl-surface); z-index:2; }
+.sl-thead .sl-r { text-align:right; }
+.sl-grouphdr { padding:10px 16px; font-size:13px; font-weight:700; color:var(--sl-text); background:var(--sl-head); border-bottom:1px solid var(--sl-border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.sl-grouphdr-name { display:flex; align-items:center; gap:8px; min-width:0; }
+.sl-grouphdr-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--sl-ok-bg); color:var(--sl-ok-fg); text-transform:uppercase; }
+.sl-grouphdr-disc { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--sl-text-2); }
+.sl-gdisc { width:52px; height:30px; border:1px solid var(--sl-border-strong); border-radius:8px; background:var(--sl-surface); color:var(--sl-text); text-align:center; font-size:13px; font-weight:700; }
+.sl-gdisc:focus { outline:0; border-color:var(--sl-accent); }
+.sl-gdisc-apply { height:30px; padding:0 12px; border:0; border-radius:8px; background:var(--sl-accent); color:var(--sl-accent-fg); font-size:12px; font-weight:600; cursor:pointer; }
+.sl-srow { padding:12px 16px; border-bottom:1px solid var(--sl-border); }
+.sl-srow:last-child { border-bottom:0; }
+.sl-srow-prod { display:flex; align-items:center; gap:10px; min-width:0; }
+.sl-srow-thumb { width:44px; height:44px; border-radius:9px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
+.sl-srow-thumb img { width:100%; height:100%; object-fit:cover; }
+.sl-srow-skuwrap { min-width:0; }
+.sl-srow-sku { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; color:var(--sl-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
+.sl-srow-char { font-size:11px; color:var(--sl-muted); margin-top:2px; }
+.sl-srow-cur { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+.sl-srow-cost { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--sl-text-2); }
+.sl-srow-new { text-align:right; }
+.sl-srow-new input { width:118px; height:38px; border:1px solid var(--sl-border-strong); border-radius:9px; background:var(--sl-bg); color:var(--sl-text); text-align:right; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }
+.sl-srow-new input:focus { outline:0; border-color:var(--sl-accent); background:var(--sl-surface); box-shadow:0 0 0 3px rgba(65,105,225,.12); }
+.sl-srow-new .sl-limit { font-size:11px; color:var(--sl-muted); margin-top:4px; }
+.sl-srow.warn .sl-srow-new input { border-color:var(--sl-danger-fg); }
+.sl-srow.warn .sl-srow-new .sl-limit { color:var(--sl-danger-fg); font-weight:700; }
+.sl-srow-disc { text-align:right; }
+.sl-srow-disc b { font-variant-numeric:tabular-nums; color:var(--sl-text); }
+.sl-srow-disc small { display:block; color:var(--sl-ok-fg); font-weight:700; margin-top:2px; }
+.sl-srow-payout { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--sl-text); }
+.sl-srow-loading { padding:16px; color:var(--sl-muted); font-size:13px; }
+@media (max-width:680px){
+  .sl-thead { display:none; }
+  .sl-srow { grid-template-columns:1fr 1fr; gap:8px; }
+  .sl-srow-prod { grid-column:1 / -1; }
+}
+
+/* left panel sticky add bar */
+.sl-addbar { padding:12px 16px; border-top:1px solid var(--sl-border); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  position:sticky; bottom:0; background:var(--sl-surface); }
+.sl-addbar-info { font-size:13px; color:var(--sl-text-2); }
+.sl-addbar-info b { color:var(--sl-text); }
+.sl-btn { height:40px; padding:0 18px; border-radius:11px; border:0; font-size:14px; font-weight:600; cursor:pointer; }
+.sl-btn-primary { background:var(--sl-accent); color:var(--sl-accent-fg); }
+.sl-btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+
+.sl-empty, .sl-loading { padding:42px 24px; text-align:center; color:var(--sl-muted); font-size:14px; }
+.sl-empty-sm { padding:40px 20px; text-align:center; color:var(--sl-muted); font-size:13px; }
+.sl-error { padding:14px 16px; border-radius:12px; background:var(--sl-warn-bg); color:var(--sl-warn-fg); font-size:14px; margin-bottom:16px; }
+
+.sl-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--sl-text); color:var(--sl-surface);
+  padding:10px 18px; border-radius:12px; font-size:13px; font-weight:500; box-shadow:var(--sl-shadow); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1200; max-width:90vw; text-align:center; }
+.sl-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+{% endblock %}
+
+{% set is_uz = (lang == 'uz') %}
+
+{% block content %}
+<div class="sl-page"
+     data-shops='{{ shops | tojson }}'
+     data-lang="{{ lang }}">
+  <h1 class="sl-h1">{{ 'Aksiyalar' if is_uz else 'Акции' }}</h1>
+  <p class="sl-meta">{{ 'Mahsulotlaringizni Uzum aksiyalariga qo\'shing' if is_uz else 'Добавляйте свои товары в акции Uzum' }}</p>
+
+  <div id="slError" class="sl-error" style="display:none"></div>
+
+  <!-- Sales list view -->
+  <div id="slSalesView">
+    <div class="sl-filter-row">
+      <div class="sl-tabs" id="slTabs">
+        <button type="button" class="sl-tab active" data-tab="active">
+          {{ 'Faol' if is_uz else 'Активные' }} <span class="sl-tab-count" id="slCountActive">0</span>
+        </button>
+        <button type="button" class="sl-tab" data-tab="created">
+          {{ 'Tez orada' if is_uz else 'Будущие' }} <span class="sl-tab-count" id="slCountCreated">0</span>
+        </button>
+        <button type="button" class="sl-tab" data-tab="completed">
+          {{ 'Tugagan' if is_uz else 'Завершённые' }} <span class="sl-tab-count" id="slCountCompleted">0</span>
+        </button>
+      </div>
+
+      {% if shops | length > 1 %}
+      <div class="sl-store-picker" id="slStorePicker" style="margin-left:auto">
+        <button type="button" class="sl-store-trigger" id="slStoreTrigger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span id="slStoreLabel"></span>
+          <svg class="sl-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="sl-store-menu" id="slStoreMenu"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="slSales" class="sl-grid"></div>
+    <div id="slSalesLoading" class="sl-loading">{{ 'Yuklanmoqda…' if is_uz else 'Загрузка…' }}</div>
+  </div>
+
+  <!-- Sale detail view -->
+  <div id="slDetailView" style="display:none">
+    <button type="button" class="sl-back" id="slBack">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      {{ 'Aksiyalarga qaytish' if is_uz else 'К списку акций' }}
+    </button>
+    <div class="sl-detail-head">
+      <div>
+        <h2 class="sl-h1" id="slDetailTitle" style="font-size:22px"></h2>
+        <div class="sl-rule" id="slDetailRule"></div>
+      </div>
+    </div>
+
+    <div class="sl-panels">
+      <!-- LEFT: suitable products -->
+      <section class="sl-panel">
+        <div class="sl-panel-head">
+          <span class="sl-panel-title">{{ 'Mos mahsulotlar' if is_uz else 'Подходящие товары' }}</span>
+        </div>
+        <div class="sl-panel-sub">
+          <label class="sl-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="slProdSearch" type="text" placeholder="{{ 'Qidirish…' if is_uz else 'Поиск…' }}">
+          </label>
+        </div>
+        <div id="slSuitList" class="sl-panel-body"></div>
+      </section>
+
+      <!-- RIGHT: selected SKU price table -->
+      <section class="sl-panel">
+        <div class="sl-panel-head">
+          <span class="sl-panel-title">{{ 'Tanlangan mahsulotlar' if is_uz else 'Выбранные товары' }}
+            <span class="sl-count-pill" id="slSelCount">0</span></span>
+        </div>
+        <div id="slSelTable" class="sl-panel-body"></div>
+        <div class="sl-addbar" id="slAddBar" style="display:none">
+          <div class="sl-addbar-info" id="slFooterInfo"></div>
+          <button type="button" class="sl-btn sl-btn-primary" id="slAddBtn" disabled>{{ 'Aksiyaga qo\'shish' if is_uz else 'Добавить в акцию' }}</button>
+        </div>
+      </section>
+    </div>
+    <div id="slDetailLoading" class="sl-loading">{{ 'Yuklanmoqda…' if is_uz else 'Загрузка…' }}</div>
+  </div>
+</div>
+
+<div id="slToast" class="sl-toast" role="status" aria-live="polite"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  var root = document.querySelector('.sl-page');
+  var LANG = root.dataset.lang || 'ru';
+  var UZ = LANG === 'uz';
+  var SHOPS = JSON.parse(root.dataset.shops || '[]');
+  var T = {
+    inStock: UZ ? 'Omborda' : 'На складе',
+    pcs: UZ ? 'dona' : 'шт',
+    inSale: UZ ? 'Aksiyada' : 'В акции',
+    alreadyIn: UZ ? 'Allaqachon aksiyada' : 'Уже в акции',
+    colSku: UZ ? 'Tanlangan' : 'Выбранные',
+    colCur: UZ ? 'Joriy narx' : 'Текущая цена',
+    colCost: UZ ? 'Tannarx' : 'Себестоимость',
+    colNew: UZ ? 'Yangi narx' : 'Новая цена',
+    colDisc: UZ ? 'Chegirma' : 'Скидка',
+    colPayout: UZ ? 'Olishga' : 'К выводу',
+    noMore: UZ ? 'Ko\'pi bilan' : 'Не больше',
+    selectLeft: UZ ? 'Narxlarni belgilash uchun chapdan mahsulot tanlang' : 'Выберите товары слева, чтобы задать цены',
+    empty: UZ ? 'Mos mahsulotlar yo\'q' : 'Нет подходящих товаров',
+    salesEmpty: UZ ? 'Bu yerda aksiya yo\'q' : 'Здесь нет акций',
+    selected: UZ ? 'Tanlangan' : 'Выбрано',
+    products: UZ ? 'mahsulot' : 'тов.',
+    loading: UZ ? 'Yuklanmoqda…' : 'Загрузка…',
+    open: UZ ? 'Ochish' : 'Открыть',
+    noLimits: UZ ? 'Narx limitlari topilmadi' : 'Лимиты цен не найдены',
+    added: UZ ? 'Aksiyaga qo\'shildi' : 'Добавлено в акцию',
+    enterPrice: UZ ? 'Narx kiriting' : 'Укажите цену',
+    apply: UZ ? 'Qo\'llash' : 'Применить',
+  };
+  var cur = UZ ? "so'm" : "сум";
+  function fmt(n){ if(n===null||n===undefined||n==='') return '—'; return Number(n).toLocaleString('ru-RU').replace(/,/g,' '); }
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+  function title(o){ if(!o) return ''; return (UZ ? (o.uz||o.ru) : (o.ru||o.uz)) || ''; }
+  function floor10(x){ return Math.max(0, Math.floor((Number(x)||0)/10)*10); }
+  function pctOf(c, n){ c=Number(c)||0; n=Number(n)||0; if(c<=0) return 0; return Math.round((c-n)/c*100); }
+  // «К выводу» = new_price × (1 − commission) − logistics_per_unit. null when
+  // we have no finance-derived rates for this SKU (UI shows '—').
+  function computePayout(price, comm, logi){
+    if(comm==null || logi==null) return null;
+    return Math.max(0, Math.round((Number(price)||0)*(1-Number(comm)) - Number(logi)));
+  }
+  function payoutText(po){ return po==null ? '—' : fmt(po); }
+
+  var shopId = SHOPS.length ? SHOPS[0].uzum_id : '';
+  var saleState = null;        // {sale, products, added_products, default_min_discount, sale_card}
+  var allSales = [];
+  var curTab = 'active';
+  var selected = {};           // productId -> { product, loading, error, already_in, skus:[{sku_id,sku_title,characteristics,image,current_price,max_price,new_price}] }
+  var order = [];              // display order of selected productIds (newest added first)
+  var limitsCache = {};        // productId -> Promise([skus])
+
+  // toast / error
+  var toastEl = el('slToast'), toastTimer;
+  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){toastEl.classList.remove('show');},3800); }
+  function showError(msg){ var e=el('slError'); if(!msg){e.style.display='none';return;} e.textContent=msg; e.style.display=''; }
+
+  // ── store picker ──
+  (function(){
+    var picker = el('slStorePicker'); if(!picker) { return; }
+    var label = el('slStoreLabel'), menu = el('slStoreMenu');
+    function nameFor(id){ var s=SHOPS.find(function(x){return x.uzum_id===id;}); return s?s.name:id; }
+    label.textContent = nameFor(shopId);
+    SHOPS.forEach(function(s){
+      var d=document.createElement('div'); d.className='sl-store-item'+(s.uzum_id===shopId?' selected':''); d.textContent=s.name; d.dataset.id=s.uzum_id;
+      d.addEventListener('click', function(e){ e.stopPropagation(); shopId=s.uzum_id; label.textContent=s.name;
+        menu.querySelectorAll('.sl-store-item').forEach(function(x){x.classList.toggle('selected', x.dataset.id===shopId);});
+        picker.classList.remove('open'); backToList(); loadSales();
+      });
+      menu.appendChild(d);
+    });
+    el('slStoreTrigger').addEventListener('click', function(e){ e.stopPropagation(); picker.classList.toggle('open'); });
+    document.addEventListener('click', function(){ picker.classList.remove('open'); });
+  })();
+
+  // ── tabs ──
+  var STATUS_OF = { active:'ACTIVE', created:'CREATED', completed:'COMPLETED' };
+  el('slTabs').querySelectorAll('.sl-tab').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
+  function setTabActive(tab){ el('slTabs').querySelectorAll('.sl-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); }); }
+  function showTab(tab){ curTab = tab; setTabActive(tab); renderSalesGrid(); }
+
+  // ── sales list ──
+  function loadSales(){
+    showError('');
+    el('slSales').innerHTML=''; el('slSalesLoading').style.display='';
+    fetch('/api/sales?shop_id='+encodeURIComponent(shopId)).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+    .then(function(res){
+      el('slSalesLoading').style.display='none';
+      if(!res.ok){ showError(res.j.error || 'Error'); return; }
+      allSales = res.j.sales || [];
+      updateTabCounts();
+      var c = countByTab();
+      showTab(c.active>0 ? 'active' : (c.created>0 ? 'created' : (c.completed>0 ? 'completed' : 'active')));
+    }).catch(function(err){ el('slSalesLoading').style.display='none'; showError(String(err)); });
+  }
+  function countByTab(){
+    var c = { active:0, created:0, completed:0 };
+    allSales.forEach(function(s){ if(s.status==='ACTIVE') c.active++; else if(s.status==='CREATED') c.created++; else c.completed++; });
+    return c;
+  }
+  function updateTabCounts(){ var c=countByTab(); el('slCountActive').textContent=c.active; el('slCountCreated').textContent=c.created; el('slCountCompleted').textContent=c.completed; }
+  function renderSalesGrid(){
+    var want = STATUS_OF[curTab];
+    var list = allSales.filter(function(s){ return s.status===want; });
+    var box = el('slSales'); box.innerHTML='';
+    if(!list.length){ box.innerHTML='<div class="sl-empty">'+T.salesEmpty+'</div>'; return; }
+    list.forEach(function(s){ box.appendChild(saleCard(s)); });
+  }
+  function saleCard(s){
+    var banner = (s.image_url && (UZ ? s.image_url.uz : s.image_url.ru)) || (s.image_url && (s.image_url.ru||s.image_url.uz)) || '';
+    var st = (s.status||'').toLowerCase();
+    var stLabel = s.status==='ACTIVE' ? (UZ?'Faol':'Идёт') : s.status==='CREATED' ? (UZ?'Tez orada':'Скоро') : (UZ?'Tugagan':'Завершена');
+    var done = s.status==='COMPLETED';
+    var card = document.createElement('div'); card.className='sl-card'+(done?' done':' clickable');
+    card.innerHTML =
+      (banner ? '<div class="sl-card-banner"><img src="'+esc(banner)+'" alt="" loading="lazy"></div>' : '') +
+      '<div class="sl-card-body">'+
+        '<div class="sl-badges"><span class="sl-badge '+st+'">'+esc(stLabel)+'</span>'+
+          '<span class="sl-card-dates">'+esc(s.start_date||'')+' → '+esc(s.finish_date||'')+'</span></div>'+
+        '<div class="sl-card-title">'+esc(title(s.title))+'</div>'+
+        '<div class="sl-card-stats">'+
+          '<span>'+(UZ?'Mos':'Подходит')+': <b>'+(s.suitable_count==null?'—':s.suitable_count)+'</b></span>'+
+          '<span>'+(UZ?'Qo\'shilgan':'Добавлено')+': <b>'+(s.involved_count==null?'—':s.involved_count)+'</b></span>'+
+        '</div>'+
+        (done ? '' : '<span class="sl-card-open">'+T.open+
+          ' <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>')+
+      '</div>';
+    if(!done){ card.addEventListener('click', function(){ openSale(s); }); }
+    return card;
+  }
+
+  // ── sale detail ──
+  function openSale(s){
+    el('slSalesView').style.display='none';
+    el('slDetailView').style.display='';
+    el('slDetailTitle').textContent = title(s.title);
+    selected = {}; order = []; limitsCache = {};
+    el('slSuitList').innerHTML=''; el('slSelTable').innerHTML='';
+    el('slDetailLoading').style.display=''; el('slAddBar').style.display='none';
+    el('slProdSearch').value='';
+    showError('');
+    fetchSuitable(s, '', true);
+  }
+  function fetchSuitable(s, q, firstLoad){
+    fetch('/api/sales/'+s.id+'/suitable?shop_id='+encodeURIComponent(shopId)+'&q='+encodeURIComponent(q||''))
+    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+    .then(function(res){
+      el('slDetailLoading').style.display='none';
+      if(!res.ok){ showError(res.j.error||'Error'); return; }
+      saleState = res.j; saleState.sale_card = s;
+      el('slDetailRule').innerHTML = (UZ?'Minimal chegirma':'Мин. скидка')+': <b>'+(res.j.default_min_discount)+'%</b>';
+      // On first open, pre-load the products already in the sale into the
+      // right table (with their existing sale prices) so they're visible/editable.
+      if(firstLoad){ prepopulateAdded(); }
+      renderSuitable();
+      renderSelected();
+    }).catch(function(err){ el('slDetailLoading').style.display='none'; showError(String(err)); });
+  }
+
+  function prepopulateAdded(){
+    var added = (saleState && saleState.added_products) || [];
+    added.forEach(function(p){
+      var pid = String(p.product_id);
+      selected[pid] = {
+        product: { product_id:p.product_id, title:p.title, image:p.image },
+        purchase_price: (p.purchase_price||0),
+        already_in: true, loading:false,
+        skus: (p.skus||[]).map(function(s){
+          return { sku_id:s.sku_id, sku_title:s.sku_title, characteristics:s.characteristics, image:s.image||'',
+                   current_price:s.current_price||0, max_price:s.max_price||0,
+                   commission_rate:(s.commission_rate!=null?s.commission_rate:null), logistics_per_unit:(s.logistics_per_unit!=null?s.logistics_per_unit:null),
+                   new_price:(s.sale_price>0 ? s.sale_price : (s.max_price>0 ? s.max_price : (s.current_price||0))) };
+        })
+      };
+      if(order.indexOf(pid)<0) order.push(pid); // already-in products keep their order, below newly added
+    });
+  }
+
+  // LEFT: suitable list
+  function renderSuitable(){
+    var box = el('slSuitList'); box.innerHTML='';
+    var products = (saleState && saleState.products) || [];
+    if(!products.length){ box.innerHTML='<div class="sl-empty-sm">'+T.empty+'</div>'; return; }
+
+    products.forEach(function(p){
+      var pid = String(p.product_id);
+      var row = document.createElement('div'); row.className='sl-supp'+(selected[pid]?' sel':''); row.dataset.pid=pid;
+      row.innerHTML =
+        '<input type="checkbox" class="sl-supp-chk"'+(selected[pid]?' checked':'')+'>'+
+        '<div class="sl-supp-thumb">'+(p.image?'<img src="'+esc(p.image)+'" loading="lazy">':'')+'</div>'+
+        '<div class="sl-supp-body"><div class="sl-supp-name">'+esc(title(p.title))+'</div>'+
+          '<div class="sl-supp-stock">'+T.inStock+': '+(p.available_count==null?'—':p.available_count)+' '+T.pcs+'</div></div>';
+      function toggle(){
+        var chk = row.querySelector('.sl-supp-chk');
+        if(selected[pid]){ delete selected[pid]; var oi=order.indexOf(pid); if(oi>=0) order.splice(oi,1); chk.checked=false; row.classList.remove('sel'); renderSelected(); updateFooter(); }
+        else { chk.checked=true; row.classList.add('sel'); selectProduct(p); }
+      }
+      row.addEventListener('click', function(e){ if(e.target.classList.contains('sl-supp-chk')) return; toggle(); });
+      row.querySelector('.sl-supp-chk').addEventListener('change', toggle);
+      row.addEventListener('mouseenter', function(){ if(!selected[pid]) prefetchLimits(pid); });
+      box.appendChild(row);
+    });
+  }
+
+  // SKU-limits fetch (current + «Не больше X» cap), cached + prefetchable
+  function fetchLimits(pid){
+    if(limitsCache[pid]) return limitsCache[pid];
+    var p = fetch('/api/sales/'+saleState.sale.id+'/product/'+pid+'/sku-limits?shop_id='+encodeURIComponent(shopId))
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error||'Error'); return j.skus||[]; }); });
+    limitsCache[pid] = p; return p;
+  }
+  function prefetchLimits(pid){ try { fetchLimits(pid).catch(function(){}); } catch(_){} }
+
+  function selectProduct(p){
+    var pid = String(p.product_id);
+    if(order.indexOf(pid)<0) order.unshift(pid); // newest addition goes to the top
+    selected[pid] = { product:p, purchase_price:(p.purchase_price||0), loading:true, already_in:false, skus:null };
+    renderSelected(); updateFooter();
+    fetchLimits(pid).then(function(skus){
+      if(!selected[pid]) return; // unchecked meanwhile
+      selected[pid].loading = false;
+      selected[pid].skus = (skus||[]).map(function(s){
+        return { sku_id:s.sku_id, sku_title:s.sku_title, characteristics:s.characteristics, image:s.image||'',
+                 current_price:s.current_price||0, max_price:s.max_price||0,
+                 commission_rate:(s.commission_rate!=null?s.commission_rate:null), logistics_per_unit:(s.logistics_per_unit!=null?s.logistics_per_unit:null),
+                 new_price:(s.max_price>0 ? s.max_price : (s.current_price||0)) };
+      });
+      renderSelected(); updateFooter();
+    }).catch(function(e){
+      if(!selected[pid]) return;
+      selected[pid].loading=false; selected[pid].error=String(e.message||e); renderSelected(); updateFooter();
+    });
+  }
+
+  // RIGHT: selected SKU table
+  function renderSelected(){
+    var box = el('slSelTable');
+    var pids = order.filter(function(pid){ return selected[pid]; }); // display order: newest first
+    el('slSelCount').textContent = pids.length;
+    if(!pids.length){ box.innerHTML='<div class="sl-empty-sm">'+T.selectLeft+'</div>'; el('slAddBar').style.display='none'; return; }
+    var dmin = (saleState && saleState.default_min_discount) || 1;
+
+    var html = '<div class="sl-thead"><span>'+T.colSku+'</span><span class="sl-r">'+T.colCur+'</span><span class="sl-r">'+T.colCost+'</span><span class="sl-r">'+T.colNew+'</span><span class="sl-r">'+T.colDisc+'</span><span class="sl-r">'+T.colPayout+'</span></div>';
+    pids.forEach(function(pid){
+      var e = selected[pid];
+      var img = e.product.image;
+      html += '<div class="sl-grouphdr">'+
+        '<span class="sl-grouphdr-name">'+esc(title(e.product.title))+
+          (e.already_in?' <span class="sl-grouphdr-badge">'+T.inSale+'</span>':'')+'</span>'+
+        ((!e.loading && !e.error && e.skus && e.skus.length)
+          ? '<span class="sl-grouphdr-disc">'+T.colDisc+': <input class="sl-gdisc" type="number" min="0" max="99" value="'+dmin+'" data-pid="'+pid+'"> % '+
+            '<button type="button" class="sl-gdisc-apply" data-pid="'+pid+'">'+T.apply+'</button></span>'
+          : '')+
+        '</div>';
+      if(e.loading){ html += '<div class="sl-srow-loading">'+T.loading+'</div>'; return; }
+      if(e.error){ html += '<div class="sl-srow-loading" style="color:var(--sl-danger-fg)">'+esc(e.error)+'</div>'; return; }
+      if(!e.skus || !e.skus.length){ html += '<div class="sl-srow-loading">'+T.noLimits+'</div>'; return; }
+      e.skus.forEach(function(s, si){
+        var warn = (s.max_price>0 && s.new_price>s.max_price);
+        var amt = Math.max(0, (s.current_price||0) - (s.new_price||0));
+        var simg = s.image || img; // per-SKU image, product image as fallback
+        html +=
+          '<div class="sl-srow'+(warn?' warn':'')+'" data-pid="'+pid+'" data-si="'+si+'">'+
+            '<div class="sl-srow-prod"><div class="sl-srow-thumb">'+(simg?'<img src="'+esc(simg)+'">':'')+'</div>'+
+              '<div class="sl-srow-skuwrap"><div class="sl-srow-sku">'+esc(s.sku_title||('SKU '+s.sku_id))+'</div>'+
+                (s.characteristics?'<div class="sl-srow-char">'+esc(s.characteristics)+'</div>':'')+'</div></div>'+
+            '<div class="sl-srow-cur">'+fmt(s.current_price)+'</div>'+
+            '<div class="sl-srow-cost">'+fmt(e.purchase_price>0?e.purchase_price:null)+'</div>'+
+            '<div class="sl-srow-new"><input type="number" min="0" step="10" value="'+s.new_price+'" data-pid="'+pid+'" data-si="'+si+'">'+
+              '<div class="sl-limit">'+T.noMore+' '+fmt(s.max_price)+' '+cur+'</div></div>'+
+            '<div class="sl-srow-disc"><b data-amt>'+fmt(amt)+'</b><small data-pct>'+(pctOf(s.current_price,s.new_price))+'%</small></div>'+
+            '<div class="sl-srow-payout" data-payout>'+payoutText(computePayout(s.new_price, s.commission_rate, s.logistics_per_unit))+'</div>'+
+          '</div>';
+      });
+    });
+    box.innerHTML = html;
+
+    box.querySelectorAll('.sl-srow-new input').forEach(function(inp){
+      inp.addEventListener('input', function(){ onPriceInput(inp); });
+      inp.addEventListener('blur', function(){ onPriceInput(inp, true); });
+    });
+    box.querySelectorAll('.sl-gdisc-apply').forEach(function(btn){ btn.addEventListener('click', function(){ applyGroupDiscount(btn.dataset.pid); }); });
+    box.querySelectorAll('.sl-gdisc').forEach(function(inp){ inp.addEventListener('keydown', function(ev){ if(ev.key==='Enter') applyGroupDiscount(inp.dataset.pid); }); });
+    el('slAddBar').style.display='';
+    updateFooter();
+  }
+
+  function onPriceInput(inp, clamp){
+    var pid=inp.dataset.pid, si=Number(inp.dataset.si);
+    var e=selected[pid]; if(!e||!e.skus||!e.skus[si]) return;
+    var s=e.skus[si];
+    var v=Math.max(0, Math.round(Number(inp.value)||0));
+    if(clamp && s.max_price>0 && v>s.max_price){ v=s.max_price; inp.value=v; }
+    s.new_price=v;
+    var row=inp.closest('.sl-srow');
+    var warn=(s.max_price>0 && v>s.max_price);
+    if(row){ row.classList.toggle('warn', warn);
+      var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
+      if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-v));
+      if(pctEl) pctEl.textContent=pctOf(s.current_price,v)+'%';
+      if(payEl) payEl.textContent=payoutText(computePayout(v, s.commission_rate, s.logistics_per_unit));
+    }
+    updateFooter();
+  }
+
+  // Per-product discount → applies only to THAT product's SKU variants
+  // (capped per-SKU). Updates that group's rows in place so other products'
+  // edits are untouched.
+  function applyGroupDiscount(pid){
+    var table = el('slSelTable');
+    var inp = table.querySelector('.sl-gdisc[data-pid="'+pid+'"]'); if(!inp) return;
+    var d = Math.max(0, Math.min(99, Number(inp.value)||0));
+    var e = selected[pid]; if(!e || !e.skus) return;
+    e.skus.forEach(function(s, si){
+      var np = floor10((s.current_price||0)*(1-d/100));
+      if(s.max_price>0 && np>s.max_price) np=s.max_price;
+      s.new_price = np;
+      var row = table.querySelector('.sl-srow[data-pid="'+pid+'"][data-si="'+si+'"]'); if(!row) return;
+      var pinp = row.querySelector('.sl-srow-new input'); if(pinp) pinp.value=np;
+      row.classList.remove('warn');
+      var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
+      if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-np));
+      if(pctEl) pctEl.textContent=pctOf(s.current_price,np)+'%';
+      if(payEl) payEl.textContent=payoutText(computePayout(np, s.commission_rate, s.logistics_per_unit));
+    });
+    updateFooter();
+  }
+
+  function updateFooter(){
+    var pids=Object.keys(selected);
+    var ready = pids.length>0 && pids.every(function(pid){ var e=selected[pid]; return e.skus && e.skus.length; });
+    el('slFooterInfo').innerHTML = T.selected+': <b>'+pids.length+'</b> '+T.products;
+    el('slAddBtn').disabled = !ready;
+  }
+
+  // search (debounced) — preserves current selection
+  var psTimer;
+  el('slProdSearch').addEventListener('input', function(){ clearTimeout(psTimer); var q=this.value;
+    psTimer=setTimeout(function(){ if(saleState&&saleState.sale_card){ el('slDetailLoading').style.display=''; el('slSuitList').innerHTML=''; fetchSuitable(saleState.sale_card, q, false); } },400); });
+
+  function backToList(){ el('slDetailView').style.display='none'; el('slSalesView').style.display=''; saleState=null; selected={}; order=[]; }
+  el('slBack').addEventListener('click', backToList);
+
+  // submit
+  el('slAddBtn').addEventListener('click', function(){
+    var products = Object.keys(selected).map(function(pid){
+      var e=selected[pid]; if(!e.skus) return null;
+      var skus = e.skus.filter(function(s){ return s.new_price>0; }).map(function(s){ return {sku_id:s.sku_id, new_price:s.new_price}; });
+      return skus.length ? { product_id:Number(pid), skus:skus } : null;
+    }).filter(Boolean);
+    if(!products.length){ toast(T.enterPrice); return; }
+    el('slAddBtn').disabled=true;
+    fetch('/api/sales/'+saleState.sale.id+'/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({shop_id:shopId, products:products})})
+    .then(function(r){return r.json().then(function(j){return {status:r.status,j:j};});})
+    .then(function(res){
+      el('slAddBtn').disabled=false;
+      if(res.status>=200 && res.status<300){ toast(T.added); openSale(saleState.sale_card); }
+      else { toast(res.j.error || 'Error'); }
+    }).catch(function(err){ el('slAddBtn').disabled=false; toast(String(err)); });
+  });
+
+  // init
+  if(shopId) loadSales(); else { el('slSalesLoading').style.display='none'; showError(UZ?'Do\'kon topilmadi':'Магазин не найден'); }
+})();
+</script>
+{% endblock %}

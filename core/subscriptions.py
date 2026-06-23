@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import func, select
 
-from core.redis_client import redis_client
+from core.redis_client import redis_client, mark_user_for_recheck
 from core.swr import swr_get, swr_invalidate
 from extensions import SessionLocal
 from models import (
@@ -43,8 +43,17 @@ def _invalidate_settings_cache() -> None:
 
 
 def _invalidate_user_ctx_cache(user_id: int) -> None:
-    """Call after trial start or subscription change for a user."""
-    redis_client.delete(f"{_CTX_KEY_PREFIX}{int(user_id)}")
+    """Call after trial start or subscription change for a user.
+
+    Besides dropping the Redis ctx cache, this flags the user so the gate's
+    signed-session fast-path is bypassed once and recomputed from the DB on
+    their next request. Without the flag a downgrade (e.g. unlimited->paid, or a
+    shortened/removed subscription) would never reach a live session, because
+    the cookie's "unlimited"/expiry short-circuits the check indefinitely.
+    """
+    uid = int(user_id)
+    redis_client.delete(f"{_CTX_KEY_PREFIX}{uid}")
+    mark_user_for_recheck(uid)
 
 
 # ── Flask-session subscription cache (Step 0 of project_scaling_roadmap_20k.md)
@@ -103,6 +112,8 @@ SUBSCRIPTION_PLAN_OPTIONS = (
     {"key": "3m", "label": "3 месяца", "months": 3, "duration_days": 90, "discount_percent": 10},
     {"key": "6m", "label": "6 месяцев", "months": 6, "duration_days": 180, "discount_percent": 20},
     {"key": "12m", "label": "1 год", "months": 12, "duration_days": 365, "discount_percent": 30},
+    {"key": "24", "label": "2 лет", "months": 24, "duration_days": 730, "discount_percent": 40},
+    {"key": "60m", "label": "5 лет", "months": 60, "duration_days": 1825, "discount_percent": 50},
 )
 
 SUBSCRIPTION_CODE_DURATION_OPTIONS = (
@@ -161,7 +172,7 @@ def _subscription_settings_dict(row: SubscriptionSettings | dict) -> dict:
         "max_shops_per_user": int(row.max_shops_per_user or 0),
     }
 
-
+#fu
 def _subscription_plan_rows(*, settings: SubscriptionSettings | dict) -> list[dict]:
     monthly_price = int(
         settings.monthly_price_sum if isinstance(settings, SubscriptionSettings)
@@ -213,13 +224,14 @@ def _ensure_user_trial_started(db, user: User, *, now: datetime | None = None) -
     db.add(user)
     return True
 
-
+#it turns a user's trial + paid date into — allowed or not, why, and how many days/hours left until subscription ends
 def _subscription_status_for_user(
     user: User | None,
     *,
     settings: SubscriptionSettings | dict,
     now: datetime | None = None,
 ) -> dict:
+    
     now = now or _utcnow()
     if user is None:
         return {
@@ -449,7 +461,7 @@ def _clear_user_subscription_activations(
         code.used_count = max(0, int(code.used_count or 0) - int(code_usage_by_id.get(int(code.id), 0)))
         db.add(code)
 
-
+#set user subscription from admin panel, either unlimited or for a specific duration
 def _admin_set_user_subscription(
     db,
     *,
@@ -462,6 +474,7 @@ def _admin_set_user_subscription(
     now = now or _utcnow()
     _ensure_user_trial_started(db, user, now=now)
     _clear_user_subscription_activations(db, user=user)
+    status = _subscription_status_for_user(user, settings=settings, now=now)
 
     if bool(is_unlimited):
         applied_until = None
@@ -471,7 +484,11 @@ def _admin_set_user_subscription(
         duration_days = int(duration_days or 0)
         if duration_days <= 0:
             raise ValueError("Subscription duration is missing.")
-        applied_until = now + timedelta(days=duration_days)
+
+        base_point = now
+        if status["active"] and not status["is_unlimited"] and status["effective_end_at"] is not None:
+            base_point = max(now, status["effective_end_at"])     # ← START from current end (includes trial!)
+            applied_until = base_point + timedelta(days=duration_days)
         user.subscription_expires_at = applied_until
         user.subscription_is_unlimited = False
 
@@ -485,7 +502,7 @@ def _admin_set_user_subscription(
     ))
     return applied_until
 
-
+#admin clear user subscription, remove all activations and set subscription to None
 def _admin_clear_user_subscription(
     db,
     *,

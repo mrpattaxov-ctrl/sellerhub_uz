@@ -5,330 +5,326 @@
 {% set shops_left = subscription_context.shops_left if subscription_context else None %}
 <style>
   .sub-shell {
-    max-width: 1120px;
-    margin: 0 auto;
+    --card-bg: #ffffff;
+    --card-border: #eaecf0;
+    --card-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
+    --text: #101828;
+    --muted: #667085;
+    --label: #98a2b3;
+    --strike: #98a2b3;
+    --brand: #2f56e6;
+    --brand-dark: #2442c7;
+    --brand-soft: #eef1fe;
+    --brand-soft-text: #2f56e6;
+    --brand-glow: rgba(47, 86, 230, 0.16);
+    --green-bg: #e7f8ef;
+    --green-text: #119155;
+    --gray-badge-bg: #f1f2f4;
+    --gray-badge-text: #475467;
+    --solid-btn-bg: #101828;
+    --solid-btn-text: #ffffff;
+    --input-bg: #ffffff;
+    --input-border: #d0d5dd;
+    --plan-border: #eaecf0;
+    --divider: #eaecf0;
+
+    width: 100%;
     display: grid;
-    gap: 20px;
+    gap: 24px;
   }
-  .sub-alert,
-  .sub-card {
-    background: #fff;
-    border: 1px solid #eaecf0;
-    border-radius: 20px;
-    box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
-  }
+
+  /* ── alert ── */
   .sub-alert {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
     padding: 14px 18px;
-    color: #344054;
+    color: var(--text);
+    font-size: 0.9rem;
   }
+
+  /* ── overview stat cards ── */
   .sub-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
   }
   .sub-stat {
-    padding: 22px 24px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 26px 28px;
     display: grid;
-    gap: 4px;
+    gap: 6px;
   }
   .sub-stat small {
     text-transform: uppercase;
-    letter-spacing: .06em;
+    letter-spacing: 0.07em;
     font-size: 0.72rem;
     font-weight: 700;
-    color: #667085;
+    color: var(--label);
   }
   .sub-stat strong {
-    color: #101828;
-    font-size: 1.5rem;
+    color: var(--text);
+    font-size: 1.6rem;
     font-weight: 800;
-    letter-spacing: -.03em;
+    letter-spacing: -0.03em;
   }
   .sub-stat p {
     margin: 0;
-    color: #667085;
-    font-size: 0.86rem;
-  }
-  .sub-plans,
-  .sub-pay-card,
-  .sub-help-card {
-    padding: 26px;
-  }
-  .sub-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-  }
-  .sub-head h2 {
-    margin: 0 0 4px;
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: #101828;
-  }
-  .sub-head p {
-    margin: 0;
-    color: #667085;
+    color: var(--muted);
     font-size: 0.88rem;
-    max-width: 700px;
+    line-height: 1.45;
   }
-  .sub-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    background: #f2f4f7;
-    border: 1px solid #e4e7ec;
-    font-size: 0.8rem;
+
+  /* ── plans section ── */
+  .sub-section-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 0.72rem;
     font-weight: 700;
-    color: #344054;
-    white-space: nowrap;
+    color: var(--label);
+    margin: 6px 0 6px;
   }
+  .sub-section-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin: 0 0 22px;
+  }
+
   .sub-plan-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
   }
   .sub-plan {
-    display: grid;
-    gap: 14px;
-    padding: 20px;
-    border-radius: 18px;
-    border: 1.5px solid #eaecf0;
-    background: #fafbff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1.5px solid var(--plan-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 24px;
     transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
   }
-  .sub-plan.selected,
   .sub-plan:hover {
-    border-color: #84caff;
-    box-shadow: 0 10px 24px rgba(46, 144, 250, 0.12);
-    transform: translateY(-1px);
+    border-color: #c7d0f7;
+    transform: translateY(-2px);
   }
-  .sub-plan-top {
+  .sub-plan.selected {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 1px var(--brand), 0 14px 32px var(--brand-glow);
+  }
+  .sub-plan-badges {
     display: flex;
-    justify-content: space-between;
     gap: 8px;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    min-height: 26px;
   }
-  .sub-plan-badge,
-  .sub-plan-star {
+  .sub-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
+    padding: 5px 11px;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 700;
+    line-height: 1;
   }
-  .sub-plan-badge {
-    background: #ecfdf3;
-    color: #027a48;
-  }
-  .sub-plan-badge--base {
-    background: #f2f4f7;
-    color: #344054;
-  }
-  .sub-plan-star {
-    background: #f4f3ff;
-    color: #6941c6;
-  }
+  .sub-badge--discount { background: var(--green-bg); color: var(--green-text); }
+  .sub-badge--base { background: var(--gray-badge-bg); color: var(--gray-badge-text); }
+  .sub-badge--best { background: var(--brand-soft); color: var(--brand-soft-text); }
+
   .sub-plan-title {
-    color: #101828;
-    font-size: 1.25rem;
+    color: var(--text);
+    font-size: 1.3rem;
     font-weight: 800;
+    letter-spacing: -0.02em;
   }
-  .sub-plan-desc,
-  .sub-plan-note {
-    color: #667085;
+  .sub-plan-desc {
+    color: var(--muted);
     font-size: 0.88rem;
-    line-height: 1.5;
+    margin-top: 4px;
   }
   .sub-plan-price {
-    color: #101828;
+    color: var(--text);
     font-size: 2rem;
     font-weight: 800;
-    letter-spacing: -.04em;
+    letter-spacing: -0.04em;
+    margin-top: 20px;
   }
   .sub-plan-price span {
-    font-size: 1rem;
-    color: #667085;
-    margin-left: 6px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-left: 4px;
     font-weight: 700;
+    letter-spacing: 0;
   }
   .sub-plan-old {
-    color: #98a2b3;
+    color: var(--strike);
     text-decoration: line-through;
     font-size: 0.84rem;
+    font-weight: 500;
     min-height: 20px;
+    margin-top: 2px;
   }
-  .sub-plan-btn,
-  .sub-pay-btn {
-    height: 46px;
+  .sub-plan-btn {
+    margin-top: 22px;
+    height: 48px;
     border: none;
     border-radius: 12px;
+    background: var(--brand-soft);
+    color: var(--brand-soft-text);
     font-size: 0.92rem;
     font-weight: 800;
     cursor: pointer;
-    transition: background .16s ease, transform .16s ease, opacity .16s ease;
+    transition: background .16s ease, color .16s ease, transform .16s ease;
   }
-  .sub-plan-btn {
-    background: #eef4ff;
-    color: #175cd3;
+  .sub-plan-btn:hover { transform: translateY(-1px); }
+  .sub-plan.selected .sub-plan-btn {
+    background: var(--brand);
+    color: #ffffff;
   }
-  .sub-plan-btn:hover,
-  .sub-pay-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-  }
-  .sub-pay-layout {
+
+  /* ── bottom row: code + payme ── */
+  .sub-bottom {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
-    gap: 16px;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
   }
-  .sub-pay-btn {
-    background: #101828;
-    color: #fff;
-    width: 100%;
-  }
-  .sub-pay-btn:disabled {
-    opacity: .6;
-    cursor: not-allowed;
-    transform: none;
-  }
-  .sub-selected {
-    display: grid;
-    gap: 12px;
-  }
-  .sub-selected-box {
+  .sub-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 26px 28px;
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: #f8fafc;
-    border: 1px solid #e4e7ec;
+    flex-direction: column;
   }
-  .sub-selected-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #d0d5dd;
-    flex-shrink: 0;
-  }
-  .sub-selected-dot.active {
-    background: #2e90fa;
-  }
-  .sub-selected-label {
-    color: #344054;
-    font-weight: 700;
-  }
-  .sub-selected-hint {
-    color: #667085;
-    font-size: 0.86rem;
-    line-height: 1.5;
-  }
-  .sub-steps {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 12px;
-  }
-  .sub-step {
-    display: flex;
-    gap: 12px;
-  }
-  .sub-step-num {
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: #f2f4f7;
-    border: 1px solid #e4e7ec;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.76rem;
+  .sub-card h2 {
+    font-size: 1.15rem;
     font-weight: 800;
-    color: #344054;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin: 0 0 4px;
   }
-  .sub-step p {
-    margin: 0;
-    color: #475467;
-    font-size: 0.87rem;
+  .sub-card .sub-card-desc {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0 0 20px;
     line-height: 1.5;
   }
-  .sub-chips {
+  .sub-card .sub-card-body { margin-top: auto; }
+
+  .sub-code-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid #eaecf0;
-  }
-  .sub-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 11px;
-    border-radius: 999px;
-    background: #f8fafc;
-    border: 1px solid #e4e7ec;
-    color: #344054;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .sub-code-section {
-    padding: 26px;
-  }
-  .sub-code-input-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+    gap: 10px;
   }
   .sub-code-input {
     flex: 1;
-    height: 46px;
-    border: 1.5px solid #d0d5dd;
+    height: 52px;
+    border: 1.5px solid var(--input-border);
     border-radius: 12px;
-    padding: 0 14px;
+    padding: 0 16px;
+    background: var(--input-bg);
+    color: var(--text);
     font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     outline: none;
     transition: border-color .2s, box-shadow .2s;
   }
+  .sub-code-input::placeholder { color: var(--label); font-weight: 600; }
   .sub-code-input:focus {
-    border-color: #2e90fa;
-    box-shadow: 0 0 0 3px rgba(46,144,250,.15);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-glow);
   }
   .sub-code-submit {
-    height: 46px;
-    padding: 0 20px;
+    height: 52px;
+    padding: 0 24px;
     border: none;
     border-radius: 12px;
-    background: #101828;
-    color: #fff;
-    font-size: 0.9rem;
+    background: var(--solid-btn-bg);
+    color: var(--solid-btn-text);
+    font-size: 0.92rem;
     font-weight: 800;
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity .16s;
+    transition: opacity .16s, transform .16s;
   }
-  .sub-code-submit:hover { opacity: .85; }
-  @media (max-width: 900px) {
-    .sub-pay-layout {
-      grid-template-columns: 1fr;
-    }
+  .sub-code-submit:hover { transform: translateY(-1px); opacity: .92; }
+
+  .sub-pay-btn {
+    width: 100%;
+    height: 56px;
+    border: none;
+    border-radius: 12px;
+    background: var(--brand);
+    color: #ffffff;
+    font-size: 0.98rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: background .16s, transform .16s, opacity .16s;
   }
-  @media (max-width: 480px) {
-    .sub-plans,
-    .sub-pay-card,
-    .sub-help-card {
-      padding: 20px;
-    }
+  .sub-pay-btn:hover:not(:disabled) { background: var(--brand-dark); transform: translateY(-1px); }
+  .sub-pay-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .sub-pay-status {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-align: center;
+    min-height: 18px;
+  }
+
+  /* ── dark mode ── */
+  [data-bs-theme="dark"] .sub-shell {
+    --card-bg: #1a1d27;
+    --card-border: #2d3148;
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --label: #6b7384;
+    --strike: #6b7384;
+    --brand: #5b7cf5;
+    --brand-dark: #4666e8;
+    --brand-soft: rgba(91, 124, 245, 0.14);
+    --brand-soft-text: #9db4ff;
+    --brand-glow: rgba(91, 124, 245, 0.22);
+    --green-bg: rgba(34, 197, 94, 0.14);
+    --green-text: #4ade80;
+    --gray-badge-bg: #252a3f;
+    --gray-badge-text: #94a3b8;
+    --solid-btn-bg: #e2e8f0;
+    --solid-btn-text: #101828;
+    --input-bg: #11141d;
+    --input-border: #3a3f5c;
+    --plan-border: #2d3148;
+    --divider: #2d3148;
+  }
+  [data-bs-theme="dark"] .sub-plan:hover { border-color: #3f4a73; }
+  [data-bs-theme="dark"] .sub-pay-btn { color: #0f1117; }
+
+  /* ── responsive ── */
+  @media (max-width: 1100px) {
+    .sub-plan-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 820px) {
+    .sub-overview { grid-template-columns: 1fr; }
+    .sub-bottom { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .sub-plan-grid { grid-template-columns: 1fr; }
+    .sub-stat, .sub-card { padding: 22px; }
   }
 </style>
 
@@ -339,8 +335,9 @@
     {% endif %}
   {% endwith %}
 
+  <!-- overview -->
   <div class="sub-overview">
-    <article class="sub-card sub-stat">
+    <article class="sub-stat">
       <small>{{ t.sub_stat_status }}</small>
       <strong>{{ subscription_status.label }}</strong>
       <p>
@@ -351,55 +348,49 @@
         {% endif %}
       </p>
     </article>
-    <article class="sub-card sub-stat">
+    <article class="sub-stat">
       <small>{{ t.sub_stat_remaining }}</small>
       <strong>{{ subscription_status.remaining_text }}</strong>
       <p>{{ t.sub_account_time }}</p>
     </article>
-    <article class="sub-card sub-stat">
+    <article class="sub-stat">
       <small>{{ t.sub_shops_stat }}</small>
       <strong>{{ shops_used }} / {{ shops_limit }}</strong>
       <p>{{ t.sub_shops_limit_desc }}</p>
     </article>
   </div>
 
-  <section class="sub-card sub-plans">
-    <div class="sub-head">
-      <div>
-        <h2>{{ t.sub_plans_h2 }}</h2>
-        <p>{{ t.sub_plans_desc }}</p>
-      </div>
-      <div class="sub-pill">{{ t.sub_payme_auto_pill }}</div>
-    </div>
+  <!-- plans -->
+  <section>
+    <div class="sub-section-kicker">{{ t.sub_plans_h2 }}</div>
+    <h2 class="sub-section-title">{{ t.sub_plans_pick_h2 }}</h2>
 
     <div class="sub-plan-grid" id="planCards">
       {% for plan in subscription_plans %}
         {% set is_featured = plan.months == 12 %}
         <article class="sub-plan" data-plan-card>
-          <div class="sub-plan-top">
+          <div class="sub-plan-badges">
             {% if plan.discount_percent > 0 %}
-              <span class="sub-plan-badge">{{ t.sub_plan_discount_label }} {{ plan.discount_percent }}%</span>
+              <span class="sub-badge sub-badge--discount">−{{ plan.discount_percent }}%</span>
             {% else %}
-              <span class="sub-plan-badge sub-plan-badge--base">{{ t.sub_plan_basic_label }}</span>
+              <span class="sub-badge sub-badge--base">{{ t.sub_plan_basic_label }}</span>
             {% endif %}
             {% if is_featured %}
-              <span class="sub-plan-star">{{ t.sub_plan_best_price }}</span>
+              <span class="sub-badge sub-badge--best">{{ t.sub_plan_best_price }}</span>
             {% endif %}
           </div>
 
           <div class="sub-plan-title">{{ plan.label }}</div>
           <div class="sub-plan-desc">
-            {{ t.sub_access_for }} {{ plan.months }} {{ t.sub_month_1 if plan.months == 1 else (t.sub_month_2_4 if plan.months < 5 else t.sub_month_5_plus) }}.
+            {{ t.sub_access_for }} {{ plan.months }} {{ t.sub_month_1 if plan.months == 1 else (t.sub_month_2_4 if plan.months < 5 else t.sub_month_5_plus) }}
           </div>
 
           <div class="sub-plan-price">{{ plan.price_sum_formatted }}<span>{{ t.sub_currency }}</span></div>
           <div class="sub-plan-old">
             {% if plan.discount_percent > 0 %}
-              {{ plan.full_price_sum_formatted }} {{ t.sub_no_discount_suffix }}
+              {{ plan.full_price_sum_formatted }} {{ t.sub_currency }}
             {% endif %}
           </div>
-
-          <div class="sub-plan-note">{{ t.sub_plan_note }}</div>
 
           <button
             type="button"
@@ -407,132 +398,91 @@
             data-plan-button
             data-plan-key="{{ plan.key }}"
             data-plan-label="{{ plan.label }}"
-            data-plan-price="{{ plan.price_sum_formatted }} {{ t.sub_currency }}">
-            {{ t.sub_select_plan_btn }}
+            data-plan-price="{{ plan.price_sum_formatted }} {{ t.sub_currency }}"
+            data-select-text="{{ t.sub_choose_btn }}"
+            data-selected-text="{{ t.sub_selected_btn }}">
+            {{ t.sub_choose_btn }}
           </button>
         </article>
       {% endfor %}
     </div>
   </section>
 
-  <div class="sub-pay-layout">
-    <section class="sub-card sub-pay-card" id="paymeCard">
-      <div class="sub-head">
-        <div>
-          <h2>{{ t.sub_payment_h2 }}</h2>
-          <p>{{ t.sub_payment_desc }}</p>
+  <!-- code + payme -->
+  <div class="sub-bottom">
+    <section class="sub-card">
+      <h2>{{ t.sub_code_h2 }}</h2>
+      <p class="sub-card-desc">{{ t.sub_code_desc }}</p>
+      <form method="post" class="sub-card-body">
+        <div class="sub-code-row">
+          <input
+            type="text"
+            class="sub-code-input"
+            name="activation_code"
+            placeholder="{{ t.sub_code_placeholder }}"
+            maxlength="20"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false">
+          <button type="submit" class="sub-code-submit">{{ t.sub_activate_btn }}</button>
         </div>
-      </div>
-
-      <div class="sub-selected">
-        <div class="sub-selected-box">
-          <span class="sub-selected-dot" id="selectedDot"></span>
-          <span class="sub-selected-label" id="selectedPlanLabel">{{ t.sub_no_plan_yet }}</span>
-        </div>
-        <div class="sub-selected-hint" id="paymeStatusText">
-          {% if payme_enabled %}
-            {{ t.sub_payme_enabled_hint }}
-          {% else %}
-            {{ t.sub_payme_not_configured }}
-          {% endif %}
-        </div>
-        <button type="button" class="sub-pay-btn" id="btnPaymeCheckout" disabled>{{ t.sub_pay_payme_btn }}</button>
-      </div>
+      </form>
     </section>
 
-    <aside class="sub-card sub-help-card">
-      <div class="sub-head">
-        <div>
-          <h2>{{ t.sub_how_works_h2 }}</h2>
-          <p>{{ t.sub_three_steps }}</p>
-        </div>
+    <section class="sub-card" id="paymeCard">
+      <h2>{{ t.sub_payment_h2 }}</h2>
+      <p class="sub-card-desc">{{ t.sub_payme_card_desc }}</p>
+      <div class="sub-card-body">
+        <button type="button" class="sub-pay-btn" id="btnPaymeCheckout" disabled>
+          {{ t.sub_pay_payme_btn }} <span aria-hidden="true">→</span>
+        </button>
+        <p class="sub-pay-status" id="paymeStatusText">
+          {% if not payme_enabled %}{{ t.sub_payme_not_configured }}{% endif %}
+        </p>
       </div>
-
-      <ol class="sub-steps">
-        <li class="sub-step">
-          <span class="sub-step-num">1</span>
-          <p>{{ t.sub_step1_pay }}</p>
-        </li>
-        <li class="sub-step">
-          <span class="sub-step-num">2</span>
-          <p>{{ t.sub_step2_pay }}</p>
-        </li>
-        <li class="sub-step">
-          <span class="sub-step-num">3</span>
-          <p>{{ t.sub_step3_pay }}</p>
-        </li>
-      </ol>
-
-      <div class="sub-chips">
-        <span class="sub-chip">{{ t.sub_trial_chip }} {{ subscription_settings.trial_days }} {{ t.common_days }}</span>
-        <span class="sub-chip">{{ t.sub_shops_limit_chip }} {{ shops_limit }}</span>
-        <span class="sub-chip">{{ t.sub_free_chip }} {{ shops_left if shops_left is not none else "∞" }}</span>
-      </div>
-    </aside>
+    </section>
   </div>
-
-  <section class="sub-card sub-code-section">
-    <div class="sub-head">
-      <div>
-        <h2>{{ t.sub_code_h2 }}</h2>
-        <p>{{ t.sub_code_desc }}</p>
-      </div>
-      <div class="sub-pill">{{ t.sub_code_from_admin }}</div>
-    </div>
-    <form method="post">
-      <div class="sub-code-input-row">
-        <input
-          type="text"
-          class="sub-code-input"
-          name="activation_code"
-          placeholder="XXXXXXXXXX"
-          maxlength="20"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false">
-        <button type="submit" class="sub-code-submit">{{ t.sub_activate_btn }}</button>
-      </div>
-    </form>
-    <ol class="sub-steps" style="margin-top:18px; padding-top:16px; border-top:1px solid #eaecf0;">
-      <li class="sub-step">
-        <span class="sub-step-num">1</span>
-        <p>{{ t.sub_code_step1 }}</p>
-      </li>
-      <li class="sub-step">
-        <span class="sub-step-num">2</span>
-        <p>{{ t.sub_code_step2 }}</p>
-      </li>
-      <li class="sub-step">
-        <span class="sub-step-num">3</span>
-        <p>{{ t.sub_code_step3 }}</p>
-      </li>
-    </ol>
-  </section>
 </div>
 
 <script>
   const planCards = document.querySelectorAll("[data-plan-card]");
-  const selectedPlanLabel = document.getElementById("selectedPlanLabel");
-  const selectedDot = document.getElementById("selectedDot");
+  const planButtons = document.querySelectorAll("[data-plan-button]");
   const payButton = document.getElementById("btnPaymeCheckout");
   const paymeStatusText = document.getElementById("paymeStatusText");
   const paymeEnabled = {{ 'true' if payme_enabled else 'false' }};
   let selectedPlanKey = "";
 
-  document.querySelectorAll("[data-plan-button]").forEach((button) => {
-    button.addEventListener("click", () => {
-      planCards.forEach((card) => card.classList.remove("selected"));
-      button.closest("[data-plan-card]").classList.add("selected");
-      selectedPlanKey = button.dataset.planKey || "";
-      selectedPlanLabel.textContent = `${button.dataset.planLabel} · ${button.dataset.planPrice}`;
-      selectedDot.classList.add("active");
-      if (paymeEnabled && selectedPlanKey) {
-        payButton.disabled = false;
+  function selectPlan(button) {
+    planButtons.forEach((b) => {
+      b.textContent = b.dataset.selectText;
+    });
+    planCards.forEach((card) => card.classList.remove("selected"));
+    const card = button.closest("[data-plan-card]");
+    card.classList.add("selected");
+    button.textContent = button.dataset.selectedText;
+    selectedPlanKey = button.dataset.planKey || "";
+    if (paymeEnabled && selectedPlanKey) {
+      payButton.disabled = false;
+      if (paymeStatusText.dataset.sticky !== "1") {
         paymeStatusText.textContent = "{{ t.sub_order_created_hint }}";
       }
-      document.getElementById("paymeCard").scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    }
+  }
+
+  planButtons.forEach((button) => {
+    button.addEventListener("click", () => selectPlan(button));
   });
+
+  // Pre-select the featured (12-month) plan, falling back to the first one.
+  (function preselect() {
+    if (!planButtons.length || !paymeEnabled) return;
+    let target = null;
+    planCards.forEach((card, i) => {
+      if (card.querySelector(".sub-badge--best")) target = planButtons[i];
+    });
+    selectPlan(target || planButtons[planButtons.length - 1]);
+    paymeStatusText.textContent = "";
+  })();
 
   async function createPaymeOrder(planKey) {
     const response = await fetch("/api/payme/orders", {
@@ -562,26 +512,22 @@
     form.submit();
   }
 
-  payButton.disabled = !paymeEnabled;
+  payButton.disabled = !paymeEnabled || !selectedPlanKey;
   payButton.addEventListener("click", async () => {
     if (!selectedPlanKey) {
+      paymeStatusText.dataset.sticky = "1";
       paymeStatusText.textContent = "{{ t.sub_select_plan_first }}";
       return;
     }
-
     payButton.disabled = true;
-    payButton.textContent = "{{ t.sub_creating_order }}";
     paymeStatusText.textContent = "{{ t.sub_opening_payme }}";
-
     try {
       const order = await createPaymeOrder(selectedPlanKey);
       submitPaymeCheckout(order);
     } catch (error) {
       payButton.disabled = false;
-      payButton.textContent = "{{ t.sub_pay_payme_btn }}";
       paymeStatusText.textContent = error?.message || "{{ t.sub_payme_error }}";
     }
   });
-
 </script>
 {% endblock %}

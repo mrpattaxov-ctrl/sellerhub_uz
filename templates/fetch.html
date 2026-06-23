@@ -487,26 +487,6 @@
       </div>
     </div>
 
-    <div class="card form-shell mb-4">
-      <div class="card-body">
-        <h5 class="card-title mb-1">{{ t.fetch_add_shop_title }}</h5>
-        <div class="text-secondary small mb-3">{{ t.fetch_add_shop_desc }}</div>
-        <div class="row g-2 align-items-end">
-          <div class="col-md-4">
-            <label class="form-label">{{ t.fetch_shop_id_label }}</label>
-            <input type="text" id="newShopId" class="form-control" placeholder="{{ t.fetch_shop_id_placeholder }}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">{{ t.fetch_shop_name_label }}</label>
-            <input type="text" id="newShopName" class="form-control" placeholder="{{ t.fetch_shop_name_placeholder }}">
-          </div>
-          <div class="col-md-4">
-            <button class="fetch-btn fetch-btn--primary w-100" id="btnAddShop">{{ t.fetch_add_btn }}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <h5 class="mb-3">{{ t.fetch_your_shops }}</h5>
     <div id="shopsContainer" class="row g-3"></div>
 
@@ -629,6 +609,10 @@
       } catch (e) {}
     }
 
+
+    
+    // shops load in the webs ui
+
     async function loadShops() {
       const data = await api("/api/shops");
       const container = document.getElementById("shopsContainer");
@@ -698,39 +682,6 @@
         loadShops();
       }
     }
-
-    document.getElementById("btnAddShop").addEventListener("click", async () => {
-      if (getShopLimit() && Number(document.body.dataset.shopCount || "0") >= getShopLimit()) {
-        appToast(_FT.limitAlert, "error");
-        return;
-      }
-
-      const id = document.getElementById("newShopId").value.trim();
-      const name = document.getElementById("newShopName").value.trim();
-      if (!id) { appToast(_FT.idRequired, "error"); return; }
-
-      const btn = document.getElementById("btnAddShop");
-      btn.disabled = true;
-      btn.textContent = _FT.adding;
-
-      try {
-        await api("/api/shops", "POST", { uzum_id: id, name: name });
-        document.getElementById("newShopId").value = "";
-        document.getElementById("newShopName").value = "";
-        await loadShops();
-
-        const label = name || id;
-        appToast(`${_FT.addedPrefix} "${label}" ${_FT.addedSuffix}`, "success");
-
-        btn.textContent = _FT.syncing;
-        await doSync(id);
-      } catch (e) {
-        appToast(_FT.errorPrefix + " " + e.message, "error");
-      } finally {
-        document.body.dataset.shopCount = document.querySelectorAll("#shopsContainer > div").length.toString();
-        updateShopLimitUi(Number(document.body.dataset.shopCount || "0"));
-      }
-    });
 
     // Top-right toast notification (success / error / info).
     function appToast(message, type = "success", duration = 3500) {
@@ -978,6 +929,10 @@
       }
     });
 
+
+
+    //atach shops btn handler
+
     document.getElementById("btnAttachSelected").addEventListener("click", async () => {
       const btn = document.getElementById("btnAttachSelected");
       _setOpenapiError("");
@@ -1063,6 +1018,6 @@
     loadShops();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/uzum_ui.js?v=20260412b"></script>
+  <script src="/static/uzum_ui.js?v=20260613a"></script>
 </body>
 </html>

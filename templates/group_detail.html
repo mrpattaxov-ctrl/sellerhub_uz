@@ -625,7 +625,7 @@
 <div class="gd-scope" id="gdScope">
 
   <div class="gd-tooltip" id="rowTooltip" style="position:fixed;">
-    <span class="gd-tt-qty">0 шт.</span><span class="gd-tt-date">—</span>
+    <span class="gd-tt-qty">0 {{ "dona" if lang == "uz" else "шт." }}</span><span class="gd-tt-date">—</span>
   </div>
 
 
@@ -633,11 +633,11 @@
   <div class="gd-breadcrumb">
     <a href="/groups" class="gd-back-btn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Назад</span>
+      <span>{{ "Orqaga" if lang == "uz" else "Назад" }}</span>
     </a>
     <span class="gd-bc-divider"></span>
     <nav class="gd-bc-nav">
-      <span>Каталог</span>
+      <span>{{ "Katalog" if lang == "uz" else "Каталог" }}</span>
       <span class="gd-sep">/</span>
       <span class="gd-bc-cur">{{ group.name }}</span>
     </nav>
@@ -664,10 +664,10 @@
   <div class="gd-stats">
     <!-- Hero -->
     <div class="gd-stat gd-stat--hero">
-      <div class="gd-stat-label" id="statSalesLabel">Продажи за 30 дн.</div>
+      <div class="gd-stat-label" id="statSalesLabel">{{ "30 kunlik sotuvlar" if lang == "uz" else "Продажи за 30 дн." }}</div>
       <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
         <span class="gd-stat-value tnum" id="statSalesValue">0</span>
-        <span class="gd-stat-sub">шт.</span>
+        <span class="gd-stat-sub">{{ "dona" if lang == "uz" else "шт." }}</span>
         <span class="gd-delta-pill gd-delta-up" id="statDelta" style="display:none;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span id="statDeltaVal">0%</span>
@@ -675,41 +675,41 @@
       </div>
       <div class="gd-metrics">
         <div class="gd-metric">
-          <div class="gd-metric-label">Выручка</div>
-          <div class="gd-metric-value"><span class="tnum" id="statRevenue">0</span> <span class="gd-metric-unit">сум</span></div>
+          <div class="gd-metric-label">{{ "Tushum" if lang == "uz" else "Выручка" }}</div>
+          <div class="gd-metric-value"><span class="tnum" id="statRevenue">0</span> <span class="gd-metric-unit">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
         </div>
         <div class="gd-metric">
-          <div class="gd-metric-label">Средний чек</div>
-          <div class="gd-metric-value"><span class="tnum" id="statAvgCheck">0</span> <span class="gd-metric-unit">сум</span></div>
+          <div class="gd-metric-label">{{ "O'rtacha chek" if lang == "uz" else "Средний чек" }}</div>
+          <div class="gd-metric-value"><span class="tnum" id="statAvgCheck">0</span> <span class="gd-metric-unit">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
         </div>
         <div class="gd-metric gd-metric--profit" id="statProfitWrap" style="display:none;">
-          <div class="gd-metric-label">Прибыль</div>
-          <div class="gd-metric-value"><span class="tnum" id="statProfit">0</span> <span class="gd-metric-unit">сум</span></div>
-          <div class="gd-metric-sub">маржа <span class="tnum" id="statProfitPct">0%</span></div>
+          <div class="gd-metric-label">{{ "Foyda" if lang == "uz" else "Прибыль" }}</div>
+          <div class="gd-metric-value"><span class="tnum" id="statProfit">0</span> <span class="gd-metric-unit">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
+          <div class="gd-metric-sub">{{ "marja" if lang == "uz" else "маржа" }} <span class="tnum" id="statProfitPct">0%</span></div>
         </div>
       </div>
       <div class="gd-hero-chart-wrap" id="heroChartWrap">
         <svg class="gd-hero-chart" id="heroChart" viewBox="0 0 600 88" preserveAspectRatio="none"></svg>
         <div class="gd-tooltip" id="chartTooltip">
-          <span class="gd-tt-qty">0 шт.</span><span class="gd-tt-date">—</span>
-          <span class="gd-tt-rev">0 сум</span>
+          <span class="gd-tt-qty">0 {{ "dona" if lang == "uz" else "шт." }}</span><span class="gd-tt-date">—</span>
+          <span class="gd-tt-rev">0 {{ "so'm" if lang == "uz" else "сум" }}</span>
         </div>
         <div class="gd-chart-axis" id="heroAxis">
-          <span>−30д</span><span>−15д</span><span>сегодня</span>
+          <span>−30{{ "k" if lang == "uz" else "д" }}</span><span>−15{{ "k" if lang == "uz" else "д" }}</span><span>{{ "bugun" if lang == "uz" else "сегодня" }}</span>
         </div>
       </div>
     </div>
 
     <!-- Stock -->
     <div class="gd-stat">
-      <div class="gd-stat-label">Склад</div>
+      <div class="gd-stat-label">{{ "Ombor" if lang == "uz" else "Склад" }}</div>
       <div style="display:flex; align-items:baseline; gap:10px;">
         <span class="gd-stat-value tnum" id="statStockTotal">0</span>
-        <span class="gd-stat-sub">шт. всего</span>
+        <span class="gd-stat-sub">{{ "dona jami" if lang == "uz" else "шт. всего" }}</span>
       </div>
       <div class="gd-stat-row">
         <span>Uzum <span class="num mono tnum" id="statUzum">0</span></span>
-        <span>Наш склад <span class="num mono tnum" id="statWh">0</span></span>
+        <span>{{ "O'z omborimiz" if lang == "uz" else "Наш склад" }} <span class="num mono tnum" id="statWh">0</span></span>
       </div>
       <div class="gd-gauge-row">
         <div class="gd-gauge gd-gauge--cover">
@@ -719,31 +719,31 @@
           </svg>
           <div class="gd-gauge-label">
             <span class="gd-gauge-pct tnum" id="coverGaugePct">0%</span>
-            <span class="gd-gauge-cap">покрытие</span>
+            <span class="gd-gauge-cap">{{ "qamrov" if lang == "uz" else "покрытие" }}</span>
           </div>
         </div>
         <div class="gd-gauge-text">
-          Текущий остаток покрывает<br>
-          ≈ <span class="num tnum" id="coverDays">0</span> из 60 дней спроса.
+          {{ "Joriy qoldiq qoplaydi" if lang == "uz" else "Текущий остаток покрывает" }}<br>
+          ≈ <span class="num tnum" id="coverDays">0</span> {{ "60 kunlik talabdan" if lang == "uz" else "из 60 дней спроса." }}
         </div>
       </div>
       <div class="gd-storage-cost" id="statStorageCostWrap" style="display:none; margin-top:auto;">
         <span class="gd-storage-cost-dot"></span>
-        <span class="gd-storage-cost-label">Платное хранение</span>
-        <span class="gd-storage-cost-val tnum mono" id="statStorageCost">0 сум</span>
-        <span class="gd-storage-cost-unit">в день</span>
+        <span class="gd-storage-cost-label">{{ "Pullik saqlash" if lang == "uz" else "Платное хранение" }}</span>
+        <span class="gd-storage-cost-val tnum mono" id="statStorageCost">0 {{ "so'm" if lang == "uz" else "сум" }}</span>
+        <span class="gd-storage-cost-unit">{{ "kunlik" if lang == "uz" else "в день" }}</span>
       </div>
     </div>
 
     <!-- Need -->
     <div class="gd-stat">
-      <div class="gd-stat-label">Нужно заказать</div>
+      <div class="gd-stat-label">{{ "Buyurtma kerak" if lang == "uz" else "Нужно заказать" }}</div>
       <div style="display:flex; align-items:baseline; gap:10px;">
         <span class="gd-stat-value gd-stat-value--accent tnum" id="statNeed">0</span>
-        <span class="gd-stat-sub">шт. на 60 дн.</span>
+        <span class="gd-stat-sub">{{ "dona 60 kunga" if lang == "uz" else "шт. на 60 дн." }}</span>
       </div>
       <!-- invisible spacer to match the Склад «Uzum / Наш склад» row so the two donuts align -->
-      <div class="gd-stat-row" style="visibility:hidden;" aria-hidden="true">Uzum 0 Наш склад 0</div>
+      <div class="gd-stat-row" style="visibility:hidden;" aria-hidden="true">Uzum 0 {{ "O'z omborimiz" if lang == "uz" else "Наш склад" }} 0</div>
       <div class="gd-gauge-row">
         <div class="gd-gauge gd-gauge--deficit">
           <svg viewBox="0 0 44 44">
@@ -752,17 +752,17 @@
           </svg>
           <div class="gd-gauge-label">
             <span class="gd-gauge-pct tnum" id="deficitGaugePct">0%</span>
-            <span class="gd-gauge-cap">дефицит</span>
+            <span class="gd-gauge-cap">{{ "defitsit" if lang == "uz" else "дефицит" }}</span>
           </div>
         </div>
         <div class="gd-gauge-text">
-          Не хватает <span class="num tnum" id="deficitShort">0</span> шт.,<br>
-          чтобы закрыть 60 дней.
+          {% if lang == "uz" %}60 kunni yopish uchun <span class="num tnum" id="deficitShort">0</span> dona yetishmaydi.{% else %}Не хватает <span class="num tnum" id="deficitShort">0</span> шт.,<br>
+          чтобы закрыть 60 дней.{% endif %}
         </div>
       </div>
       <div class="gd-stat-row" style="margin-top:auto; align-items:center; justify-content:space-between; padding-top:12px; border-top:.5px solid var(--gd-line);">
-        <span style="font-size:11.5px; color:var(--gd-muted);"><span class="tnum" id="statAttention">0</span> SKU требуют внимания</span>
-        <button class="gd-need-btn" id="createOrderBtn">Создать заказ →</button>
+        <span style="font-size:11.5px; color:var(--gd-muted);"><span class="tnum" id="statAttention">0</span> {{ "SKU e'tibor talab qiladi" if lang == "uz" else "SKU требуют внимания" }}</span>
+        <button class="gd-need-btn" id="createOrderBtn">{{ "Buyurtma yaratish →" if lang == "uz" else "Создать заказ →" }}</button>
       </div>
     </div>
   </div>
@@ -771,22 +771,22 @@
   <div class="gd-card">
 
     <div class="gd-toolbar">
-      <span class="gd-toolbar-title">Все варианты</span>
+      <span class="gd-toolbar-title">{{ "Barcha variantlar" if lang == "uz" else "Все варианты" }}</span>
       <span class="gd-count-pill" id="variantCountPill">{{ variants | length }}</span>
       <span class="gd-sep-v"></span>
       <div class="gd-seg" id="periodSeg">
-        <button class="gd-seg-btn"        data-days="7">7 дн.</button>
-        <button class="gd-seg-btn"        data-days="10">10 дн.</button>
-        <button class="gd-seg-btn"        data-days="15">15 дн.</button>
-        <button class="gd-seg-btn active" data-days="30">30 дн.</button>
-        <button class="gd-seg-btn"        data-days="60">60 дн.</button>
-        <button class="gd-seg-btn"        data-days="90">90 дн.</button>
+        <button class="gd-seg-btn"        data-days="7">7 {{ "k." if lang == "uz" else "дн." }}</button>
+        <button class="gd-seg-btn"        data-days="10">10 {{ "k." if lang == "uz" else "дн." }}</button>
+        <button class="gd-seg-btn"        data-days="15">15 {{ "k." if lang == "uz" else "дн." }}</button>
+        <button class="gd-seg-btn active" data-days="30">30 {{ "k." if lang == "uz" else "дн." }}</button>
+        <button class="gd-seg-btn"        data-days="60">60 {{ "k." if lang == "uz" else "дн." }}</button>
+        <button class="gd-seg-btn"        data-days="90">90 {{ "k." if lang == "uz" else "дн." }}</button>
       </div>
 
       <div class="gd-daterange" id="dateRangeWrapper" title="{{ t.detail_period_select }}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         <input type="text" id="dateRangeInput" placeholder="{{ t.detail_period_select }}" readonly>
-        <button class="gd-dr-clear" id="dateRangeClear" title="Сбросить">
+        <button class="gd-dr-clear" id="dateRangeClear" title="{{ 'Tiklash' if lang == 'uz' else 'Сбросить' }}">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </div>
@@ -795,15 +795,15 @@
 
       <div class="gd-search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <input type="text" id="searchInput" placeholder="Поиск по SKU, размеру, штрихкоду…">
+        <input type="text" id="searchInput" placeholder="{{ "SKU, o'lcham, shtrix-kod bo'yicha qidirish…" if lang == "uz" else "Поиск по SKU, размеру, штрихкоду…" }}">
       </div>
 
       <button class="gd-btn" id="exportBtn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Экспорт
+        {{ "Eksport" if lang == "uz" else "Экспорт" }}
       </button>
 
-      <button class="gd-btn" id="settingsBtn" title="Настройки таблицы" style="padding:0; width:32px; justify-content:center;">
+      <button class="gd-btn" id="settingsBtn" title="{{ 'Jadval sozlamalari' if lang == 'uz' else 'Настройки таблицы' }}" style="padding:0; width:32px; justify-content:center;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.7"/>
           <path d="M19.4 14.2a7.7 7.7 0 000-4.4l2-1.5-2-3.5-2.4.9a7.7 7.7 0 00-3.8-2.2L12.7 1h-1.4l-.5 2.5a7.7 7.7 0 00-3.8 2.2l-2.4-.9-2 3.5 2 1.5a7.7 7.7 0 000 4.4l-2 1.5 2 3.5 2.4-.9a7.7 7.7 0 003.8 2.2l.5 2.5h1.4l.5-2.5a7.7 7.7 0 003.8-2.2l2.4.9 2-3.5-2-1.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
@@ -822,7 +822,7 @@
         <input type="checkbox" class="gd-checkbox" id="checkAll">
       </div>
       <div class="gd-th" data-col="sku" data-sortable="1" data-sort-key="color">
-        SKU · Статус
+        {{ "SKU · Holat" if lang == "uz" else "SKU · Статус" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--uzum gd-th--right" data-col="uzum_fbo" data-sortable="1" data-sort-key="uzum">
@@ -838,28 +838,28 @@
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--right" data-col="sell" data-sortable="1" data-sort-key="sell">
-        Цена Uzum
+        {{ "Uzum narxi" if lang == "uz" else "Цена Uzum" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--right" data-col="purchase" data-sortable="1" data-sort-key="purchase">
-        Себестоимость
+        {{ "Tannarx" if lang == "uz" else "Себестоимость" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--right" data-col="storage" data-sortable="1" data-sort-key="storage">
-        Платное хранение
+        {{ "Pullik saqlash" if lang == "uz" else "Платное хранение" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--right" data-col="comm" data-sortable="1" data-sort-key="comm">
-        Комиссия Uzum
+        {{ "Uzum komissiyasi" if lang == "uz" else "Комиссия Uzum" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th" data-col="barcode">{{ t.detail_barcode }}</div>
       <div class="gd-th gd-th--right" id="salesHeader" data-col="sales" data-sortable="1" data-sort-key="sales">
-        Продажи 30 дн.
+        {{ "30 kunlik sotuvlar" if lang == "uz" else "Продажи 30 дн." }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th gd-th--right" data-col="need" data-sortable="1" data-sort-key="need">
-        Нужно (60д)
+        {{ "Kerak (60k)" if lang == "uz" else "Нужно (60д)" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="gd-th" data-col="actions"></div>
@@ -934,19 +934,19 @@
 
         <div class="gd-cell gd-cell--right" data-col="sell">
           <span class="gd-money {% if sell == 0 %}is-zero{% endif %}">
-            {% if sell > 0 %}{{ '{:,}'.format(sell).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+            {% if sell > 0 %}{{ '{:,}'.format(sell).replace(',', ' ') }}<span class="gd-money-sub">{{ "so'm" if lang == "uz" else "сум" }}</span>{% else %}—{% endif %}
           </span>
         </div>
 
         <div class="gd-cell gd-cell--right" data-col="purchase">
           <span class="gd-money {% if pur == 0 %}is-zero{% endif %}">
-            {% if pur > 0 %}{{ '{:,}'.format(pur).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+            {% if pur > 0 %}{{ '{:,}'.format(pur).replace(',', ' ') }}<span class="gd-money-sub">{{ "so'm" if lang == "uz" else "сум" }}</span>{% else %}—{% endif %}
           </span>
         </div>
 
         <div class="gd-cell gd-cell--right" data-col="storage">
           <span class="gd-money {% if stor == 0 %}is-zero{% endif %}">
-            {% if stor > 0 %}{{ '{:,}'.format(stor).replace(',', ' ') }}<span class="gd-money-sub">сум</span>{% else %}—{% endif %}
+            {% if stor > 0 %}{{ '{:,}'.format(stor).replace(',', ' ') }}<span class="gd-money-sub">{{ "so'm" if lang == "uz" else "сум" }}</span>{% else %}—{% endif %}
           </span>
         </div>
 
@@ -982,8 +982,8 @@
     </div><!-- /.gd-table-wrap -->
 
     <div class="gd-footer">
-      <span>Показано <span class="num" id="footerShown">{{ variants | length }}</span> вариантов</span>
-      <span>Нужно заказать (60д): <span class="num warn" id="footerNeed">0</span> шт.</span>
+      <span>{{ "Ko'rsatildi" if lang == "uz" else "Показано" }} <span class="num" id="footerShown">{{ variants | length }}</span> {{ "variant" if lang == "uz" else "вариантов" }}</span>
+      <span>{{ "Buyurtma kerak (60k):" if lang == "uz" else "Нужно заказать (60д):" }} <span class="num warn" id="footerNeed">0</span> {{ "dona" if lang == "uz" else "шт." }}</span>
     </div>
   </div>
 
@@ -991,22 +991,22 @@
   <div class="gd-settings-backdrop" id="settingsBackdrop">
     <div class="gd-settings-panel" role="dialog" aria-labelledby="settingsTitle" onclick="event.stopPropagation()">
       <div class="gd-settings-head">
-        <h2 class="gd-settings-title" id="settingsTitle">Настройки таблицы</h2>
+        <h2 class="gd-settings-title" id="settingsTitle">{{ "Jadval sozlamalari" if lang == "uz" else "Настройки таблицы" }}</h2>
       </div>
       <div class="gd-settings-body">
         <div class="gd-settings-section">
-          <span>Отображается</span>
+          <span>{{ "Ko'rsatilmoqda" if lang == "uz" else "Отображается" }}</span>
         </div>
         <div id="settingsShown"></div>
         <div class="gd-settings-section">
-          <span>Скрыто</span>
-          <button class="gd-settings-show-all" id="settingsShowAll" type="button">Показать все</button>
+          <span>{{ "Yashirilgan" if lang == "uz" else "Скрыто" }}</span>
+          <button class="gd-settings-show-all" id="settingsShowAll" type="button">{{ "Hammasini ko'rsatish" if lang == "uz" else "Показать все" }}</button>
         </div>
         <div id="settingsHidden"></div>
       </div>
       <div class="gd-settings-foot">
-        <button class="gd-settings-btn" id="settingsCancel" type="button">Отменить</button>
-        <button class="gd-settings-btn gd-settings-btn--primary" id="settingsApply" type="button">Применить</button>
+        <button class="gd-settings-btn" id="settingsCancel" type="button">{{ "Bekor qilish" if lang == "uz" else "Отменить" }}</button>
+        <button class="gd-settings-btn gd-settings-btn--primary" id="settingsApply" type="button">{{ "Qo'llash" if lang == "uz" else "Применить" }}</button>
       </div>
     </div>
   </div>
@@ -1055,7 +1055,7 @@ function colorChipFor(name){
 })();
 
 // ── Status helper ──────────────────────────────────────
-const PILL_LABELS = { ok:'Активен', low:'Заканчивается', out:'Нет в наличии', stale:'Нет продаж' };
+const PILL_LABELS = {{ {"ok":"Faol","low":"Tugayapti","out":"Mavjud emas","stale":"Sotuv yo'q"}|tojson if lang == "uz" else {"ok":"Активен","low":"Заканчивается","out":"Нет в наличии","stale":"Нет продаж"}|tojson }};
 function statusFor(uq, wh, s){
   if (uq === 0 && wh === 0) return 'out';
   if (uq <= 2)              return 'low';
@@ -1086,10 +1086,10 @@ function paintRowStatusesAndNeeds(){
     const need = Math.max(0, Math.round((s30/30)*60 - uq - wh));
     const wrap = tr.querySelector('.gd-need-wrap');
     if (need <= 0) {
-      wrap.innerHTML = `<span class="gd-need gd-need-ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>хватает</span>`;
+      wrap.innerHTML = `<span class="gd-need gd-need-ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>{{ "yetarli" if lang == "uz" else "хватает" }}</span>`;
     } else {
       const cls = need >= 10 ? 'gd-need-bad' : 'gd-need-mid';
-      wrap.innerHTML = `<span class="gd-need ${cls}">+${need} шт.</span>`;
+      wrap.innerHTML = `<span class="gd-need ${cls}">+${need} {{ "dona" if lang == "uz" else "шт." }}</span>`;
     }
   });
 }
@@ -1113,8 +1113,8 @@ function recomputeStats(periodDays){
     need += Math.max(0, Math.round((s30/30)*60 - uq - wh));
   });
   const fmt = n => new Intl.NumberFormat('ru-RU').format(n);
-  const fmtMoneyShort = n => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' сум';
-  document.getElementById('statSalesLabel').textContent = `Продажи за ${periodDays} ${DAYS_SHORT}`;
+  const fmtMoneyShort = n => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + `{{ (" so'm" if lang == "uz" else " сум") | safe }}`;
+  document.getElementById('statSalesLabel').textContent = {% if lang == "uz" %}periodDays + {{ " kunlik sotuvlar" | tojson }}{% else %}{{ "Продажи за " | tojson }} + periodDays + " " + DAYS_SHORT{% endif %};
   document.getElementById('statSalesValue').textContent = fmt(totalSales);
   document.getElementById('statStockTotal').textContent = fmt(totalUzum + totalWh);
   document.getElementById('statUzum').textContent = fmt(totalUzum);
@@ -1218,7 +1218,7 @@ async function fetchSales(params){
     applySalesData(map, label, params.days || 30);
     if (params.days) fetchDaily({ days: params.days });
     else if (params.date_from) fetchDaily({ date_from: params.date_from, date_to: params.date_to });
-  } catch(e){ alert('Ошибка: ' + e.message); }
+  } catch(e){ alert('{{ "Xato" if lang == "uz" else "Ошибка" }}: ' + e.message); }
   finally {
     ind.style.display = 'none';
     document.querySelectorAll('.sales-cell').forEach(td => td.style.opacity = '');
@@ -1228,13 +1228,14 @@ async function fetchSales(params){
 // ── Hero chart + per-row sparkline (daily-stats endpoint) ─
 let heroData = null; // last fetched daily-stats payload
 
-function fmtMoney(n){ return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' сум'; }
+function fmtMoney(n){ return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + `{{ (" so'm" if lang == "uz" else " сум") | safe }}`; }
 
+const MONTH_NAMES = {{ ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentabr","oktabr","noyabr","dekabr"]|tojson if lang == "uz" else ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]|tojson }};
 function fmtRuShortDate(iso){
   // ISO "2026-05-26" → "26 мая"
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00');
-  return new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'long' }).format(d);
+  return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
 }
 
 function redrawHeroChart(){
@@ -1279,7 +1280,7 @@ function redrawHeroChart(){
     const cx = svgRect.left + ((pad + idx * slot + barW/2) / W) * svgRect.width;
     tip.style.left = (cx - wrapRect.left) + 'px';
     tip.style.top  = (svgRect.top - wrapRect.top + 4) + 'px';
-    tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(arr[idx]) + ' шт.';
+    tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(arr[idx]) + ' {{ "dona" if lang == "uz" else "шт." }}';
     tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
     tip.querySelector('.gd-tt-rev').textContent  = revArr[idx] ? fmtMoney(revArr[idx]) : '';
     tip.classList.add('is-show');
@@ -1295,7 +1296,7 @@ function redrawHeroChart(){
   // axis labels
   const n = arr.length;
   document.getElementById('heroAxis').innerHTML =
-    `<span>−${n-1}д</span><span>−${Math.floor((n-1)/2)}д</span><span>сегодня</span>`;
+    `<span>−${n-1}{{ "k" if lang == "uz" else "д" }}</span><span>−${Math.floor((n-1)/2)}{{ "k" if lang == "uz" else "д" }}</span><span>{{ "bugun" if lang == "uz" else "сегодня" }}</span>`;
 }
 
 const SPARK_W = 112, SPARK_H = 24, SPARK_PAD = 1;
@@ -1344,7 +1345,7 @@ function redrawAllSparklines(){
     const cx = r.left + ((SPARK_PAD + idx * slot + slot/2) / SPARK_W) * r.width;
     tip.style.left = cx + 'px';
     tip.style.top  = (r.top - 6) + 'px';
-    tip.querySelector('.gd-tt-qty').textContent  = fmt(arr[idx]) + ' шт.';
+    tip.querySelector('.gd-tt-qty').textContent  = fmt(arr[idx]) + ' {{ "dona" if lang == "uz" else "шт." }}';
     tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
     tip.classList.add('is-show');
   });
@@ -1416,7 +1417,7 @@ function paintCommissionCells(){
     const r = cell.getBoundingClientRect();
     tip.style.left = (r.left + r.width/2) + 'px';
     tip.style.top  = (r.top - 6) + 'px';
-    tip.innerHTML = `<span class="gd-tt-qty">≈ ${fmt(avg)} сум/шт</span><span class="gd-tt-date">${fmt(tot)} сум всего</span>`;
+    tip.innerHTML = `<span class="gd-tt-qty">≈ ${fmt(avg)} {{ "so'm/dona" if lang == "uz" else "сум/шт" }}</span><span class="gd-tt-date">${fmt(tot)} {{ "so'm jami" if lang == "uz" else "сум всего" }}</span>`;
     tip.classList.add('is-show');
   });
 })();
@@ -1450,7 +1451,7 @@ function paintHeroNumbers(){
     document.getElementById('statProfit').textContent = fmtN(prof);
     document.getElementById('statProfitPct').textContent =
       (ppct >= 0 ? ppct : -ppct).toFixed(1).replace('.', ',') + '%';
-    wrap.title = `Выручка ${fmtMoney(rev)} − комиссия ${fmtMoney(heroData.total_commission||0)} − логистика ${fmtMoney(heroData.total_logistics||0)} − себестоимость ${fmtMoney(heroData.total_cost||0)}`;
+    wrap.title = `{{ "Tushum" if lang == "uz" else "Выручка" }} ${fmtMoney(rev)} − {{ "komissiya" if lang == "uz" else "комиссия" }} ${fmtMoney(heroData.total_commission||0)} − {{ "logistika" if lang == "uz" else "логистика" }} ${fmtMoney(heroData.total_logistics||0)} − {{ "tannarx" if lang == "uz" else "себестоимость" }} ${fmtMoney(heroData.total_cost||0)}`;
   } else {
     wrap.style.display = 'none';
   }
@@ -1519,33 +1520,52 @@ document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(btn => {
 // ── Date range picker ───────────────────────────────────
 function toISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
-const fp = flatpickr('#dateRangeInput', {
-  mode: 'range', locale: 'ru', dateFormat: 'd M Y',
-  showMonths: 2, disableMobile: true,
-  onChange(selectedDates){
-    if (selectedDates.length === 2) {
-      const df = toISO(selectedDates[0]);
-      const dt = toISO(selectedDates[1]);
-      // Deselect preset buttons (custom range now)
-      document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('dateRangeWrapper').classList.add('is-active');
-      fetchSales({ date_from: df, date_to: dt });
-    }
-  },
-});
+// Date-range picker (flatpickr). Loaded from a CDN, so it can be missing or
+// fail to init (e.g. CDN blocked). Guard it: a broken picker must NOT take
+// down the rest of the page (stats, hero chart, sparklines, status pills).
+let fp = null;
+try {
+  if (typeof flatpickr === 'function') {
+    fp = flatpickr('#dateRangeInput', {
+      mode: 'range', locale: 'ru', dateFormat: 'd M Y',
+      showMonths: 2, disableMobile: true,
+      onChange(selectedDates){
+        if (selectedDates.length === 2) {
+          const df = toISO(selectedDates[0]);
+          const dt = toISO(selectedDates[1]);
+          // Deselect preset buttons (custom range now)
+          document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(b => b.classList.remove('active'));
+          document.getElementById('dateRangeWrapper').classList.add('is-active');
+          fetchSales({ date_from: df, date_to: dt });
+        }
+      },
+    });
+  } else {
+    console.warn('[group_detail] flatpickr not loaded — date-range picker disabled.');
+  }
+} catch (e) {
+  console.warn('[group_detail] flatpickr init failed — date-range picker disabled:', e);
+  fp = null;
+}
 window._fp = fp;
-document.getElementById('dateRangeWrapper').addEventListener('click', (e) => {
-  if (e.target.closest('#dateRangeClear')) return; // clear handled separately
-  fp.open();
-});
-document.getElementById('dateRangeClear').addEventListener('click', (e) => {
-  e.stopPropagation();
-  fp.clear();
-  document.getElementById('dateRangeWrapper').classList.remove('is-active');
-  // Restore default 30d preset
-  const def = document.querySelector('#periodSeg .gd-seg-btn[data-days="30"]');
-  if (def) def.click();
-});
+if (fp) {
+  document.getElementById('dateRangeWrapper').addEventListener('click', (e) => {
+    if (e.target.closest('#dateRangeClear')) return; // clear handled separately
+    fp.open();
+  });
+  document.getElementById('dateRangeClear').addEventListener('click', (e) => {
+    e.stopPropagation();
+    fp.clear();
+    document.getElementById('dateRangeWrapper').classList.remove('is-active');
+    // Restore default 30d preset
+    const def = document.querySelector('#periodSeg .gd-seg-btn[data-days="30"]');
+    if (def) def.click();
+  });
+} else {
+  // No picker → hide the date-range control so it isn't a dead button.
+  const drw = document.getElementById('dateRangeWrapper');
+  if (drw) drw.style.display = 'none';
+}
 
 document.getElementById('searchInput').addEventListener('input', applyFilter);
 
@@ -1605,17 +1625,17 @@ const DEFAULT_HIDDEN = ['barcode'];
 // TOGGLE_COLS describes what shows up in the settings panel. Order in this
 // array doesn't matter — the panel uses appliedOrder/tempOrder for sequence.
 const TOGGLE_COLS_META = {
-  sku:      { label:'Товар',            locked:true },
-  uzum_fbo: { label:'Остатки FBO',      hint:'Товары на складе Uzum (FBO)' },
-  fbs:      { label:'Остатки FBS',      hint:'Готовы к отправке со своего склада' },
-  wh:       { label:'Наш склад' },
-  sell:     { label:'Цена Uzum',        hint:'Фактическая цена продажи' },
-  purchase: { label:'Себестоимость' },
-  storage:  { label:'Платное хранение', hint:'Стоимость платного хранения на Uzum' },
-  comm:     { label:'Комиссия Uzum',    hint:'Эффективная ставка комиссии Uzum (% от выручки) за выбранный период. Наведите курсор на ячейку — покажет сумму в сум.' },
-  barcode:  { label:'Штрихкод' },
-  sales:    { label:'Продажи 30 дн.' },
-  need:     { label:'Нужно (60д)',      hint:'Сколько нужно закупить на 60 дней' },
+  sku:      { label:'{{ "Mahsulot" if lang == "uz" else "Товар" }}',            locked:true },
+  uzum_fbo: { label:'{{ "FBO qoldiqlari" if lang == "uz" else "Остатки FBO" }}',      hint:'{{ "Uzum omboridagi mahsulotlar (FBO)" if lang == "uz" else "Товары на складе Uzum (FBO)" }}' },
+  fbs:      { label:'{{ "FBS qoldiqlari" if lang == "uz" else "Остатки FBS" }}',      hint:`{{ "O'z omboringizdan jo'natishga tayyor" if lang == "uz" else "Готовы к отправке со своего склада" }}` },
+  wh:       { label:`{{ "O'z omborimiz" if lang == "uz" else "Наш склад" }}` },
+  sell:     { label:'{{ "Uzum narxi" if lang == "uz" else "Цена Uzum" }}',        hint:'{{ "Haqiqiy sotuv narxi" if lang == "uz" else "Фактическая цена продажи" }}' },
+  purchase: { label:'{{ "Tannarx" if lang == "uz" else "Себестоимость" }}' },
+  storage:  { label:'{{ "Pullik saqlash" if lang == "uz" else "Платное хранение" }}', hint:'{{ "Uzumda pullik saqlash narxi" if lang == "uz" else "Стоимость платного хранения на Uzum" }}' },
+  comm:     { label:'{{ "Uzum komissiyasi" if lang == "uz" else "Комиссия Uzum" }}',    hint:`{{ "Tanlangan davr uchun Uzum komissiyasining samarali stavkasi (tushumdan %). Katakcha ustiga sichqonchani olib boring — summani so'm da ko'rsatadi." if lang == "uz" else "Эффективная ставка комиссии Uzum (% от выручки) за выбранный период. Наведите курсор на ячейку — покажет сумму в сум." }}` },
+  barcode:  { label:'{{ "Shtrix-kod" if lang == "uz" else "Штрихкод" }}' },
+  sales:    { label:'{{ "30 kunlik sotuvlar" if lang == "uz" else "Продажи 30 дн." }}' },
+  need:     { label:'{{ "Kerak (60k)" if lang == "uz" else "Нужно (60д)" }}',      hint:'{{ "60 kunga qancha sotib olish kerak" if lang == "uz" else "Сколько нужно закупить на 60 дней" }}' },
 };
 // keys that the user can toggle/drag in the panel (excludes locked checkbox/actions)
 const PANEL_KEYS = ['sku','uzum_fbo','fbs','wh','sell','purchase','storage','comm','barcode','sales','need'];
@@ -1689,7 +1709,7 @@ function renderSettingsPanel(){
     const q = meta.hint ? `<span class="gd-settings-q" title="${meta.hint.replace(/"/g,'&quot;')}">?</span>` : '';
     const grip = meta.locked ? '<span class="gd-settings-grip-placeholder"></span>' : SVG_GRIP;
     const right = meta.locked
-      ? `<span class="gd-settings-toggle is-locked" title="Нельзя скрыть">${SVG_LOCK}</span>`
+      ? `<span class="gd-settings-toggle is-locked" title="{{ 'Yashirib bo\'lmaydi' if lang == 'uz' else 'Нельзя скрыть' }}">${SVG_LOCK}</span>`
       : `<button class="gd-settings-toggle ${isHidden ? 'is-hidden' : ''}" data-toggle="${key}" type="button">${isHidden ? SVG_EYE_OFF : SVG_EYE}</button>`;
     const dragAttr = meta.locked ? '' : `draggable="true" data-drag-key="${key}"`;
     const cls = `gd-settings-row ${meta.locked ? 'is-locked' : 'is-draggable'}`;
@@ -1701,7 +1721,7 @@ function renderSettingsPanel(){
   document.getElementById('settingsShown').innerHTML  = shown.map(k => rowHTML(k, false)).join('');
   document.getElementById('settingsHidden').innerHTML = hidden.length
     ? hidden.map(k => rowHTML(k, true)).join('')
-    : '<div style="padding:14px 0; color:var(--gd-faint); font-size:13px;">Все колонки отображаются.</div>';
+    : `<div style="padding:14px 0; color:var(--gd-faint); font-size:13px;">{{ "Barcha ustunlar ko'rsatilmoqda." if lang == "uz" else "Все колонки отображаются." }}</div>`;
 
   // Bind eye-toggle clicks
   document.querySelectorAll('#settingsShown .gd-settings-toggle[data-toggle], #settingsHidden .gd-settings-toggle[data-toggle]').forEach(btn => {

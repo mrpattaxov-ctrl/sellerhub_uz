@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+[data-bs-theme="light"] .we-page, .we-page {
+  --we-page-bg:#F4F4F7;
+  --we-surface:#FFFFFF;
+  --we-border:#ECECF0;
+  --we-border-strong:#E0DFE6;
+  --we-text:#1A1A22;
+  --we-text-2:#5A5762;
+  --we-text-muted:#8E8B97;
+  --we-active-bg:#EFEEF2;
+  --we-mono-pill-bg:#F4F4F7;
+  --we-mono-pill-text:#3A3744;
+  --we-hover:#F8F8FA;
+  --we-head-bg:#F9F9FB;
+  --we-exp-bg:#FCEAEA; --we-exp-fg:#E84747;
+  --we-shadow-pop:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+  --we-store-default-bg:#EFEEF2; --we-store-default-fg:#3A3744;
+  --we-luxuz-bg:#E5ECFB;  --we-luxuz-fg:#4169E1;
+  --we-blummy-bg:#FCEAEA; --we-blummy-fg:#E84747;
+}
+[data-bs-theme="dark"] .we-page {
+  --we-page-bg:#0E0E14;
+  --we-surface:#18181F;
+  --we-border:#25252F;
+  --we-border-strong:#2E2E3A;
+  --we-text:#F0EDF5;
+  --we-text-2:#B6B4C2;
+  --we-text-muted:#8A8896;
+  --we-active-bg:#22222D;
+  --we-mono-pill-bg:#101018;
+  --we-mono-pill-text:#D7D4DF;
+  --we-hover:#1C1C26;
+  --we-head-bg:#1B1B23;
+  --we-exp-bg:rgba(252,165,165,.16); --we-exp-fg:#FCA5A5;
+  --we-shadow-pop:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  --we-store-default-bg:#22222D; --we-store-default-fg:#D7D4DF;
+  --we-luxuz-bg:rgba(110,143,232,.18); --we-luxuz-fg:#A4B9F0;
+  --we-blummy-bg:rgba(252,165,165,.16); --we-blummy-fg:#FCA5A5;
+}
+
+.we-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--we-text); }
+
+.we-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+.we-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; color:var(--we-text); }
+.we-meta { font-size:13px; color:var(--we-text-muted); margin:0; }
+.we-meta b { color:var(--we-text-2); font-weight:600; }
+.we-meta .we-exp-amt { color:var(--we-exp-fg); font-weight:700; }
+
+.we-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.we-search { flex:1 1 320px; max-width:380px; height:44px; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--we-surface); border:1px solid var(--we-border); border-radius:14px; transition:border-color .15s, box-shadow .15s; }
+.we-search:focus-within { border-color:var(--we-text-2); box-shadow:0 0 0 4px rgba(26,26,34,.06); }
+.we-search svg { color:var(--we-text-muted); width:16px; height:16px; flex-shrink:0; }
+.we-search input { border:0; outline:0; background:transparent; width:100%; font-size:14px; color:var(--we-text); }
+.we-search input::placeholder { color:var(--we-text-muted); }
+
+.we-store-picker { position:relative; }
+.we-store-trigger { height:44px; padding:0 14px; display:inline-flex; align-items:center; gap:10px;
+  background:var(--we-surface); border:1px solid var(--we-border); border-radius:14px; font-size:14px; font-weight:500;
+  color:var(--we-text); cursor:pointer; min-width:180px; }
+.we-store-trigger svg { color:var(--we-text-muted); width:16px; height:16px; flex-shrink:0; }
+.we-store-trigger .we-chev { margin-left:auto; }
+.we-store-menu { position:absolute; top:calc(100% + 6px); left:0; background:var(--we-surface); border:1px solid var(--we-border);
+  border-radius:12px; box-shadow:var(--we-shadow-pop); min-width:220px; padding:6px; z-index:25; display:none; }
+.we-store-picker.open .we-store-menu { display:block; }
+.we-store-item { padding:9px 12px; font-size:14px; font-weight:500; color:var(--we-text); border-radius:8px; cursor:pointer; }
+.we-store-item:hover { background:var(--we-hover); }
+.we-store-item.selected { background:var(--we-active-bg); color:var(--we-text); font-weight:600; }
+
+.we-tablewrap { background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px; overflow:hidden; }
+table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
+.we-table thead th { position:sticky; top:0; z-index:5; background:var(--we-head-bg); color:var(--we-text-muted);
+  font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; text-align:left;
+  padding:12px 18px; border-bottom:1px solid var(--we-border); white-space:nowrap; }
+.we-table th.we-num, .we-table td.we-num { text-align:right; }
+.we-table tbody td { padding:12px 18px; border-bottom:1px solid var(--we-border); font-size:14px; color:var(--we-text); vertical-align:middle; }
+.we-table tbody tr:last-child td { border-bottom:0; }
+.we-table tbody tr { transition:background .12s; }
+.we-table tbody tr:hover { background:var(--we-hover); }
+
+.we-thumb { width:48px; height:48px; border-radius:10px; overflow:hidden; background:var(--we-active-bg); flex-shrink:0; }
+.we-thumb img { width:100%; height:100%; object-fit:cover; }
+.we-thumb-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--we-text-muted); }
+.we-prod { display:flex; align-items:center; gap:12px; min-width:0; }
+.we-prod-info { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.we-prod-name { font-size:14px; font-weight:600; color:var(--we-text); line-height:1.3;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.we-prod-row2 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.we-sku-pill { display:inline-block; padding:3px 8px; border-radius:8px; background:var(--we-mono-pill-bg); color:var(--we-mono-pill-text);
+  font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; letter-spacing:-0.01em; word-break:break-all; }
+.we-store-badge { padding:3px 9px; border-radius:999px; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+  background:var(--we-store-default-bg); color:var(--we-store-default-fg); }
+.we-store-badge.is-luxuz { background:var(--we-luxuz-bg); color:var(--we-luxuz-fg); }
+.we-store-badge.is-blummy { background:var(--we-blummy-bg); color:var(--we-blummy-fg); }
+
+.we-money { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+.we-exp-pill { display:inline-block; padding:5px 10px; border-radius:9px; background:var(--we-exp-bg); color:var(--we-exp-fg);
+  font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+.we-cur { font-size:11px; color:var(--we-text-muted); font-weight:500; margin-left:3px; }
+.we-dash { color:var(--we-text-muted); }
+.we-qty { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+
+.we-empty { padding:48px 24px; text-align:center; }
+.we-empty-title { font-size:16px; font-weight:600; color:var(--we-text); margin-bottom:4px; }
+.we-empty-body { font-size:14px; color:var(--we-text-muted); }
+
+.we-pagination { margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.we-pg-info { font-size:13px; color:var(--we-text-muted); }
+.we-pg-list { display:inline-flex; gap:4px; }
+.we-pg-list a, .we-pg-list span { display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; padding:0 10px;
+  border-radius:9px; background:var(--we-surface); border:1px solid var(--we-border); color:var(--we-text-2); font-size:13px; font-weight:500; text-decoration:none; }
+.we-pg-list a:hover { background:var(--we-hover); color:var(--we-text); }
+.we-pg-list .active { background:var(--we-active-bg); border-color:var(--we-active-bg); color:var(--we-text); font-weight:700; }
+.we-pg-list .disabled { opacity:.4; pointer-events:none; }
+
+/* expand / collapse */
+.we-group-row { cursor:pointer; }
+.we-group-row td { background:var(--we-surface); }
+.we-chev { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex-shrink:0;
+  border-radius:7px; color:var(--we-text-muted); transition:transform .18s, background .12s, color .12s; }
+.we-group-row:hover .we-chev { background:var(--we-active-bg); color:var(--we-text); }
+.we-group-row.expanded .we-chev { transform:rotate(90deg); color:var(--we-text); }
+.we-chev svg { width:16px; height:16px; }
+.we-vcount { font-size:11px; font-weight:600; color:var(--we-text-muted); padding:2px 7px; border-radius:999px; background:var(--we-active-bg); white-space:nowrap; }
+.we-prod-lead { display:flex; align-items:center; gap:10px; min-width:0; }
+.we-avg { color:var(--we-text-muted); font-weight:500; }
+
+/* add-to-sale button */
+.we-add-sale { margin-left:auto; flex-shrink:0; display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 13px;
+  border-radius:10px; border:1px solid var(--we-border-strong); background:var(--we-surface); color:var(--we-text);
+  font-size:13px; font-weight:600; cursor:pointer; transition:background .12s, border-color .12s, color .12s; }
+.we-add-sale:hover { background:#4169E1; border-color:#4169E1; color:#fff; }
+[data-bs-theme="dark"] .we-add-sale:hover { background:#6E8FE8; border-color:#6E8FE8; color:#0E0E14; }
+.we-add-sale svg { width:15px; height:15px; }
+.we-add-sale.in-sale { background:var(--we-wh-bg, #ECFDF3); border-color:transparent; color:var(--we-wh-fg, #0F9A6A); }
+.we-add-sale.in-sale:hover { background:#0F9A6A; border-color:#0F9A6A; color:#fff; }
+[data-bs-theme="dark"] .we-add-sale.in-sale:hover { background:#34D399; border-color:#34D399; color:#0E0E14; }
+
+/* variant (revealed) rows */
+.we-var-row > td { background:var(--we-head-bg); border-bottom:1px solid var(--we-border); }
+.we-var-row td.we-var-pad { padding-left:30px; }
+.we-var-name { display:flex; align-items:center; gap:10px; min-width:0; }
+.we-var-tick { width:14px; height:14px; flex-shrink:0; color:var(--we-text-muted); }
+.we-var-sku { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; color:var(--we-text); word-break:break-all; }
+.we-var-color { font-size:12px; color:var(--we-text-muted); }
+.we-var-thumb { width:34px; height:34px; border-radius:8px; overflow:hidden; background:var(--we-active-bg); flex-shrink:0; }
+.we-var-thumb img { width:100%; height:100%; object-fit:cover; }
+
+@media (max-width:900px) {
+  .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:none; }
+}
+</style>
+{% endblock %}
+
+{% set is_uz = (lang == 'uz') %}
+
+{% block content %}
+<div class="we-page">
+  <div class="we-title-row">
+    <div>
+      <h1 class="we-h1">{{ 'Ombor xarajatlari' if is_uz else 'Складские расходы' }}</h1>
+      <p class="we-meta">
+        <b>{{ total_count }}</b> {{ 'mahsulot' if is_uz else 'товаров' }}
+        ·
+        {{ "Saqlash uchun jami" if is_uz else "Всего за хранение" }}:
+        <span class="we-exp-amt we-money">{{ "{:,}".format(total_storage).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="we-filter-row">
+    <label class="we-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="weSearch" type="text" value="{{ q }}" placeholder="{{ 'Nomi yoki SKU bo\'yicha qidirish…' if is_uz else 'Поиск по названию или SKU…' }}">
+    </label>
+
+    {% if shops | length > 1 %}
+    <div class="we-store-picker" id="weStorePicker">
+      <button type="button" class="we-store-trigger" id="weStoreTrigger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span id="weStoreLabel">
+          {%- set _sel = shops | selectattr('id', 'equalto', current_shop_id|int) | first if current_shop_id and current_shop_id.isdigit() else none -%}
+          {{ (_sel.name or _sel.uzum_id) if _sel else ('Barcha do\'konlar' if is_uz else 'Все магазины') }}
+        </span>
+        <svg class="we-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="we-store-menu">
+        <div class="we-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">{{ 'Barcha do\'konlar' if is_uz else 'Все магазины' }}</div>
+        {% for s in shops %}
+        <div class="we-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="we-tablewrap">
+    <table class="we-table">
+      <thead>
+        <tr>
+          <th colspan="2">{{ 'Mahsulot' if is_uz else 'Товар' }}</th>
+          <th class="we-num">{{ 'Saqlash' if is_uz else 'Хранение' }}</th>
+          <th class="we-num we-hide-sm">{{ 'Omborda' if is_uz else 'На складе' }}</th>
+          <th class="we-num we-hide-sm">{{ 'Sotuv narxi' if is_uz else 'Цена продажи' }}</th>
+          <th class="we-num we-hide-sm">{{ 'Tannarx' if is_uz else 'Себестоимость' }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        {% set shop = shops_by_id.get(it.shop_id) %}
+        {% set sname = (shop.name if shop else '') or '' %}
+        {% set skey = sname.lower() %}
+        {% set shop_uz = (shop.uzum_id if shop else '') %}
+        <tr class="we-group-row" data-group="{{ it.id }}">
+          <td style="width:64px; padding-right:0;">
+            <div class="we-thumb">
+              {% if it.image_url %}
+              <img src="{{ it.image_url | uzum540 }}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+              <div class="we-thumb-empty" style="display:none">—</div>
+              {% else %}
+              <div class="we-thumb-empty">—</div>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="we-prod-lead">
+              <span class="we-chev" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </span>
+              <div class="we-prod-info">
+                <span class="we-prod-name">{{ it.name }}</span>
+                <span class="we-prod-row2">
+                  {% if sname %}<span class="we-store-badge {% if skey == 'luxuz' %}is-luxuz{% elif skey == 'blummy' %}is-blummy{% endif %}">{{ sname }}</span>{% endif %}
+                  {% if it.short_sku %}<span class="we-sku-pill">{{ it.short_sku }}</span>{% endif %}
+                  <span class="we-vcount">{{ it.vcount }} {{ 'SKU' if is_uz else 'SKU' }}</span>
+                </span>
+              </div>
+              {% if it.uzum_product_id %}
+              {% set in_titles = enrolled_pids.get(it.uzum_product_id) %}
+              {% set in_names = (in_titles | map(attribute=('uz' if is_uz else 'ru')) | select | join(', ')) if in_titles else '' %}
+              <button type="button" class="we-add-sale{% if in_titles %} in-sale{% endif %}"
+                      data-puzid="{{ it.uzum_product_id }}" data-shopuz="{{ shop_uz }}" data-pname="{{ it.name }}"
+                      title="{% if in_titles %}{{ ('Aksiyada qatnashmoqda' if is_uz else 'Участвует в акции') ~ (': ' ~ in_names if in_names else '') }}{% else %}{{ 'Aksiyaga qo\'shish' if is_uz else 'Добавить в акцию' }}{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                <span class="we-add-sale-label">{% if in_titles %}{{ 'Aksiyada qatnashmoqda' if is_uz else 'Участвует в акции' }}{% else %}{{ 'Aksiyaga' if is_uz else 'В акцию' }}{% endif %}</span>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+          <td class="we-num">
+            {% if it.storage > 0 %}
+            <span class="we-exp-pill">{{ "{:,}".format(it.storage).replace(",", " ") }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+          <td class="we-num we-hide-sm"><span class="we-qty">{{ it.qty }}</span></td>
+          <td class="we-num we-hide-sm">
+            {% if it.avg_sell > 0 %}
+            <span class="we-money we-avg" title="{{ 'O\'rtacha' if is_uz else 'Средняя' }}">{{ "{:,}".format(it.avg_sell).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+          <td class="we-num we-hide-sm">
+            {% if it.avg_cost > 0 %}
+            <span class="we-money we-avg" title="{{ 'O\'rtacha' if is_uz else 'Средняя' }}">{{ "{:,}".format(it.avg_cost).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+        </tr>
+        {% for v in it.variants %}
+        <tr class="we-var-row" data-group="{{ it.id }}" style="display:none;">
+          <td style="width:64px; padding-right:0;">
+            <div class="we-var-thumb" style="margin-left:auto;">
+              {% if v.image_url %}<img src="{{ v.image_url | uzum540 }}" alt="" loading="lazy" onerror="this.style.display='none'">{% endif %}
+            </div>
+          </td>
+          <td class="we-var-pad">
+            <div class="we-var-name">
+              <svg class="we-var-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              <span class="we-var-sku">{{ v.sku }}</span>
+              {% if v.color %}<span class="we-var-color">· {{ v.color }}</span>{% endif %}
+            </div>
+          </td>
+          <td class="we-num">
+            {% if v.storage > 0 %}
+            <span class="we-exp-pill">{{ "{:,}".format(v.storage).replace(",", " ") }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+          <td class="we-num we-hide-sm"><span class="we-qty">{{ v.qty }}</span></td>
+          <td class="we-num we-hide-sm">
+            {% if v.sell_price > 0 %}
+            <span class="we-money">{{ "{:,}".format(v.sell_price).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+          <td class="we-num we-hide-sm">
+            {% if v.cost_price > 0 %}
+            <span class="we-money">{{ "{:,}".format(v.cost_price).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
+            {% else %}<span class="we-dash">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+        {% if not items %}
+        <tr>
+          <td colspan="6">
+            <div class="we-empty">
+              <div class="we-empty-title">{{ 'Bu yerda hozircha bo\'sh' if is_uz else 'Здесь пока пусто' }}</div>
+              <div class="we-empty-body">{{ 'Mahsulotlarni sinxronlang yoki qidiruvni o\'zgartiring.' if is_uz else 'Синхронизируйте товары или измените условия поиска.' }}</div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if total_pages is defined and total_pages > 1 %}
+  <div class="we-pagination">
+    <div class="we-pg-info">
+      {{ 'Ko\'rsatilgan' if is_uz else 'Показано' }} {{ items|length }} {{ 'dan' if is_uz else 'из' }} {{ total_count }}
+      ({{ 'sahifa' if is_uz else 'страница' }} {{ page }} / {{ total_pages }})
+    </div>
+    <div class="we-pg-list" id="wePgList"></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/sale_picker.js?v=20260615f"></script>
+<script>
+(function(){
+  // expand / collapse group rows
+  document.querySelectorAll('.we-group-row').forEach(function(row){
+    row.addEventListener('click', function(){
+      var gid = row.getAttribute('data-group');
+      var open = row.classList.toggle('expanded');
+      document.querySelectorAll('.we-var-row[data-group="' + gid + '"]').forEach(function(vr){
+        vr.style.display = open ? '' : 'none';
+      });
+    });
+  });
+
+  // "Add to sale" buttons → open the sale-picker modal.
+  document.querySelectorAll('.we-add-sale').forEach(function(btn){
+    // Warm the modal data the moment the user shows intent (hover / press), so
+    // by the time the click registers the pop-up opens instantly.
+    function pf(){
+      if (window.UzumSalePicker && UzumSalePicker.prefetch && btn.dataset.puzid) {
+        UzumSalePicker.prefetch({ shopId: btn.dataset.shopuz, productId: Number(btn.dataset.puzid) });
+      }
+    }
+    btn.addEventListener('mouseenter', pf);
+    btn.addEventListener('mousedown', pf);
+    btn.addEventListener('touchstart', pf, { passive: true });
+
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      if (!window.UzumSalePicker) return;
+      UzumSalePicker.open({
+        shopId: btn.dataset.shopuz,
+        productId: Number(btn.dataset.puzid),
+        productName: btn.dataset.pname,
+        highlightSku: btn.dataset.sku || ''
+      });
+    });
+  });
+
+  // Gentle background pre-warm of the first few products (page is sorted by
+  // storage spend desc → these are the most likely to be discounted), so the
+  // very first click is instant. Sequential + capped to avoid hammering Uzum;
+  // every other product is still warmed on hover above.
+  (function(){
+    if (!window.UzumSalePicker || !UzumSalePicker.prefetch) return;
+    var btns = Array.prototype.slice.call(document.querySelectorAll('.we-add-sale[data-puzid]'));
+    var seen = {}, queue = [];
+    btns.forEach(function(b){
+      var id = b.dataset.puzid;
+      if (id && !seen[id]) { seen[id] = 1; queue.push({ shopId: b.dataset.shopuz, productId: Number(id) }); }
+    });
+    queue = queue.slice(0, 6);
+    var i = 0;
+    function next(){
+      if (i >= queue.length) return;
+      UzumSalePicker.prefetch(queue[i++]);
+      setTimeout(next, 1200);
+    }
+    setTimeout(next, 1500); // let the page-load dataset warm (enrolled-products) get a head start
+  })();
+
+  // Badge products that are already enrolled in a sale → button becomes
+  // "В акции" (one lightweight call per distinct shop on the page).
+  (function(){
+    var isUz = (document.body.dataset.lang === 'uz');
+    var inSaleLabel = isUz ? 'Aksiyada qatnashmoqda' : 'Участвует в акции';
+    var btns = Array.prototype.slice.call(document.querySelectorAll('.we-add-sale[data-shopuz]'));
+    var shops = {};
+    btns.forEach(function(b){ if (b.dataset.shopuz) shops[b.dataset.shopuz] = true; });
+    Object.keys(shops).forEach(function(shopUz){
+      fetch('/api/sales/enrolled-products?shop_id=' + encodeURIComponent(shopUz))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){
+          if (!j || !j.enrolled) return;
+          btns.forEach(function(b){
+            if (b.dataset.shopuz !== shopUz) return;
+            var titles = j.enrolled[String(b.dataset.puzid)];
+            if (!titles || !titles.length) return;
+            b.classList.add('in-sale');
+            var lbl = b.querySelector('.we-add-sale-label');
+            if (lbl) lbl.textContent = inSaleLabel;
+            var names = titles.map(function(t){ return isUz ? (t.uz||t.ru) : (t.ru||t.uz); }).join(', ');
+            b.title = inSaleLabel + ': ' + names;
+          });
+        })
+        .catch(function(){});
+    });
+
+    // Live update: when the modal enrolls a product, flip its button to
+    // "Участвует в акции" immediately (no reload / no waiting for a refetch).
+    document.addEventListener('uzum-sale-added', function(e){
+      var d = e.detail || {};
+      btns.forEach(function(b){
+        if (String(b.dataset.puzid) !== String(d.productId)) return;
+        if (d.shopId && String(b.dataset.shopuz) !== String(d.shopId)) return;
+        b.classList.add('in-sale');
+        var lbl = b.querySelector('.we-add-sale-label');
+        if (lbl) lbl.textContent = inSaleLabel;
+        if (d.saleTitle) b.title = inSaleLabel + ': ' + d.saleTitle;
+      });
+    });
+  })();
+
+  // live search
+  var search = document.getElementById('weSearch');
+  if (search) {
+    var timer;
+    search.addEventListener('input', function() {
+      clearTimeout(timer);
+      var val = this.value;
+      timer = setTimeout(function() {
+        var params = new URLSearchParams(window.location.search);
+        if (val.trim()) params.set('q', val.trim()); else params.delete('q');
+        params.delete('page');
+        window.location.search = params.toString();
+      }, 400);
+    });
+  }
+
+  // store picker
+  var picker = document.getElementById('weStorePicker');
+  if (picker) {
+    var trigger = document.getElementById('weStoreTrigger');
+    trigger.addEventListener('click', function(e) { e.stopPropagation(); picker.classList.toggle('open'); });
+    document.addEventListener('click', function() { picker.classList.remove('open'); });
+    picker.querySelectorAll('.we-store-item').forEach(function(item) {
+      item.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var params = new URLSearchParams(window.location.search);
+        var sid = item.dataset.shopId;
+        if (sid) params.set('shop_id', sid); else params.delete('shop_id');
+        params.delete('page');
+        window.location.search = params.toString();
+      });
+    });
+  }
+
+  // pagination
+  {% if total_pages is defined and total_pages > 1 %}
+  (function() {
+    var cur = {{ page }};
+    var total = {{ total_pages }};
+    var params = new URLSearchParams(window.location.search);
+    function pageUrl(p) { params.set('page', p); return window.location.pathname + '?' + params.toString(); }
+    function item(p, label, disabled, active) {
+      if (disabled || active) {
+        var s = document.createElement('span');
+        s.className = active ? 'active' : 'disabled';
+        s.textContent = label;
+        return s;
+      }
+      var a = document.createElement('a');
+      a.href = pageUrl(p); a.textContent = label; return a;
+    }
+    var pgList = document.getElementById('wePgList');
+    pgList.appendChild(item(cur - 1, '‹', cur <= 1, false));
+    var start = Math.max(1, cur - 2), end = Math.min(total, cur + 2);
+    for (var p = start; p <= end; p++) pgList.appendChild(item(p, p, false, p === cur));
+    pgList.appendChild(item(cur + 1, '›', cur >= total, false));
+  })();
+  {% endif %}
+})();
+</script>
+{% endblock %}

@@ -1,10 +1,10 @@
 ﻿from __future__ import annotations
-
+import logging
 import json
 
 # ── Imports from extracted core modules ──────────────────────────────
 from config import (
-    ENABLE_DEBUG_ROUTES, APP_DIR, DATA_DIR,
+    APP_DIR, DATA_DIR,
     DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_RECYCLE_SECONDS,
     SECRET_KEY,
     FINANCE_REFRESH_DAYS,
@@ -23,7 +23,7 @@ from core.time_helpers import (
     _recommended_window_lengths,
 )
 from core.http_client import _get_http_session, http_post_multipart
-from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_page
+from core.uzum_openapi import fetch_products_page
 from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
     _uzum_auto_login, _current_user_is_admin, admin_required, _user_shop_ids,
@@ -38,7 +38,7 @@ from core.subscriptions import (
     _subscription_status_for_user,
     write_session_subscription,
 )
-from core.redis_client import is_user_revoked
+from core.redis_client import subscription_gate_state, clear_user_recheck
 from core import shop_lock
 
 import io
@@ -75,7 +75,6 @@ from models import (
     TelegramPending,
     User,
     Variant,
-    VariantSale,
 )
 
 DB_URL = DATABASE_URL
@@ -120,6 +119,7 @@ def _bootstrap_default_admin():
             has_users = db.execute(select(User.id)).first() is not None
             if has_users:
                 return
+            #admin created automaticaly first
             admin = User(
                 username="admin",
                 password_hash=generate_password_hash(admin_password),
@@ -190,7 +190,7 @@ def _ensure_common_db_indexes():
         # Groups page and warehouse queries
         "CREATE INDEX IF NOT EXISTS ix_pg_shop_id ON product_groups(shop_id)",
         "CREATE INDEX IF NOT EXISTS ix_pg_is_archived ON product_groups(is_archived)",
-        "CREATE INDEX IF NOT EXISTS ix_variant_sale_variant_date ON variant_sales(variant_id, date)",
+    
     ]
     try:
         with engine.begin() as conn:
@@ -237,16 +237,6 @@ def _make_session_permanent():
     refreshed on each request so active users are never logged out."""
     session.permanent = True
 
-
-@app.before_request
-def _block_debug_routes():
-    """Return 404 for /debug/* and /lost-goods* when ENABLE_DEBUG_ROUTES is False."""
-    if not ENABLE_DEBUG_ROUTES:
-        path = request.path
-        if path.startswith("/debug/") or path.startswith("/lost-goods") or path.startswith("/api/lost-goods"):
-            return "Not found", 404
-
-
 @app.before_request
 def _force_password_change():
     if not current_user.is_authenticated:
@@ -275,28 +265,34 @@ def _enforce_active_subscription():
 
     user_id = int(current_user.get_id())
 
-    # Force-revoke blocklist: checked on EVERY gated request (even fresh
-    # sessions) so admin-cancel / Payme chargeback propagates instantly.
-    # If Redis is down this raises — we want loud failure, not silent bypass.
-    if is_user_revoked(user_id):
+    # One Redis round-trip for both gate flags (same latency as the single
+    # SISMEMBER this replaced). If Redis is down this raises — we want loud
+    # failure, not silent bypass.
+    #  * revoked        → hard block (admin-cancel / Payme chargeback), instant.
+    #  * pending_recheck → a subscription change is waiting to propagate; bypass
+    #    the signed-session fast-path once and recompute from the DB so the
+    #    change reaches even a live "unlimited" / not-yet-expired session.
+    revoked, pending_recheck = subscription_gate_state(user_id)
+    if revoked:
         return _deny_expired_subscription()
 
     # Step 0 hot path: signed Flask session carries the user's expiry so we
-    # skip Postgres on 99% of requests. See write_session_subscription() for
-    # every place the session keys get (re)written.
-    session_plan = session.get(SESSION_SUB_PLAN_KEY)
-    session_expires_iso = session.get(SESSION_SUB_EXPIRES_KEY)
+    # skip Postgres on 99% of requests. Skipped when a recheck is pending. See
+    # write_session_subscription() for every place the session keys get written.
+    if not pending_recheck:
+        session_plan = session.get(SESSION_SUB_PLAN_KEY)
+        session_expires_iso = session.get(SESSION_SUB_EXPIRES_KEY)
 
-    if session_plan in ("admin", "unlimited"):
-        return None
-
-    if session_plan in ("trial", "paid") and session_expires_iso:
-        try:
-            expires_at = datetime.fromisoformat(str(session_expires_iso))
-        except ValueError:
-            expires_at = None
-        if expires_at is not None and expires_at > datetime.utcnow():
+        if session_plan in ("admin", "unlimited"):
             return None
+
+        if session_plan in ("trial", "paid") and session_expires_iso:
+            try:
+                expires_at = datetime.fromisoformat(str(session_expires_iso))
+            except ValueError:
+                expires_at = None
+            if expires_at is not None and expires_at > datetime.utcnow():
+                return None
 
     # Fall back to the slow path: recompute, refresh session, then decide.
     with SessionLocal() as db:
@@ -310,6 +306,10 @@ def _enforce_active_subscription():
         status = _subscription_status_for_user(user, settings=settings)
 
     write_session_subscription(session, status)
+    # The session now mirrors the DB, so the pending change is propagated —
+    # drop the flag and let subsequent requests use the fast-path again.
+    if pending_recheck:
+        clear_user_recheck(user_id)
 
     if status["active"]:
         return None
@@ -358,7 +358,7 @@ def load_user(user_id):
 # Auto-login scheduler (started only by the BG-owner worker — see background/startup.py)
 # ----------------------------
 _auto_login_scheduler = None
-
+#Autorefresh the token scheduler
 def _start_auto_login_scheduler():
     """Start the 90-minute auto-login loop + an immediate first login. Called once by the BG-owner worker."""
     global _auto_login_scheduler
@@ -526,28 +526,6 @@ def extract_variants(p: dict) -> list[dict]:
                 break
     return arr if isinstance(arr, list) else []
 
-
-def variant_sales_last30_map(db, variant_ids: list[int]) -> dict:
-    if not variant_ids:
-        return {}
-    since = date.today() - timedelta(days=30)
-    stmt = (
-        select(VariantSale.variant_id, func.coalesce(func.sum(VariantSale.qty_sold), 0))
-        .where(VariantSale.variant_id.in_(variant_ids))
-        .where(VariantSale.date >= since)
-        .group_by(VariantSale.variant_id)
-    )
-    return {vid: int(total or 0) for (vid, total) in db.execute(stmt).all()}
-
-
-
-# ---------------------------------------------------------------------------
-# Register debug-routes Blueprint (extracted into debug_routes.py)
-# ---------------------------------------------------------------------------
-import debug_routes as _debug_mod
-_debug_mod.init_debug_routes(__import__("sys").modules[__name__])
-app.register_blueprint(_debug_mod.debug_bp)
-
 # ---------------------------------------------------------------------------
 # Register auth-routes Blueprint (extracted into auth/routes.py)
 # ---------------------------------------------------------------------------
@@ -582,12 +560,6 @@ import products.routes as _products_mod
 _products_mod.init_products_routes(__import__("sys").modules[__name__])
 app.register_blueprint(_products_mod.products_bp)
 
-# ---------------------------------------------------------------------------
-# Register finance-routes Blueprint (extracted into finance/routes.py)
-# ---------------------------------------------------------------------------
-import finance.routes as _finance_mod
-_finance_mod.init_finance_routes(__import__("sys").modules[__name__])
-app.register_blueprint(_finance_mod.finance_bp)
 
 # ---------------------------------------------------------------------------
 # Register pos-routes Blueprint (extracted into pos/routes.py)
@@ -632,8 +604,8 @@ def _tg_save_config(cfg: dict):
 # In-memory store: code -> {tg_id, tg_username, created_at}
 import secrets, time as _time
 def _tg_clean_expired():
-    """Remove pending Telegram login requests older than 5 minutes."""
-    cutoff = datetime.utcnow() - timedelta(minutes=5)
+    """Remove pending Telegram login requests older than 2 minutes."""
+    cutoff = datetime.utcnow() - timedelta(minutes=2)
     with SessionLocal() as db:
         db.execute(delete(TelegramPending).where(TelegramPending.created_at < cutoff))
         db.commit()
@@ -668,7 +640,7 @@ def _tg_set(token: str, *, type: str = "code", user_id: int | None = None,
                 tg_id=tg_id, tg_username=tg_username, confirmed=confirmed,
             ))
         db.commit()
-
+#writing confirmation to the db
 def _tg_confirm(token: str, **updates):
     """Mark a pending entry as confirmed, optionally updating fields."""
     with SessionLocal() as db:
@@ -679,13 +651,13 @@ def _tg_confirm(token: str, **updates):
                 if hasattr(row, k):
                     setattr(row, k, v)
             db.commit()
-
+#removing a pending entry from the database
 def _tg_delete(token: str):
     """Remove a pending entry."""
     with SessionLocal() as db:
         db.execute(delete(TelegramPending).where(TelegramPending.token == token))
         db.commit()
-
+#start the telegram bot in a background thread
 def _start_tg_bot():
     """Run the Telegram bot in a background thread (long-polling)."""
     try:
@@ -718,7 +690,7 @@ def _start_tg_bot():
                     parse_mode="Markdown",
                     reply_markup=share_markup,
                 )
-
+        #hadling contact for new users 
         @bot.message_handler(content_types=["contact"])
         def handle_contact(msg):
             tg_id = str(msg.from_user.id)
@@ -741,7 +713,7 @@ def _start_tg_bot():
                     user_id = user.id
                     is_admin = user.is_admin
                 else:
-                    # Auto-create account for new user
+                    # Auto-create account for new user through telegram bot
                     from werkzeug.security import generate_password_hash as _gph
                     import os as _os
                     base = tg_username
@@ -1244,19 +1216,15 @@ def _start_tg_bot():
                     pass
 
         @bot.message_handler(func=lambda m: True)
-        def handle_code(msg):
-            code = (msg.text or "").strip().upper()
-            tg_id = str(msg.from_user.id)
-            tg_username = msg.from_user.username or f"tg_{tg_id}"
-            _tg_clean_expired()
-            entry = _tg_get(code)
-            if entry and entry.get("type") != "approval":
-                _tg_confirm(code, tg_id=tg_id, tg_username=tg_username)
-                bot.send_message(msg.chat.id, "✅ Вы успешно вошли в систему!")
-            else:
-                bot.send_message(msg.chat.id, "Отправьте код, который отображается на странице входа.")
+        def handle_random_texts(msg):
+            # Catch-all fallback for any unrecognized text. Login happens via the
+            # browser (phone-approval / contact-sharing), so just point users there.
+            bot.send_message(msg.chat.id, "Неверный тип сообщения. Пожалуйста, используйте кнопки меню или команды для взаимодействия с ботом.")
 
-        bot.infinity_polling(timeout=30, long_polling_timeout=20)
+        
+        logging.getLogger("TeleBot").setLevel(logging.CRITICAL)
+
+        bot.infinity_polling(timeout=30, long_polling_timeout=20, logger_level=logging.CRITICAL)
     except Exception as e:
         print(f"[TG Bot] Error: {e}")
 
@@ -1287,7 +1255,7 @@ def _fmt_sum(v: int) -> str:
     """Format large integer as e.g. '1 234 500'."""
     return f"{v:,}".replace(",", " ")
 
-
+#drawing the picture for the Telegram notification
 def _render_sales_image(
     by_shop: dict,
     hour_label: str,
@@ -1744,7 +1712,7 @@ def _render_sales_image(
     img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
-
+# Default notification setting values for users that are not set them, gets from config.py
 def _coerce_notification_settings_payload(payload: dict | None) -> dict:
     data = dict(NOTIFICATION_SETTINGS_DEFAULTS)
     if payload:
@@ -1786,6 +1754,7 @@ def _coerce_notification_settings_payload(payload: dict | None) -> dict:
     return data
 
 
+#get users notification setting from db
 def _get_user_notification_settings(user_id: int, *, db=None) -> dict:
     def _coerce(payload: dict | None) -> dict:
         return _coerce_notification_settings_payload(payload)
@@ -1808,8 +1777,9 @@ def _get_user_notification_settings(user_id: int, *, db=None) -> dict:
         return _get_user_notification_settings(user_id, db=local_db)
 
 
+
+#Send a photo to a Telegram user via the bot.
 def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False):
-    """Send a photo to a Telegram user via the bot."""
     try:
         import telebot as _tb
         import io as _io
@@ -1848,7 +1818,7 @@ def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False):
     except Exception as e:
         print(f"[HourlySales] send_photo error: {e}")
 
-
+#send short status or text notifications
 def _send_tg_message(tg_id: str, text: str):
     """Send a plain text message to a Telegram user via the bot."""
     try:
@@ -2132,7 +2102,10 @@ def _format_sales_window_label(window_start: datetime, window_end_exclusive: dat
         f"{window_end_exclusive.strftime('%d.%m.%Y %H:%M')}"
     )
 
-
+#_do_hourly_sales_check is the full worker: it gathers recipients → reads DB → computes the economics 
+# → renders the image → sends to Telegram. It delegates only the two narrow final actions 
+# — drawing the picture (_render_sales_image)
+#  and the Telegram API call (_send_tg_photo) — but it owns and drives the entire pipeline
 def _do_hourly_sales_check(
     window_hours: int = 1,
     *,
@@ -2642,7 +2615,7 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
                                 )
                                 print(f"[Subscription] Sent expiry notice to user_id={user.id} tg={tg_id}")
                     continue  # Do not send sales notifications to expired users
-
+            #
             prefs = _get_user_notification_settings(user.id, db=db)
             if not prefs["hourly_enabled"]:
                 continue
@@ -2656,6 +2629,8 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
             if not is_24h and window_length <= 0:
                 continue
 
+
+            #for call _queue_dispatch daily summary message queue
             daily_summary_hour = int(prefs.get("daily_summary_hour", 0))
             if hour == daily_summary_hour:
                 summary_day_anchor = (snap_hour - timedelta(days=1)).date()
@@ -2672,7 +2647,7 @@ def _run_scheduled_hourly_sales_check(snap_hour: datetime | None = None) -> int:
                     warehouse_expense_capture_if_missing=True,
                     pin=True,
                 )
-
+            #for call _queue_dispatch hourly summary message queue
             interval_send_hours = set(prefs.get("interval_send_hours") or [])
             if hour in interval_send_hours or (hour == daily_summary_hour and daily_summary_hour != 0):
                 _queue_dispatch(
@@ -2749,19 +2724,12 @@ _BULK_CREATE_BETWEEN_CHUNKS_S = 65
 # from first-sale-year → today (no chunk queue, no continuous tick).
 # ─────────────────────────────────────────────────────────────────────
 
-
+#Adding to the db dayly fetched finance
 def _ingest_finance_orders_for_day(
     rows: list[dict],
     shop_uzum_id: str,
     period_day: date,
 ) -> int:
-    """Idempotent DELETE+INSERT for a single (shop, day) into finance_orders.
-
-    Drops the date window's existing rows for this shop, then bulk-inserts
-    the fresh aggregates. Empty `rows` is allowed — that means the day had
-    no sales and we still wipe stale rows (handles a day going from N
-    products sold to 0 due to refunds after-the-fact).
-    """
     shop_str = str(shop_uzum_id)
     now_utc = datetime.utcnow()
 
@@ -2809,18 +2777,13 @@ def _ingest_finance_orders_for_day(
 
     return len(payload)
 
-
+#dayly finace fetch starter group=true fetching
 def _refresh_finance_for_shop_day(
     shop_uzum_id: str,
     day_tashkent: date,
     *,
     token: str | None = None,
 ) -> int:
-    """Fetch + ingest one day's aggregates. Holds shop_lock for the duration.
-
-    Returns the number of SKU rows written. Returns 0 (and logs) if no
-    OpenAPI token is available for the shop — caller decides what to do.
-    """
     tok = token or _owner_openapi_token_for_shop(shop_uzum_id)
     if not tok:
         print(f"[FinanceFetch] no OpenAPI token for shop={shop_uzum_id} — skipping day {day_tashkent}")
@@ -2841,31 +2804,6 @@ def _refresh_finance_for_shop_day(
 
 
 def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
-    """Daemon-thread entrypoint for the initial backfill of a newly-added shop.
-
-    Chunked-quarterly design (2026-05-22 redesign):
-
-    1. Detect first-sale year via yearly probes on /v1/finance/orders.
-    2. Build list of QUARTER windows from first-year Q1 → today's quarter.
-    3. For each quarter: fetch line items via ``group=false`` (one paginated
-       call per quarter, size=10000 — Uzum's hard cap), aggregate client-side into
-       FinanceOrder rows (verified equivalent to group=true), and write
-       per-day via the existing idempotent ingest.
-    4. Pool of FINANCE_BACKFILL_PARALLELISM workers (default 2 — matches
-       Uzum's 2-token burst capacity). Global TokenBucket in
-       ``core.http_client`` enforces the rate; we never exceed Uzum's
-       limit and never see a 429.
-
-    Empirical cost (shop 5983, 2-year window, 218K line items):
-        ~30 quarters total (most empty), parallelism=2 → ~1-2 minutes,
-        zero 429s.
-
-    Compared to the previous per-day group=true design (~7 min floor +
-    430+ requests vs ~30 here), this trades 1× API call/day for 1× per
-    quarter, while preserving exact daily-aggregate row shape. Verified
-    semantically equivalent to the group=true path on 2026-05-22 —
-    see scripts/smoke_aggregation_semantics.py.
-    """
     import os as _os
     from collections import defaultdict as _dd
     from concurrent.futures import ThreadPoolExecutor
@@ -2999,22 +2937,6 @@ def _run_full_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
 
 
 def _run_full_expenses_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
-    """Daemon-thread entrypoint for the initial EXPENSES backfill of a new shop.
-
-    Year-chunked, parallelism=2 (mirrors the sales backfill design). Each
-    year is one paginated /v1/finance/expenses fetch (size=10000,
-    TokenBucket-paced) + one chunked PostgreSQL ON CONFLICT UPSERT.
-    Writes go to ``expenses_ledger`` — same table as the daily loop, keyed
-    by (shop_id, operation_id) so re-runs are idempotent.
-
-    Bounds:
-      * Starts at the year detected by ``detect_first_sale_year`` (same as
-        the sales backfill) — pre-existence years are skipped to save API budget.
-      * Ends at today's calendar date in Tashkent.
-
-    Falls back gracefully when the owner has no OpenAPI token: the
-    downstream ingest will route through the EXPENSES_REPORT CSV pipeline.
-    """
     import os as _os
     from concurrent.futures import ThreadPoolExecutor
     from threading import Lock as _Lock
@@ -3097,13 +3019,6 @@ def _run_full_expenses_backfill_for_shop(shop_uzum_id: str, shop_pk: int) -> dic
 
 
 def _send_post_backfill_summary(shop_uzum_id: str, shop_pk: int) -> None:
-    """Telegram summary of yesterday's sales + expenses, sent once post-backfill.
-
-    Fires after both ``_run_full_backfill_for_shop`` and
-    ``_run_full_expenses_backfill_for_shop`` complete for a newly-attached shop.
-    The intent is operational: let the owner confirm both pipelines populated.
-    Plain text (no image) — focuses on the numbers, not formatting.
-    """
     from core.sales_reads import (
         read_sales_aggregated as _read_sales_aggregated,
         read_daily_expense_breakdown as _read_daily_expense_breakdown,
@@ -3180,25 +3095,12 @@ def _send_post_backfill_summary(shop_uzum_id: str, shop_pk: int) -> None:
     except Exception as e:
         print(f"[PostBackfill] shop={shop_uzum_id} send failed: {e!r}")
 
-
+#To save the ourly last snapshots for the TG notifications, saves to snapshots table
 def _save_hourly_snapshots(snap_hour_tashkent: datetime) -> None:
-    """Snapshot today's cumulative finance_orders totals at the HH:00 boundary.
-
-    Reads today's finance_orders rows and inserts ONE
-    FinanceHourlySnapshot per (shop, sku) holding the cumulative totals
-    as of `snap_hour_tashkent` (the boundary that just ticked). Pure DB
-    math, no API call. Delete snapshots older than 25 hours.
-
-    `snap_hour_tashkent` is naive Tashkent. We convert to naive UTC for
-    storage (legacy convention) so the snapshot is comparable across
-    Daylight-saving boundaries.
-    """
-    # Today in Tashkent = the day the just-closed hour belongs to. For
-    # the midnight tick (snap_hour = today 00:00) the just-closed hour
-    # is yesterday's 23:00 → 00:00, so use snap_hour - 1s to pick the day.
+    #getting todays local date, without our
     snapshot_day = (snap_hour_tashkent - timedelta(seconds=1)).date()
 
-    # Tashkent → UTC for the column (matches legacy schema).
+    #for getting local date and time to know WHEN the snapshot was taken: same instant, Tashkent → UTC (naive) for the DB column.
     snap_hour_utc = (
         snap_hour_tashkent.replace(tzinfo=APP_TZ)
         .astimezone(timezone.utc)
@@ -3223,7 +3125,7 @@ def _save_hourly_snapshots(snap_hour_tashkent: datetime) -> None:
             delete(FinanceHourlySnapshot)
             .where(FinanceHourlySnapshot.snapshot_hour == snap_hour_utc)
         )
-
+        #Adding 
         payload = []
         for row in snapshot_rows:
             payload.append({
@@ -3244,70 +3146,139 @@ def _save_hourly_snapshots(snap_hour_tashkent: datetime) -> None:
     print(f"[FinanceSnapshot] saved {len(payload)} rows for snap_hour={snap_hour_tashkent.isoformat()} "
           f"(UTC={snap_hour_utc.isoformat()})")
 
-
+#product syncing  loop every 30-minutes
 def _products_sync_loop():
-    """Background products/stock sync for every shop, every N minutes.
-
-    Replaces the old browser-driven 10-minute auto-refresh timer (which only
-    ran while a tab was open and force-reloaded the page). This runs in the
-    dedicated worker process, independent of any browser, so stock stays
-    fresh even with no one looking. The page just renders current DB data
-    when a user enters/refreshes it.
-
-    Interval is PRODUCTS_SYNC_INTERVAL_MIN minutes (default 15). Disable the
-    whole loop with PRODUCTS_SYNC_LOOP=0.
-
-    Sequential per shop, reusing the per-shop locked _sync_products_via_openapi
-    so it plays nicely with manual syncs and the Telegram sync button.
-    """
     import time as _t
 
     try:
-        interval_min = int(os.environ.get("PRODUCTS_SYNC_INTERVAL_MIN", "15").strip() or "15")
+        interval_min = int(os.environ.get("PRODUCTS_SYNC_INTERVAL_MIN", "30").strip() or "30")
     except Exception:
-        interval_min = 15
+        interval_min = 30
     interval_min = max(1, interval_min)
     interval_seconds = interval_min * 60
 
-    print(f"[ProductsSync] loop started — every {interval_min} min")
+    # Cost prices change rarely, so we don't pull /sku-list every cycle — only
+    # once per COST_REFRESH_COOLDOWN seconds per shop (default 6h).
+    try:
+        cost_cooldown = int(os.environ.get("SKU_COST_REFRESH_COOLDOWN_SEC", "21600").strip() or "21600")
+    except Exception:
+        cost_cooldown = 21600
+
+    # How many different OWNERS (users) fetch in parallel. Same-owner shops
+    # always run serially (shared rate bucket); only different owners overlap.
+    try:
+        max_owners = int(os.environ.get("PRODUCTS_SYNC_MAX_OWNERS", "25").strip() or "25")
+    except Exception:
+        max_owners = 25
+    max_owners = max(1, max_owners)
+   
+    last_cost_refresh: dict[str, float] = {}
+
+    def _sync_one_shop(s, tok):
+        t0 = _t.perf_counter()
+        
+        try:
+            if not tok:
+                print(f"[ProductsSync] shop={s} skipped — no OpenAPI token")
+                return
+            res = _sync_products_via_openapi(s, tok)
+
+            print(f"[ProductsSync] shop={s} pages={res.get('pages_synced', 0)} "
+                  f"fetched={res.get('fetched', 0)} took={_t.perf_counter() - t0:.1f}s")
+
+        except Exception as e:
+            print(f"[ProductsSync] shop={s} ERROR: {e!r}")
+        # Backfill blank cost prices from the cabinet /sku-list (cooldown-gated).
+        try:
+            if _t.monotonic() - last_cost_refresh.get(str(s), 0.0) >= cost_cooldown:
+                with SessionLocal() as _db:
+                    _shop = _db.execute(
+                        select(Shop).where(Shop.uzum_id == str(s))
+                    ).scalar_one_or_none()
+                    _pk = _shop.id if _shop else None
+                if _pk is not None:
+                    from core.uzum_skulist import refresh_sku_costs_for_shop
+                    refresh_sku_costs_for_shop(str(s), _pk)
+                    last_cost_refresh[str(s)] = _t.monotonic()
+        except Exception as e:
+            print(f"[ProductsSync] shop={s} cost refresh ERROR: {e!r}")
+    
+
+    print(f"[ProductsSync] loop started — every {interval_min} min, max_owners={max_owners}")
+
     while True:
+        cycle_t0 = _t.perf_counter()
         try:
             shops = _active_shop_ids_for_sales()
+            # Group shops by owner token (== the rate-bucket key == one user).
+            by_owner = {}
             for s in shops:
-                try:
-                    tok = _owner_openapi_token_for_shop(s)
-                    if not tok:
-                        print(f"[ProductsSync] shop={s} skipped — no OpenAPI token")
-                        continue
-                    res = _sync_products_via_openapi(s, tok)
-                    print(f"[ProductsSync] shop={s} pages={res.get('pages_synced', 0)} "
-                          f"fetched={res.get('fetched', 0)}")
-                except Exception as e:
-                    print(f"[ProductsSync] shop={s} ERROR: {e!r}")
+                tok = _owner_openapi_token_for_shop(s)
+                key = (tok or "").strip()[:16]
+                by_owner.setdefault(key, []).append((s, tok))
+
+            def _owner_task(items):
+                # One owner's shops run SEQUENTIALLY (they share a rate bucket).
+                for s, tok in items:
+                    _sync_one_shop(s, tok)
+
+            workers = min(max_owners, max(1, len(by_owner)))
+            with ThreadPoolExecutor(max_workers=workers,
+                                    thread_name_prefix="products-sync") as pool:
+                list(pool.map(_owner_task, by_owner.values()))
+
+            print(f"[ProductsSync] cycle done owners={len(by_owner)} shops={len(shops)} "
+                  f"took={_t.perf_counter() - cycle_t0:.1f}s")
+                       
         except Exception as e:
             print(f"[ProductsSync] unexpected error: {e!r}")
         _t.sleep(interval_seconds)
 
 
+
+
+#How many owners (users) fetch in parallel for the finance loops.
+def _finance_max_owners() -> int:
+
+    try:
+        return max(1, int(os.environ.get("FINANCE_SYNC_MAX_OWNERS", "25").strip() or "25"))
+    except Exception:
+        return 25
+
+
+
+#helper to run fetching in parallel across users, and serial run per each user's shop
+def _run_per_owner_parallel(shops, work_fn, *, max_owners, label):
+
+    from collections import defaultdict as _dd
+
+    by_owner = _dd(list)
+    for s in shops:
+        tok = _owner_openapi_token_for_shop(s)
+        key = (tok or "").strip()[:16]
+        by_owner[key].append(s)
+
+    def _owner_task(owner_shops):
+        # One owner's shops run SEQUENTIALLY (they share a rate bucket).
+        for s in owner_shops:
+            try:
+                work_fn(s)
+            except Exception as e:
+                print(f"[{label}] shop={s} ERROR: {e!r}")
+
+    workers = min(max(1, max_owners), max(1, len(by_owner)))
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix=label) as pool:
+        list(pool.map(_owner_task, by_owner.values()))
+    return {"owners": len(by_owner), "shops": len(shops)}
+
+
+
+
+
+
+#Start of line of fetching finance function, bursts every hour to save the data to db,
+# - and also get snapshots for the Telegram notification mainly
 def _hourly_finance_loop():
-    """Sleep until next HH:00 Tashkent; refresh today's finance for every shop.
-
-    Per HH:00 boundary:
-      1. For every active shop, call _refresh_finance_for_shop_day(today)
-         → fetches group=true aggregates for today and DELETE+INSERTs
-           finance_orders rows.
-      2. Save FinanceHourlySnapshot (cumulative-today totals per shop+sku
-         at this snap_hour).
-      3. Dispatch Telegram notifications via
-         _run_scheduled_hourly_sales_check(snap_hour) — for each user with
-         hourly_enabled prefs whose interval lands on this hour. Telegram
-         reads come from FinanceHourlySnapshot delta math (see
-         core.sales_reads.read_hourly_sku_breakdown) — pure DB, no API,
-         no dependency on the old sales_lines pipeline.
-
-    No 5s tick: `time.sleep(seconds_until_next_HH:00)` and wake up
-    exactly when needed.
-    """
     import time as _t
 
     def _next_hour_target() -> datetime:
@@ -3323,34 +3294,33 @@ def _hourly_finance_loop():
             if sleep_seconds > 0:
                 _t.sleep(sleep_seconds)
 
+            #To get actual day of hour that need fetching, not only hour
             snap_hour = _now_app_tz().replace(minute=0, second=0, microsecond=0)
-            today = snap_hour.date()
-            # The boundary we just crossed = snap_hour. The data we
-            # refresh is for the calendar day `today` (or `today-1d` if
-            # we just crossed midnight). We always refresh today's
-            # cumulative data — at midnight that means yesterday's full
-            # day is captured.
             refresh_day = (snap_hour - timedelta(seconds=1)).date()
 
             print(f"[FinanceHourly] tick snap_hour={snap_hour.isoformat()} day={refresh_day}")
-            shops = _active_shop_ids_for_sales()
-            for s in shops:
-                try:
-                    n = _refresh_finance_for_shop_day(s, refresh_day)
-                    print(f"[FinanceHourly] shop={s} day={refresh_day} rows={n}")
-                except Exception as e:
-                    print(f"[FinanceHourly] shop={s} day={refresh_day} ERROR: {e!r}")
 
-            # 2. Cumulative snapshot for delta math.
+            #1. refreshes every hour the dayly todays sales data in the db by calling _refresh_finance_for_shop_day, group=True  
+            shops = _active_shop_ids_for_sales()
+
+            def _hourly_one(s):
+                n = _refresh_finance_for_shop_day(s, refresh_day)
+                print(f"[FinanceHourly] shop={s} day={refresh_day} rows={n}")
+
+            _run_per_owner_parallel(shops, _hourly_one,
+                                    max_owners=_finance_max_owners(),
+                                    label="FinanceHourly")
+
+
+            #2. calling the hourly snapshot function to save to db
             try:
                 _save_hourly_snapshots(snap_hour)
             except Exception as e:
                 print(f"[FinanceHourly] _save_hourly_snapshots ERROR: {e!r}")
 
-            # 3. Telegram notification dispatch.
-            # Iterates users with hourly_enabled, groups by their interval
-            # config, and sends per-shop sales cards. Logs sent / failed
-            # counts. Reads use FinanceHourlySnapshot delta math.
+
+
+            # 3. Telegram notification dispatch, works if hourly alert is enabled.
             try:
                 _run_scheduled_hourly_sales_check(snap_hour)
             except Exception as e:
@@ -3364,15 +3334,8 @@ def _hourly_finance_loop():
 
 
 def _nightly_finance_refetch_loop():
-    """Sleep until next 00:30 Tashkent; refetch last 45 days for every shop.
-
-    Re-aligns finance_orders with Uzum's truth — catches late status
-    flips, refunds, and price corrections that landed on past days.
-    Sequential per shop, day-by-day. shop_lock acquired per day inside
-    _refresh_finance_for_shop_day so the loop plays nicely with the
-    hourly tick if they overlap.
-    """
     import time as _t
+
 
     def _next_run_target() -> datetime:
         now = _now_app_tz()
@@ -3395,15 +3358,51 @@ def _nightly_finance_refetch_loop():
             print(f"[FinanceNightly] tick window=[{window_start}, {window_end}]")
 
             shops = _active_shop_ids_for_sales()
-            for s in shops:
-                cur = window_start
-                while cur <= window_end:
-                    try:
-                        n = _refresh_finance_for_shop_day(s, cur)
-                        print(f"[FinanceNightly] shop={s} day={cur} rows={n}")
-                    except Exception as e:
-                        print(f"[FinanceNightly] shop={s} day={cur} ERROR: {e!r}")
-                    cur += timedelta(days=1)
+            
+
+            # Fetch the WHOLE window in one ungrouped pass (paginated) and aggregate per day in code — same rows as 45 per-day group=true
+            def _nightly_one(s):
+                from core import uzum_finance_openapi as _ufo
+                from collections import defaultdict as _dd
+
+                tok = _owner_openapi_token_for_shop(s)
+                if not tok:
+                    print(f"[FinanceNightly] shop={s} skipped — no OpenAPI token")
+                    return
+                if not shop_lock.try_acquire_shop_lock(str(s)):
+                    print(f"[FinanceNightly] shop={s} lock contention — skipping")
+                    return
+                try:
+                    _s0 = _t.perf_counter()
+                    ws = datetime.combine(window_start, dt_time(0, 0, 0))
+                    we = datetime.combine(window_end, dt_time(23, 59, 59))
+                    items = _ufo.fetch_orders_ungrouped_for_window(tok, s, ws, we)
+                    rows = _ufo.aggregate_line_items_to_finance_orders(items, s)
+
+                    by_day = _dd(list)
+                    for r in rows:
+                        by_day[r["period_from"]].append(r)
+
+                    cur = window_start
+                    written = 0
+                    while cur <= window_end:
+                        written += _ingest_finance_orders_for_day(by_day.get(cur, []), s, cur)
+                        cur += timedelta(days=1)
+
+                    print(f"[FinanceNightly] shop={s} window=[{window_start}..{window_end}] "
+                          f"items={len(items)} rows={written} took={_t.perf_counter() - _s0:.1f}s")
+                finally:
+                    shop_lock.release_shop_lock(str(s))
+
+
+            _cycle_t0 = _t.perf_counter()
+            _res = _run_per_owner_parallel(shops, _nightly_one,
+                                           max_owners=_finance_max_owners(),
+                                           label="FinanceNightly")
+            print(f"[FinanceNightly] CYCLE DONE owners={_res['owners']} shops={_res['shops']} "
+                  f"took={_t.perf_counter() - _cycle_t0:.1f}s")
+
+
 
             next_run = _next_run_target()
         except Exception as e:
@@ -3412,8 +3411,9 @@ def _nightly_finance_refetch_loop():
             next_run = _next_run_target()
 
 
+
+"""Gets and Returns User.uzum_openapi_token of the shop's owner, or None."""
 def _owner_openapi_token_for_shop(shop_uzum_id: str | int) -> str | None:
-    """Return User.uzum_openapi_token of the shop's owner, or None."""
     try:
         sid_str = str(shop_uzum_id).strip()
     except Exception:
@@ -3434,8 +3434,9 @@ def _owner_openapi_token_for_shop(shop_uzum_id: str | int) -> str | None:
     return tok or None
 
 
+
+"""GET abd Return distinct shop uzum_ids currently owned by a user from db"""
 def _active_shop_ids_for_sales() -> list[str]:
-    """Return distinct shop uzum_ids currently owned by a user."""
     with SessionLocal() as db:
         rows = db.execute(
             select(Shop.uzum_id)
@@ -3452,8 +3453,10 @@ def _active_shop_ids_for_sales() -> list[str]:
     return out
 
 
+
+"""Fill a column on shop_sync_state for the given shop in the db"""
 def _update_shop_sync_state(shop_id_int: int, **fields) -> None:
-    """Upsert a column on shop_sync_state for the given shop."""
+
     from models import ShopSyncState
     if not fields:
         return
@@ -3472,18 +3475,6 @@ def _ingest_expenses_window_for_shop(
     date_from_tashkent: datetime,
     date_to_tashkent: datetime,
 ) -> int:
-    """Fetch expenses for [from, to) Tashkent and UPSERT on (shop_id, operation_id).
-
-    Source selection:
-      * If the shop's owner has a `uzum_openapi_token`, fetch from
-        /v1/finance/expenses (per-user OpenAPI) and persist the extra
-        OpenAPI-only columns (date_created, date_updated, seller_id,
-        external_id, code) alongside the browser-matched fields.
-      * Otherwise fall back to the legacy EXPENSES_REPORT CSV pipeline.
-
-    Stores ALL rows including Логистика and Возврат (coder rule §3).
-    ``amount`` stays positive — direction lives in ``op_type`` (coder rule §10).
-    """
     from decimal import Decimal, InvalidOperation
     from models import ExpensesLedger
 
@@ -3492,42 +3483,21 @@ def _ingest_expenses_window_for_shop(
 
     shop_id_int = int(shop_id)
 
-    # ── 1. Pick the source. OpenAPI primary, CSV fallback. ────────
-    rows: list[dict] = []
-    source_label = "csv"
+
+    # ── 1. Fetch the source — OpenAPI only (CSV/Reports fallback removed). ──
     token = _owner_openapi_token_for_shop(shop_id)
-    if token:
-        from core import uzum_finance_openapi as _ufo
-        try:
-            rows = _ufo.fetch_finance_expenses_for_shop_window(
-                token, shop_id_int, date_from_tashkent, date_to_tashkent,
-            )
-            source_label = "openapi"
-        except Exception as e:
-            print(f"[ExpensesIngest] OpenAPI failed shop={shop_id}: {e!r} — falling back to CSV")
-            rows = []
-            source_label = "csv"
-
-    if source_label == "csv":
-        from core import uzum_reports as _ur
-
-        def _to_ms(dt: datetime) -> int:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=APP_TZ)
-            return int(dt.timestamp() * 1000)
-
-        request_id = _ur.create_report(
-            [shop_id_int],
-            "EXPENSES_REPORT",
-            _to_ms(date_from_tashkent),
-            _to_ms(date_to_tashkent) - 1,
-            token_getter=_get_admin_token,
+    if not token:
+        raise RuntimeError(
+            f"_ingest_expenses_window_for_shop: no OpenAPI token for shop={shop_id}"
         )
-        file_url = _ur.wait_for_report(request_id, token_getter=_get_admin_token)
-        raw = _ur.download_csv(file_url, token_getter=_get_admin_token)
-        rows = _ur.parse_expenses_csv(raw)
+    from core import uzum_finance_openapi as _ufo
+    rows = _ufo.fetch_finance_expenses_for_shop_window(
+        token, shop_id_int, date_from_tashkent, date_to_tashkent,
+    )
+    source_label = "openapi"
 
-    # ── 2. Coercion helpers — accept str (CSV) or already-typed (OpenAPI). ──
+
+    # ── 2. Coercion helpers — normalize OpenAPI values (defensive). ──
 
     def _parse_dt(val) -> datetime | None:
         if val is None:
@@ -3647,30 +3617,23 @@ def _ingest_expenses_window_for_shop(
           f"{date_from_tashkent.isoformat()},{date_to_tashkent.isoformat()}) rows={n}")
     return n
 
-
+#the worker — does one shop's expense fetch
 def _run_daily_expenses_for_shop(shop_id: str, target_day: date) -> None:
-    """Ingest a calendar day's expenses for one shop.
-
-    Window is the full day in Tashkent: [00:00:00, 23:59:59.999999] — i.e.
-    the same calendar date on both ends. Bound is microsecond-precise so
-    Uzum's dateTo (second-precision) covers the last second 23:59:59.
-    """
     if not shop_lock.try_acquire_shop_lock(shop_id):
         return
     try:
-        window_from = datetime.combine(target_day, dt_time(0, 0, 0))
+        window_from = datetime.combine(target_day - timedelta(days=13), dt_time(0, 0, 0))
         window_to = datetime.combine(target_day, dt_time(23, 59, 59, 999999))
         n = _ingest_expenses_window_for_shop(shop_id, window_from, window_to)
         _update_shop_sync_state(int(shop_id), last_expenses_at=datetime.utcnow())
-        print(f"[ExpensesDaily] shop={shop_id} day={target_day} rows={n}")
+        print(f"[ExpensesDaily] shop={shop_id} window=[{window_from.date()},{target_day}] rows={n}")
     except Exception as e:
         print(f"[ExpensesDaily] shop={shop_id} ERROR: {e}")
     finally:
         shop_lock.release_shop_lock(shop_id)
 
-
+#the loop runs daily expenses fetching timer set to 23:55
 def _daily_expenses_loop():
-    """23:55 Tashkent — per shop, ingest today's expenses [00:00, 23:59:59]."""
     import time as _t
 
     def _next_run() -> datetime:
@@ -3689,8 +3652,12 @@ def _daily_expenses_loop():
                 _t.sleep(sleep_seconds)
 
             target_day = _now_app_tz().date()
-            for s in _active_shop_ids_for_sales():
-                _run_daily_expenses_for_shop(s, target_day)
+            _run_per_owner_parallel(
+                _active_shop_ids_for_sales(),
+                lambda s: _run_daily_expenses_for_shop(s, target_day),
+                max_owners=_finance_max_owners(),
+                label="ExpensesDaily")
+
             next_run = _next_run()
         except Exception as e:
             print(f"[ExpensesDaily] Unexpected error: {e}")
@@ -3774,19 +3741,7 @@ def _discover_seller_shops(api_key: str) -> list[str]:
 
 def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
                                 size: int = 100, max_pages: int = 500,
-                                fetch_uz_titles: bool = False) -> dict:
-    """Per-shop locked wrapper around :func:`_sync_products_via_openapi_impl`.
-
-    Acquires the Redis-backed per-shop sync lock (``core.shop_lock``) so two
-    concurrent calls for the same shop can't race on product_groups /
-    variants inserts and produce duplicates. The second concurrent caller
-    sees the lock held, logs once, and returns a no-op result. Different
-    shops use different lock keys so they still run in parallel.
-
-    Lock TTL is 300s (set in ``core/shop_lock.py``) as a crash-safety
-    ceiling — the ``finally`` block is the happy-path release. Outside
-    callers should treat this function as idempotent under concurrency.
-    """
+                               ) -> dict:
     if not openapi_token:
         raise RuntimeError("Uzum OpenAPI token is empty.")
 
@@ -3812,19 +3767,13 @@ def _sync_products_via_openapi(shop_uzum_id: str, openapi_token: str,
         return _sync_products_via_openapi_impl(
             shop_uzum_id, openapi_token,
             size=size, max_pages=max_pages,
-            fetch_uz_titles=fetch_uz_titles,
         )
     finally:
         release_shop_lock(_lock_key)
 
 
 def _read_products_sync_counts_from_db(shop_uzum_id: str) -> dict:
-    """Return a result dict matching ``_sync_products_via_openapi_impl``'s
-    shape but populated from the current DB state. Used by the lock wrapper
-    when another sync is already running, so the caller (typically the
-    bulk-attach UI) still gets meaningful ``total_products`` and ``fetched``
-    numbers instead of zeros / undefined.
-    """
+
     from sqlalchemy import func
     try:
         with SessionLocal() as db:
@@ -3855,35 +3804,17 @@ def _read_products_sync_counts_from_db(shop_uzum_id: str) -> dict:
         "fetched": int(variants_count),
         "active_groups": int(groups_count),
         "total_products": int(groups_count),
-        "uz_pages_synced": 0,
-        "uz_titles_updated": 0,
+
+
         "source": "openapi",
     }
 
+#openapi pruducts sync and saving to to the db function
 
 def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                                      size: int = 100, max_pages: int = 500,
-                                     fetch_uz_titles: bool = False) -> dict:
-    """OpenAPI-driven counterpart to :func:`_sync_products_for_shop`.
-
-    Uses the per-user seller-openapi token (NOT the admin api_key) against
-    GET /v1/product/shop/{shopId}. Populates the same Variant / ProductGroup
-    rows as the browser flow, plus the new columns added in migration
-    20260520_0002 (quantity_* breakdown, blocked / blocking_reason / ikpu,
-    product_title_ru / _uz).
-
-    Localization: when ``fetch_uz_titles`` is true we re-page the same shop
-    a second time with ``Accept-Language: uz`` and store the title into
-    ``product_title_uz``. The first pass uses ``Accept-Language: ru`` and
-    populates ``product_title_ru``. Default is False — pass 2 doubles the
-    products-sync API calls and was a frequent 429 source during concurrent
-    multi-shop attaches (the per-worker TokenBucket can't coordinate across
-    gunicorn workers). Set to True explicitly if a caller needs UZ titles.
-
-    Fields the OpenAPI endpoint does NOT return (viewers, conversion, roi,
-    feedbackQuantity, hasActiveDiscount, product-level rankInfo) are left
-    untouched on existing rows.
-    """
+                                     ) -> dict:
+    
     if not openapi_token:
         raise RuntimeError("Uzum OpenAPI token is empty.")
 
@@ -3919,14 +3850,12 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
     product_counter = 0
     total_variants = 0
     active_group_ids: set[int] = set()
-    # Track uzum_sku_id → product_title for the second (UZ) pass so we don't
-    # have to re-query the DB to find which Variant row to update.
-    sku_id_to_variant_pk: dict[str, int] = {}
 
+#start of fetching and saving the products_group and variants to the db
     with SessionLocal() as db:
         while True:
             try:
-                raw = _openapi_fetch_products_page(
+                raw = fetch_products_page(
                     openapi_token, shop_uzum_id,
                     page=page, size=size,
                     accept_language="ru",
@@ -3966,7 +3895,7 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                                 or commission_dto.get("maxCommission")
                                 or p.get("commission"))
 
-                # ── Upsert ProductGroup ─────────────────────────────────────
+                # Working with ProductGroup saving to db
                 group = db.execute(
                     select(ProductGroup).where(
                         ProductGroup.uzum_product_id == prod_id,
@@ -3997,9 +3926,6 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                 if p_commission is not None:
                     try: group.commission = int(p_commission)
                     except Exception: pass
-                # NOTE: OpenAPI lacks viewers/conversion/roi/feedbackQuantity
-                # and product-level rankInfo — those fields keep their last
-                # browser-sync values.
 
                 if not p_is_archived:
                     active_group_ids.add(group.id)
@@ -4187,8 +4113,6 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                         v.status = "ARCHIVED"
 
                     db.flush()
-                    if uzum_sku_id and v.id is not None:
-                        sku_id_to_variant_pk[uzum_sku_id] = v.id
                     total_variants += 1
 
             db.commit()
@@ -4198,53 +4122,6 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
             if max_pages and page >= max_pages:
                 break
             page += 1
-
-    # ── Pass 2: Uzbek titles only (cheap update — fills product_title_uz) ───────
-    uz_pages = 0
-    uz_updates = 0
-    if fetch_uz_titles and sku_id_to_variant_pk:
-        with SessionLocal() as db:
-            page = 0
-            while True:
-                try:
-                    raw = _openapi_fetch_products_page(
-                        openapi_token, shop_uzum_id,
-                        page=page, size=size,
-                        accept_language="uz",
-                    )
-                except Exception as e:
-                    print(f"[OpenAPISync] page {page} (uz) error: {e}")
-                    break
-
-                products = raw.get("productList") or []
-                if not products:
-                    break
-
-                uz_pages += 1
-                for p in products:
-                    for s in (p.get("skuList") or []):
-                        uzum_sku_id = str(s.get("skuId") or "").strip()
-                        if not uzum_sku_id:
-                            continue
-                        variant_pk = sku_id_to_variant_pk.get(uzum_sku_id)
-                        if not variant_pk:
-                            continue
-                        title_uz = (s.get("productTitle") or "").strip()
-                        if not title_uz:
-                            continue
-                        db.execute(
-                            update(Variant)
-                            .where(Variant.id == variant_pk)
-                            .values(product_title_uz=title_uz)
-                        )
-                        uz_updates += 1
-
-                db.commit()
-                if len(products) < size:
-                    break
-                if max_pages and page >= max_pages:
-                    break
-                page += 1
 
     # ── Archive reconciliation ───────────────────────────────────────────────
     print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
@@ -4268,8 +4145,7 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
         db.commit()
 
     print(f"[OpenAPISync] Done for shop {shop_uzum_id}: "
-          f"{product_counter} products, {total_variants} variants, "
-          f"uz_updates={uz_updates}")
+          f"{product_counter} products, {total_variants} variants, ")
 
     # Per-SKU image enrichment is NOT triggered from here. Images are owned
     # by core.uzum_skulist.refresh_sku_images_for_shop, called once on
@@ -4282,21 +4158,11 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
         "fetched": total_variants,
         "active_groups": len(active_group_ids),
         "total_products": product_counter,
-        "uz_pages_synced": uz_pages,
-        "uz_titles_updated": uz_updates,
         "source": "openapi",
     }
 
 
 def _sync_finance_for_shop(shop_uzum_id: str, shop_pk: int) -> dict:
-    """Refresh Variant.avg_daily_sales / sales_30d_finance from finance_orders.
-
-    Reads the local finance_orders cache (kept fresh by _hourly_finance_loop +
-    _run_full_backfill_for_shop). When called on shop attach, the parallel
-    backfill thread may still be running — Variant fields will be 0 until the
-    backfill populates the cache. Subsequent calls (or the next hourly tick)
-    will fill them in. No Uzum API call here.
-    """
     from core.sales_reads import read_sales_aggregated as _read_sales_aggregated
 
     today = _today_app_tz()

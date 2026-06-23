@@ -55,15 +55,15 @@ _BETWEEN_PAGE_SLEEP_S = 0.55
 
 # ── Time conversion helpers ───────────────────────────────────────────
 
+
+#converts naive tashkent into epoch-milliseconds
 def _tashkent_naive_to_epoch_sec(dt: datetime) -> int:
-    """Attach APP_TZ to a naive Tashkent datetime, return Unix-epoch seconds."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=APP_TZ)
     return int(dt.timestamp())
 
-
+#convert an Uzum-returned epoch-millisecond timestamp to naive Tashkent.
 def _epoch_ms_to_tashkent_naive(ms: int | None) -> datetime | None:
-    """Convert an Uzum-returned epoch-millisecond timestamp to naive Tashkent."""
     if ms is None:
         return None
     try:
@@ -145,8 +145,7 @@ def _parse_isoish_to_tashkent_naive(s: str | None) -> datetime | None:
     return parsed.astimezone(APP_TZ).replace(tzinfo=None)
 
 
-# ── Row normalizers ──────────────────────────────────────────────────
-
+# Force-anything-into-an-int, or 0 if it can't. Bouncer that never lets bad data in
 def _coerce_int(val) -> int:
     if val is None:
         return 0
@@ -158,7 +157,7 @@ def _coerce_int(val) -> int:
         except (TypeError, ValueError):
             return 0
 
-
+# Force-anything-into-a-string, or "" if it's nothing." Same bouncer, string version
 def _coerce_str(val) -> str:
     if val is None:
         return ""
@@ -240,7 +239,7 @@ def _openapi_order_to_canonical(row: Mapping, shop_id_int: int) -> dict | None:
         "product_id":     _coerce_int(row.get("productId")) or None,
     }
 
-
+#translator for the espenses translates raw JSON variable names into our db variable names
 def _openapi_expense_to_canonical(row: Mapping, shop_id_int: int) -> dict | None:
     """Convert a /v1/finance/expenses payment record to canonical dict."""
     op_id = _coerce_str(row.get("id")).strip()
@@ -325,7 +324,7 @@ def _pick_image_url(image_obj) -> str | None:
                 return url
     return None
 
-
+#translater of the raw json variable names to our tables variable names to code to understand
 def _openapi_grouped_sku_to_finance_order(
     grouped_product: Mapping,
     sku_item: Mapping,
@@ -387,7 +386,7 @@ def _openapi_grouped_sku_to_finance_order(
         "logistics_fee":   _coerce_int(sku_item.get("logisticDeliveryFee")),
     }
 
-
+#fetchng wth group=true for daily aggregates, one call per day, returns per-(shop, day, sku) rollups
 def fetch_daily_aggregates_for_shop_day(
     token: str,
     shop_uzum_id: str | int,
@@ -502,33 +501,14 @@ def detect_first_sale_year(
     return current_year
 
 
-# ── Ungrouped + client-side aggregation backfill path ───────────────
-#
-# Why this exists: the per-day group=true approach makes 1 API call per
-# day. For a 2-year backfill that's 800+ calls, which at Uzum's 2-req/sec
-# rate limit takes 7+ minutes minimum. The group=false path can fetch a
-# much larger window per call (10k items per page at size=10000), and
-# Uzum's per-call latency depends mainly on the WINDOW SIZE, not the page
-# size — once the query is computed, returning 10000 rows costs almost
-# the same as returning 100.
-#
-# Chunking by quarter (rather than one huge 2-year call) is the sweet
-# spot — Uzum's query cost scales with window size (54s for full 2-year
-# vs ~3-7s for a quarter). Quarters keep each call fast and let us
-# parallelize across quarters.
-#
-# Aggregation correctness was verified 2026-05-22 against group=true
-# for shop=5983 day=2026-05-20: 216/216 SKUs match exactly across
-# amount, amountReturns, sellerProfit, commission, purchasePrice,
-# logisticDeliveryFee, sellerDiscountAmount, withdrawnProfit, sellPrice.
-# See scripts/smoke_aggregation_semantics.py for the test.
 
-# 10000 is Uzum's hard cap on /v1/finance/orders (size=11000 → HTTP 400
-# "Illegal argument", probed live 2026-05-25). At size=5000 a 100k-row
-# quarter took 22 pages; at 10000 it takes 11.
+
+# --------- Ungrouped + client-side aggregation backfill path---------------
+
+
 _LARGE_PAGE_SIZE_DEFAULT = 10000
 
-
+#fetching with group=False to get ungrouped finnce data used in burst fetch and in nighly fetch.
 def fetch_orders_ungrouped_for_window(
     token: str,
     shop_uzum_id: str | int,
@@ -588,7 +568,8 @@ def fetch_orders_ungrouped_for_window(
 
     return out
 
-
+#takes raw lines fetched with group=false with fetch_orders_ungrouped_for_window function 
+#and turns it into grouped
 def aggregate_line_items_to_finance_orders(
     line_items: Iterable[Mapping],
     shop_uzum_id: str | int,
@@ -687,7 +668,7 @@ def aggregate_line_items_to_finance_orders(
 
     return list(groups.values())
 
-
+#fetching the data for expenses 
 def fetch_finance_expenses_for_shop_window(
     token: str,
     shop_uzum_id: str | int,

@@ -1,5 +1,103 @@
-{% extends "base.html" %}
+{% block extra_css %}
+<style>
+  .nf-wrap {
+    min-height: calc(100vh - 220px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .nf-card {
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #eaecf0;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.05);
+    padding: 3rem 2.5rem;
+  }
+  .nf-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #f9fafb;
+    border: 1px solid #eaecf0;
+    margin-bottom: 1.5rem;
+  }
+  .nf-badge svg { width: 30px; height: 30px; color: #475467; }
+  .nf-code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 3.25rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #101828;
+    margin-bottom: 0.75rem;
+  }
+  .nf-msg {
+    font-size: 1rem;
+    color: #475467;
+    margin-bottom: 1.75rem;
+  }
+  .nf-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid #d0d5dd;
+    background: #ffffff;
+    color: #344054;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .nf-back:hover {
+    background: #f9fafb;
+    border-color: #cfd4dc;
+    color: #101828;
+    transform: translateY(-1px);
+  }
+  /* ── Dark mode ── */
+  [data-bs-theme="dark"] .nf-card {
+    background: #1a1d27;
+    border-color: #2d3148;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  [data-bs-theme="dark"] .nf-badge { background: #1e2130; border-color: #2d3148; }
+  [data-bs-theme="dark"] .nf-badge svg { color: #8892a4; }
+  [data-bs-theme="dark"] .nf-code { color: #e2e8f0; }
+  [data-bs-theme="dark"] .nf-msg { color: #94a3b8; }
+  [data-bs-theme="dark"] .nf-back {
+    background: #1e2130; border-color: #3a3f5c; color: #cbd5e1;
+  }
+  [data-bs-theme="dark"] .nf-back:hover {
+    background: #252a3f; border-color: #4a5070; color: #e2e8f0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="alert alert-secondary">{{ message }}</div>
-<a href="/groups" class="btn btn-outline-secondary">{{ t.detail_back_link }}</a>
+<div class="nf-wrap">
+  <div class="nf-card">
+    <div class="nf-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <line x1="11" y1="8" x2="11" y2="11"></line>
+        <line x1="11" y1="14" x2="11.01" y2="14"></line>
+      </svg>
+    </div>
+    <div class="nf-code">404</div>
+    <p class="nf-msg">{{ message }}</p>
+    <a href="/groups" class="nf-back">{{ t.detail_back_link }}</a>
+  </div>
+</div>
 {% endblock %}

@@ -118,6 +118,7 @@
   width: 100%; font-size: 14px; color: var(--pp-text);
 }
 .pp-search input::placeholder { color: var(--pp-text-muted); }
+.pp-loading { opacity: .45; transition: opacity .12s ease; pointer-events: none; }
 
 .pp-store-picker { position: relative; }
 .pp-store-trigger {
@@ -342,16 +343,16 @@
 <div class="pp-products">
   <div class="pp-title-row">
     <div>
-      <h1 class="pp-h1">Мои товары</h1>
+      <h1 class="pp-h1">{{ "Mening mahsulotlarim" if lang == "uz" else "Мои товары" }}</h1>
     </div>
     <div class="pp-title-actions">
       <button type="button" class="pp-btn-ghost-bordered" id="pp-sort-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
-        Сортировка
+        {{ "Saralash" if lang == "uz" else "Сортировка" }}
       </button>
       <button type="button" class="pp-btn-primary" id="pp-new-product-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новый товар
+        {{ "Yangi mahsulot" if lang == "uz" else "Новый товар" }}
       </button>
     </div>
   </div>
@@ -359,18 +360,18 @@
   <div class="pp-filter-row">
     <label class="pp-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="ppSearch" type="text" value="{{ q }}" placeholder="Поиск по названию или SKU…">
+      <input id="ppSearch" type="text" value="{{ q }}" placeholder="{{ 'Nom yoki SKU bo\'yicha qidirish…' if lang == 'uz' else 'Поиск по названию или SKU…' }}">
     </label>
 
     {% if shops | length > 1 %}
     <div class="pp-store-picker" id="ppStorePicker">
       <button type="button" class="pp-store-trigger" id="ppStoreTrigger">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span id="ppStoreLabel">{{ shops | selectattr('id', 'equalto', current_shop_id|int) | map(attribute='name') | first | default('Все магазины') if current_shop_id else 'Все магазины' }}</span>
+        <span id="ppStoreLabel">{{ shops | selectattr('id', 'equalto', current_shop_id|int) | map(attribute='name') | first | default("Barcha do'konlar" if lang == "uz" else "Все магазины") if current_shop_id else ("Barcha do'konlar" if lang == "uz" else "Все магазины") }}</span>
         <svg class="pp-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="pp-store-menu">
-        <div class="pp-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">Все магазины</div>
+        <div class="pp-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">{{ "Barcha do'konlar" if lang == "uz" else "Все магазины" }}</div>
         {% for s in shops %}
         <div class="pp-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
         {% endfor %}
@@ -381,22 +382,22 @@
     <div class="pp-tabs" role="tablist">
       <a class="pp-tab {{ 'active' if current_status == 'active' }}" data-tab="active"
          href="/groups?status=active{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
-        Активные <span class="pp-tab-badge" id="ppTabBadgeActive">{{ count_active }}</span>
+        {{ "Faollar" if lang == "uz" else "Активные" }} <span class="pp-tab-badge" id="ppTabBadgeActive">{{ count_active }}</span>
       </a>
       <button type="button" class="pp-tab" data-tab="hidden">
-        Скрытые <span class="pp-tab-badge" id="ppTabBadgeHidden">0</span>
+        {{ "Yashirilgan" if lang == "uz" else "Скрытые" }} <span class="pp-tab-badge" id="ppTabBadgeHidden">0</span>
       </button>
       <a class="pp-tab {{ 'active' if current_status == 'archived' }}" data-tab="archive"
          href="/groups?status=archived{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
-        Архив <span class="pp-tab-badge" id="ppTabBadgeArchive">{{ count_archived }}</span>
+        {{ "Arxiv" if lang == "uz" else "Архив" }} <span class="pp-tab-badge" id="ppTabBadgeArchive">{{ count_archived }}</span>
       </a>
     </div>
 
-    <div class="pp-view-toggle" role="group" aria-label="Вид списка">
-      <button type="button" class="pp-vt-btn active" data-view="grid" title="Сетка">
+    <div class="pp-view-toggle" role="group" aria-label="{{ 'Ro\'yxat ko\'rinishi' if lang == 'uz' else 'Вид списка' }}">
+      <button type="button" class="pp-vt-btn active" data-view="grid" title="{{ 'Katak' if lang == 'uz' else 'Сетка' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       </button>
-      <button type="button" class="pp-vt-btn" data-view="list" title="Список">
+      <button type="button" class="pp-vt-btn" data-view="list" title="{{ 'Ro\'yxat' if lang == 'uz' else 'Список' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       </button>
     </div>
@@ -409,11 +410,11 @@
       <div class="pp-card-img-wrap">
         {% if store_name %}<span class="pp-store-badge {% if store_key == 'luxuz' %}is-luxuz{% elif store_key == 'blummy' %}is-blummy{% endif %}">{{ store_name }}</span>{% endif %}
         <div class="pp-card-tools">
-          <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="Скрыть товар" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
+          <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
             <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
-          <button type="button" class="pp-card-iconbtn" title="Действия" onclick="event.preventDefault(); event.stopPropagation();">
+          <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </button>
         </div>
@@ -431,7 +432,7 @@
         <div class="pp-metrics">
           <div class="pp-metric fbo"><span class="pp-metric-label">FBO</span><span class="pp-metric-value">{{ a.fbo }}</span></div>
           <div class="pp-metric fbs"><span class="pp-metric-label">FBS</span><span class="pp-metric-value">{{ a.fbs }}</span></div>
-          <div class="pp-metric wh"><span class="pp-metric-label">Склад</span><span class="pp-metric-value">{{ a.wh }}</span></div>
+          <div class="pp-metric wh"><span class="pp-metric-label">{{ "Ombor" if lang == "uz" else "Склад" }}</span><span class="pp-metric-value">{{ a.wh }}</span></div>
         </div>
       </div>
     </a>
@@ -457,13 +458,13 @@
       </div>
       <div class="pp-metric fbo"><span class="pp-metric-label">FBO</span><span class="pp-metric-value">{{ a.fbo }}</span></div>
       <div class="pp-metric fbs"><span class="pp-metric-label">FBS</span><span class="pp-metric-value">{{ a.fbs }}</span></div>
-      <div class="pp-metric wh"><span class="pp-metric-label">Склад</span><span class="pp-metric-value">{{ a.wh }}</span></div>
+      <div class="pp-metric wh"><span class="pp-metric-label">{{ "Ombor" if lang == "uz" else "Склад" }}</span><span class="pp-metric-value">{{ a.wh }}</span></div>
       <div class="pp-row-actions">
-        <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="Скрыть товар" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
+        <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
           <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
           <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
-        <button type="button" class="pp-card-iconbtn" title="Действия" onclick="event.preventDefault(); event.stopPropagation();">
+        <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
       </div>
@@ -484,7 +485,7 @@
     {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'grid') }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
-        <div class="pp-empty-title">Здесь пока пусто</div>
+        <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
         <div class="pp-empty-body">{% if current_status == 'archived' %}{{ t.groups_empty_archived }}{% else %}{{ t.groups_empty_active }}{% endif %}</div>
       </div>
     {% endif %}
@@ -494,18 +495,20 @@
     {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'list') }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
-        <div class="pp-empty-title">Здесь пока пусто</div>
+        <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
         <div class="pp-empty-body">{% if current_status == 'archived' %}{{ t.groups_empty_archived }}{% else %}{{ t.groups_empty_active }}{% endif %}</div>
       </div>
     {% endif %}
   </div>
 
+  <div id="ppPagination">
   {% if total_pages is defined and total_pages > 1 %}
-  <div class="pp-pagination">
+  <div class="pp-pagination" data-page="{{ page }}" data-total="{{ total_pages }}">
     <div class="pp-pg-info">{{ t.common_shown }} {{ groups|length }} {{ t.common_of }} {{ total_count }} {{ t.common_products }} ({{ t.common_page }} {{ page }} {{ t.common_of }} {{ total_pages }})</div>
     <div class="pp-pg-list" id="ppPgList"></div>
   </div>
   {% endif %}
+  </div>
 </div>
 
 <div id="ppToast" class="pp-toast" role="status" aria-live="polite"></div>
@@ -514,21 +517,72 @@
 {% block extra_js %}
 <script>
 (function(){
-  // live search
+  // live search — AJAX swap instead of full-page reload, so the cursor
+  // stays in the box and the page doesn't flash/scroll on every keystroke.
   var search = document.getElementById('ppSearch');
   if (search) {
     var timer;
     search.addEventListener('input', function() {
       clearTimeout(timer);
       var val = this.value;
-      timer = setTimeout(function() {
-        var params = new URLSearchParams(window.location.search);
-        if (val.trim()) params.set('q', val.trim()); else params.delete('q');
-        params.delete('page');
-        window.location.search = params.toString();
-      }, 400);
+      timer = setTimeout(function() { runSearch(val, true); }, 300);
     });
   }
+
+  var searchSeq = 0;
+
+  function setLoading(on) {
+    ['ppGridView', 'ppListView'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('pp-loading', on);
+    });
+  }
+
+  function navigateAjax(url, pushHistory) {
+    var seq = ++searchSeq;
+    setLoading(true);
+    fetch(url, { headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        if (seq !== searchSeq) return; // a newer request superseded this one
+        if (pushHistory) history.pushState({ ajax: true }, '', url);
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        swapContent(doc);
+      })
+      .catch(function() {})
+      .then(function() { if (seq === searchSeq) setLoading(false); });
+  }
+
+  function runSearch(val, pushHistory) {
+    var params = new URLSearchParams(window.location.search);
+    if (val.trim()) params.set('q', val.trim()); else params.delete('q');
+    params.delete('page');
+    navigateAjax(window.location.pathname + '?' + params.toString(), pushHistory);
+  }
+
+  function swapContent(doc) {
+    ['ppGridView', 'ppListView'].forEach(function(id) {
+      var src = doc.getElementById(id), dst = document.getElementById(id);
+      if (src && dst) dst.innerHTML = src.innerHTML;
+    });
+    var newPag = doc.getElementById('ppPagination'), curPag = document.getElementById('ppPagination');
+    if (newPag && curPag) curPag.innerHTML = newPag.innerHTML;
+    ['ppTabBadgeActive', 'ppTabBadgeArchive'].forEach(function(id) {
+      var src = doc.getElementById(id), dst = document.getElementById(id);
+      if (src && dst) dst.textContent = src.textContent;
+    });
+    applyView(localStorage.getItem(viewKey) || 'grid');
+    applyHiddenState(currentTab);
+    buildPagination();
+  }
+
+  window.addEventListener('popstate', function() {
+    if (search) {
+      var p = new URLSearchParams(window.location.search);
+      search.value = p.get('q') || '';
+    }
+    navigateAjax(window.location.pathname + window.location.search, false);
+  });
 
   // store picker
   var picker = document.getElementById('ppStorePicker');
@@ -601,7 +655,7 @@
           off.style.display = isHidden ? '' : 'none';
         }
         btn.classList.toggle('is-hidden', isHidden);
-        btn.title = isHidden ? 'Показать товар' : 'Скрыть товар';
+        btn.title = isHidden ? "{{ "Mahsulotni ko'rsatish" if lang == 'uz' else 'Показать товар' }}" : "{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}";
       }
     });
     updateHiddenBadge();
@@ -648,7 +702,7 @@
     else                   { hiddenIds.add(id);    nowHidden = true; }
     persistHidden();
     applyHiddenState(currentTab);
-    showToast(nowHidden ? 'Товар скрыт' : 'Товар возвращён в активные');
+    showToast(nowHidden ? '{{ "Mahsulot yashirildi" if lang == "uz" else "Товар скрыт" }}' : '{{ "Mahsulot faollarga qaytarildi" if lang == "uz" else "Товар возвращён в активные" }}');
   };
 
   // toast
@@ -661,13 +715,20 @@
     toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 2200);
   }
 
-  // pagination
-  {% if total_pages is defined and total_pages > 1 %}
-  (function() {
-    var cur = {{ page }};
-    var total = {{ total_pages }};
-    var params = new URLSearchParams(window.location.search);
-    function pageUrl(p) { params.set('page', p); return window.location.pathname + '?' + params.toString(); }
+  // pagination — rebuilt from data-attrs so it also works after an AJAX swap;
+  // page links navigate via AJAX too (no full reload).
+  function buildPagination() {
+    var wrap = document.querySelector('#ppPagination .pp-pagination');
+    var pgList = document.getElementById('ppPgList');
+    if (!wrap || !pgList) return;
+    pgList.innerHTML = '';
+    var cur = parseInt(wrap.dataset.page, 10) || 1;
+    var total = parseInt(wrap.dataset.total, 10) || 1;
+    function pageUrl(p) {
+      var q = new URLSearchParams(window.location.search);
+      q.set('page', p);
+      return window.location.pathname + '?' + q.toString();
+    }
     function item(p, label, disabled, active) {
       if (disabled || active) {
         var s = document.createElement('span');
@@ -676,21 +737,23 @@
         return s;
       }
       var a = document.createElement('a');
-      a.href = pageUrl(p); a.textContent = label; return a;
+      a.href = pageUrl(p);
+      a.textContent = label;
+      a.addEventListener('click', function(e) { e.preventDefault(); navigateAjax(a.href, true); });
+      return a;
     }
-    var pgList = document.getElementById('ppPgList');
     pgList.appendChild(item(cur - 1, '‹', cur <= 1, false));
     var start = Math.max(1, cur - 2), end = Math.min(total, cur + 2);
     for (var p = start; p <= end; p++) pgList.appendChild(item(p, p, false, p === cur));
     pgList.appendChild(item(cur + 1, '›', cur >= total, false));
-  })();
-  {% endif %}
+  }
+  buildPagination();
 
   // placeholder actions
   var newBtn = document.getElementById('pp-new-product-btn');
-  if (newBtn) newBtn.addEventListener('click', function() { showToast('Скоро: создание товара'); });
+  if (newBtn) newBtn.addEventListener('click', function() { showToast('{{ "Tez kunda: mahsulot yaratish" if lang == "uz" else "Скоро: создание товара" }}'); });
   var sortBtn = document.getElementById('pp-sort-btn');
-  if (sortBtn) sortBtn.addEventListener('click', function() { showToast('Скоро: сортировка'); });
+  if (sortBtn) sortBtn.addEventListener('click', function() { showToast('{{ "Tez kunda: saralash" if lang == "uz" else "Скоро: сортировка" }}'); });
 })();
 </script>
 {% endblock %}

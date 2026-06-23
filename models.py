@@ -38,14 +38,7 @@ class ProductGroup(Base):
     uzum_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Fields from getProducts API (product level)
-    viewers: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
-    conversion: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    roi: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    rating: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    feedback_quantity: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
-    commission: Mapped[int] = mapped_column(Integer, nullable=True, default=0)       # from commissionDto (single value)
-    rank: Mapped[str] = mapped_column(String(10), nullable=True)                     # e.g. "A", "B", "C"
-
+    commission: Mapped[int] = mapped_column(Integer, nullable=True, default=0)       # from commissionDto (single value)               # e.g. "A", "B", "C"
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -121,25 +114,7 @@ class Variant(Base):
 
     group: Mapped["ProductGroup"] = relationship(back_populates="variants")
 
-    sales: Mapped[list["VariantSale"]] = relationship(
-        back_populates="variant",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
 
-
-class VariantSale(Base):
-    __tablename__ = "variant_sales"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    variant_id: Mapped[int] = mapped_column(Integer, ForeignKey("variants.id", ondelete="CASCADE"), index=True, nullable=False)
-
-    date: Mapped[date] = mapped_column(Date, nullable=False)
-    qty_sold: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    variant: Mapped["Variant"] = relationship(back_populates="sales")
 
 
 class PosActionLog(Base):
@@ -157,7 +132,7 @@ class PosActionLog(Base):
         Index("ix_pos_action_log_user_created", "user_id", "created_at"),
     )
 
-
+#User tables connection functions
 class User(UserMixin, Base):
     __tablename__ = "users"
 

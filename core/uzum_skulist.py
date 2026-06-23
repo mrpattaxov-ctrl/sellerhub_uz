@@ -126,6 +126,13 @@ def fetch_sku_images_for_shop(
     by_sku_id: dict[str, str] = {}
     by_barcode: dict[str, str] = {}
     by_sku_title: dict[str, str] = {}
+    # Cost price («себестоимость» / purchasePrice) lives on the SAME /sku-list
+    # rows, catalog-wide and independent of any sale — so we harvest it in the
+    # same pagination pass (no extra API calls). Unlike images, cost is captured
+    # for EVERY row, even ones with no image.
+    cost_by_sku_id: dict[str, int] = {}
+    cost_by_barcode: dict[str, int] = {}
+    cost_by_sku_title: dict[str, int] = {}
 
     page = 0
     while True:
@@ -145,15 +152,26 @@ def fetch_sku_images_for_shop(
             break
 
         for row in items:
-            img = _normalize_uzum_cdn(_pick_image_url(row))
-            if not img:
-                continue
             sku_id = str(row.get("skuId") or row.get("id") or "").strip()
             barcode = str(row.get("barcode") or "").strip()
             title = str(
                 row.get("skuFullTitle") or row.get("skuTitle")
                 or row.get("sku") or ""
             ).strip()
+
+            pp = row.get("purchasePrice")
+            if isinstance(pp, (int, float)) and pp > 0:
+                pp = int(pp)
+                if sku_id:
+                    cost_by_sku_id[sku_id] = pp
+                if barcode:
+                    cost_by_barcode[barcode] = pp
+                if title:
+                    cost_by_sku_title[title] = pp
+
+            img = _normalize_uzum_cdn(_pick_image_url(row))
+            if not img:
+                continue
             if sku_id:
                 by_sku_id[sku_id] = img
             if barcode:
@@ -170,7 +188,11 @@ def fetch_sku_images_for_shop(
         if max_pages and page >= max_pages:
             break
 
-    return {"by_sku_id": by_sku_id, "by_barcode": by_barcode, "by_sku_title": by_sku_title}
+    return {
+        "by_sku_id": by_sku_id, "by_barcode": by_barcode, "by_sku_title": by_sku_title,
+        "cost_by_sku_id": cost_by_sku_id, "cost_by_barcode": cost_by_barcode,
+        "cost_by_sku_title": cost_by_sku_title,
+    }
 
 
 def apply_sku_images_for_shop(shop_pk: int, image_map: dict[str, dict[str, str]]) -> dict[str, int]:
@@ -221,6 +243,82 @@ def apply_sku_images_for_shop(shop_pk: int, image_map: dict[str, dict[str, str]]
     return {"updated": updated, "unchanged": unchanged, "no_match": no_match, "scanned": scanned}
 
 
+def apply_sku_costs_for_shop(shop_pk: int, image_map: dict) -> dict[str, int]:
+    """Backfill Variant.purchase_price for shop_pk from /sku-list purchasePrice.
+
+    Match priority mirrors images: uzum_sku_id → barcode → sku title. Only fills
+    variants whose cost is currently 0/NULL — a user-entered cost is never
+    overwritten. Returns counters for logging.
+    """
+    by_sku_id = image_map.get("cost_by_sku_id") or {}
+    by_barcode = image_map.get("cost_by_barcode") or {}
+    by_sku_title = image_map.get("cost_by_sku_title") or {}
+
+    if not (by_sku_id or by_barcode or by_sku_title):
+        return {"updated": 0, "unchanged": 0, "no_match": 0, "scanned": 0}
+
+    updated = unchanged = no_match = scanned = 0
+
+    with SessionLocal() as db:
+        variants = db.execute(
+            select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_pk)
+        ).scalars().all()
+
+        for v in variants:
+            scanned += 1
+            cost = None
+            if v.uzum_sku_id:
+                cost = by_sku_id.get(str(v.uzum_sku_id).strip())
+            if not cost and v.barcode:
+                cost = by_barcode.get(v.barcode.strip())
+            if not cost and v.sku:
+                cost = by_sku_title.get(v.sku.strip())
+
+            if not cost:
+                no_match += 1
+                continue
+            # Never overwrite a user-entered cost; only fill blanks.
+            if (v.purchase_price or 0) > 0:
+                unchanged += 1
+                continue
+            v.purchase_price = int(cost)
+            updated += 1
+
+        db.commit()
+
+    return {"updated": updated, "unchanged": unchanged, "no_match": no_match, "scanned": scanned}
+
+
+def refresh_sku_costs_for_shop(
+    shop_uzum_id: str,
+    shop_pk: int,
+    *,
+    admin_token: str | None = None,
+    size: int = 200,
+    max_pages: int = 200,
+) -> dict:
+    """Cost-only counterpart of refresh_sku_images_for_shop.
+
+    Fetches /sku-list and backfills blank Variant.purchase_price, WITHOUT
+    touching images (images stay on their add-shop-only cadence). Best-effort:
+    logs and returns a dict, never raises.
+    """
+    try:
+        sku_map = fetch_sku_images_for_shop(
+            shop_uzum_id, admin_token, size=size, max_pages=max_pages,
+        )
+    except Exception as e:
+        print(f"[SkuCost] fetch error for shop {shop_uzum_id}: {e}")
+        return {"ok": False, "error": str(e), "source": "fetch"}
+    try:
+        stats = apply_sku_costs_for_shop(shop_pk, sku_map)
+    except Exception as e:
+        print(f"[SkuCost] apply error for shop {shop_uzum_id}: {e}")
+        return {"ok": False, "error": str(e), "source": "apply"}
+    print(f"[SkuCost] shop={shop_uzum_id} pk={shop_pk}: cost_filled={stats['updated']}, scanned={stats['scanned']}")
+    return {"ok": True, **stats}
+
+
 # Public alias: callers in routes/templates use this name. Keeps the private
 # helper's signature free to evolve while giving render sites a stable import.
 normalize_uzum_image_url = _normalize_uzum_cdn
@@ -258,9 +356,17 @@ def refresh_sku_images_for_shop(
         print(f"[SkuList] apply error for shop {shop_uzum_id}: {e}")
         return {"ok": False, "error": str(e), "source": "apply", "fetched_keys": fetched}
 
+    # Backfill blank cost prices from the same payload (best-effort).
+    cost_stats = {"updated": 0}
+    try:
+        cost_stats = apply_sku_costs_for_shop(shop_pk, image_map)
+    except Exception as e:
+        print(f"[SkuList] cost apply error for shop {shop_uzum_id}: {e}")
+
     print(
         f"[SkuList] shop={shop_uzum_id} pk={shop_pk}: "
         f"updated={stats['updated']}, unchanged={stats['unchanged']}, "
-        f"no_match={stats['no_match']}, scanned={stats['scanned']}"
+        f"no_match={stats['no_match']}, scanned={stats['scanned']}, "
+        f"cost_filled={cost_stats.get('updated', 0)}"
     )
-    return {"ok": True, "fetched_keys": fetched, **stats}
+    return {"ok": True, "fetched_keys": fetched, **stats, "cost_filled": cost_stats.get("updated", 0)}

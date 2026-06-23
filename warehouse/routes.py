@@ -9,7 +9,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import select, func, desc
 
 from extensions import SessionLocal, DB_URL_DISPLAY
-from models import ProductGroup, Variant, VariantSale
+from models import ProductGroup, Variant
 from core.auth_helpers import (
     _current_user_is_admin,
     _json_response,
@@ -134,27 +134,20 @@ def get_products():
     days = int(request.args.get("days") or 30)
     page = max(1, int(request.args.get("page") or 1))
     per_page = min(500, max(1, int(request.args.get("per_page") or 200)))
-    since = date.today() - timedelta(days=days)
 
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
 
     with SessionLocal() as db:
-        sales_subq = (
-            select(VariantSale.variant_id, func.coalesce(func.sum(VariantSale.qty_sold), 0).label("sales_sum"))
-            .where(VariantSale.date >= since)
-            .group_by(VariantSale.variant_id)
-            .subquery()
-        )
-
+       
         stmt = (
             select(
                 Variant,
                 ProductGroup,
-                func.coalesce(sales_subq.c.sales_sum, 0).label("sales_sum")
+                
             )
             .join(ProductGroup, Variant.group_id == ProductGroup.id)
-            .outerjoin(sales_subq, Variant.id == sales_subq.c.variant_id)
+            
         )
 
         if allowed_shop_ids:
@@ -175,7 +168,7 @@ def get_products():
         rows = db.execute(stmt).all()
 
         items = []
-        for v, g, s_sum in rows:
+        for v, g in rows:
             name = g.name
             attrs = []
             if v.color: attrs.append(v.color)
@@ -190,7 +183,6 @@ def get_products():
                 "barcode": v.barcode,
                 "quantity": v.warehouse_quantity,
                 "image_url": normalize_uzum_image_url(v.image_url or g.image_url),
-                "last30_sales": int(s_sum),
                 "created_at": v.created_at.isoformat(),
                 "updated_at": v.updated_at.isoformat(),
             })
@@ -283,7 +275,14 @@ def warehouse_import():
 
         stmt, allowed_shop_ids = _warehouse_scope_stmt(uid)
         with SessionLocal() as db:
-            scoped_variants = db.execute(stmt).all()
+            # Lock the scoped variant rows so a concurrent POS sale can't be
+            # silently overwritten by this absolute-set import (read-modify-write
+            # race). The .xlsx is already fully parsed above, so the lock is held
+            # only for the in-memory loop + commit. Order by id for deterministic
+            # lock acquisition (deadlock avoidance).
+            scoped_variants = db.execute(
+                stmt.with_for_update(of=Variant).order_by(Variant.id)
+            ).all()
             sku_map = {
                 (variant.sku or "").strip().lower(): variant
                 for variant, _group in scoped_variants
@@ -404,49 +403,3 @@ def warehouse_export():
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-
-@warehouse_bp.get("/api/summary")
-@login_required
-def summary():
-    days = int(request.args.get("days") or 30)
-    since = date.today() - timedelta(days=days)
-
-    with SessionLocal() as db:
-        # Return top selling variants for the summary table
-        sales_subq = (
-            select(VariantSale.variant_id, func.coalesce(func.sum(VariantSale.qty_sold), 0).label("sales_sum"))
-            .where(VariantSale.date >= since)
-            .group_by(VariantSale.variant_id)
-            .subquery()
-        )
-
-        uid = int(current_user.get_id())
-        allowed_shop_ids = _user_shop_ids(uid)
-        stmt = (
-            select(Variant, ProductGroup, sales_subq.c.sales_sum)
-            .join(ProductGroup, Variant.group_id == ProductGroup.id)
-            .join(sales_subq, Variant.id == sales_subq.c.variant_id)
-        )
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
-        else:
-            stmt = stmt.where(False)
-        stmt = stmt.order_by(desc(sales_subq.c.sales_sum)).limit(50)
-        rows = db.execute(stmt).all()
-
-        items = []
-        for v, g, s_sum in rows:
-            items.append({
-                "id": v.id,
-                "name": g.name,
-                "sku": v.sku,
-                "barcode": v.barcode,
-                "quantity": v.warehouse_quantity,
-                "image_url": normalize_uzum_image_url(v.image_url or g.image_url),
-                "last30_sales": int(s_sum),
-            })
-
-    return _json_response({
-        "days": days,
-        "items": items
-    })

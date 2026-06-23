@@ -2,419 +2,532 @@
 
 {% block extra_css %}
 <style>
-  .warehouse-page {
-    max-width: 1120px;
-    margin: 0 auto;
-    display: grid;
-    gap: 1.5rem;
-  }
+[data-bs-theme="light"] .wx-page, .wx-page {
+  --wx-surface:#FFFFFF;
+  --wx-border:#E8EAF3;
+  --wx-text:#171C30;
+  --wx-text-2:#5B6175;
+  --wx-muted:#878EA4;
+  --wx-accent:#4A52E0;
+  --wx-badge-bg:linear-gradient(135deg, #5860EA, #4A52E0);
+  --wx-badge-shadow:0 8px 18px rgba(81,89,228,.28);
+  --wx-chip-bg:#EDEFFB;
+  --wx-chip-text:#343B58;
+  --wx-line:#E3E6F1;
+  --wx-drop-bg:#FAFBFF;
+  --wx-drop-border:#C9CEEA;
+  --wx-drop-border-hover:#9AA2E8;
+  --wx-icon-tile-bg:#E9EBFA;
+  --wx-btn-bg:#FFFFFF;
+  --wx-btn-border:#DEE1EE;
+  --wx-btn-hover:#F5F6FB;
+  --wx-green:#21A65C;
+  --wx-green-hover:#1B9450;
+  --wx-green-shadow:0 10px 24px rgba(33,166,92,.22);
+  --wx-card-shadow:0 1px 2px rgba(23,28,48,.04), 0 10px 30px rgba(23,28,48,.05);
+  --wx-flash-bg:#EDEFFC;
+  --wx-flash-text:#3A41A8;
+  --wx-flash-border:#D9DCF5;
+}
+[data-bs-theme="dark"] .wx-page {
+  --wx-surface:#141A2D;
+  --wx-border:#242B45;
+  --wx-text:#F0F2FA;
+  --wx-text-2:#AEB5CC;
+  --wx-muted:#7B829B;
+  --wx-accent:#8189F4;
+  --wx-badge-bg:linear-gradient(135deg, #5C64EE, #4A52E0);
+  --wx-badge-shadow:0 8px 18px rgba(85,92,232,.35);
+  --wx-chip-bg:#1E2440;
+  --wx-chip-text:#C9CEE9;
+  --wx-line:#2A3150;
+  --wx-drop-bg:#10162A;
+  --wx-drop-border:#39406B;
+  --wx-drop-border-hover:#5A63B8;
+  --wx-icon-tile-bg:#232A4F;
+  --wx-btn-bg:#1A2038;
+  --wx-btn-border:#2E3556;
+  --wx-btn-hover:#222948;
+  --wx-green:#22A85D;
+  --wx-green-hover:#27BD68;
+  --wx-green-shadow:0 10px 24px rgba(34,168,93,.25);
+  --wx-card-shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 38px rgba(0,0,0,.4);
+  --wx-flash-bg:#1B2147;
+  --wx-flash-text:#AAB1F5;
+  --wx-flash-border:#2E3670;
+}
 
-  .warehouse-hero {
-    border: 1px solid rgba(53, 86, 185, .12);
-    border-radius: 28px;
-    background:
-      radial-gradient(circle at top right, rgba(83, 117, 221, .14), transparent 34%),
-      linear-gradient(160deg, #ffffff 0%, #f8faff 56%, #f3f6ff 100%);
-    box-shadow: 0 24px 48px rgba(27, 42, 84, .08);
-    padding: 1.6rem;
-  }
+.wx-page {
+  max-width: 1020px;
+  margin: 0 auto;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--wx-text);
+  display: grid;
+  gap: 18px;
+}
 
-  .warehouse-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: .45rem;
-    padding: .38rem .75rem;
-    border-radius: 999px;
-    background: rgba(52, 86, 185, .08);
-    color: #3456b9;
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    margin-bottom: .8rem;
-  }
+/* ── Header ── */
+.wx-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wx-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wx-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.wx-eyebrow svg { width: 16px; height: 16px; }
+.wx-title {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+  color: var(--wx-text);
+}
+.wx-subtitle {
+  margin: 0;
+  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--wx-text-2);
+}
+.wx-back {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--wx-btn-bg);
+  border: 1px solid var(--wx-btn-border);
+  color: var(--wx-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(23,28,48,.05);
+  transition: background .15s, border-color .15s;
+}
+.wx-back:hover { background: var(--wx-btn-hover); color: var(--wx-text); }
+.wx-back svg { width: 15px; height: 15px; color: var(--wx-text-2); }
 
-  .warehouse-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
+/* ── Stats ── */
+.wx-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.wx-stat {
+  min-width: 0;
+  padding: 16px 22px;
+  border-radius: 16px;
+  background: var(--wx-surface);
+  border: 1px solid var(--wx-border);
+  box-shadow: var(--wx-card-shadow);
+}
+.wx-stat-label {
+  display: block;
+  color: var(--wx-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.wx-stat-value {
+  color: var(--wx-text);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
 
-  .warehouse-title {
-    margin: 0 0 .45rem;
-    font-size: clamp(1.7rem, 3vw, 2.25rem);
-    line-height: 1.05;
-    font-weight: 700;
-    color: #14213d;
-  }
+/* ── Flash ── */
+.wx-flash {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--wx-flash-bg);
+  border: 1px solid var(--wx-flash-border);
+  color: var(--wx-flash-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
 
-  .warehouse-subtitle {
-    margin: 0;
-    max-width: 720px;
-    color: #667085;
-    font-size: 1rem;
-    line-height: 1.65;
-  }
+/* ── Main card ── */
+.wx-card {
+  background: var(--wx-surface);
+  border: 1px solid var(--wx-border);
+  border-radius: 22px;
+  box-shadow: var(--wx-card-shadow);
+  padding: 26px 30px;
+  display: grid;
+  gap: 22px;
+}
 
-  .warehouse-actions {
-    display: flex;
-    gap: .75rem;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-  }
+/* ── Stepper ── */
+.wx-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wx-step-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.wx-step-index {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wx-badge-bg);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--wx-badge-shadow);
+}
+.wx-step-line {
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--wx-line);
+}
+.wx-step-body strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wx-text);
+  margin-bottom: 6px;
+}
+.wx-step-body span {
+  display: block;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--wx-text-2);
+  max-width: 260px;
+}
 
-  .warehouse-btn {
-    border-radius: 14px;
-    padding: .72rem 1rem;
-    font-weight: 700;
-  }
+/* ── Column chips ── */
+.wx-columns {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.wx-columns-label {
+  font-size: 13.5px;
+  color: var(--wx-text-2);
+  margin-right: 2px;
+}
+.wx-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: var(--wx-chip-bg);
+  color: var(--wx-chip-text);
+  font-size: 13px;
+  font-weight: 600;
+}
 
-  .warehouse-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: .9rem;
-    margin-top: 1.15rem;
-  }
+/* ── Dropzone ── */
+.wx-dropzone {
+  border: 1.5px dashed var(--wx-drop-border);
+  border-radius: 18px;
+  background: var(--wx-drop-bg);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.wx-dropzone:hover,
+.wx-dropzone.wx-dragover { border-color: var(--wx-drop-border-hover); }
+.wx-dropzone.wx-has-file { border-color: var(--wx-green); }
+.wx-dropzone.wx-error { border-color: #E5484D; }
+.wx-drop-icon {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wx-icon-tile-bg);
+  color: var(--wx-accent);
+}
+.wx-drop-icon svg { width: 23px; height: 23px; }
+.wx-drop-text { min-width: 0; }
+.wx-drop-title {
+  margin: 0 0 3px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wx-text);
+  overflow-wrap: anywhere;
+}
+.wx-drop-sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--wx-text-2);
+}
+.wx-file-note {
+  margin: 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--wx-muted);
+}
 
-  .warehouse-stat {
-    min-width: 0;
-    padding: 1rem 1.05rem;
-    border: 1px solid rgba(31, 52, 110, .08);
-    border-radius: 20px;
-    background: rgba(255,255,255,.9);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
-  }
+/* ── Buttons ── */
+.wx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, filter .15s;
+}
+.wx-btn-ghost {
+  height: 44px;
+  padding: 0 20px;
+  background: var(--wx-btn-bg);
+  border: 1px solid var(--wx-btn-border);
+  color: var(--wx-text);
+  font-size: 14px;
+}
+.wx-btn-ghost:hover { background: var(--wx-btn-hover); color: var(--wx-text); }
+.wx-btn-ghost svg { width: 16px; height: 16px; color: var(--wx-text-2); }
+.wx-actions {
+  display: flex;
+  gap: 12px;
+}
+.wx-actions .wx-btn-ghost {
+  height: 50px;
+  padding: 0 24px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.wx-btn-green {
+  flex: 1;
+  height: 50px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--wx-green);
+  color: #fff;
+  font-size: 15.5px;
+  font-weight: 700;
+  box-shadow: var(--wx-green-shadow);
+}
+.wx-btn-green:hover { background: var(--wx-green-hover); color: #fff; }
 
-  .warehouse-stat-label {
-    display: block;
-    color: #7b89a7;
-    font-size: .76rem;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    font-weight: 700;
-    margin-bottom: .32rem;
-  }
-
-  .warehouse-stat-value {
-    color: #16213e;
-    font-size: 1.3rem;
-    font-weight: 800;
-    line-height: 1.2;
-  }
-
-  .warehouse-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(320px, .9fr);
-    gap: 1.25rem;
-  }
-
-  .warehouse-card {
-    border: 1px solid rgba(16, 24, 40, .07);
-    border-radius: 24px;
-    background: #fff;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, .06);
-    overflow: hidden;
-  }
-
-  .warehouse-card-body {
-    padding: 1.35rem;
-    display: grid;
-    gap: 1rem;
-  }
-
-  .warehouse-card-title {
-    margin: 0;
-    font-size: 1.06rem;
-    font-weight: 700;
-    color: #17223d;
-  }
-
-  .warehouse-card-copy {
-    margin: 0;
-    color: #667085;
-    line-height: 1.6;
-  }
-
-  .warehouse-steps {
-    display: grid;
-    gap: .7rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .warehouse-step {
-    display: grid;
-    grid-template-columns: 34px 1fr;
-    gap: .8rem;
-    align-items: start;
-    padding: .9rem 1rem;
-    border: 1px solid #e6ebf5;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #ffffff, #fafcff);
-  }
-
-  .warehouse-step-index {
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #2747a8, #4b6fda);
-    color: #fff;
-    font-weight: 800;
-    box-shadow: 0 10px 22px rgba(52, 86, 185, .24);
-  }
-
-  .warehouse-step strong {
-    display: block;
-    color: #17223d;
-    margin-bottom: .12rem;
-  }
-
-  .warehouse-step span {
-    color: #667085;
-    line-height: 1.6;
-  }
-
-  .warehouse-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .55rem;
-  }
-
-  .warehouse-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: .48rem .78rem;
-    border-radius: 999px;
-    background: rgba(52, 86, 185, .08);
-    border: 1px solid rgba(52, 86, 185, .14);
-    color: #3555b3;
-    font-size: .82rem;
-    font-weight: 700;
-  }
-
-  .warehouse-dropzone {
-    border: 1px dashed rgba(52, 86, 185, .28);
-    border-radius: 22px;
-    background: linear-gradient(180deg, #fbfcff, #f6f8ff);
-    padding: 1.15rem;
-  }
-
-  .warehouse-dropzone-copy {
-    margin: 0 0 .85rem;
-    color: #5f6f8f;
-    line-height: 1.6;
-  }
-
-  .warehouse-file {
-    min-height: 58px;
-    border-radius: 18px;
-    border: 1px solid #d7deea;
-    background: linear-gradient(180deg, #ffffff, #f9fbff);
-    padding: .92rem 1rem;
-    color: #1d2939;
-    font-weight: 600;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
-  }
-
-  .warehouse-file:focus {
-    border-color: rgba(71, 103, 204, .75);
-    box-shadow: 0 0 0 4px rgba(71, 103, 204, .12);
-  }
-
-  .warehouse-file-note {
-    margin: .65rem 0 0;
-    color: #7887a4;
-    font-size: .84rem;
-    line-height: 1.55;
-  }
-
-  .warehouse-submit {
-    min-width: 220px;
-    border-radius: 16px;
-    padding: .82rem 1.15rem;
-    font-weight: 700;
-    box-shadow: 0 14px 26px rgba(25, 135, 84, .18);
-  }
-
-  .warehouse-side-list {
-    display: grid;
-    gap: .8rem;
-  }
-
-  .warehouse-side-item {
-    padding: .95rem 1rem;
-    border: 1px solid #e6ebf5;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #ffffff, #fafcff);
-  }
-
-  .warehouse-side-item strong {
-    display: block;
-    color: #17223d;
-    margin-bottom: .18rem;
-  }
-
-  .warehouse-side-item span {
-    color: #667085;
-    line-height: 1.6;
-  }
-
-  .warehouse-flash {
-    border: 0;
-    border-radius: 18px;
-    background: linear-gradient(135deg, rgba(52, 86, 185, .1), rgba(70, 110, 215, .06));
-    color: #26408b;
-    box-shadow: 0 14px 36px rgba(28, 44, 90, .08);
-  }
-
-  @media (max-width: 991px) {
-    .warehouse-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 767px) {
-    .warehouse-head {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .warehouse-actions {
-      width: 100%;
-    }
-
-    .warehouse-actions .warehouse-btn {
-      width: 100%;
-    }
-  }
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .wx-steps { grid-template-columns: 1fr; gap: 14px; }
+  .wx-step { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+  .wx-step-top { margin-bottom: 0; }
+  .wx-step-line { display: none; }
+  .wx-step-body span { max-width: none; }
+}
+@media (max-width: 700px) {
+  .wx-stats { grid-template-columns: 1fr; }
+  .wx-head { flex-direction: column-reverse; align-items: stretch; }
+  .wx-back { align-self: flex-start; }
+  .wx-card { padding: 20px; }
+  .wx-actions { flex-direction: column; }
+  .wx-actions .wx-btn-ghost { height: 48px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="warehouse-page">
-  <section class="warehouse-hero">
-    <span class="warehouse-kicker">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-      Warehouse Excel
-    </span>
-    <div class="warehouse-head">
-      <div>
-        <h1 class="warehouse-title">{{ t.wh_import_title }}</h1>
-        <p class="warehouse-subtitle">{{ t.wh_import_subtitle }}</p>
-      </div>
-      <div class="warehouse-actions">
-        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">{{ t.wh_download_template }}</a>
-        <a href="/groups" class="btn btn-outline-secondary warehouse-btn">{{ t.wh_back_products }}</a>
-      </div>
+<div class="wx-page">
+  <header class="wx-head">
+    <div>
+      <span class="wx-eyebrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        Warehouse Excel
+      </span>
+      <h1 class="wx-title">{{ t.wh_import_title }}</h1>
+      <p class="wx-subtitle">{{ t.wh_import_subtitle }}</p>
     </div>
+    <a href="/groups" class="wx-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      {{ t.wh_back_products }}
+    </a>
+  </header>
 
-    <div class="warehouse-stats">
-      <div class="warehouse-stat">
-        <span class="warehouse-stat-label">{{ t.wh_stat_skus }}</span>
-        <span class="warehouse-stat-value">{{ summary.variant_count }}</span>
-      </div>
-      <div class="warehouse-stat">
-        <span class="warehouse-stat-label">{{ t.wh_stat_shops }}</span>
-        <span class="warehouse-stat-value">{{ summary.shop_count }}</span>
-      </div>
-      <div class="warehouse-stat">
-        <span class="warehouse-stat-label">{{ t.wh_stat_total }}</span>
-        <span class="warehouse-stat-value">{{ summary.total_qty }}</span>
-      </div>
+  <div class="wx-stats">
+    <div class="wx-stat">
+      <span class="wx-stat-label">{{ t.wh_stat_skus }}</span>
+      <span class="wx-stat-value">{{ '{:,}'.format(summary.variant_count).replace(',', ' ') }}</span>
     </div>
-  </section>
+    <div class="wx-stat">
+      <span class="wx-stat-label">{{ t.wh_stat_shops }}</span>
+      <span class="wx-stat-value">{{ '{:,}'.format(summary.shop_count).replace(',', ' ') }}</span>
+    </div>
+    <div class="wx-stat">
+      <span class="wx-stat-label">{{ t.wh_stat_total }}</span>
+      <span class="wx-stat-value">{{ '{:,}'.format(summary.total_qty).replace(',', ' ') }}</span>
+    </div>
+  </div>
 
   {% with messages = get_flashed_messages() %}
     {% if messages %}
-      <div class="alert warehouse-flash mb-0">{{ messages[0] }}</div>
+      <div class="wx-flash">{{ messages[0] }}</div>
     {% endif %}
   {% endwith %}
 
-  <div class="warehouse-grid">
-    <section class="warehouse-card">
-      <div class="warehouse-card-body">
-        <div>
-          <h2 class="warehouse-card-title">{{ t.wh_upload_title }}</h2>
-          <p class="warehouse-card-copy">{{ t.wh_upload_desc }}</p>
+  <section class="wx-card">
+    <ol class="wx-steps">
+      <li class="wx-step">
+        <div class="wx-step-top">
+          <span class="wx-step-index">1</span>
+          <span class="wx-step-line"></span>
         </div>
-
-        <ol class="warehouse-steps">
-          <li class="warehouse-step">
-            <span class="warehouse-step-index">1</span>
-            <div>
-              <strong>{{ t.wh_step1_title }}</strong>
-              <span>{{ t.wh_step1_desc }}</span>
-            </div>
-          </li>
-          <li class="warehouse-step">
-            <span class="warehouse-step-index">2</span>
-            <div>
-              <strong>{{ t.wh_step2_title }}</strong>
-              <span>{{ t.wh_step2_desc }}</span>
-            </div>
-          </li>
-          <li class="warehouse-step">
-            <span class="warehouse-step-index">3</span>
-            <div>
-              <strong>{{ t.wh_step3_title }}</strong>
-              <span>{{ t.wh_step3_desc }}</span>
-            </div>
-          </li>
-        </ol>
-
-        <div>
-          <div class="warehouse-tags">
-            {% for header in expected_headers %}
-              <span class="warehouse-tag">{{ header }}</span>
-            {% endfor %}
-          </div>
+        <div class="wx-step-body">
+          <strong>{{ t.wh_step1_title }}</strong>
+          <span>{{ t.wh_step1_desc }}</span>
         </div>
+      </li>
+      <li class="wx-step">
+        <div class="wx-step-top">
+          <span class="wx-step-index">2</span>
+          <span class="wx-step-line"></span>
+        </div>
+        <div class="wx-step-body">
+          <strong>{{ t.wh_step2_title }}</strong>
+          <span>{{ t.wh_step2_desc }}</span>
+        </div>
+      </li>
+      <li class="wx-step">
+        <div class="wx-step-top">
+          <span class="wx-step-index">3</span>
+          <span class="wx-step-line"></span>
+        </div>
+        <div class="wx-step-body">
+          <strong>{{ t.wh_step3_title }}</strong>
+          <span>{{ t.wh_step3_desc }}</span>
+        </div>
+      </li>
+    </ol>
 
-        <form action="{{ url_for('warehouse_bp.warehouse_import') }}" method="post" enctype="multipart/form-data" class="warehouse-dropzone">
-          <p class="warehouse-dropzone-copy">{{ t.wh_drop_desc }}</p>
-          <input class="form-control warehouse-file" type="file" name="file" accept=".xlsx" required>
-          <p class="warehouse-file-note">{{ t.wh_file_note }}</p>
-          <div class="mt-3">
-            <button type="submit" class="btn btn-success warehouse-submit">{{ t.wh_import_btn }}</button>
-          </div>
-        </form>
+    <div class="wx-columns">
+      <span class="wx-columns-label">{{ t.wh_columns_label }}</span>
+      {% for header in expected_headers %}
+        <span class="wx-chip">{{ header }}</span>
+      {% endfor %}
+    </div>
+
+    <form id="wxImportForm" action="{{ url_for('warehouse_bp.warehouse_import') }}" method="post" enctype="multipart/form-data" style="display:grid;gap:16px;">
+      <div class="wx-dropzone" id="wxDropzone">
+        <input type="file" name="file" id="wxFileInput" accept=".xlsx" hidden>
+        <span class="wx-drop-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </span>
+        <div class="wx-drop-text">
+          <p class="wx-drop-title" id="wxDropTitle">{{ t.wh_drop_title }}</p>
+          <p class="wx-drop-sub">{{ t.wh_drop_or }}</p>
+        </div>
+        <button type="button" class="wx-btn wx-btn-ghost" id="wxChooseBtn">{{ t.wh_choose_file }}</button>
       </div>
-    </section>
 
-    <aside class="warehouse-card">
-      <div class="warehouse-card-body">
-        <div>
-          <h2 class="warehouse-card-title">{{ t.wh_side_title }}</h2>
-          <p class="warehouse-card-copy">{{ t.wh_side_desc }}</p>
-        </div>
+      <p class="wx-file-note">{{ t.wh_file_note }}</p>
 
-        <div class="warehouse-side-list">
-          <div class="warehouse-side-item">
-            <strong>{{ t.wh_compat_file }}</strong>
-            <span>{{ t.wh_compat_desc }}</span>
-          </div>
-          <div class="warehouse-side-item">
-            <strong>{{ t.wh_what_updates }}</strong>
-            <span>{{ t.wh_what_updates_desc }}</span>
-          </div>
-          <div class="warehouse-side-item">
-            <strong>{{ t.wh_unchanged }}</strong>
-            <span>{{ t.wh_unchanged_desc }}</span>
-          </div>
-          <div class="warehouse-side-item">
-            <strong>{{ t.wh_access_limit }}</strong>
-            <span>{{ t.wh_access_desc }}</span>
-          </div>
-        </div>
-
-        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="btn btn-outline-primary warehouse-btn">{{ t.wh_download_current }}</a>
+      <div class="wx-actions">
+        <a href="{{ url_for('warehouse_bp.warehouse_export') }}" class="wx-btn wx-btn-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          {{ t.wh_download_template }}
+        </a>
+        <button type="submit" class="wx-btn wx-btn-green">{{ t.wh_import_btn }}</button>
       </div>
-    </aside>
-  </div>
+    </form>
+  </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var dropzone = document.getElementById('wxDropzone');
+  var input = document.getElementById('wxFileInput');
+  var chooseBtn = document.getElementById('wxChooseBtn');
+  var title = document.getElementById('wxDropTitle');
+  var form = document.getElementById('wxImportForm');
+  var defaultTitle = title.textContent;
+
+  function showFile() {
+    if (input.files && input.files.length) {
+      title.textContent = input.files[0].name;
+      dropzone.classList.add('wx-has-file');
+      dropzone.classList.remove('wx-error');
+    } else {
+      title.textContent = defaultTitle;
+      dropzone.classList.remove('wx-has-file');
+    }
+  }
+
+  dropzone.addEventListener('click', function (e) {
+    if (e.target.closest('#wxChooseBtn')) return;
+    input.click();
+  });
+  chooseBtn.addEventListener('click', function () { input.click(); });
+  input.addEventListener('change', showFile);
+
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('wx-dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('wx-dragover');
+    });
+  });
+  dropzone.addEventListener('drop', function (e) {
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) {
+      input.files = files;
+      showFile();
+    }
+  });
+
+  form.addEventListener('submit', function (e) {
+    if (!input.files || !input.files.length) {
+      e.preventDefault();
+      dropzone.classList.add('wx-error');
+      dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+})();
+</script>
 {% endblock %}

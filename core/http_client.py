@@ -169,7 +169,9 @@ class RedisTokenBucket:
         # Safety bailout — never block forever.
         print(f"[RedisTokenBucket] WARNING bailing after 200 iters for key={self.key}")
 
+        
 
+#for per req/sec limit UZUM openapi has, used by _try_request funct to connect to the uzum api
 def get_bucket_for_token(token: str) -> "TokenBucket | RedisTokenBucket":
     """Return (and create if needed) the shared bucket for ``token``.
 

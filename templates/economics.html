@@ -31,6 +31,8 @@
       --red: #ef4444;
       --red-2: #f87171;
       --amber: #f59e0b;
+      --orange: #f97316;
+      --purple: #a855f7;
       --shadow-sm: 0 1px 2px rgba(15,23,42,.04);
       --shadow-md: 0 1px 3px rgba(15,23,42,.06), 0 6px 22px rgba(15,23,42,.06);
       --radius: 16px;
@@ -64,16 +66,7 @@
     /* ── Header ────────────────────────────────────────── */
     .eco-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
     .eco-title-block { display: flex; align-items: center; gap: 12px; }
-    .eco-title-icon {
-      width: 38px; height: 38px; border-radius: 10px;
-      background: var(--brand); color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 18px; letter-spacing: -.02em;
-      box-shadow: var(--shadow-sm);
-    }
     .eco-h1 { font-size: 26px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
-    .eco-subline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 4px; }
-    .eco-subline .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
     .eco-back-btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 8px 14px; border-radius: 10px;
@@ -117,20 +110,6 @@
     }
     .pchip:hover { border-color: var(--ink-2); color: var(--ink); }
     .pchip.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-sm); }
-
-    /* ── Shop picker ──────────────────────── */
-    .shop-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-    .shop-row-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-    .shop-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .schip {
-      padding: 7px 14px; border-radius: 10px;
-      background: var(--surface); border: 1px solid var(--line);
-      color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer;
-      transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
-    }
-    .schip:hover { border-color: var(--ink-2); color: var(--ink); }
-    .schip.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-sm); }
-    .schip .sdot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 
     .date-range-wrapper {
       position: relative; display: flex; align-items: center;
@@ -251,26 +230,6 @@
       100% { background-position: -200% 0; }
     }
 
-    /* ── Cache bar ─────────────────────────────────────── */
-    .cache-bar {
-      display: none; align-items: center; justify-content: space-between;
-      gap: 12px; background: var(--surface); border: 1px solid var(--line);
-      border-radius: 12px; padding: 12px 18px;
-      font-size: 13px; color: var(--muted); margin-bottom: 16px;
-      box-shadow: var(--shadow-sm);
-    }
-    .cache-bar.show { display: flex; }
-    .cache-bar-left { display: flex; align-items: center; gap: 10px; }
-    .refresh-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 8px 16px; border-radius: 10px;
-      background: var(--brand-soft); color: var(--brand);
-      border: none; font-size: 13px; font-weight: 600; cursor: pointer;
-      transition: all .15s;
-    }
-    .refresh-btn:hover { background: var(--brand); color: #fff; }
-    .refresh-btn.loading { opacity: .65; pointer-events: none; }
-
     /* ── Status bar ───────────────────────────────────── */
     .status-bar {
       display: none; align-items: center; gap: 10px;
@@ -285,139 +244,136 @@
     .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse-dot 1s infinite; }
     @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.7); } }
 
-    /* ── Hero stat cards ───────────────────────────────── */
-    .hero-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
+    /* ── KPI cards (Выручка · К выводу · Чистая прибыль) ── */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 16px; margin-bottom: 16px;
     }
-    @media (max-width: 1100px) { .hero-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 600px)  { .hero-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: 1fr; } }
 
-    .stat-card {
+    .kpi-card {
       background: var(--surface); border: 1px solid var(--line);
-      border-radius: var(--radius); padding: 20px;
-      box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+      border-radius: var(--radius); padding: 20px 22px;
+      box-shadow: var(--shadow-sm);
     }
-    .stat-card.featured {
-      background: #4169e1;
-      border-color: transparent; color: #fff;
+    .kpi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .kpi-ico {
+      width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    .stat-card.featured .stat-label,
-    .stat-card.featured .stat-sub,
-    .stat-card.featured .stat-mini-label { color: rgba(255,255,255,.78) !important; }
-    .stat-card.featured .stat-val,
-    .stat-card.featured .stat-mini-val { color: #fff !important; }
-    .stat-card.featured .stat-divider { background: rgba(255,255,255,.18) !important; }
-
-    .stat-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .stat-head-icon {
-      width: 22px; height: 22px; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
+    .kpi-ico.ico-neutral { background: var(--line-2); color: var(--ink-2); }
+    .kpi-ico.ico-brand   { background: var(--brand);  color: #fff; }
+    .kpi-ico.ico-green   { background: rgba(16,185,129,.14); color: var(--green); }
+    .kpi-label { font-size: 14px; font-weight: 500; color: var(--ink-2); }
+    .kpi-val {
+      font-size: 33px; font-weight: 700; color: var(--ink);
+      letter-spacing: -.02em; line-height: 1.12;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
-    .stat-card .stat-head-icon { background: var(--brand-soft); color: var(--brand); }
-    .stat-card.featured .stat-head-icon { background: rgba(255,255,255,.18); color: #fff; }
-    .stat-label { font-size: 16px; font-weight: 500; color: var(--muted); }
-    .stat-sub   { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-    /* Bigger, anchored-to-bottom variant — used for the featured "Вложено в товар" card */
-    .stat-sub-bottom {
-      font-size: 16px; font-weight: 600;
-      letter-spacing: -.005em;
-      margin-top: 14px; margin-bottom: 0;
-      color: rgba(255,255,255,.92);
-    }
-    .stat-val   { font-size: 34px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; line-height: 1.15; }
-    .stat-val .ccy { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 6px; }
-    @media (max-width: 1100px) { .stat-val { font-size: 30px; } }
-    @media (max-width: 600px)  { .stat-val { font-size: 28px; } }
-    .stat-card.featured .stat-val .ccy { color: rgba(255,255,255,.7); }
-    .stat-val.red   { color: var(--red); }
-    .stat-val.green { color: var(--green); }
-
-    .delta-pill {
+    @media (max-width: 1320px) { .kpi-val { font-size: 29px; } }
+    .kpi-val .ccy { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+    .kpi-val.green { color: var(--green); }
+    .kpi-val.red   { color: var(--red); }
+    .kpi-pill-row { margin-top: 12px; min-height: 25px; }
+    .kpi-pill {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
-      margin-top: 8px;
+      padding: 4px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
-    .delta-pill.up   { background: rgba(16,185,129,.12); color: var(--green); }
-    .delta-pill.down { background: rgba(239,68,68,.12);  color: var(--red); }
+    .kpi-pill.up   { background: rgba(16,185,129,.12); color: var(--green); }
+    .kpi-pill.down { background: rgba(239,68,68,.12);  color: var(--red); }
 
-    .stat-divider {
-      height: 1px; background: var(--line);
-      margin: 14px -20px 12px;
-    }
-    .mini-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .mini-cell { min-width: 0; }
-    .stat-mini-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 2px; }
-    .stat-mini-val   { font-size: 14px; font-weight: 700; color: var(--ink); }
-
-    /* breakdown list (revenue/expenses/profit by shop) */
-    .breakdown-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-    .breakdown-row  { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-    .breakdown-row .bd-name { color: var(--muted); flex-shrink: 0; min-width: 64px; display: flex; align-items: center; gap: 6px; }
-    .breakdown-row .bd-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .breakdown-row .bd-bar  { flex: 1; height: 6px; border-radius: 99px; background: var(--line-2); position: relative; overflow: hidden; }
-    .breakdown-row .bd-bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
-    .breakdown-row .bd-val  { color: var(--ink-2); font-weight: 600; min-width: 50px; text-align: right; }
-    .stat-card.featured .breakdown-row .bd-name,
-    .stat-card.featured .breakdown-row .bd-val { color: rgba(255,255,255,.85); }
-    .stat-card.featured .breakdown-row .bd-bar { background: rgba(255,255,255,.18); }
-
-    /* ── Inline small stat cards ───────────────────────── */
-    .mini-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 0; margin-bottom: 16px;
-      background: var(--surface); border: 1px solid var(--line);
-      border-radius: var(--radius); padding: 4px; box-shadow: var(--shadow-sm);
-    }
-    @media (max-width: 900px) { .mini-grid { grid-template-columns: repeat(2, 1fr); } }
-    .mini-stat { padding: 16px 18px; position: relative; }
-    .mini-stat + .mini-stat::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--line); }
-    @media (max-width: 900px) {
-      .mini-stat + .mini-stat::before { display: none; }
-    }
-    .mini-stat .ms-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
-    .mini-stat .ms-val   { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
-    .mini-stat .ms-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
-
-    /* ── Two-col split (warehouse + daily) ─────────────── */
-    .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    @media (max-width: 1000px) { .split-grid { grid-template-columns: 1fr; } }
+    /* ── Main split: sales chart | expenses ────────────── */
+    .main-grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 1000px) { .main-grid { grid-template-columns: 1fr; } }
 
     .panel {
       background: var(--surface); border: 1px solid var(--line);
-      border-radius: var(--radius); padding: 20px;
+      border-radius: var(--radius); padding: 20px 22px;
       box-shadow: var(--shadow-sm);
+      display: flex; flex-direction: column;
     }
-    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 18px; }
-    .panel-title { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
-    .panel-title .pt-icon { width: 24px; height: 24px; border-radius: 7px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .panel-title { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 9px; }
+    .panel-title .pt-icon { width: 26px; height: 26px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .panel-title .pt-icon.pt-red { background: rgba(239,68,68,.12); color: var(--red); }
     .panel-sub   { font-size: 12px; color: var(--muted); }
 
-    /* warehouse cards */
-    .wh-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-    .wh-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; position: relative; }
-    .wh-card.highlight { background: var(--brand-soft); border-color: transparent; }
-    .wh-icon { position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 8px; background: var(--surface); color: var(--muted); display: flex; align-items: center; justify-content: center; }
-    .wh-card.highlight .wh-icon { background: var(--brand); color: #fff; }
-    .wh-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
-    .wh-val { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
-    .wh-val .unit { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
-    .wh-cost { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-    .wh-split-bar { height: 8px; border-radius: 99px; background: var(--line-2); overflow: hidden; display: flex; margin-bottom: 8px; }
-    .wh-split-bar .ws-fill-uzum { background: var(--brand); }
-    .wh-split-bar .ws-fill-wh   { background: var(--green); }
-    .wh-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
-    .wh-legend .ldot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
-
-    .wh-tip {
-      margin-top: 14px; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.22);
-      border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--ink-2); line-height: 1.45;
+    /* sales panel */
+    .sp-orders { font-size: 24px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .sp-orders .unit { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 5px; letter-spacing: 0; }
+    .sp-chart { flex: 1; min-height: 220px; }
+    .sp-foot {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid var(--line);
     }
-    .wh-tip b { color: var(--amber); }
+    @media (max-width: 560px) { .sp-foot { grid-template-columns: repeat(2, 1fr); row-gap: 14px; } }
+    .spf-cell  { text-align: center; min-width: 0; }
+    .spf-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spf-val   { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .spf-val .unit { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 3px; }
 
-    /* daily sales line chart */
+    /* expenses panel */
+    .exp-total { display: flex; align-items: baseline; gap: 7px; }
+    .exp-total .exp-num { font-size: 30px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .exp-total .ccy { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .exp-meta { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+    .exp-stack {
+      display: flex; gap: 3px; height: 10px;
+      margin: 16px 0 6px;
+    }
+    .exp-stack span { border-radius: 99px; min-width: 6px; }
+    .exp-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; margin-top: 6px; }
+    .exp-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; min-width: 0; }
+    .exp-row:nth-child(n+3) { border-top: 1px solid var(--line-2); }
+    @media (max-width: 640px) {
+      .exp-rows { grid-template-columns: 1fr; }
+      .exp-row:nth-child(n+2) { border-top: 1px solid var(--line-2); }
+    }
+    .exp-ico {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .exp-name { font-size: 15px; font-weight: 600; color: var(--ink); flex: 0 1 auto; min-width: 94px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp-track { flex: 1; min-width: 30px; height: 6px; border-radius: 99px; background: var(--line-2); overflow: hidden; }
+    .exp-fill  { display: block; height: 100%; border-radius: 99px; }
+    .exp-val   { font-size: 16.5px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -.01em; }
+
+    /* ── Frozen stock band ─────────────────────────────── */
+    .frozen-band {
+      display: grid; grid-template-columns: 1.25fr 1fr 1fr;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow-sm);
+      overflow: hidden; margin-bottom: 16px;
+    }
+    @media (max-width: 860px) { .frozen-band { grid-template-columns: 1fr; } }
+    .fb-cell { padding: 20px 26px; display: flex; flex-direction: column; justify-content: center; }
+    .fb-cell + .fb-cell { border-left: 1px solid var(--line); }
+    @media (max-width: 860px) { .fb-cell + .fb-cell { border-left: none; border-top: 1px solid var(--line); } }
+    .fb-cell.fb-left { background: var(--surface-2); }
+    .fb-main { display: flex; align-items: center; gap: 14px; }
+    .fb-ico {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: var(--brand-soft); color: var(--brand);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .fb-label { font-size: 13.5px; color: var(--muted); margin-bottom: 3px; }
+    .fb-val { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .fb-cell.fb-left .fb-val { font-size: 34px; }
+    .fb-val .ccy, .fb-val .unit { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 5px; }
+    .fb-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .fb-cell.center { align-items: center; text-align: center; }
+    .fb-tag {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 11px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+    }
+    .fb-tag .sq { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Daily sales line chart ────────────────────────── */
     .chart-svg { width: 100%; height: 220px; display: block; }
     .chart-line { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
     .chart-area { fill: url(#blueFill); opacity: .22; }
@@ -427,21 +383,24 @@
     .chart-dot { fill: var(--brand); stroke: #fff; stroke-width: 2; opacity: 0; pointer-events: none; transition: opacity .15s; }
     .chart-cursor { stroke: var(--brand); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; pointer-events: none; transition: opacity .15s; }
 
-    /* tooltip */
+    /* tooltip — dark pill in both themes, как в макете */
     .eco-tooltip {
       position: fixed; z-index: 50; pointer-events: none;
-      background: var(--surface); color: var(--ink);
-      border: 1px solid var(--line); border-radius: 10px;
-      box-shadow: var(--shadow-md);
-      padding: 10px 12px; font-size: 12px; min-width: 160px;
+      background: #111827; color: #f9fafb;
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      padding: 10px 13px; font-size: 12px; min-width: 150px;
       opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s;
     }
+    [data-bs-theme="dark"] .eco-tooltip { background: #1c2230; border-color: var(--line); }
     .eco-tooltip.show { opacity: 1; transform: translateY(0); }
-    .eco-tooltip .tt-title { font-weight: 700; color: var(--ink); margin-bottom: 6px; font-size: 12px; }
+    .eco-tooltip .tt-title { font-weight: 600; color: #cbd5e1; margin-bottom: 4px; font-size: 11.5px; }
+    .eco-tooltip .tt-big   { font-size: 15px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+    .eco-tooltip .tt-mut   { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
     .eco-tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-top: 4px; }
-    .eco-tooltip .tt-name { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .eco-tooltip .tt-name { color: #94a3b8; display: inline-flex; align-items: center; gap: 6px; }
     .eco-tooltip .tt-dot  { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .eco-tooltip .tt-val  { font-weight: 700; color: var(--ink); }
+    .eco-tooltip .tt-val  { font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 
     /* ── Dynamics card (12-month) ──────────────────────── */
     .dyn-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
@@ -566,14 +525,14 @@
         </div>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div class="tax-input" id="taxInputWrap" title="Ставка налога. Вычитается из выручки при расчёте прибыли.">
-          <span class="tax-label">Налог</span>
+        <div class="tax-input" id="taxInputWrap" title="{{ "Soliq stavkasi. Foyda hisoblashda tushumdan ayriladi." if lang == "uz" else "Ставка налога. Вычитается из выручки при расчёте прибыли." }}">
+          <span class="tax-label">{{ "Soliq" if lang == "uz" else "Налог" }}</span>
           <input type="number" id="taxRate" min="0" max="100" step="0.1" inputmode="decimal" placeholder="0">
           <span class="tax-pct">%</span>
         </div>
         <a href="/groups" class="eco-back-btn" id="backBtn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          <span>Назад</span>
+          <span>{{ "Orqaga" if lang == "uz" else "Назад" }}</span>
         </a>
       </div>
     </div>
@@ -581,12 +540,12 @@
     <!-- ── Period quick picks + date range ──── -->
     <div class="period-row">
       <div class="period-chips" id="periodChips">
-        <button class="pchip" data-period="today">Сегодня</button>
-        <button class="pchip" data-period="week">Неделя</button>
+        <button class="pchip" data-period="today">{{ "Bugun" if lang == "uz" else "Сегодня" }}</button>
+        <button class="pchip" data-period="week">{{ "Hafta" if lang == "uz" else "Неделя" }}</button>
         <button class="pchip active" data-period="thisMonth">{{ t.eco_this_month }}</button>
-        <button class="pchip" data-period="lastMonth">Прошлый месяц</button>
-        <button class="pchip" data-period="last30">30 дней</button>
-        <button class="pchip" data-period="thisYear">Этот год</button>
+        <button class="pchip" data-period="lastMonth">{{ "O'tgan oy" if lang == "uz" else "Прошлый месяц" }}</button>
+        <button class="pchip" data-period="last30">{{ "30 kun" if lang == "uz" else "30 дней" }}</button>
+        <button class="pchip" data-period="thisYear">{{ "Bu yil" if lang == "uz" else "Этот год" }}</button>
       </div>
       <div class="date-range-wrapper" id="dateRangeWrapper">
         <svg class="cal-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -596,7 +555,7 @@
       <div class="eco-shop-picker" id="ecoShopPicker" style="display:none;">
         <button type="button" class="eco-shop-trigger" id="ecoShopTrigger">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          <span id="ecoShopLabel">Все магазины</span>
+          <span id="ecoShopLabel">{{ "Barcha do'konlar" if lang == "uz" else "Все магазины" }}</span>
           <span class="eco-shop-chev">▼</span>
         </button>
         <div class="eco-shop-menu" id="ecoShopMenu"></div>
@@ -605,15 +564,15 @@
       <input type="hidden" id="dateTo">
     </div>
 
-    <!-- ── Annual revenue limit (replaces the old cache info bar) ── -->
+    <!-- ── Annual revenue limit ── -->
     <div class="eco-limit-card" id="ecoLimitCard">
       <div class="eco-limit-row">
         <div class="eco-limit-info">
-          <div class="eco-limit-label">Годовой лимит выручки · <span class="eco-limit-year" id="ecoLimitYear">—</span></div>
+          <div class="eco-limit-label">{{ "Yillik tushum limiti" if lang == "uz" else "Годовой лимит выручки" }} · <span class="eco-limit-year" id="ecoLimitYear">—</span></div>
           <div class="eco-limit-values">
             <span class="eco-limit-current" id="ecoLimitCurrent">—</span>
             <span class="eco-limit-sep">/</span>
-            <span class="eco-limit-max" id="ecoLimitMax">5 000 000 000 сум</span>
+            <span class="eco-limit-max" id="ecoLimitMax">5 000 000 000 {{ "so'm" if lang == "uz" else "сум" }}</span>
           </div>
         </div>
         <div class="eco-limit-pct" id="ecoLimitPct">—</div>
@@ -629,74 +588,83 @@
       <span id="statusText">{{ t.eco_loading }}</span>
     </div>
 
-    <!-- ── Hero stat cards ────────────────────── -->
-    <div class="hero-grid" id="heroGrid">
-      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
-      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
-      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
-      <div class="stat-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+    <!-- ── KPI cards ──────────────────────────── -->
+    <div class="kpi-grid" id="heroGrid">
+      <div class="kpi-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+      <div class="kpi-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
+      <div class="kpi-card"><div class="skeleton skel-label"></div><div class="skeleton skel-val"></div></div>
     </div>
 
-    <!-- ── Small inline stats ─────────────────── -->
-    <div class="mini-grid" id="miniGrid">
-      <div class="mini-stat"><div class="ms-label">Заказов</div><div class="ms-val" id="msOrders">—</div><div class="ms-sub" id="msOrdersSub">—</div></div>
-      <div class="mini-stat"><div class="ms-label">Средний чек</div><div class="ms-val" id="msAov">—</div><div class="ms-sub">за заказ</div></div>
-      <div class="mini-stat"><div class="ms-label">Себестоимость продаж</div><div class="ms-val" id="msCost">—</div><div class="ms-sub">за период</div></div>
-      <div class="mini-stat"><div class="ms-label">Активных SKU</div><div class="ms-val" id="msSku">—</div><div class="ms-sub">в обороте</div></div>
-    </div>
-
-    <!-- ── Split: warehouses + daily sales ────── -->
-    <div class="split-grid">
+    <!-- ── Split: daily sales | expenses ──────── -->
+    <div class="main-grid">
       <div class="panel">
-        <div class="panel-head">
+        <div class="panel-head" style="margin-bottom: 6px;">
           <div class="panel-title">
-            <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-            <span>Остатки по складам</span>
+            <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+            <span>{{ "Kunlar bo'yicha sotuvlar" if lang == "uz" else "Продажи по дням" }}</span>
           </div>
-          <span class="panel-sub">Количество и сумма «заморозки»</span>
+          <div class="sp-orders"><span id="spOrders">—</span><span class="unit">{{ "buyurtma" if lang == "uz" else "заказов" }}</span></div>
         </div>
-        <div class="wh-grid">
-          <div class="wh-card">
-            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
-            <div class="wh-label">Склад Uzum</div>
-            <div class="wh-val"><span id="whUzumQty">—</span><span class="unit">шт</span></div>
-            <div class="wh-cost">≈ <span id="whUzumCost">—</span></div>
+        <div id="dailyChartHost" class="sp-chart"></div>
+        <div class="sp-foot">
+          <div class="spf-cell">
+            <div class="spf-label">{{ "Kunlik o'rtacha sotuv" if lang == "uz" else "Средние продажи / день" }}</div>
+            <div class="spf-val"><span id="msPerDay">—</span><span class="unit">{{ "buyurtma" if lang == "uz" else "заказов" }}</span></div>
           </div>
-          <div class="wh-card">
-            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3"/></svg></div>
-            <div class="wh-label">Свой склад</div>
-            <div class="wh-val"><span id="whOwnQty">—</span><span class="unit">шт</span></div>
-            <div class="wh-cost">≈ <span id="whOwnCost">—</span></div>
+          <div class="spf-cell">
+            <div class="spf-label">{{ "O'rtacha chek" if lang == "uz" else "Средний чек" }}</div>
+            <div class="spf-val"><span id="msAov">—</span><span class="unit">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
           </div>
-          <div class="wh-card highlight">
-            <div class="wh-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
-            <div class="wh-label">Всего</div>
-            <div class="wh-val"><span id="whAllQty">—</span><span class="unit">шт</span></div>
-            <div class="wh-cost">≈ <span id="whAllCost">—</span></div>
+          <div class="spf-cell">
+            <div class="spf-label">{{ "Sotuv tannarxi" if lang == "uz" else "Себестоимость продаж" }}</div>
+            <div class="spf-val"><span id="msCost">—</span><span class="unit">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
           </div>
-        </div>
-        <div class="wh-split-bar">
-          <div class="ws-fill-uzum" id="whFillUzum" style="width: 50%;"></div>
-          <div class="ws-fill-wh"   id="whFillWh"   style="width: 50%;"></div>
-        </div>
-        <div class="wh-legend">
-          <span><span class="ldot" style="background: var(--brand);"></span>Склад Uzum — <strong id="whPctUzum">—</strong></span>
-          <span><span class="ldot" style="background: var(--green);"></span>Свой склад — <strong id="whPctWh">—</strong></span>
-        </div>
-        <div class="wh-tip" id="whTip">
-          💡 <b>Совет:</b> данные о темпе продаж появятся после загрузки.
+          <div class="spf-cell">
+            <div class="spf-label">{{ "Faol SKU" if lang == "uz" else "Активных SKU" }}</div>
+            <div class="spf-val"><span id="msSku">—</span><span class="unit">{{ "aylanmada" if lang == "uz" else "в обороте" }}</span></div>
+          </div>
         </div>
       </div>
 
       <div class="panel">
-        <div class="panel-head">
+        <div class="panel-head" style="margin-bottom: 10px;">
           <div class="panel-title">
-            <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
-            <span>Продажи по дням</span>
+            <span class="pt-icon pt-red"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>
+            <span>{{ "Barcha xarajatlar" if lang == "uz" else "Все расходы" }}</span>
           </div>
-          <span class="panel-sub" id="dailyOrdersLabel">— заказов</span>
+          <span class="panel-sub">{{ "davr uchun" if lang == "uz" else "за период" }}</span>
         </div>
-        <div id="dailyChartHost"></div>
+        <div id="expBody">
+          <div class="skeleton" style="height: 30px; width: 55%; margin-bottom: 10px;"></div>
+          <div class="skeleton" style="height: 10px; width: 100%; margin-bottom: 18px;"></div>
+          <div class="skeleton" style="height: 14px; width: 92%; margin-bottom: 12px;"></div>
+          <div class="skeleton" style="height: 14px; width: 86%; margin-bottom: 12px;"></div>
+          <div class="skeleton" style="height: 14px; width: 78%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Frozen stock band ──────────────────── -->
+    <div class="frozen-band">
+      <div class="fb-cell fb-left">
+        <div class="fb-main">
+          <span class="fb-ico"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+          <div style="min-width: 0;">
+            <div class="fb-label">{{ "Tovarga sarflangan (muzlatilgan)" if lang == "uz" else "Вложено в товар (заморозка)" }}</div>
+            <div class="fb-val"><span id="fbCost">—</span><span class="ccy">{{ "so'm" if lang == "uz" else "сум" }}</span></div>
+            <div class="fb-sub" id="fbHint">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="fb-cell center">
+        <div class="fb-tag"><span class="sq" style="background: var(--brand);"></span>{{ "Uzum ombori" if lang == "uz" else "Склад Uzum" }}</div>
+        <div class="fb-val"><span id="fbUzumQty">—</span><span class="unit">{{ "dona" if lang == "uz" else "шт" }}</span></div>
+        <div class="fb-sub">≈ <span id="fbUzumCost">—</span> {{ "muzlatilgan" if lang == "uz" else "заморожено" }}</div>
+      </div>
+      <div class="fb-cell center">
+        <div class="fb-tag"><span class="sq" style="background: var(--green);"></span>{{ "O'z ombori" if lang == "uz" else "Свой склад" }}</div>
+        <div class="fb-val"><span id="fbOwnQty">—</span><span class="unit">{{ "dona" if lang == "uz" else "шт" }}</span></div>
+        <div class="fb-sub">≈ <span id="fbOwnCost">—</span> {{ "muzlatilgan" if lang == "uz" else "заморожено" }}</div>
       </div>
     </div>
 
@@ -704,12 +672,12 @@
     <div class="dyn-card">
       <div class="panel-head" style="margin-bottom: 14px;">
         <div class="panel-title">
-          <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-          <span>Динамика за 12 месяцев</span>
+          <span class="pt-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+          <span>{{ "12 oylik dinamika" if lang == "uz" else "Динамика за 12 месяцев" }}</span>
         </div>
         <div class="dyn-toggle">
-          <button class="active" data-dyn="revenue">Выручка</button>
-          <button data-dyn="profit">Прибыль</button>
+          <button class="active" data-dyn="revenue">{{ "Tushum" if lang == "uz" else "Выручка" }}</button>
+          <button data-dyn="profit">{{ "Foyda" if lang == "uz" else "Прибыль" }}</button>
         </div>
       </div>
       <div class="dyn-chart-wrap" id="dynChartHost"></div>
@@ -719,17 +687,17 @@
     <div class="table-panel">
       <div class="table-head">
         <div class="table-title">
-          <span>Товары</span>
+          <span>{{ "Mahsulotlar" if lang == "uz" else "Товары" }}</span>
           <span class="table-count" id="tableCount">0</span>
         </div>
         <div class="table-tools">
           <div class="search-input">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="productSearch" placeholder="Поиск по названию или ID">
+            <input type="text" id="productSearch" placeholder="{{ "Nom yoki ID bo'yicha qidirish" if lang == "uz" else "Поиск по названию или ID" }}">
           </div>
           <button class="export-btn" id="exportBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Экспорт</span>
+            <span>{{ "Eksport" if lang == "uz" else "Экспорт" }}</span>
           </button>
         </div>
       </div>
@@ -738,9 +706,9 @@
           <thead>
             <tr>
               <th style="width: 30%;">{{ t.eco_col_product }}</th>
-              <th>{{ t.eco_col_stock }}<div style="font-weight: 400; font-size: 9px; text-transform: none; color: var(--faint); margin-top: 2px; letter-spacing: 0;">Uzum / Свой</div></th>
-              <th>Себест. остатка</th>
-              <th>Продано</th>
+              <th>{{ t.eco_col_stock }}<div style="font-weight: 400; font-size: 9px; text-transform: none; color: var(--faint); margin-top: 2px; letter-spacing: 0;">{{ "Uzum / O'z" if lang == "uz" else "Uzum / Свой" }}</div></th>
+              <th>{{ "Qoldiq tannarxi" if lang == "uz" else "Себест. остатка" }}</th>
+              <th>{{ "Sotilgan" if lang == "uz" else "Продано" }}</th>
               <th>{{ t.eco_col_revenue }}</th>
               <th>{{ t.eco_col_commission }}</th>
               <th>{{ t.eco_col_logistics }}</th>
@@ -762,18 +730,45 @@
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
-  <script src="/static/uzum_ui.js?v=20260526a"></script>
+  <script src="/static/uzum_ui.js?v=20260613a"></script>
   <script>
     const _ET = {
-      loading: '{{ t.eco_loading }}',
-      cachePrefix: '{{ t.eco_cache_prefix }}',
-      noData: '{{ t.eco_no_data }}',
-      noSales: '{{ t.eco_no_sales_hint }}',
-      loadData: '{{ t.eco_load_data_btn }}',
-      errorLoading: '{{ t.eco_error_loading }}',
-      errorFetch: '{{ t.eco_error_fetch }}',
+      loading: "{{ t.eco_loading }}",
+      cachePrefix: "{{ t.eco_cache_prefix }}",
+      noData: "{{ t.eco_no_data }}",
+      noSales: "{{ t.eco_no_sales_hint }}",
+      loadData: "{{ t.eco_load_data_btn }}",
+      errorLoading: "{{ t.eco_error_loading }}",
+      errorFetch: "{{ t.eco_error_fetch }}",
+      cardRevenue: "{{ t.eco_card_revenue }}",
+      cardProfit: "{{ t.eco_card_profit }}",
+      refreshBtn: "{{ 'Uzumdan yangilash' if lang == 'uz' else 'Обновить из Uzum' }}",
+      ccy: "{{ "so'm" if lang == 'uz' else 'сум' }}",
+      orders: "{{ 'buyurtma' if lang == 'uz' else 'заказов' }}",
+      allShops: "{{ "Barcha do'konlar" if lang == 'uz' else 'Все магазины' }}",
+      cardPayout: "{{ 'Tushum' if lang == 'uz' else 'К выводу' }}",
+      margin: "{{ 'Marja' if lang == 'uz' else 'Маржа' }}",
+      commission: "{{ 'Komissiya' if lang == 'uz' else 'Комиссия' }}",
+      logistics: "{{ 'Logistika' if lang == 'uz' else 'Логистика' }}",
+      marketing: "{{ 'Marketing' if lang == 'uz' else 'Маркетинг' }}",
+      warehouse: "{{ 'Ombor' if lang == 'uz' else 'Склад' }}",
+      misc: "{{ 'Boshqa' if lang == 'uz' else 'Прочее' }}",
+      tax: "{{ 'Soliq' if lang == 'uz' else 'Налог' }}",
+      fromRevenue: "{{ 'tushumdan' if lang == 'uz' else 'от выручки' }}",
+      catSingular: "{{ 'kategoriya' if lang == 'uz' else 'категория' }}",
+      catFew: "{{ 'kategoriya' if lang == 'uz' else 'категории' }}",
+      catMany: "{{ 'kategoriya' if lang == 'uz' else 'категорий' }}",
+      totalLabel: "{{ 'Jami' if lang == 'uz' else 'Итого' }}",
+      productsCount: "{{ 'ta mahsulot' if lang == 'uz' else 'товаров' }}",
+      ttOrders: "{{ 'buyurtma' if lang == 'uz' else 'заказов' }}",
+      ttRevenue: "{{ 'Tushum' if lang == 'uz' else 'Выручка' }}",
+      ttProfit: "{{ 'Foyda' if lang == 'uz' else 'Прибыль' }}",
+      unitDona: "{{ 'dona' if lang == 'uz' else 'шт' }}",
+      frozen: "{{ 'muzlatilgan' if lang == 'uz' else 'заморожено' }}",
+      hintTotal: "{{ 'jami' if lang == 'uz' else 'всего' }}",
+      hintDays: "{{ 'kunga yetadi' if lang == 'uz' else 'дней' }}",
     };
-    const CACHE_KEY_PREFIX = "eco_cache_v7_";
+    const CACHE_KEY_PREFIX = "eco_cache_v8_";
     function cacheKey(df, dt, shop) { return CACHE_KEY_PREFIX + (shop||"all") + "_" + df + "_" + dt; }
 
     // ── Tax rate (persisted, client-side only — never sent to server) ───
@@ -793,13 +788,15 @@
     const fmt = (n) => Math.round(n || 0).toLocaleString("ru-RU");
     const fmtCompact = (n) => {
       const abs = Math.abs(n||0);
-      if (abs >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' млн';
-      if (abs >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'к';
+      if (abs >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' {{ "mln" if lang == "uz" else "млн" }}';
+      if (abs >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + '{{ "k" if lang == "uz" else "к" }}';
       return Math.round(n||0).toString();
     };
-    const fmtCcy = (n) => fmt(n) + ' сум';
+    const fmtCcy = (n) => fmt(n) + ' ' + _ET.ccy;
     const sign  = (v) => v > 0 ? '+' : '';
-    const profitColor = (v) => v >= 0 ? 'var(--green)' : 'var(--red)';
+    // Safe sum coercion — NOT `|0`: UZS sums regularly exceed 2^31 (annual
+    // revenue vs the 5B limit), and `|0` wraps 32-bit into negatives.
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : 0; };
 
     // ── Tooltip ───────────────────────────────
     const tipEl = () => document.getElementById("ecoTooltip");
@@ -825,6 +822,12 @@
     function ruDate(iso){
       const d = parseLocal(iso);
       return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+    }
+    function rangeDays(df, dt){
+      try {
+        const a = parseLocal(df), b = parseLocal(dt);
+        return Math.max(1, Math.round((b-a)/86400000) + 1);
+      } catch(e) { return 1; }
     }
 
     // ── Period presets ──────────────────────────
@@ -868,125 +871,171 @@
       const btn = document.getElementById("refreshBtn");
       if (btn) btn.classList.toggle("loading", loading);
       const txt = document.getElementById("refreshBtnText");
-      if (txt) txt.textContent = loading ? _ET.loading : "Обновить из Uzum";
+      if (txt) txt.textContent = loading ? _ET.loading : _ET.refreshBtn;
     }
 
-    // ── Hero cards renderer ──────────────────────
-    const SHOP_PALETTE = ["#4169e1", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
-    function shopColor(i){ return SHOP_PALETTE[i % SHOP_PALETTE.length]; }
+    // ── Money helpers ─────────────────────────────
+    // "К выводу" = сумма seller_profit, которую Uzum считает сам (выручка
+    // за вычетом комиссии и логистики) и показывает как сумму к выводу.
+    // Берём напрямую с бэкенда, а не реконструируем из sales_revenue
+    // (та сейчас основана на поле sellPrice и занижена).
+    function payoutOf(t){
+      return num(t.sales_seller_profit);
+    }
 
-    function renderHero(payload){
-      const totals = payload.totals || {};
-      const perShop = (payload.per_shop || []).filter(s => (s.revenue|0) > 0 || (s.profit|0) !== 0);
-      const grid = document.getElementById("heroGrid");
-      const stockQty   = totals.stock_qty | 0;
-      const stockCost  = totals.stock_cost | 0;
-      const uzCost     = totals.stock_cost_uzum | 0;
-      const whCost     = totals.stock_cost_warehouse | 0;
-      const revenue    = totals.sales_revenue | 0;
-      const commission = totals.sales_commission|0;
-      const logistics  = totals.sales_logistics|0;
-      const marketing  = totals.expenses_marketing|0;
-      const warehouse  = totals.expenses_warehouse|0;
-      const misc       = totals.expenses_misc|0;
-      const cogs       = totals.sales_cost|0;
-      const taxRate    = getTaxRate();
-      const tax        = Math.round(revenue * taxRate / 100);
-      const expenses   = commission + logistics + marketing + warehouse + misc + tax;
-      const profit     = (totals.sales_profit|0) - tax;
-      const expensesPct = revenue > 0 ? (expenses / revenue * 100) : 0;
-      const marginPct   = revenue > 0 ? (profit / revenue * 100) : 0;
-
-      const breakdownExpenses = [
-        { name: "Комиссия",  value: commission, color: "#ef4444" },
-        { name: "Логистика", value: logistics,  color: "#f87171" },
-        { name: "Маркетинг", value: marketing,  color: "#f59e0b" },
-        { name: "Склад",     value: warehouse,  color: "#a855f7" },
-        { name: "Прочее",    value: misc,       color: "#94a3b8" },
-      ];
-      if (taxRate > 0) breakdownExpenses.push({ name: `Налог · ${taxRate}%`, value: tax, color: "#0ea5e9" });
-      const maxExp = Math.max(1, ...breakdownExpenses.map(x => Math.abs(x.value)));
-
-      // Per-shop breakdown lists (revenue + profit) — only when 2+ shops have data
-      const showShopBreakdown = perShop.length >= 2;
-      const maxRev = Math.max(1, ...perShop.map(s => s.revenue|0));
-      const maxAbsProfit = Math.max(1, ...perShop.map(s => Math.abs(s.profit|0)));
-      const revBreakdown = !showShopBreakdown ? "" : `
-        <div class="breakdown-list" style="margin-top: 14px;">
-          ${perShop.map((s, i) => `
-            <div class="breakdown-row">
-              <span class="bd-name"><span class="bd-dot" style="background:${shopColor(i)};"></span>${s.name}</span>
-              <span class="bd-bar"><span style="width:${Math.round((s.revenue|0)/maxRev*100)}%; background:${shopColor(i)};"></span></span>
-              <span class="bd-val">${fmtCompact(s.revenue)}</span>
-            </div>`).join("")}
-        </div>`;
-      const profitBreakdown = !showShopBreakdown ? "" : `
-        <div class="breakdown-list" style="margin-top: 14px;">
-          ${perShop.map((s, i) => `
-            <div class="breakdown-row">
-              <span class="bd-name"><span class="bd-dot" style="background:${shopColor(i)};"></span>${s.name}</span>
-              <span class="bd-bar"><span style="width:${Math.round(Math.abs(s.profit|0)/maxAbsProfit*100)}%; background:${shopColor(i)};"></span></span>
-              <span class="bd-val" style="color:${(s.profit|0) >= 0 ? 'var(--green)' : 'var(--red)'};">${sign(s.profit)}${fmtCompact(s.profit)}</span>
-            </div>`).join("")}
-        </div>`;
+    // ── KPI cards renderer ──────────────────────
+    function renderKPIs(payload){
+      const totals  = payload.totals || {};
+      const grid    = document.getElementById("heroGrid");
+      const revenue = num(totals.sales_revenue);
+      const taxRate = getTaxRate();
+      const tax     = Math.round(revenue * taxRate / 100);
+      const payout  = payoutOf(totals);
+      const profit  = num(totals.sales_profit) - tax;
+      const marginPct = revenue > 0 ? (profit / revenue * 100) : 0;
 
       grid.innerHTML = `
-        <div class="stat-card featured fade-in">
-          <div class="stat-head">
-            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-            <span class="stat-label">Вложено в товар</span>
+        <div class="kpi-card fade-in">
+          <div class="kpi-head">
+            <span class="kpi-ico ico-neutral"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+            <span class="kpi-label">${_ET.cardRevenue}</span>
           </div>
-          <div class="stat-sub" aria-hidden="true" style="visibility:hidden">·</div>
-          <div class="stat-val">${fmt(stockCost)} <span class="ccy">сум</span></div>
-          <div class="stat-divider"></div>
-          <div class="mini-pair">
-            <div class="mini-cell">
-              <div class="stat-mini-label">На складе Uzum</div>
-              <div class="stat-mini-val">${fmtCompact(uzCost)} сум</div>
-            </div>
-            <div class="mini-cell">
-              <div class="stat-mini-label">Свой склад</div>
-              <div class="stat-mini-val">${fmtCompact(whCost)} сум</div>
-            </div>
-          </div>
-          <div class="stat-sub stat-sub-bottom">Всего на складах · ${fmt(stockQty)} шт</div>
+          <div class="kpi-val">${fmt(revenue)}<span class="ccy">${_ET.ccy}</span></div>
+          <div class="kpi-pill-row" id="kpiRevPill"></div>
         </div>
 
-        <div class="stat-card fade-in" style="animation-delay:.05s">
-          <div class="stat-head">
-            <span class="stat-head-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-            <span class="stat-label">${'{{ t.eco_card_revenue }}'}</span>
+        <div class="kpi-card fade-in" style="animation-delay:.05s">
+          <div class="kpi-head">
+            <span class="kpi-ico ico-brand"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+            <span class="kpi-label">${_ET.cardPayout}</span>
           </div>
-          <div class="stat-sub">За выбранный период</div>
-          <div class="stat-val">${fmt(revenue)} <span class="ccy">сум</span></div>
-          ${revBreakdown}
+          <div class="kpi-val">${fmt(payout)}<span class="ccy">${_ET.ccy}</span></div>
+          <div class="kpi-pill-row" id="kpiPayoutPill"></div>
         </div>
 
-        <div class="stat-card fade-in" style="animation-delay:.10s">
-          <div class="stat-head">
-            <span class="stat-head-icon" style="background:rgba(239,68,68,.12); color: var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
-            <span class="stat-label">Общие расходы</span>
+        <div class="kpi-card fade-in" style="animation-delay:.10s">
+          <div class="kpi-head">
+            <span class="kpi-ico ico-green"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+            <span class="kpi-label">${_ET.cardProfit}</span>
           </div>
-          <div class="stat-sub">${expensesPct.toFixed(1)}% от выручки</div>
-          <div class="stat-val red">${fmt(expenses)} <span class="ccy">сум</span></div>
-          <div class="breakdown-list" style="margin-top: 10px;">
-            ${breakdownExpenses.map(it => `
-              <div class="breakdown-row">
-                <span class="bd-name"><span class="bd-dot" style="background:${it.color};"></span>${it.name}</span>
-                <span class="bd-bar"><span style="width:${Math.round(Math.abs(it.value)/maxExp*100)}%; background:${it.color};"></span></span>
-                <span class="bd-val">${fmtCompact(it.value)}</span>
-              </div>`).join("")}
-          </div>
+          <div class="kpi-val ${profit >= 0 ? 'green' : 'red'}">${sign(profit)}${fmt(profit)}<span class="ccy">${_ET.ccy}</span></div>
+          <div class="kpi-pill-row"><span class="kpi-pill ${profit >= 0 ? 'up' : 'down'}">${_ET.margin} ${marginPct.toFixed(1)} %</span></div>
         </div>
+      `;
 
-        <div class="stat-card fade-in" style="animation-delay:.15s">
-          <div class="stat-head">
-            <span class="stat-head-icon" style="background:rgba(16,185,129,.14); color: var(--green);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-            <span class="stat-label">${'{{ t.eco_card_profit }}'}</span>
-          </div>
-          <div class="stat-sub">Маржа · ${marginPct.toFixed(1)}%</div>
-          <div class="stat-val ${profit >= 0 ? 'green' : 'red'}">${sign(profit)}${fmt(profit)} <span class="ccy">сум</span></div>
-          ${profitBreakdown}
+      // Re-apply previous-period deltas if we already have them for this view
+      const df = document.getElementById("dateFrom").value;
+      const dt = document.getElementById("dateTo").value;
+      if (_lastDeltas && _lastDeltas.df === df && _lastDeltas.dt === dt && _lastDeltas.shop === (activeShopId||"")) {
+        applyDeltaPills(_lastDeltas);
+      }
+    }
+
+    // ── Annual revenue limit (year-to-date vs 5 000 000 000 сум) ──
+    // Value now arrives inside the main payload (payload.year_to_date_revenue,
+    // always all-shops) — no separate request. Pass null while unknown to
+    // keep the shimmer.
+    const ANNUAL_LIMIT = 5_000_000_000; // UZS cap for the IP (sole-proprietor) tax regime
+    function applyAnnualLimit(revenue){
+      const fillEl    = document.getElementById("ecoLimitFill");
+      const pctEl     = document.getElementById("ecoLimitPct");
+      const currentEl = document.getElementById("ecoLimitCurrent");
+      const yearEl    = document.getElementById("ecoLimitYear");
+      yearEl.textContent = String(new Date().getFullYear());
+      if (revenue === null || !isFinite(revenue)) {
+        fillEl.classList.remove("is-loading");
+        fillEl.style.width = "0%";
+        pctEl.textContent = "—";
+        currentEl.textContent = "—";
+        return;
+      }
+      const pct = Math.max(0, (revenue / ANNUAL_LIMIT) * 100);
+      fillEl.classList.remove("is-loading", "is-warn", "is-danger");
+      pctEl.classList.remove("is-warn", "is-danger");
+      if (pct >= 90) {
+        fillEl.classList.add("is-danger");
+        pctEl.classList.add("is-danger");
+      } else if (pct >= 70) {
+        fillEl.classList.add("is-warn");
+        pctEl.classList.add("is-warn");
+      }
+      // Cap visual width at 100% but keep the actual ratio in the badge text
+      fillEl.style.width = Math.min(100, pct) + "%";
+      pctEl.textContent = pct.toFixed(1).replace(".", ",") + "%";
+      currentEl.textContent = fmt(revenue) + " " + _ET.ccy;
+    }
+
+    // ── Previous-period deltas (↑/↓ pills) ──────
+    let _lastDeltas = null;
+    function applyDeltaPills(d){
+      const mk = (pct) => {
+        if (pct === null || !isFinite(pct)) return "";
+        const up = pct >= 0;
+        return `<span class="kpi-pill ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct).toFixed(1)}%</span>`;
+      };
+      const r = document.getElementById("kpiRevPill");    if (r) r.innerHTML = mk(d.revPct);
+      const p = document.getElementById("kpiPayoutPill"); if (p) p.innerHTML = mk(d.payoutPct);
+    }
+    // Previous-period totals now arrive inside the main payload
+    // (payload.prev_totals) — no second network request needed.
+    function applyPrevTotals(payload){
+      const tCur  = payload.totals || {};
+      const tPrev = payload.prev_totals || {};
+      const curRev = num(tCur.sales_revenue), prevRev = num(tPrev.sales_revenue);
+      const curPay = payoutOf(tCur),          prevPay = payoutOf(tPrev);
+      _lastDeltas = {
+        df: document.getElementById("dateFrom").value,
+        dt: document.getElementById("dateTo").value,
+        shop: (activeShopId || ""),
+        revPct:    prevRev > 0 ? (curRev - prevRev) / prevRev * 100 : null,
+        payoutPct: prevPay > 0 ? (curPay - prevPay) / prevPay * 100 : null,
+      };
+      applyDeltaPills(_lastDeltas);
+    }
+
+    // ── Expenses panel ──────────────────────────
+    const EXP_ICONS = {
+      commission: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+      logistics:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+      marketing:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+      warehouse:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+      misc:       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>',
+      tax:        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
+    };
+    function renderExpenses(payload){
+      const totals  = payload.totals || {};
+      const revenue = num(totals.sales_revenue);
+      const taxRate = getTaxRate();
+      const tax     = Math.round(revenue * taxRate / 100);
+      const cats = [
+        { name: _ET.commission, val: num(totals.sales_commission),   color: "#ef4444", icon: EXP_ICONS.commission },
+        { name: _ET.logistics,  val: num(totals.sales_logistics),    color: "#f97316", icon: EXP_ICONS.logistics },
+        { name: _ET.marketing,  val: num(totals.expenses_marketing), color: "#f59e0b", icon: EXP_ICONS.marketing },
+        { name: _ET.warehouse,  val: num(totals.expenses_warehouse), color: "#a855f7", icon: EXP_ICONS.warehouse },
+        { name: _ET.misc,       val: num(totals.expenses_misc),      color: "#94a3b8", icon: EXP_ICONS.misc },
+      ];
+      if (taxRate > 0) cats.push({ name: `${_ET.tax} · ${taxRate}%`, val: tax, color: "#0ea5e9", icon: EXP_ICONS.tax });
+
+      const total    = cats.reduce((s, c) => s + c.val, 0);
+      const pct      = revenue > 0 ? (total / revenue * 100) : 0;
+      const catCount = cats.filter(c => c.val !== 0).length;
+      const maxAbs   = Math.max(1, ...cats.map(c => Math.abs(c.val)));
+      const stackCats = cats.filter(c => c.val > 0);
+
+      document.getElementById("expBody").innerHTML = `
+        <div class="exp-total fade-in"><span class="exp-num">${fmt(total)}</span><span class="ccy">${_ET.ccy}</span></div>
+        <div class="exp-meta fade-in">${pct.toFixed(1)}% ${_ET.fromRevenue} · ${catCount} ${catCount === 1 ? _ET.catSingular : (catCount < 5 ? _ET.catFew : _ET.catMany)}</div>
+        <div class="exp-stack fade-in">
+          ${stackCats.map(c => `<span style="flex:${c.val} 1 0%; background:${c.color};"></span>`).join("")}
+        </div>
+        <div class="exp-rows">
+          ${cats.map((c, i) => `
+            <div class="exp-row fade-in" style="animation-delay:${.05 + i*.04}s">
+              <span class="exp-ico" style="background:${c.color}1f; color:${c.color};">${c.icon}</span>
+              <span class="exp-name" title="${c.name}">${c.name}</span>
+              <span class="exp-track"><span class="exp-fill" style="width:${Math.round(Math.abs(c.val)/maxAbs*100)}%; background:${c.color};"></span></span>
+              <span class="exp-val">${fmt(c.val)}</span>
+            </div>`).join("")}
         </div>
       `;
     }
@@ -999,7 +1048,7 @@
       const label  = document.getElementById("ecoShopLabel");
       if (!shops || shops.length <= 1) { picker.style.display = "none"; return; }
       picker.style.display = "";
-      const items = [{ uzum_id: "all", name: "Все магазины" }, ...shops];
+      const items = [{ uzum_id: "all", name: _ET.allShops }, ...shops];
       const isActive = (s) => (s.uzum_id === activeShopId) || ((!activeShopId || activeShopId === "all") && s.uzum_id === "all");
       menu.innerHTML = items.map(s => {
         const cls = isActive(s) ? "eco-shop-item selected" : "eco-shop-item";
@@ -1028,56 +1077,45 @@
       document.addEventListener("click", () => picker.classList.remove("open"));
     })();
 
-    function renderMini(totals){
-      const orders = totals.sales_qty|0;
-      const rev    = totals.sales_revenue|0;
-      const cost   = totals.sales_cost|0;
-      const skus   = totals.active_skus|0;
-      const df = document.getElementById("dateFrom").value;
-      const dt = document.getElementById("dateTo").value;
-      let days = 1;
-      try {
-        const a = parseLocal(df), b = parseLocal(dt);
-        days = Math.max(1, Math.round((b-a)/86400000) + 1);
-      } catch(e) {}
+    // ── Sales panel numbers (header + footer) ───
+    function renderSalesPanel(totals){
+      const orders = num(totals.sales_qty);
+      const rev    = num(totals.sales_revenue);
+      const cost   = num(totals.sales_cost);
+      const skus   = num(totals.active_skus);
+      const days   = rangeDays(document.getElementById("dateFrom").value,
+                               document.getElementById("dateTo").value);
       const perDay = Math.round(orders / days);
       const aov    = orders > 0 ? Math.round(rev / orders) : 0;
-      document.getElementById("msOrders").textContent = fmt(orders);
-      document.getElementById("msOrdersSub").textContent = `${fmt(perDay)} в день`;
-      document.getElementById("msAov").textContent    = fmt(aov) + " сум";
-      document.getElementById("msCost").textContent   = fmtCompact(cost) + " сум";
-      document.getElementById("msSku").textContent    = fmt(skus);
+      document.getElementById("spOrders").textContent  = fmt(orders);
+      document.getElementById("msPerDay").textContent  = fmt(perDay);
+      document.getElementById("msAov").textContent     = fmtCompact(aov);
+      document.getElementById("msCost").textContent    = fmtCompact(cost);
+      document.getElementById("msSku").textContent     = fmt(skus);
     }
 
-    function renderWarehouses(totals){
-      const uzQty = totals.stock_qty_uzum|0;
-      const whQty = totals.stock_qty_warehouse|0;
-      const total = uzQty + whQty;
-      const uzCost = totals.stock_cost_uzum|0;
-      const whCost = totals.stock_cost_warehouse|0;
-      document.getElementById("whUzumQty").textContent = fmt(uzQty);
-      document.getElementById("whOwnQty").textContent  = fmt(whQty);
-      document.getElementById("whAllQty").textContent  = fmt(total);
-      document.getElementById("whUzumCost").textContent = fmtCompact(uzCost) + " сум";
-      document.getElementById("whOwnCost").textContent  = fmtCompact(whCost) + " сум";
-      document.getElementById("whAllCost").textContent  = fmtCompact(uzCost+whCost) + " сум";
-      const pctU = total > 0 ? Math.round(uzQty/total*100) : 0;
-      const pctW = total > 0 ? 100 - pctU : 0;
-      document.getElementById("whFillUzum").style.width = pctU + "%";
-      document.getElementById("whFillWh").style.width   = pctW + "%";
-      document.getElementById("whPctUzum").textContent  = pctU + "%";
-      document.getElementById("whPctWh").textContent    = pctW + "%";
+    // ── Frozen stock band ───────────────────────
+    function renderFrozenBand(totals){
+      const uzQty  = num(totals.stock_qty_uzum);
+      const whQty  = num(totals.stock_qty_warehouse);
+      const totalQty = uzQty + whQty;
+      const uzCost = num(totals.stock_cost_uzum);
+      const whCost = num(totals.stock_cost_warehouse);
+      document.getElementById("fbCost").textContent     = fmt(num(totals.stock_cost));
+      document.getElementById("fbUzumQty").textContent  = fmt(uzQty);
+      document.getElementById("fbOwnQty").textContent   = fmt(whQty);
+      document.getElementById("fbUzumCost").textContent = fmtCompact(uzCost) + " " + _ET.ccy;
+      document.getElementById("fbOwnCost").textContent  = fmtCompact(whCost) + " " + _ET.ccy;
 
-      // Tip: how many days at current sell rate
-      const dailySold = (totals.sales_qty|0) / Math.max(1, ((parseLocal(document.getElementById("dateTo").value) -
-                          parseLocal(document.getElementById("dateFrom").value))/86400000 + 1));
-      const tipEl = document.getElementById("whTip");
-      if (dailySold > 0 && total > 0) {
-        const daysLeft = Math.round(total / dailySold);
-        tipEl.innerHTML = `💡 <b>Совет:</b> при текущем темпе продаж этого хватит примерно на <b>~${daysLeft} дней</b>. Подумайте о пополнении заранее.`;
-      } else {
-        tipEl.innerHTML = `💡 <b>Совет:</b> в выбранном периоде продаж не зафиксировано — оценка темпа невозможна.`;
+      // Hint: total qty + how many days the stock lasts at the current sell rate
+      const days = rangeDays(document.getElementById("dateFrom").value,
+                             document.getElementById("dateTo").value);
+      const dailySold = num(totals.sales_qty) / days;
+      let hint = `${fmt(totalQty)} ${_ET.unitDona} ${_ET.hintTotal}`;
+      if (dailySold > 0 && totalQty > 0) {
+        hint += ` · ~${fmt(Math.round(totalQty / dailySold))} ${_ET.hintDays}`;
       }
+      document.getElementById("fbHint").textContent = hint;
     }
 
     // ── Daily sales chart (SVG line) ───────────
@@ -1140,8 +1178,6 @@
           ${hots.map(h => `<rect class="chart-hot" x="${h.hotX}" y="${PAD_T}" width="${h.hotW}" height="${innerH}" data-idx="${h.i}" data-cx="${h.cx}" data-cy="${h.cy}"/>`).join("")}
         </svg>
       `;
-      document.getElementById("dailyOrdersLabel").textContent =
-        fmt((currentData?.totals?.sales_qty)||0) + " заказов";
 
       // Wire hover
       const svg = document.getElementById("dailySvg");
@@ -1161,8 +1197,8 @@
           cursor.style.opacity = "1";
           showTip(`
             <div class="tt-title">${ruDate(p.date)}</div>
-            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:var(--brand);"></span>Выручка</span><span class="tt-val">${fmt(p.revenue)} сум</span></div>
-            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:var(--muted);"></span>Заказов</span><span class="tt-val">${fmt(p.qty||0)}</span></div>
+            <div class="tt-big">${fmt(p.revenue)} ${_ET.ccy}</div>
+            <div class="tt-mut">${fmt(p.qty||0)} ${_ET.ttOrders}</div>
           `, e.clientX, e.clientY);
         });
         hot.addEventListener("mouseleave", () => {
@@ -1181,7 +1217,7 @@
       const W = 1200, H = 340, PAD_L = 60, PAD_R = 20, PAD_T = 30, PAD_B = 36;
       const innerW = W - PAD_L - PAD_R, innerH = H - PAD_T - PAD_B;
 
-      const vals = data.map(d => Math.max(0, d[dynMode]|0));
+      const vals = data.map(d => Math.max(0, num(d[dynMode])));
       const maxV = Math.max(1, ...vals);
       const niceMax = Math.ceil(maxV / Math.pow(10, Math.max(0, String(maxV).length-2))) * Math.pow(10, Math.max(0, String(maxV).length-2));
       const ticks = 4;
@@ -1194,9 +1230,9 @@
       const barCount = Math.max(1, data.length);
       const slotW = innerW / barCount;
       const barW  = Math.min(60, slotW * 0.62);
-      const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+      const months = {{ ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"]|tojson if lang == "uz" else ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]|tojson }};
 
-      const color = dynMode === "revenue" ? "#4169e1" : "#10b981";
+      const barColor = dynMode === "revenue" ? "#4169e1" : "#10b981";
 
       // Highlight max bar with a label
       const maxIdx = vals.indexOf(Math.max(...vals));
@@ -1216,7 +1252,7 @@
             const monthLbl = months[(monthNum-1+12)%12];
             const showLbl = i === maxIdx && v > 0;
             return `
-              <rect class="bar-shape" x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" ry="6" fill="${color}" data-idx="${i}"/>
+              <rect class="bar-shape" x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" ry="6" fill="${barColor}" data-idx="${i}"/>
               ${showLbl ? `<text class="bar-label" x="${x+barW/2}" y="${y-8}">${fmtCompact(v)}</text>` : ""}
               <text class="bar-month" x="${x+barW/2}" y="${H-12}">${monthLbl}</text>
               <rect class="chart-hot" x="${PAD_L + i*slotW}" y="${PAD_T}" width="${slotW}" height="${innerH}" data-idx="${i}"/>
@@ -1226,7 +1262,7 @@
       `;
 
       // Wire hover for bars
-      const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+      const monthNames = {{ ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentyabr","Oktyabr","Noyabr","Dekabr"]|tojson if lang == "uz" else ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]|tojson }};
       const svg = document.getElementById("dynSvg");
       svg.querySelectorAll(".chart-hot").forEach(hot => {
         hot.addEventListener("mousemove", (e) => {
@@ -1239,8 +1275,8 @@
           svg.querySelectorAll(".bar-shape").forEach(b => b.style.opacity = b.dataset.idx == idx ? "1" : ".55");
           showTip(`
             <div class="tt-title">${monthLbl}</div>
-            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#4169e1;"></span>Выручка</span><span class="tt-val">${fmt(d.revenue||0)} сум</span></div>
-            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#10b981;"></span>Прибыль</span><span class="tt-val">${fmt(d.profit||0)} сум</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#4169e1;"></span>${_ET.ttRevenue}</span><span class="tt-val">${fmt(d.revenue||0)} ${_ET.ccy}</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="tt-dot" style="background:#10b981;"></span>${_ET.ttProfit}</span><span class="tt-val">${fmt(d.profit||0)} ${_ET.ccy}</span></div>
           `, e.clientX, e.clientY);
         });
         hot.addEventListener("mouseleave", () => {
@@ -1261,7 +1297,7 @@
         (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q)
       );
       document.getElementById("tableCount").textContent = filtered.length;
-      { const el = document.getElementById("productsCount"); if (el) el.textContent = filtered.length + " товаров"; }
+      { const el = document.getElementById("productsCount"); if (el) el.textContent = filtered.length + " " + _ET.productsCount; }
 
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 50px 20px;">
@@ -1313,7 +1349,7 @@
       const totalRoiCls = totalRoi > 0 ? "pos" : totalRoi < 0 ? "neg" : "neu";
       const totalRow = `
         <tr class="totals-row">
-          <td style="padding-left: 22px;">Итого</td>
+          <td style="padding-left: 22px;">${_ET.totalLabel}</td>
           <td class="num-strong">${fmt(totals.stock_qty)}</td>
           <td class="num-strong">${fmt(totals.stock_cost)}</td>
           <td class="num-strong">${fmt(totals.sales_qty)}</td>
@@ -1331,7 +1367,7 @@
     // ── Export to CSV ───────────────────────────
     function exportCSV(){
       if (!allItems.length) return;
-      const headers = ["ID","Товар","Остаток","Uzum","Свой","Себест.остатка","Продано","Выручка","Комиссия","Логистика","Себест.продаж","Чист.прибыль","ROI%"];
+      const headers = {{ ["ID","Mahsulot","Qoldiq","Uzum","O'z","Qoldiq tannarxi","Sotilgan","Tushum","Komissiya","Logistika","Sotuv tannarxi","Sof foyda","ROI%"]|tojson if lang == "uz" else ["ID","Товар","Остаток","Uzum","Свой","Себест.остатка","Продано","Выручка","Комиссия","Логистика","Себест.продаж","Чист.прибыль","ROI%"]|tojson }};
       const rows = allItems.map(it => [
         it.id, `"${(it.name||"").replace(/"/g,'""')}"`,
         it.stock_qty, it.stock_qty_uzum||0, it.stock_qty_warehouse||0,
@@ -1353,15 +1389,18 @@
     function renderAll(payload){
       currentData = payload;
       renderShopPicker(payload.shops || []);
-      renderHero(payload);
-      renderMini(payload.totals);
-      renderWarehouses(payload.totals);
+      renderKPIs(payload);
+      renderExpenses(payload);
+      renderSalesPanel(payload.totals || {});
+      renderFrozenBand(payload.totals || {});
       renderDailyChart(payload.daily_series || []);
       renderDynChart();
       renderTable(payload.items || []);
       const df = document.getElementById("dateFrom").value;
       const dt = document.getElementById("dateTo").value;
       { const el = document.getElementById("periodLabel"); if (el) el.textContent = `${ruDate(df)} — ${ruDate(dt)}`; }
+      applyPrevTotals(payload);
+      applyAnnualLimit(payload.year_to_date_revenue != null ? num(payload.year_to_date_revenue) : null);
     }
 
     function renderFromCache(df, dt){
@@ -1440,7 +1479,7 @@
 
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
 
-    // Tax rate: load saved value + rerender hero when changed
+    // Tax rate: load saved value + rerender money cards when changed
     (function initTax(){
       const inp = document.getElementById("taxRate");
       const saved = getTaxRate();
@@ -1451,7 +1490,7 @@
         _t = setTimeout(() => {
           const v = parseFloat(inp.value);
           setTaxRate(v);
-          if (currentData) renderHero(currentData);
+          if (currentData) { renderKPIs(currentData); renderExpenses(currentData); }
         }, 200);
       });
     })();
@@ -1465,63 +1504,19 @@
       });
     });
 
-    // Initial render: cache instantly, then fetch
+    // Initial render. If a fresh cache (<10 min) exists, render it and skip
+    // the immediate refetch — that double-paint was the main reason the page
+    // appeared to "refresh itself" several times on open. Otherwise fetch once.
     { const el = document.getElementById("periodLabel"); if (el) el.textContent = `${ruDate(init.from)} — ${ruDate(init.to)}`; }
-    if (!renderFromCache(init.from, init.to)) {
-      fetchFresh(init.from, init.to);
-    } else {
-      // also kick a silent refresh
-      fetchFresh(init.from, init.to);
+    {
+      const _initCache = loadCache(init.from, init.to);
+      if (_initCache && (Date.now() - _initCache.ts) < 10*60*1000) {
+        renderAll(_initCache.payload);
+      } else {
+        fetchFresh(init.from, init.to);
+      }
     }
 
-    // ── Annual revenue limit (year-to-date vs 5 000 000 000 сум) ──
-    (function loadAnnualLimit(){
-      const LIMIT = 5_000_000_000; // UZS cap for the IP (sole-proprietor) tax regime
-      const fillEl    = document.getElementById("ecoLimitFill");
-      const pctEl     = document.getElementById("ecoLimitPct");
-      const currentEl = document.getElementById("ecoLimitCurrent");
-      const yearEl    = document.getElementById("ecoLimitYear");
-      const today  = new Date();
-      const year   = today.getFullYear();
-      const yearStart = `${year}-01-01`;
-      const yearEnd   = toISO(today);
-      yearEl.textContent = String(year);
-
-      function applyValue(revenue) {
-        const pct = Math.max(0, Math.min(100, (revenue / LIMIT) * 100));
-        fillEl.classList.remove("is-loading", "is-warn", "is-danger");
-        pctEl.classList.remove("is-warn", "is-danger");
-        // Threshold styling
-        if (pct >= 90) {
-          fillEl.classList.add("is-danger");
-          pctEl.classList.add("is-danger");
-        } else if (pct >= 70) {
-          fillEl.classList.add("is-warn");
-          pctEl.classList.add("is-warn");
-        }
-        // Cap visual width at 100% but keep the actual ratio in the badge text
-        const visualPct = Math.min(100, pct);
-        fillEl.style.width = visualPct + "%";
-        pctEl.textContent = pct.toFixed(1).replace(".", ",") + "%";
-        currentEl.textContent = fmt(revenue) + " сум";
-      }
-
-      function applyError() {
-        fillEl.classList.remove("is-loading");
-        fillEl.style.width = "0%";
-        pctEl.textContent = "—";
-        currentEl.textContent = "—";
-      }
-
-      // Fetch year-to-date revenue across all shops for this user.
-      fetch(`/api/economics/data?date_from=${yearStart}&date_to=${yearEnd}&shop_id=all`)
-        .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(payload => {
-          const rev = (payload && payload.totals && payload.totals.sales_revenue) | 0;
-          applyValue(rev);
-        })
-        .catch(() => applyError());
-    })();
   </script>
 </body>
 </html>

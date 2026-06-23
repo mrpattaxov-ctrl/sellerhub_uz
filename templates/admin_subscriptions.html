@@ -406,7 +406,7 @@
                       </select>
                       <button class="btn btn-sm btn-outline-primary" type="submit">{{ t.nav_save }}</button>
                     </form>
-                    <form method="post" onsubmit="return confirm('{{ t.nav_delete }}?');">
+                    <form method="post" onsubmit="return confirm(&quot;{{ t.nav_delete }}?&quot;);">
                       <input type="hidden" name="action" value="delete_user_subscription">
                       <input type="hidden" name="user_id" value="{{ row.id }}">
                       <button class="btn btn-sm btn-outline-danger" type="submit">{{ t.nav_delete }}</button>

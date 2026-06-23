@@ -10,10 +10,8 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(APP_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ── Debug toggle ───────────────────────────────────────────────────────
-ENABLE_DEBUG_ROUTES = True
 
-# ── Database ───────────────────────────────────────────────────────────
+#DB conection with app, through database_url,  Database
 DATABASE_URL = (os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "").strip()
 # Pool sizing bumped for PgBouncer readiness (Step 2-PRE). With PgBouncer
 # in transaction mode, each gunicorn/worker process multiplexes these
@@ -30,7 +28,16 @@ DB_PREPARE_THRESHOLD = os.getenv("DB_PREPARE_THRESHOLD", "none").strip().lower()
 REDIS_URL = (os.getenv("REDIS_URL") or "redis://localhost:6379/0").strip()
 
 # ── Flask ──────────────────────────────────────────────────────────────
-SECRET_KEY = os.environ.get("SECRET_KEY", "super-secret-key-change-this")
+# Fail fast: refuse to boot on a predictable session-signing key. A known key
+# lets anyone forge session cookies (account/admin takeover).
+SECRET_KEY = os.environ.get("SECRET_KEY")
+_INSECURE_SECRET_KEYS = {"super-secret-key-change-this", "change-me-to-a-random-string"}
+if not SECRET_KEY or SECRET_KEY.strip() in _INSECURE_SECRET_KEYS:
+    raise RuntimeError(
+        "SECRET_KEY is unset or still a known placeholder. Refusing to start with a "
+        "predictable session-signing key. Generate one with: "
+        'python -c "import secrets; print(secrets.token_hex(32))"'
+    )
 APP_PUBLIC_BASE_URL = str(os.getenv("APP_PUBLIC_BASE_URL", "")).strip().rstrip("/")
 PAYME_MERCHANT_ID = str(os.getenv("PAYME_MERCHANT_ID", "")).strip()
 PAYME_MERCHANT_LOGIN = str(os.getenv("PAYME_MERCHANT_LOGIN", "")).strip()

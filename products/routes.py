@@ -1216,7 +1216,7 @@ def _payout_snapshot(db, shop_uzum_ids, date_from, date_to):
                 )
             ).scalars().all()
             cat = _categorize_expense_ledger(exp_rows)
-            logi += cat["log_refunds"]
+            # Логистика gross-only — Возврат credits not netted (see main block).
             return {
                 "sales_revenue": rev, "sales_commission": comm,
                 "sales_logistics": logi, "sales_seller_profit": sp,
@@ -1378,16 +1378,15 @@ def economics_data_api():
                 daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
 
         # ── Categorized expenses from expenses_ledger ────────────────────
-        # Ledger "Logistika" handling (owner decisions, 2026-06-13):
-        #   • Оплата rows (per-order return-leg charges) — EXCLUDED: the
-        #     owner treats them as money movement, not an expense.
-        #   • Возврат rows (credits Uzum pays back) — NETTED against
-        #     Логистика, matching the cabinet's logistics figure.
-        # Base Логистика = finance_orders forward leg
+        # Ledger "Logistika" handling:
+        #   • Оплата rows (per-order return-leg charges) — EXCLUDED: money
+        #     movement, not an expense.
+        #   • Возврат rows (credits Uzum pays back) — also EXCLUDED from
+        #     Логистика. Their charge date (`day`) rarely matches the order's
+        #     `period_from`, so netting them distorted bounded periods.
+        # Логистика = gross finance_orders forward leg only
         # (seller_profit == sell - commission - logistics_fee row-by-row).
         t_exp_warehouse = t_exp_marketing = t_exp_misc = 0
-        t_log_refunds = 0  # ≤ 0 — Возврат credits, net against Логистика
-        per_shop_log_refund: dict[str, int] = {}
         per_shop_exp: dict[str, dict] = {}  # uzum_id (str) → {warehouse, marketing, misc}
         if shop_uzum_ids:
             # ExpensesLedger.shop_id is int; cast our str uzum_ids.
@@ -1407,9 +1406,7 @@ def economics_data_api():
                 t_exp_warehouse     = cat["warehouse"]
                 t_exp_marketing     = cat["marketing"]
                 t_exp_misc          = cat["misc"]
-                t_log_refunds       = cat["log_refunds"]
                 per_shop_exp        = cat["per_shop_exp"]
-                per_shop_log_refund = cat["per_shop_log_refund"]
 
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
         if active_shop_ids:
@@ -1515,13 +1512,11 @@ def economics_data_api():
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
 
-        # Net the Возврат credits into the grand total and each shop's
-        # logistics bucket (t_log_refunds ≤ 0 — reduces Логистика).
-        t_logistics += t_log_refunds
-        for _sid, _ref in per_shop_log_refund.items():
-            _pst = per_shop_totals.get(_sid)
-            if _pst is not None:
-                _pst["logistics"] += _ref
+        # Логистика is the gross forward-leg fee from finance_orders only.
+        # Ledger Возврат credits are NOT netted in: their charge date (`day`)
+        # rarely lines up with the order's `period_from`, so netting distorted
+        # bounded periods (could even go negative). Gross-only keeps the figure
+        # consistent with finance_orders for any window.
 
         # Per-shop breakdown for hero cards (Revenue, Profit). Uses finance totals
         # for revenue + commission/logistics; profit here is the same proxy used
@@ -1616,9 +1611,9 @@ def economics_data_api():
 
         # Final profit subtracts the extra expense categories on top of the
         # per-item profit (which only subtracted commission/logistics/cogs).
-        # t_log_refunds ≤ 0 — subtracting it adds the credited logistics
-        # back to profit.
-        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc) - t_log_refunds
+        # Logistics is gross-only (no Возврат credit), so profit does not add
+        # any refund back either — both stay purely finance_orders-derived.
+        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc)
 
         # Year-to-date revenue across ALL owned shops — feeds the annual tax
         # limit bar. Always all-shops and Jan-1→today, independent of the

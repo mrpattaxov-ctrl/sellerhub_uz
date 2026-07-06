@@ -105,12 +105,17 @@ def groups_page():
     shop_filter = (request.args.get("shop_id") or "").strip()
     status_filter = (request.args.get("status") or "active").strip().lower()
     display_status = "archived" if status_filter in ("archived", "archive") else "active"
-    page = max(1, int(request.args.get("page") or 1))
-    per_page = 50
+    page = 1  # pagination removed — all products render on a single page
 
     # Restrict to the user's assigned shops
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
+
+    # Default shop selection: on first visit (no shop_id param) auto-pick the
+    # first shop instead of showing every shop. The user can still choose
+    # "Все магазины" explicitly — that arrives as the sentinel shop_id=all.
+    if shop_filter == "" and allowed_shop_ids:
+        shop_filter = str(sorted(allowed_shop_ids)[0])
 
     with SessionLocal() as db:
         stmt = select(ProductGroup)
@@ -141,20 +146,21 @@ def groups_page():
             ).with_only_columns(ProductGroup.id).distinct().subquery()
             stmt = select(ProductGroup).where(ProductGroup.id.in_(select(subq)))
 
-        # Sort by sku-list position (0 = not in sku-list, goes last), then by id
+        # Newest products first (mirrors Uzum's "Мои товары" ordering). The Uzum
+        # sku-list position grows with recency, so order it DESC. Rows with 0
+        # (not in the sku-list) still sort last; id.desc() breaks any ties.
         stmt = stmt.order_by(
             (ProductGroup.uzum_sort_order == 0).asc(),
-            ProductGroup.uzum_sort_order.asc(),
-            ProductGroup.id.asc(),
+            ProductGroup.uzum_sort_order.desc(),
+            ProductGroup.id.desc(),
         )
 
         total_count = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
-        total_pages = max(1, (total_count + per_page - 1) // per_page)
-        page = min(page, total_pages)
+        total_pages = 1  # single page — no LIMIT/OFFSET, all rows returned
 
-        groups = db.execute(stmt.offset((page - 1) * per_page).limit(per_page)).scalars().all()
+        groups = db.execute(stmt).scalars().all()
 
-        # aggregate counts only for current page
+        # aggregate counts for the full list
         group_ids = [g.id for g in groups]
         vstmt = (
             select(
@@ -181,10 +187,13 @@ def groups_page():
             for (gid, c, u, fbs, w, s) in db.execute(vstmt).all()
         }
 
-        # Fetch shops for the picker (with name lookup used by the cards)
-        shops = db.execute(
+        # Fetch shops for the picker (with name lookup used by the cards).
+        # Ordered by id so the first listed shop matches the auto-selected
+        # default (sorted(allowed_shop_ids)[0]).
+        shops_stmt = (
             select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop)
-        ).scalars().all()
+        ).order_by(Shop.id)
+        shops = db.execute(shops_stmt).scalars().all()
         shops_by_id = {s.id: s for s in shops}
 
         # Tab totals (Активные / Архив) over the *visible* set (allowed shops + store filter, ignoring search)
@@ -209,7 +218,7 @@ def groups_page():
         groups=groups, agg=agg, q=q,
         current_status=display_status, shops=shops, shops_by_id=shops_by_id,
         current_shop_id=shop_filter,
-        page=page, total_pages=total_pages, total_count=total_count, per_page=per_page,
+        page=page, total_pages=total_pages, total_count=total_count,
         count_active=count_active, count_archived=count_archived,
     )
 

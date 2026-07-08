@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>«Поставка» chip — uyg'unlashtirish variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1000px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}.note b{color:#dcdce4}
+.wrap{padding:30px 22px 80px}.stage{max-width:1000px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:26px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:16px;flex-wrap:wrap}
+.st{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;white-space:nowrap;transition:.15s}
+.st:hover{color:#1A1A22}
+.st .n{min-width:20px;padding:0 7px;border-radius:999px;background:#fff;color:#7A7684;font:700 .72rem/20px 'Inter';text-align:center}
+.st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.st.on .n{background:#1A1A22;color:#fff}
+.st svg{width:16px;height:16px}
+.dd-trigger{display:inline-flex;align-items:center;gap:10px;padding:11px 16px 11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#1A1A22;cursor:pointer;border:0;background:#fff;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.dd-trigger .cv{width:15px;height:15px;color:#9B98A5}
+
+/* ── Поставка uyg'unlashtirish variantlari ── */
+/* P1 · neytral (boshqalardek) */
+.p1 .pv{color:#5A5762}
+.p1 .pv svg{color:#5A5762}
+/* P2 · yumshoq binafsha pill */
+.p2 .pv{background:#F1EAFF;color:#7C3AED}
+.p2 .pv:hover{background:#E9DEFF}
+/* P3 · faqat ikonka binafsha (matn neytral) */
+.p3 .pv{color:#5A5762}
+.p3 .pv svg{color:#7C3AED}
+/* P4 · konturli binafsha */
+.p4 .pv{color:#7C3AED;box-shadow:inset 0 0 0 1.4px #E0D2FB}
+.p4 .pv:hover{box-shadow:inset 0 0 0 1.4px #C9B2F5}
+
+.rowshint{margin-top:16px;padding:22px;border:1px dashed #E2E2E8;border-radius:14px;text-align:center;color:#A6A2AE;font-size:.85rem}
+.cmp{display:flex;gap:14px;flex-wrap:wrap;margin-top:18px}
+.cmp .mini{flex:1 1 210px;background:#FAFAFD;border:1px solid #EEE;border-radius:14px;padding:14px}
+.cmp .mini h4{margin:0 0 10px;font:700 .76rem 'Inter';color:#8E8B97;text-transform:uppercase;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="pvbar">
+  <h1>«Поставка» — dizaynga singdirish</h1>
+  <span class="sub">4 variant</span>
+  <div class="seg" id="seg">
+    <button data-v="p1" class="on">1 · Neytral</button>
+    <button data-v="p2">2 · Yumshoq binafsha</button>
+    <button data-v="p3">3 · Faqat ikonka</button>
+    <button data-v="p4">4 · Konturli</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel" id="panel"></div>
+  <div class="cmp" id="cmp"></div>
+</div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function track(cls){return `<div class="segtrack ${cls}">
+  <span class="st">Новый <span class="n">0</span></span>
+  <span class="st on">Сборка <span class="n">2</span></span>
+  <span class="st pv">${TRUCK}Поставка</span>
+  <span class="st">В пути <span class="n">0</span></span>
+  <button class="dd-trigger">Boshqa holatlar… ${CV}</button>
+</div>`;}
+
+const panel=document.getElementById('panel');
+const cmp=document.getElementById('cmp');
+const NOTES={
+ p1:'<b>1 · Neytral</b> — «Поставка» boshqa chiplar bilan <b>aynan bir xil</b> (kulrang matn + kulrang truck). Eng "ajralmaydigan", butunlay singib ketadi. Truck ikonka uni baribir tanitadi.',
+ p2:'<b>2 · Yumshoq binafsha</b> — och binafsha fonli pill. Uyg\'un, lekin "maxsus amal" (накладные) ekani nozik ko\'rinadi. Eng muvozanatli.',
+ p3:'<b>3 · Faqat ikonka</b> — matn neytral (boshqalardek), faqat <b>truck ikonka binafsha</b>. Juda nozik ishora, deyarli singgan.',
+ p4:'<b>4 · Konturli</b> — shaffof fon + ingichka binafsha kontur + binafsha matn. Yengil ajralib turadi, fon dog\'i yo\'q.'
+};
+function render(v){
+  panel.innerHTML=track(v);
+  cmp.innerHTML='';
+}
+render('p1');
+const note=document.getElementById('note');note.innerHTML=NOTES.p1;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ render(b.dataset.v);note.innerHTML=NOTES[b.dataset.v];});
+</script>
+</body>
+</html>

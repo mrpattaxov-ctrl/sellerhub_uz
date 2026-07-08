@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pagination — ko'p sahifa variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1080px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}.note b{color:#dcdce4}
+.wrap{padding:26px 22px 90px}.stage{max-width:1080px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:24px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+.rowshint{padding:30px;border:1px dashed #E2E2E8;border-radius:14px;text-align:center;color:#A6A2AE;font-size:.85rem}
+
+.foot{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid #F0F0F4}
+.psize{display:inline-flex;align-items:center;gap:8px;font:700 .8rem 'Inter';color:#56535F}
+.sel{position:relative;display:inline-flex}
+.sel select{appearance:none;-webkit-appearance:none;border:1px solid #E6E6EC;background:#FBFBFD;color:#1A1A22;border-radius:10px;padding:8px 30px 8px 12px;font:700 .82rem 'Inter';cursor:pointer}
+.sel .cv{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#9B98A5;pointer-events:none}
+
+.pager{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.pgbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid #E6E6EC;background:#fff;color:#3A3A44;border-radius:10px;padding:8px 14px;font:700 .8rem 'Inter';cursor:pointer;transition:.13s}
+.pgbtn:hover:not(:disabled){border-color:#CFCFE0;background:#FAFAFD}
+.pgbtn:disabled{opacity:.4;cursor:default}
+.pgbtn svg{width:14px;height:14px}
+.pgbtn.icon{padding:8px 10px}
+/* raqamli tugmalar */
+.pgn{min-width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#56535F;border-radius:10px;font:700 .84rem 'Inter';cursor:pointer;transition:.13s}
+.pgn:hover{background:#F3F4F8;color:#1A1A22}
+.pgn.on{background:#4169E1;color:#fff;box-shadow:0 6px 14px -5px rgba(65,105,225,.6)}
+.pgdots{min-width:24px;text-align:center;color:#B5B2BC;font-weight:700;user-select:none}
+.pgcount{font:700 .84rem 'Inter';color:#56535F}
+.pgcount b{color:#1A1A22}
+</style>
+</head>
+<body>
+<div class="pvbar">
+  <h1>Pagination — ko'p sahifa</h1>
+  <span class="sub">sahifa 3 / 12 · raqamni bosib sinang</span>
+  <div class="seg" id="seg">
+    <button data-v="a" class="on">A · Raqamli</button>
+    <button data-v="b">B · Sahifa X / Y</button>
+    <button data-v="c">C · Ixcham raqamli</button>
+    <button data-v="d">D · Minimal</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel">
+  <div class="rowshint">— buyurtmalar jadvali (20 ta qator) —</div>
+  <div class="foot" id="foot"></div>
+</div></div></div></div>
+
+<script>
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const PREV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+const NEXT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+const PSIZE=`<span class="psize">Sahifada <span class="sel"><select><option>20</option><option>10</option><option>50</option></select>${CV}</span></span>`;
+const TOTAL=12;
+let cur=3, variant='a';
+
+// raqamlar ro'yxati ellipsis bilan (1 … c-1 c c+1 … total)
+function pageList(c,t){
+  var s=new Set([1,t,c,c-1,c+1,c-2,c+2]);
+  var arr=[];for(var i=1;i<=t;i++)if(s.has(i)&&i>=1&&i<=t)arr.push(i);
+  arr.sort((a,b)=>a-b);
+  var out=[];for(var k=0;k<arr.length;k++){if(k>0&&arr[k]-arr[k-1]>1)out.push('…');out.push(arr[k]);}
+  return out;
+}
+function numBtns(c,t){
+  return pageList(c,t).map(p=>p==='…'
+    ? `<span class="pgdots">…</span>`
+    : `<button class="pgn ${p===c?'on':''}" data-go="${p}">${p}</button>`).join('');
+}
+const prevBtn=(c,icon)=>`<button class="pgbtn ${icon?'icon':''}" data-go="${c-1}" ${c<=1?'disabled':''}>${PREV}${icon?'':'Oldingi'}</button>`;
+const nextBtn=(c,icon)=>`<button class="pgbtn ${icon?'icon':''}" data-go="${c+1}" ${c>=TOTAL?'disabled':''}>${icon?'':'Keyingi'}${NEXT}</button>`;
+
+function build(v,c){
+  if(v==='a'){ // raqamli to'liq
+    return `<span class="pager">${prevBtn(c)}${numBtns(c,TOTAL)}${nextBtn(c)}</span>${PSIZE}`;
+  }
+  if(v==='b'){ // Sahifa X / Y
+    return `<span class="pager">${prevBtn(c)}<span class="pgcount">Sahifa <b>${c}</b> / ${TOTAL}</span>${nextBtn(c)}</span>${PSIZE}`;
+  }
+  if(v==='c'){ // ixcham raqamli (icon prev/next)
+    return `<span class="pager">${prevBtn(c,true)}${numBtns(c,TOTAL)}${nextBtn(c,true)}</span>${PSIZE}`;
+  }
+  // d minimal — faqat o'q + joriy raqam
+  return `<span class="pager">${prevBtn(c)}<span class="pgn on" style="cursor:default">${c}</span>${nextBtn(c)}</span>${PSIZE}`;
+}
+
+const foot=document.getElementById('foot'),note=document.getElementById('note');
+function render(){foot.innerHTML=build(variant,cur);}
+foot.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;
+  var p=+b.getAttribute('data-go');if(p>=1&&p<=TOTAL){cur=p;render();}});
+
+const NOTES={
+ a:'<b>A · Raqamli</b> — to\'liq raqamli tugmalar (1 2 [3] 4 5 … 12), joriy sahifa indigo. Ko\'p sahifada ellipsis (…). Eng aniq — istalgan sahifaga bir bosishda.',
+ b:'<b>B · Sahifa X / Y</b> — sodda: ◀ Oldingi · «Sahifa 3 / 12» · Keyingi ▶. Joy kam, jami sahifa ko\'rinadi. Eng ixcham.',
+ c:'<b>C · Ixcham raqamli</b> — raqamli, lekin Oldingi/Keyingi faqat ◀ ▶ ikonka (matnsiz). Raqam + tejamkor joy.',
+ d:'<b>D · Minimal</b> — faqat ◀ Oldingi · [3] · Keyingi ▶ (joriy raqam). Hozirgingizga eng yaqin, jami sahifa ko\'rinmaydi.'
+};
+function setNote(){note.innerHTML=NOTES[variant];}
+render();setNote();
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ variant=b.dataset.v;cur=3;render();setNote();});
+</script>
+</body>
+</html>

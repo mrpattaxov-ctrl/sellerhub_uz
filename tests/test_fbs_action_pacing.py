@@ -1,4 +1,4 @@
-"""Burst-safety tests for the FBS *action* endpoints (Bosqich A.8 / #4).
+"""Burst-safety tests for the FBS per-token bucket (Bosqich A.11).
 
 Context
 -------
@@ -9,29 +9,33 @@ The bulk routes fan out action calls on ONE seller token:
   * ``POST /fbs/api/orders/bulk-labels``  → up to 5 concurrent
     ``download_fbs_label`` calls.
 
-Uzum trips its hidden per-token burst penalty (HTTP 429 → 60-180s of
-throttling) when more than one ``/v*/fbs/...`` call lands on a token
-within the same second. The list/count paths already serialise through
-``core.fbs_locks.pace_uzum_call`` (#1-#3), but the ACTION endpoints
-(confirm / cancel / label / identifier) historically issued their Uzum
-HTTP call WITHOUT that gate — so a 5-wide bulk confirm bursted the token.
+Uzum trips its hidden per-token burst penalty (HTTP 429) when more than one
+``/v*/fbs/...`` call lands on a token within the same second.
 
-These tests pin the fix: every action endpoint MUST reserve a per-token
-slot via ``pace_uzum_call`` BEFORE issuing the HTTP request, using the
-same (cleaned) token string the request uses — otherwise the gate would
-key on a different token and not serialise against the real call.
+Bosqich A.11 moved pacing OUT of the old per-call-site
+``core.fbs_locks.pace_uzum_call`` gate and INTO the single chokepoint
+``_fbs_orders_request_with_auth``: it now reserves a slot in the shared
+per-token bucket (``get_bucket_for_token(token).acquire()``) BEFORE every
+HTTP attempt — for reads AND writes, fail-fast AND patient. The bucket is
+Redis-backed (cross-process: gunicorn workers + bg worker + finance/products
+all share one budget per Uzum token) and degrades to an in-process token
+bucket if Redis is down, so FBS is never left unpaced.
 
-Everything is mocked — no Uzum HTTP, no real sleeping, no Postgres. We
-assert *wiring* (gate present, correct order, correct token), not timing;
-the gate's spacing math is proven separately in ``test_fbs_locks.py``.
-The point of pytest-first here is the ban risk: we must NOT validate
+These tests pin the wiring at the chokepoint (gate present, fires BEFORE the
+request, keyed on the passed token) plus that the action endpoints route
+through that chokepoint so they inherit the gate. The bucket's own pacing
+math lives in ``core.http_client`` and is exercised there; the old
+``pace_uzum_call`` spacing math is still covered by ``test_fbs_locks.py``.
+
+Everything is mocked — no Uzum HTTP, no real sleeping, no Postgres. The
+point of pytest-first here is the ban risk: we must NOT validate
 confirm/cancel/label against a real seller account to learn the gate is
 wired in.
 """
 from __future__ import annotations
 
 import base64
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -43,115 +47,108 @@ from core import uzum_openapi
 _FAKE_PDF_B64 = base64.b64encode(b"%PDF-1.4 fake-label").decode()
 
 
-def _run_action_capturing_order(action_call, *, request_return):
-    """Patch ``pace_uzum_call`` + ``_fbs_orders_request_with_auth`` on the
-    ``core.uzum_openapi`` module, record the order in which they fire and
-    the token each received, then run ``action_call()``.
-
-    Returns ``(events, result)`` where ``events`` is a list like
-    ``[("pace", token), ("request", token)]`` in call order.
-    """
-    events: list[tuple[str, str]] = []
-
-    def fake_pace(token, *args, **kwargs):
-        events.append(("pace", token))
-        return 0.0
-
-    def fake_request(url, token, *args, **kwargs):
-        events.append(("request", token))
-        return request_return
-
-    with patch.object(uzum_openapi, "pace_uzum_call", side_effect=fake_pace), \
-         patch.object(uzum_openapi, "_fbs_orders_request_with_auth",
-                      side_effect=fake_request):
-        result = action_call()
-    return events, result
+def _fake_response(status=200, text='{"payload": {}}'):
+    r = MagicMock(name="response")
+    r.status_code = status
+    r.text = text
+    return r
 
 
-class TestActionEndpointPacing:
-    """Each FBS action endpoint paces its token before the HTTP call."""
+class TestChokepointBucketWiring:
+    """The chokepoint reserves a per-token bucket slot before every call."""
 
-    def test_confirm_paces_before_request(self):
-        events, result = _run_action_capturing_order(
-            lambda: uzum_openapi.confirm_fbs_order("  tok-xyz  ", 108130896),
-            request_return=({"payload": {"status": "PACKING"}}, 200, "", "raw"),
+    def _drive(self, *, method="GET", token="  tok-xyz  ",
+               status=200, text='{"payload": {}}'):
+        """Run the REAL ``_fbs_orders_request_with_auth`` with a mocked
+        session and a recording bucket.
+
+        Returns ``(events, gate_tokens)`` where ``events`` is the ordered
+        list of ``"acquire"`` / ``"request"`` strings and ``gate_tokens`` is
+        every token ``get_bucket_for_token`` was handed.
+        """
+        events: list[str] = []
+        gate_tokens: list[str] = []
+
+        sess = MagicMock(name="session")
+        sess.request.side_effect = lambda *a, **k: (
+            events.append("request") or _fake_response(status, text)
         )
-        # Gate fires exactly once, BEFORE the request, on the cleaned token.
-        assert events == [("pace", "tok-xyz"), ("request", "tok-xyz")], events
-        # Sanity: the confirm still returns Uzum's echoed payload.
-        payload, _url = result
-        assert payload == {"status": "PACKING"}
 
-    def test_cancel_paces_before_request(self):
-        events, result = _run_action_capturing_order(
-            lambda: uzum_openapi.cancel_fbs_order(
-                "  tok-xyz  ", 42, reason="OUT_OF_STOCK"),
-            request_return=({}, 200, "", "raw"),
-        )
-        assert events == [("pace", "tok-xyz"), ("request", "tok-xyz")], events
+        bucket = MagicMock(name="bucket")
+        bucket.acquire.side_effect = lambda: events.append("acquire")
 
-    def test_label_paces_before_request(self):
-        events, result = _run_action_capturing_order(
-            lambda: uzum_openapi.download_fbs_label("  tok-xyz  ", 42, size="LARGE"),
-            request_return=(
-                {"payload": {"document": _FAKE_PDF_B64}}, 200, "", "raw",
-            ),
-        )
-        assert events == [("pace", "tok-xyz"), ("request", "tok-xyz")], events
-        # Sanity: the label still decodes to the fake PDF bytes.
-        pdfs, _url = result
-        assert pdfs == [b"%PDF-1.4 fake-label"]
+        def _get_bucket(tok):
+            gate_tokens.append(tok)
+            return bucket
 
-    def test_identifier_paces_before_request(self):
-        events, _result = _run_action_capturing_order(
-            lambda: uzum_openapi.attach_fbs_identifiers(
-                "  tok-xyz  ", 42,
-                items=[{"orderItemId": 7, "values": ["IMEI-1"]}]),
-            request_return=({"payload": [{"type": "IMEI"}]}, 200, "", "raw"),
-        )
-        assert events == [("pace", "tok-xyz"), ("request", "tok-xyz")], events
+        with patch.object(uzum_openapi, "_get_fbs_fastfail_session", return_value=sess), \
+             patch.object(uzum_openapi, "_get_http_session", return_value=sess), \
+             patch.object(uzum_openapi, "get_bucket_for_token", side_effect=_get_bucket):
+            uzum_openapi._fbs_orders_request_with_auth(
+                "https://api-seller.uzum.uz/x", token,
+                method=method,
+                json_body=({"x": 1} if method == "POST" else None),
+                accept_language=None, debug_label="t", fail_fast=True)
+        return events, gate_tokens
+
+    def test_acquire_fires_before_request_on_read(self):
+        events, _ = self._drive(method="GET")
+        assert events == ["acquire", "request"], events
+
+    def test_acquire_fires_before_request_on_write(self):
+        events, _ = self._drive(method="POST")
+        assert events == ["acquire", "request"], events
+
+    def test_bucket_keyed_on_passed_token(self):
+        """The chokepoint hands the bucket the token it received (the public
+        funcs clean it first — see TestActionsRouteThroughChokepoint)."""
+        _events, gate_tokens = self._drive(token="tok-xyz")
+        assert gate_tokens == ["tok-xyz"], gate_tokens
+
+
+class TestActionsRouteThroughChokepoint:
+    """Every action endpoint issues its Uzum call via the gated chokepoint
+    (so it inherits the per-token bucket), using the cleaned token."""
 
     @pytest.mark.parametrize("action_name", [
         "confirm_fbs_order", "cancel_fbs_order",
         "download_fbs_label", "attach_fbs_identifiers",
     ])
-    def test_pace_token_matches_request_token(self, action_name):
-        """The token handed to the gate must be byte-for-byte the token
-        handed to the HTTP layer — otherwise the gate keys on a different
-        string and never serialises the real call.
-
-        Parametrized so adding a new action endpoint without pacing it
-        will surface here (the dispatch below builds the right call)."""
+    def test_action_uses_chokepoint_with_clean_token(self, action_name):
         dispatch = {
             "confirm_fbs_order": (
-                lambda: uzum_openapi.confirm_fbs_order("tok-xyz", 42),
-                ({"payload": {}}, 200, "", "raw"),
+                lambda: uzum_openapi.confirm_fbs_order("  tok-xyz  ", 42),
+                ({"payload": {"status": "PACKING"}}, 200, "", "raw"),
             ),
             "cancel_fbs_order": (
                 lambda: uzum_openapi.cancel_fbs_order(
-                    "tok-xyz", 42, reason="OUT_OF_STOCK"),
+                    "  tok-xyz  ", 42, reason="OUT_OF_STOCK"),
                 ({}, 200, "", "raw"),
             ),
             "download_fbs_label": (
-                lambda: uzum_openapi.download_fbs_label("tok-xyz", 42),
+                lambda: uzum_openapi.download_fbs_label("  tok-xyz  ", 42, size="LARGE"),
                 ({"payload": {"document": _FAKE_PDF_B64}}, 200, "", "raw"),
             ),
             "attach_fbs_identifiers": (
                 lambda: uzum_openapi.attach_fbs_identifiers(
-                    "tok-xyz", 42,
+                    "  tok-xyz  ", 42,
                     items=[{"orderItemId": 7, "values": ["IMEI-1"]}]),
-                ({"payload": []}, 200, "", "raw"),
+                ({"payload": [{"type": "IMEI"}]}, 200, "", "raw"),
             ),
         }
         action_call, request_return = dispatch[action_name]
-        events, _ = _run_action_capturing_order(
-            action_call, request_return=request_return)
 
-        pace_events = [e for e in events if e[0] == "pace"]
-        request_events = [e for e in events if e[0] == "request"]
-        assert len(pace_events) == 1, f"{action_name}: expected 1 pace, got {pace_events}"
-        assert len(request_events) == 1, f"{action_name}: expected 1 request, got {request_events}"
-        assert pace_events[0][1] == request_events[0][1], (
-            f"{action_name}: gate token {pace_events[0][1]!r} != "
-            f"request token {request_events[0][1]!r}"
+        seen: dict[str, str] = {}
+
+        def fake_req(url, token, *args, **kwargs):
+            seen["token"] = token
+            return request_return
+
+        with patch.object(uzum_openapi, "_fbs_orders_request_with_auth",
+                          side_effect=fake_req):
+            action_call()
+
+        assert seen.get("token") == "tok-xyz", (
+            f"{action_name}: chokepoint got token {seen.get('token')!r}, "
+            "expected the cleaned 'tok-xyz'"
         )

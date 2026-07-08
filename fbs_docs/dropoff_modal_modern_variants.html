@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qabul punktlari — zamonaviy 5 variant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vio:#6938ef; --vio2:#8b5cf6; --indigo:#4f46e5; --pink:#d946ef;
+  --ink:#101828; --muted:#667085; --line:#eaecf0;
+  --green:#027a48; --green-bg:#ecfdf3; --green-bd:#abefc6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:var(--ink);padding:34px 18px 120px}
+.page-title{max-width:920px;margin:0 auto 6px;font-size:1.4rem;font-weight:800}
+.page-sub{max-width:920px;margin:0 auto 36px;color:var(--muted);font-size:.9rem}
+.variant{max-width:920px;margin:0 auto 70px}
+.vlabel{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.vlabel .num{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--vio),var(--pink));color:#fff;font-weight:800;font-size:.95rem}
+.vlabel h2{margin:0;font-size:1.06rem;font-weight:800}
+.vlabel p{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
+.stage{border-radius:26px;padding:36px 22px;display:flex;justify-content:center;
+  background:radial-gradient(1100px 480px at 50% -10%, rgba(105,56,239,.35), rgba(16,24,40,.6) 70%),#352f4a}
+button{font-family:inherit;cursor:pointer}
+.scroll{overflow-y:auto}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(105,56,239,.25);border-radius:99px}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(2,122,72,.35)}50%{box-shadow:0 0 0 7px rgba(2,122,72,0)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(26px,-14px) scale(1.12)}100%{transform:translate(0,0) scale(1)}}
+@keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
+
+/* =====================================================
+   V1 — AURORA HERO: gradient sarlavha + suzuvchi qidiruv
+===================================================== */
+.v1 .modal{width:min(760px,100%);max-height:780px;display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border-radius:28px;box-shadow:0 36px 90px rgba(16,24,40,.55)}
+.v1 .hero{position:relative;padding:24px 26px 60px;overflow:hidden;color:#fff;
+  background:linear-gradient(125deg,#4f46e5 0%,#6938ef 45%,#a855f7 80%,#d946ef 110%)}
+.v1 .orb{position:absolute;border-radius:50%;filter:blur(34px);opacity:.5;animation:drift 9s ease-in-out infinite}
+.v1 .o1{width:200px;height:200px;background:#fff;top:-110px;right:8%}
+.v1 .o2{width:150px;height:150px;background:#ff9af5;bottom:-80px;left:4%;animation-delay:-4s}
+.v1 .hrow{position:relative;display:flex;align-items:center;gap:14px}
+.v1 .hpin{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-size:1.25rem;
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(6px);
+  animation:floaty 5s ease-in-out infinite}
+.v1 h3{margin:0;flex:1;font-size:1.25rem;font-weight:800;letter-spacing:-.01em}
+.v1 h3 small{display:block;font-size:.79rem;font-weight:500;opacity:.85;margin-top:3px}
+.v1 .x{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.14);color:#fff;font-size:1.05rem;transition:.2s}
+.v1 .x:hover{background:rgba(255,255,255,.3);transform:rotate(90deg)}
+.v1 .htools{position:relative;display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center}
+.v1 .seg{display:inline-flex;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+  border-radius:99px;padding:4px;backdrop-filter:blur(6px)}
+.v1 .seg button{border:0;background:transparent;padding:8px 18px;border-radius:99px;
+  font-size:.85rem;font-weight:700;color:rgba(255,255,255,.8);transition:.2s}
+.v1 .seg button.on{background:#fff;color:var(--vio);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.v1 .geo{margin-left:auto;display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.14);color:#fff;padding:9px 17px;border-radius:99px;
+  font-size:.84rem;font-weight:700;backdrop-filter:blur(6px);transition:.2s}
+.v1 .geo:hover{background:#fff;color:var(--vio)}
+.v1 .float{position:relative;z-index:2;margin:-30px 26px 0;display:flex;align-items:center;gap:11px;
+  background:#fff;border-radius:18px;padding:8px 16px;border:1px solid rgba(105,56,239,.15);
+  box-shadow:0 14px 40px rgba(105,56,239,.22)}
+.v1 .float .ph{flex:1;color:#98a2b3;font-size:.9rem;padding:10px 0}
+.v1 .float .kbd{font-size:.68rem;font-weight:800;color:var(--vio);background:rgba(105,56,239,.08);
+  border:1px solid rgba(105,56,239,.22);padding:4px 8px;border-radius:7px}
+.v1 .sub{display:flex;align-items:center;gap:10px;margin:13px 26px 0}
+.v1 .sw{display:inline-flex;align-items:center;gap:8px;font-size:.84rem;font-weight:600}
+.v1 .tr{width:40px;height:23px;border-radius:99px;background:linear-gradient(135deg,var(--vio),var(--pink));position:relative}
+.v1 .tr i{position:absolute;top:2px;left:19px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.v1 .geo-ok{margin-left:auto;font-size:.77rem;font-weight:700;color:var(--green);background:var(--green-bg);
+  padding:5px 12px;border-radius:99px;border:1px solid var(--green-bd)}
+.v1 .body{padding:14px 26px 22px}
+.v1 .card{position:relative;border:1px solid var(--line);border-radius:20px;padding:16px 18px;margin-bottom:12px;
+  background:#fff;transition:.22s cubic-bezier(.16,.84,.36,1)}
+.v1 .card:hover{transform:translateY(-3px);border-color:rgba(105,56,239,.4);
+  box-shadow:0 18px 44px rgba(105,56,239,.16)}
+.v1 .card.fav{background:linear-gradient(#fff,#fff) padding-box,
+  linear-gradient(120deg,#6938ef,#d946ef,#6938ef) border-box;border:2px solid transparent}
+.v1 .top{display:flex;gap:13px;align-items:flex-start}
+.v1 .star{border:0;background:transparent;font-size:1.3rem;color:#d0d3dd;padding:0;transition:.2s}
+.v1 .star.on{color:#f59e0b;text-shadow:0 0 14px rgba(245,158,11,.6)}
+.v1 .star:hover{transform:scale(1.25) rotate(14deg);color:#f59e0b}
+.v1 .addr{flex:1;font-weight:700;font-size:.96rem;line-height:1.4;letter-spacing:-.01em}
+.v1 .shops{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.v1 .shop{font-size:.7rem;font-weight:800;letter-spacing:.5px;padding:3px 10px;border-radius:8px;
+  background:rgba(105,56,239,.08);color:var(--vio)}
+.v1 .dist{flex:none;text-align:center;min-width:74px;padding:9px 12px;border-radius:16px;
+  background:linear-gradient(135deg,rgba(105,56,239,.09),rgba(217,70,239,.09))}
+.v1 .dist b{display:block;font-size:1.2rem;font-weight:900;letter-spacing:-.02em;
+  background:linear-gradient(120deg,var(--vio),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.v1 .dist span{font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.v1 .near{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:.7rem;font-weight:800;
+  color:var(--green);background:var(--green-bg);border:1px solid var(--green-bd);
+  padding:4px 10px;border-radius:99px;animation:pulse 2.4s infinite}
+.v1 .foot{display:flex;align-items:center;gap:8px;margin-top:13px}
+.v1 .slots{display:flex;gap:7px;flex-wrap:wrap;flex:1}
+.v1 .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:6px 13px;border-radius:11px;font-size:.79rem;font-weight:700;transition:.15s;cursor:pointer}
+.v1 .slot:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(2,122,72,.18)}
+.v1 .b-slot{border:0;color:#fff;padding:8px 17px;border-radius:12px;font-size:.81rem;font-weight:700;
+  background:linear-gradient(120deg,var(--vio),var(--vio2));box-shadow:0 6px 16px rgba(105,56,239,.35);transition:.2s}
+.v1 .b-slot:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(105,56,239,.45)}
+.v1 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:8px 15px;
+  border-radius:12px;font-size:.81rem;font-weight:600;transition:.15s}
+.v1 .b-copy:hover{border-color:var(--vio);color:var(--vio);background:rgba(105,56,239,.05)}
+
+/* =====================================================
+   V2 — GLASSMORPHISM: butun modal binafsha shisha
+===================================================== */
+.v2 .modal{position:relative;width:min(760px,100%);max-height:780px;display:flex;flex-direction:column;
+  overflow:hidden;border-radius:28px;color:#fff;
+  background:linear-gradient(150deg,#3b2e8c 0%,#5b2bd6 40%,#7b3aed 75%,#a855f7 110%);
+  box-shadow:0 36px 90px rgba(30,16,80,.65)}
+.v2 .modal::before{content:"";position:absolute;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.28),transparent 65%);top:-160px;right:-80px;animation:drift 11s ease-in-out infinite}
+.v2 .head{position:relative;display:flex;align-items:center;gap:13px;padding:22px 26px 0}
+.v2 .hpin{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;font-size:1.2rem;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(8px)}
+.v2 h3{margin:0;flex:1;font-size:1.2rem;font-weight:800}
+.v2 h3 small{display:block;font-size:.78rem;font-weight:500;opacity:.8;margin-top:2px}
+.v2 .x{width:35px;height:35px;border-radius:50%;border:1px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.12);color:#fff;font-size:1rem;transition:.2s}
+.v2 .x:hover{background:rgba(255,255,255,.3)}
+.v2 .panel{position:relative;margin:16px 26px 0;border-radius:20px;padding:14px 16px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(14px);
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.v2 .seg{display:inline-flex;background:rgba(0,0,0,.18);border-radius:99px;padding:4px}
+.v2 .seg button{border:0;background:transparent;padding:7px 16px;border-radius:99px;
+  font-size:.83rem;font-weight:700;color:rgba(255,255,255,.75);transition:.2s}
+.v2 .seg button.on{background:#fff;color:var(--vio)}
+.v2 .sw{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600}
+.v2 .tr{width:38px;height:22px;border-radius:99px;background:rgba(255,255,255,.9);position:relative}
+.v2 .tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;
+  background:linear-gradient(135deg,var(--vio),var(--pink))}
+.v2 .geo{margin-left:auto;display:inline-flex;gap:7px;align-items:center;border:1px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.12);color:#fff;padding:8px 15px;border-radius:99px;font-size:.82rem;font-weight:700;transition:.2s}
+.v2 .geo:hover{background:#fff;color:var(--vio)}
+.v2 .search{position:relative;margin:12px 26px 0;display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:99px;
+  padding:11px 19px;color:rgba(255,255,255,.75);font-size:.89rem;backdrop-filter:blur(10px)}
+.v2 .body{position:relative;padding:16px 26px 24px}
+.v2 .card{border-radius:20px;padding:16px 18px;margin-bottom:12px;
+  background:rgba(255,255,255,.92);color:var(--ink);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.7);transition:.22s}
+.v2 .card:hover{transform:translateY(-3px);background:#fff;box-shadow:0 18px 40px rgba(20,8,60,.35)}
+.v2 .card.fav{box-shadow:0 0 0 2px #fbbf24, 0 14px 36px rgba(20,8,60,.3)}
+.v2 .row{display:flex;gap:12px;align-items:flex-start}
+.v2 .star{border:0;background:transparent;font-size:1.25rem;color:#d0d3dd;padding:0;transition:.2s}
+.v2 .star.on{color:#f59e0b}
+.v2 .star:hover{transform:scale(1.2)}
+.v2 .addr{flex:1;font-weight:700;font-size:.94rem;line-height:1.4}
+.v2 .meta{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.v2 .shop{font-size:.69rem;font-weight:800;letter-spacing:.5px;padding:3px 9px;border-radius:7px;
+  background:rgba(105,56,239,.1);color:var(--vio)}
+.v2 .near{font-size:.69rem;font-weight:800;color:#fff;padding:3px 10px;border-radius:99px;
+  background:linear-gradient(120deg,#10b981,#34d399)}
+.v2 .dist{flex:none;font-size:1.05rem;font-weight:900;color:var(--vio);white-space:nowrap}
+.v2 .dist small{display:block;font-size:.64rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;text-align:right}
+.v2 .foot{display:flex;gap:8px;align-items:center;margin-top:12px}
+.v2 .slots{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.v2 .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:5px 12px;border-radius:10px;font-size:.77rem;font-weight:700}
+.v2 .b-slot{border:0;background:linear-gradient(120deg,var(--vio),var(--pink));color:#fff;
+  padding:8px 16px;border-radius:99px;font-size:.8rem;font-weight:700;box-shadow:0 5px 14px rgba(105,56,239,.4);transition:.2s}
+.v2 .b-slot:hover{transform:translateY(-2px)}
+.v2 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:8px 14px;
+  border-radius:99px;font-size:.8rem;font-weight:600}
+.v2 .b-copy:hover{color:var(--vio);border-color:var(--vio)}
+
+/* =====================================================
+   V3 — BENTO GRID: 2 ustunli katta plitkalar
+===================================================== */
+.v3 .modal{width:min(820px,100%);max-height:780px;display:flex;flex-direction:column;overflow:hidden;
+  background:#f7f5ff;border-radius:28px;box-shadow:0 36px 90px rgba(16,24,40,.55)}
+.v3 .head{display:flex;align-items:center;gap:13px;padding:20px 24px;background:#fff;border-bottom:1px solid #eee9ff}
+.v3 .hpin{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:1.1rem;color:#fff;
+  background:linear-gradient(135deg,var(--vio),var(--pink));box-shadow:0 8px 20px rgba(105,56,239,.4)}
+.v3 h3{margin:0;flex:1;font-size:1.12rem;font-weight:800}
+.v3 h3 small{display:block;font-size:.77rem;font-weight:500;color:var(--muted);margin-top:2px}
+.v3 .seg{display:inline-flex;background:#f2effd;border-radius:13px;padding:4px}
+.v3 .seg button{border:0;background:transparent;padding:8px 16px;border-radius:10px;
+  font-size:.84rem;font-weight:700;color:var(--muted);transition:.2s}
+.v3 .seg button.on{background:#fff;color:var(--vio);box-shadow:0 3px 10px rgba(105,56,239,.18)}
+.v3 .x{width:34px;height:34px;border-radius:11px;border:1px solid #eee9ff;background:#fff;color:var(--muted);
+  font-size:1rem;transition:.15s}
+.v3 .x:hover{background:#f2effd;color:var(--vio)}
+.v3 .toolbar{display:flex;gap:10px;align-items:center;padding:14px 24px 0;flex-wrap:wrap}
+.v3 .search{flex:1;min-width:240px;display:flex;align-items:center;gap:10px;background:#fff;
+  border:1px solid #e7e0ff;border-radius:16px;padding:11px 17px;color:#98a2b3;font-size:.88rem;
+  box-shadow:0 2px 10px rgba(105,56,239,.06)}
+.v3 .sw{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;background:#fff;
+  border:1px solid #e7e0ff;border-radius:16px;padding:10px 15px}
+.v3 .tr{width:36px;height:21px;border-radius:99px;background:linear-gradient(135deg,var(--vio),var(--vio2));position:relative}
+.v3 .tr i{position:absolute;top:2px;left:17px;width:17px;height:17px;border-radius:50%;background:#fff}
+.v3 .geo{display:inline-flex;align-items:center;gap:7px;border:1px solid #e7e0ff;background:#fff;color:var(--vio);
+  padding:10px 16px;border-radius:16px;font-size:.83rem;font-weight:700;transition:.15s}
+.v3 .geo:hover{background:var(--vio);color:#fff;border-color:var(--vio)}
+.v3 .body{padding:16px 24px 24px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.v3 .tile{position:relative;background:#fff;border:1px solid #eee9ff;border-radius:22px;padding:18px;
+  transition:.22s cubic-bezier(.16,.84,.36,1);overflow:hidden}
+.v3 .tile:hover{transform:translateY(-3px);box-shadow:0 18px 44px rgba(105,56,239,.15);border-color:#d9cdff}
+.v3 .tile.hero{grid-column:1 / -1;background:linear-gradient(135deg,#fff 55%,#f3edff);border-color:#d9cdff}
+.v3 .trow{display:flex;align-items:flex-start;gap:12px}
+.v3 .dnum{flex:none;width:72px;height:72px;border-radius:20px;display:grid;place-items:center;text-align:center;
+  background:linear-gradient(135deg,rgba(105,56,239,.1),rgba(217,70,239,.12))}
+.v3 .dnum b{font-size:1.25rem;font-weight:900;letter-spacing:-.03em;line-height:1;
+  background:linear-gradient(120deg,var(--vio),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.v3 .dnum span{display:block;font-size:.62rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
+.v3 .addr{flex:1;font-weight:700;font-size:.92rem;line-height:1.4}
+.v3 .shops{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap}
+.v3 .shop{font-size:.68rem;font-weight:800;letter-spacing:.4px;padding:3px 9px;border-radius:7px;
+  background:#f2effd;color:var(--vio)}
+.v3 .star{border:0;background:transparent;font-size:1.25rem;color:#d8d4e8;padding:0;transition:.2s}
+.v3 .star.on{color:#f59e0b}
+.v3 .star:hover{transform:scale(1.2);color:#f59e0b}
+.v3 .near{position:absolute;top:0;right:0;font-size:.66rem;font-weight:800;color:#fff;
+  padding:6px 14px;border-radius:0 20px 0 16px;background:linear-gradient(120deg,#10b981,#34d399)}
+.v3 .tfoot{display:flex;gap:7px;align-items:center;margin-top:14px}
+.v3 .slots{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.v3 .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:5px 12px;border-radius:10px;font-size:.76rem;font-weight:700}
+.v3 .b-slot{border:0;background:var(--vio);color:#fff;padding:8px 15px;border-radius:13px;
+  font-size:.79rem;font-weight:700;transition:.18s;box-shadow:0 5px 14px rgba(105,56,239,.3)}
+.v3 .b-slot:hover{background:var(--vio-dark,#5524d6);transform:translateY(-1px)}
+.v3 .b-copy{border:1px solid #e7e0ff;background:#fff;color:var(--muted);width:36px;height:36px;
+  border-radius:13px;font-size:.9rem;display:grid;place-items:center;transition:.15s}
+.v3 .b-copy:hover{color:var(--vio);border-color:var(--vio)}
+
+/* =====================================================
+   V4 — SPOTLIGHT: minimal oq, hover'da gradient nur
+===================================================== */
+.v4 .modal{width:min(740px,100%);max-height:780px;display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border-radius:26px;box-shadow:0 36px 90px rgba(16,24,40,.55)}
+.v4 .head{padding:22px 28px 0}
+.v4 .hrow{display:flex;align-items:center;gap:12px}
+.v4 h3{margin:0;flex:1;font-size:1.35rem;font-weight:900;letter-spacing:-.02em}
+.v4 h3 .grad{background:linear-gradient(120deg,var(--vio),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.v4 .x{width:34px;height:34px;border-radius:50%;border:0;background:#f2f4f7;color:var(--muted);font-size:1rem;transition:.2s}
+.v4 .x:hover{background:#101828;color:#fff;transform:rotate(90deg)}
+.v4 .tabs{display:flex;gap:26px;margin-top:18px;border-bottom:1px solid var(--line)}
+.v4 .tab{border:0;background:transparent;padding:0 2px 13px;font-size:.9rem;font-weight:700;
+  color:var(--muted);position:relative;transition:.15s}
+.v4 .tab.on{color:var(--vio)}
+.v4 .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px 3px 0 0;
+  background:linear-gradient(90deg,var(--vio),var(--pink))}
+.v4 .tab:hover:not(.on){color:var(--ink)}
+.v4 .ctl{display:flex;gap:10px;align-items:center;padding:15px 28px 0;flex-wrap:wrap}
+.v4 .search{flex:1;min-width:230px;display:flex;align-items:center;gap:10px;background:#f7f8fb;
+  border:1.5px solid transparent;border-radius:14px;padding:11px 16px;color:#98a2b3;font-size:.88rem;transition:.2s}
+.v4 .search:hover{border-color:rgba(105,56,239,.35);background:#fff}
+.v4 .sw{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600}
+.v4 .tr{width:38px;height:22px;border-radius:99px;background:linear-gradient(135deg,var(--vio),var(--pink));position:relative}
+.v4 .tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff}
+.v4 .geo{border:0;background:transparent;color:var(--vio);font-size:.84rem;font-weight:700;
+  display:inline-flex;gap:6px;align-items:center;padding:8px 10px;border-radius:10px;transition:.15s}
+.v4 .geo:hover{background:rgba(105,56,239,.07)}
+.v4 .body{padding:14px 16px 22px}
+.v4 .row{position:relative;display:flex;gap:14px;align-items:center;padding:16px 14px;border-radius:18px;
+  transition:.2s cubic-bezier(.16,.84,.36,1)}
+.v4 .row+.row{margin-top:4px}
+.v4 .row::before{content:"";position:absolute;inset:0;border-radius:18px;opacity:0;transition:.2s;
+  background:linear-gradient(120deg,rgba(105,56,239,.07),rgba(217,70,239,.07));
+  border:1px solid rgba(105,56,239,.25)}
+.v4 .row:hover{transform:translateX(4px)}
+.v4 .row:hover::before{opacity:1}
+.v4 .row>*{position:relative}
+.v4 .star{border:0;background:transparent;font-size:1.25rem;color:#d0d3dd;padding:0;transition:.2s}
+.v4 .star.on{color:#f59e0b}
+.v4 .star:hover{transform:scale(1.25)}
+.v4 .num{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:.82rem;color:var(--vio);background:rgba(105,56,239,.08);transition:.2s}
+.v4 .row:hover .num{background:linear-gradient(135deg,var(--vio),var(--pink));color:#fff}
+.v4 .mid{flex:1;min-width:0}
+.v4 .addr{font-weight:700;font-size:.93rem;line-height:1.35;letter-spacing:-.01em}
+.v4 .meta{margin-top:4px;font-size:.77rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.v4 .meta b{color:var(--vio);font-weight:800}
+.v4 .near{font-size:.67rem;font-weight:800;color:var(--green);background:var(--green-bg);
+  border:1px solid var(--green-bd);padding:2px 9px;border-radius:99px;animation:pulse 2.4s infinite}
+.v4 .acts{display:flex;gap:7px}
+.v4 .b-slot{border:0;background:#101828;color:#fff;padding:8px 16px;border-radius:12px;
+  font-size:.8rem;font-weight:700;transition:.2s}
+.v4 .row:hover .b-slot{background:linear-gradient(120deg,var(--vio),var(--pink));box-shadow:0 6px 16px rgba(105,56,239,.4)}
+.v4 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);width:35px;height:35px;
+  border-radius:12px;font-size:.85rem;display:grid;place-items:center;transition:.15s}
+.v4 .b-copy:hover{color:var(--vio);border-color:var(--vio)}
+.v4 .slots{margin:2px 14px 6px 86px;display:flex;gap:7px;flex-wrap:wrap}
+.v4 .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:6px 13px;border-radius:11px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.15s}
+.v4 .slot:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(2,122,72,.18)}
+
+/* =====================================================
+   V5 — COMMAND PALETTE: Ctrl-K uslubi, klaviatura-fokus
+===================================================== */
+.v5 .modal{width:min(680px,100%);max-height:760px;display:flex;flex-direction:column;overflow:hidden;
+  background:rgba(255,255,255,.96);backdrop-filter:blur(20px);border-radius:22px;
+  box-shadow:0 0 0 1px rgba(105,56,239,.18), 0 36px 90px rgba(16,24,40,.55)}
+.v5 .search{display:flex;align-items:center;gap:13px;padding:19px 24px;border-bottom:1px solid #efedf7}
+.v5 .search .ic{font-size:1.15rem;background:linear-gradient(120deg,var(--vio),var(--pink));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.v5 .search .ph{flex:1;color:#98a2b3;font-size:1rem;font-weight:500}
+.v5 .search .ph b{color:var(--ink)}
+.v5 .caret{width:2px;height:22px;background:var(--vio);animation:pulse 1.2s infinite;border-radius:2px}
+.v5 .x{width:30px;height:30px;border-radius:9px;border:1px solid #efedf7;background:#fff;color:var(--muted);font-size:.9rem}
+.v5 .x:hover{background:#f6f4fd;color:var(--vio)}
+.v5 .filters{display:flex;gap:8px;align-items:center;padding:12px 24px;border-bottom:1px solid #efedf7;flex-wrap:wrap}
+.v5 .fchip{border:1px solid #e7e0ff;background:#fff;padding:6px 14px;border-radius:99px;
+  font-size:.79rem;font-weight:700;color:var(--muted);transition:.15s}
+.v5 .fchip.on{background:linear-gradient(120deg,var(--vio),var(--vio2));color:#fff;border-color:transparent;
+  box-shadow:0 4px 12px rgba(105,56,239,.35)}
+.v5 .fchip:hover:not(.on){border-color:var(--vio);color:var(--vio)}
+.v5 .fchip.tgl{display:inline-flex;align-items:center;gap:6px}
+.v5 .fchip.tgl .led{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 8px rgba(52,211,153,.8)}
+.v5 .geo{margin-left:auto;border:0;background:transparent;color:var(--vio);font-size:.8rem;font-weight:700;
+  display:inline-flex;gap:5px;align-items:center}
+.v5 .geo:hover{text-decoration:underline}
+.v5 .ghead{padding:13px 24px 7px;font-size:.68rem;font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;display:flex;justify-content:space-between}
+.v5 .body{padding:0 10px 12px}
+.v5 .row{display:flex;gap:12px;align-items:center;padding:13px 14px;border-radius:14px;transition:.13s;position:relative}
+.v5 .row:hover{background:linear-gradient(120deg,rgba(105,56,239,.07),rgba(217,70,239,.05))}
+.v5 .row.sel{background:linear-gradient(120deg,rgba(105,56,239,.1),rgba(217,70,239,.07));
+  box-shadow:inset 0 0 0 1.5px rgba(105,56,239,.4)}
+.v5 .pin{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:.95rem;
+  background:#f2effd;color:var(--vio)}
+.v5 .row.sel .pin{background:linear-gradient(135deg,var(--vio),var(--pink));color:#fff;
+  box-shadow:0 5px 14px rgba(105,56,239,.4)}
+.v5 .mid{flex:1;min-width:0}
+.v5 .addr{font-weight:700;font-size:.89rem;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v5 .meta{margin-top:3px;font-size:.74rem;color:var(--muted);display:flex;gap:7px;align-items:center}
+.v5 .meta .shop{font-weight:800;color:var(--vio);background:#f2effd;padding:1px 8px;border-radius:6px;font-size:.68rem;letter-spacing:.3px}
+.v5 .dist{flex:none;font-size:.86rem;font-weight:900;color:var(--vio)}
+.v5 .near{flex:none;font-size:.66rem;font-weight:800;color:var(--green);background:var(--green-bg);
+  border:1px solid var(--green-bd);padding:3px 9px;border-radius:99px}
+.v5 .star{border:0;background:transparent;font-size:1.1rem;color:#d8d4e8;padding:0;transition:.15s}
+.v5 .star.on{color:#f59e0b}
+.v5 .kbd{flex:none;font-size:.66rem;font-weight:800;color:var(--muted);background:#f6f4fd;
+  border:1px solid #e7e0ff;padding:3px 8px;border-radius:6px;opacity:0;transition:.15s}
+.v5 .row:hover .kbd,.v5 .row.sel .kbd{opacity:1}
+.v5 .slots{margin:4px 24px 8px 64px;display:flex;gap:6px;flex-wrap:wrap}
+.v5 .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:5px 12px;border-radius:9px;font-size:.75rem;font-weight:700}
+.v5 .footer{display:flex;gap:16px;align-items:center;padding:11px 24px;border-top:1px solid #efedf7;
+  font-size:.73rem;color:var(--muted);background:#fbfaff}
+.v5 .footer .k{font-weight:800;background:#f2effd;color:var(--vio);border:1px solid #e7e0ff;
+  padding:2px 7px;border-radius:5px;font-size:.68rem;margin-right:4px}
+.v5 .footer .right{margin-left:auto;color:var(--green);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="page-title">📍 Qabul punktlari — zamonaviy 5 variant</div>
+<div class="page-sub">Накладной binafsha brendida (#6938ef), lekin zamonaviy: gradient, glass (***shisha***), animatsiya, spotlight. Aktiv/Σ belgilar yo'q.</div>
+
+<!-- ================= V1 AURORA HERO ================= -->
+<div class="variant v1">
+  <div class="vlabel"><div class="num">1</div>
+    <div><h2>Aurora Hero</h2><p>Gradient sarlavha + suzuvchi nur-sharlar, osilgan qidiruv paneli, gradient-ramkali sevimli karta</p></div></div>
+  <div class="stage"><div class="modal">
+    <div class="hero">
+      <span class="orb o1"></span><span class="orb o2"></span>
+      <div class="hrow">
+        <div class="hpin">📍</div>
+        <h3>Qabul punktlari<small>2 ta buyurtma · BLUMMY, LUXUZ</small></h3>
+        <button class="x">✕</button>
+      </div>
+      <div class="htools">
+        <div class="seg"><button class="on">Mening punktlarim</button><button>Uzum'dan to'liq</button></div>
+        <button class="geo">🧭 Joylashuvni yangilash</button>
+      </div>
+    </div>
+    <div class="float"><span>🔎</span><span class="ph">Manzil yoki do'kon bo'yicha qidirish…</span><span class="kbd">CTRL K</span></div>
+    <div class="sub">
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <span class="geo-ok">✓ Joylashuv aniqlandi</span>
+    </div>
+    <div class="body scroll">
+      <div class="card fav">
+        <div class="top">
+          <button class="star on">★</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+            <span class="near">● ENG YAQIN</span>
+          </div>
+          <div class="dist"><b>5.6</b><span>km</span></div>
+        </div>
+        <div class="foot">
+          <div class="slots"><span class="slot">14.06 10:00–15:30</span><span class="slot">15.06 10:00–15:30</span></div>
+          <button class="b-slot">🕐 Yashirish</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="top">
+          <button class="star">☆</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span></div>
+          </div>
+          <div class="dist"><b>6.3</b><span>km</span></div>
+        </div>
+        <div class="foot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="top">
+          <button class="star">☆</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+            <div class="shops"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+          </div>
+          <div class="dist"><b>7.1</b><span>km</span></div>
+        </div>
+        <div class="foot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= V2 GLASSMORPHISM ================= -->
+<div class="variant v2">
+  <div class="vlabel"><div class="num">2</div>
+    <div><h2>Glassmorphism</h2><p>Butun modal — binafsha gradient ustida shisha panellar; kartalar oq, hover'da to'liq ochiladi</p></div></div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <div class="hpin">📍</div>
+      <h3>Qabul punktlari<small>2 ta buyurtma uchun punkt tanlang</small></h3>
+      <button class="x">✕</button>
+    </div>
+    <div class="panel">
+      <div class="seg"><button class="on">Mening punktlarim</button><button>Uzum'dan to'liq</button></div>
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <button class="geo">🧭 Yangilash</button>
+    </div>
+    <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+    <div class="body scroll">
+      <div class="card fav">
+        <div class="row">
+          <button class="star on">★</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+            <div class="meta"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span><span class="near">ENG YAQIN</span></div>
+          </div>
+          <div class="dist">5.6 km<small>masofa</small></div>
+        </div>
+        <div class="foot">
+          <div class="slots"><span class="slot">14.06 10:00–15:30</span><span class="slot">15.06 10:00–15:30</span></div>
+          <button class="b-slot">🕐 Yashirish</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <button class="star">☆</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+            <div class="meta"><span class="shop">BLUMMY</span></div>
+          </div>
+          <div class="dist">6.3 km<small>masofa</small></div>
+        </div>
+        <div class="foot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <button class="star">☆</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+            <div class="meta"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+          </div>
+          <div class="dist">7.1 km<small>masofa</small></div>
+        </div>
+        <div class="foot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">Nusxalash</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= V3 BENTO GRID ================= -->
+<div class="variant v3">
+  <div class="vlabel"><div class="num">3</div>
+    <div><h2>Bento Grid</h2><p>2 ustunli plitkalar, eng yaqini katta «hero» plitka; gradient masofa-raqamlar</p></div></div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <div class="hpin">📍</div>
+      <h3>Qabul punktlari<small>2 ta buyurtma uchun</small></h3>
+      <div class="seg"><button class="on">Mening punktlarim</button><button>Uzum'dan to'liq</button></div>
+      <button class="x">✕</button>
+    </div>
+    <div class="toolbar">
+      <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+      <button class="geo">🧭 Yangilash</button>
+    </div>
+    <div class="body scroll">
+      <div class="tile hero">
+        <span class="near">● ENG YAQIN</span>
+        <div class="trow">
+          <div class="dnum"><div><b>5.6</b><span>km</span></div></div>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+          </div>
+          <button class="star on">★</button>
+        </div>
+        <div class="tfoot">
+          <div class="slots"><span class="slot">14.06 10:00–15:30</span><span class="slot">15.06 10:00–15:30</span></div>
+          <button class="b-slot">🕐 Yashirish</button>
+          <button class="b-copy">📋</button>
+        </div>
+      </div>
+      <div class="tile">
+        <div class="trow">
+          <div class="dnum"><div><b>6.3</b><span>km</span></div></div>
+          <div style="flex:1">
+            <div class="addr">Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span></div>
+          </div>
+          <button class="star">☆</button>
+        </div>
+        <div class="tfoot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">📋</button>
+        </div>
+      </div>
+      <div class="tile">
+        <div class="trow">
+          <div class="dnum"><div><b>7.1</b><span>km</span></div></div>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+            <div class="shops"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+          </div>
+          <button class="star">☆</button>
+        </div>
+        <div class="tfoot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">📋</button>
+        </div>
+      </div>
+      <div class="tile">
+        <div class="trow">
+          <div class="dnum"><div><b>8.4</b><span>km</span></div></div>
+          <div style="flex:1">
+            <div class="addr">Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+            <div class="shops"><span class="shop">LUXUZ</span></div>
+          </div>
+          <button class="star">☆</button>
+        </div>
+        <div class="tfoot">
+          <div class="slots"></div>
+          <button class="b-slot">🕐 Slotlar</button>
+          <button class="b-copy">📋</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= V4 SPOTLIGHT ================= -->
+<div class="variant v4">
+  <div class="vlabel"><div class="num">4</div>
+    <div><h2>Spotlight</h2><p>Minimal oq + katta tipografika; qatorga hover qilganda gradient nur va qora tugma binafshaga aylanadi</p></div></div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <div class="hrow">
+        <h3>Qabul <span class="grad">punktlari</span></h3>
+        <button class="x">✕</button>
+      </div>
+      <div class="tabs">
+        <button class="tab on">Mening punktlarim</button>
+        <button class="tab">Uzum'dan to'liq</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+      <button class="geo">🧭 Joylashuv</button>
+    </div>
+    <div class="body scroll">
+      <div class="row">
+        <button class="star on">★</button>
+        <div class="num">5.6<br>km</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+          <div class="meta"><b>BLUMMY, LUXUZ</b><span class="near">● ENG YAQIN</span></div>
+        </div>
+        <div class="acts"><button class="b-slot">🕐 Yashirish</button><button class="b-copy">📋</button></div>
+      </div>
+      <div class="slots">
+        <span class="slot">14.06 10:00–15:30</span>
+        <span class="slot">15.06 10:00–15:30</span>
+      </div>
+      <div class="row">
+        <button class="star">☆</button>
+        <div class="num">6.3<br>km</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div class="meta"><b>BLUMMY</b></div>
+        </div>
+        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+      </div>
+      <div class="row">
+        <button class="star">☆</button>
+        <div class="num">7.1<br>km</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          <div class="meta"><b>BLUMMY, LUXUZ</b></div>
+        </div>
+        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+      </div>
+      <div class="row">
+        <button class="star">☆</button>
+        <div class="num">8.4<br>km</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+          <div class="meta"><b>LUXUZ</b></div>
+        </div>
+        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= V5 COMMAND PALETTE ================= -->
+<div class="variant v5">
+  <div class="vlabel"><div class="num">5</div>
+    <div><h2>Command Palette</h2><p>Ctrl-K uslubi: katta qidiruv tepada, chip-filtrlar, tanlangan qatorda binafsha halqa, pastda klavishlar</p></div></div>
+  <div class="stage"><div class="modal">
+    <div class="search">
+      <span class="ic">🔎</span>
+      <span class="ph">Manzil yoki do'kon qidiring… <b>yunusobod</b></span>
+      <span class="caret"></span>
+      <button class="x">Esc</button>
+    </div>
+    <div class="filters">
+      <button class="fchip on">Mening punktlarim</button>
+      <button class="fchip">Uzum'dan to'liq</button>
+      <button class="fchip tgl"><span class="led"></span>Faqat mos keladigan</button>
+      <button class="geo">🧭 Joylashuvni yangilash</button>
+    </div>
+    <div class="ghead"><span>Yaqin punktlar</span><span>4 ta topildi · ✓ joylashuv aniq</span></div>
+    <div class="body scroll">
+      <div class="row sel">
+        <div class="pin">📍</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+          <div class="meta"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+        </div>
+        <span class="near">ENG YAQIN</span>
+        <span class="dist">5.6 km</span>
+        <button class="star on">★</button>
+        <span class="kbd">↵ Slotlar</span>
+      </div>
+      <div class="slots">
+        <span class="slot">14.06 10:00–15:30</span>
+        <span class="slot">15.06 10:00–15:30</span>
+      </div>
+      <div class="row">
+        <div class="pin">📍</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div class="meta"><span class="shop">BLUMMY</span></div>
+        </div>
+        <span class="dist">6.3 km</span>
+        <button class="star">☆</button>
+        <span class="kbd">↵ Slotlar</span>
+      </div>
+      <div class="row">
+        <div class="pin">📍</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          <div class="meta"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+        </div>
+        <span class="dist">7.1 km</span>
+        <button class="star">☆</button>
+        <span class="kbd">↵ Slotlar</span>
+      </div>
+      <div class="row">
+        <div class="pin">📍</div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+          <div class="meta"><span class="shop">LUXUZ</span></div>
+        </div>
+        <span class="dist">8.4 km</span>
+        <button class="star">☆</button>
+        <span class="kbd">↵ Slotlar</span>
+      </div>
+    </div>
+    <div class="footer">
+      <span><span class="k">↑↓</span>tanlash</span>
+      <span><span class="k">↵</span>slotlar</span>
+      <span><span class="k">C</span>nusxalash</span>
+      <span><span class="k">F</span>sevimli</span>
+      <span class="right">✓ Joylashuv aniqlandi</span>
+    </div>
+  </div></div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bulk-panel — 5 variant (Dark Header dizayniga mos)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; padding:40px 20px 80px; font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif; -webkit-font-smoothing:antialiased; background:#eef1f7; color:#0f172a; }
+  .wrap { max-width:820px; margin:0 auto; }
+  .page-title { text-align:center; font-size:1.4rem; font-weight:800; margin:0 0 6px; }
+  .page-sub { text-align:center; color:#64748b; font-size:.92rem; margin:0 0 36px; }
+
+  .card {
+    background:#fff; border:1px solid #e6e9ef; border-radius:18px;
+    padding:26px 28px 30px; margin-bottom:30px; box-shadow:0 10px 30px -18px rgba(15,23,42,.25);
+  }
+  .card-head { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  .vnum { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:9px; background:#1e293b; color:#fff; font-size:.85rem; font-weight:800; }
+  .vname { font-weight:800; font-size:1.05rem; }
+  .vtag { color:#94a3b8; font-weight:600; font-size:.82rem; margin-left:auto; }
+
+  .stage {
+    position:relative; height:170px; margin-top:18px; border-radius:14px;
+    background:linear-gradient(#f8fafc,#eef1f6); border:1px dashed #d8deea;
+    overflow:hidden; display:flex; align-items:flex-end; justify-content:center;
+  }
+  .replay {
+    position:absolute; top:10px; right:12px; z-index:5; cursor:pointer;
+    border:1px solid #d3d9e3; background:#fff; color:#475467;
+    font-size:.74rem; font-weight:700; padding:5px 11px; border-radius:8px;
+  }
+  .replay:hover { background:#f1f3f7; }
+
+  /* ── Floating dark bar (jonli .inv-bulkbar bilan bir xil, 1-rasmdek uzun) ── */
+  .bar {
+    position:absolute; left:50%; bottom:20px; width:max-content; max-width:96%;
+    transform:translate(-50%, calc(100% + 40px)); opacity:0;
+    display:flex; align-items:center; gap:1.1rem; flex-wrap:nowrap;
+    padding:.7rem 1.1rem; border-radius:16px;
+    background:#1e293b; color:#f8fafc;
+    box-shadow:0 16px 36px rgba(0,0,0,.3);
+    transition:transform .26s cubic-bezier(.22,1,.36,1), opacity .26s ease-out;
+  }
+  .stage.show .bar { transform:translate(-50%,0); opacity:1; }
+  .count { font-weight:700; font-size:.96rem; padding-right:1rem; border-right:1px solid rgba(255,255,255,.18); white-space:nowrap; }
+  .count strong { color:#fff; }
+  .acts { display:flex; gap:.7rem; align-items:center; }
+  .btn {
+    display:inline-flex; align-items:center; gap:.55rem;
+    padding:.66rem 1.85rem; border-radius:12px;
+    font-size:.95rem; font-weight:700; cursor:pointer; white-space:nowrap;
+    border:1px solid transparent; transition:.15s, transform .12s ease;
+  }
+  .btn:hover { transform:translateY(-2px); }
+  .btn svg { width:17px; height:17px; }
+
+  /* ===== V1 — White Primary (V4 Акт tugmasi kabi oq) ===== */
+  .v1 .btn { background:#fff; color:#1e293b; border-color:#fff; }
+  .v1 .btn:hover { background:#eef1f6; box-shadow:0 8px 20px rgba(0,0,0,.3); }
+
+  /* ===== V2 — Ghost Outline (shaffof, oq ramka) ===== */
+  .v2 .btn { background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.28); }
+  .v2 .btn:hover { background:#fff; color:#1e293b; border-color:#fff; box-shadow:0 8px 20px rgba(0,0,0,.3); }
+
+  /* ===== V3 — Tonal Slate (ochroq slate tugmalar) ===== */
+  .v3 .btn { background:#334155; color:#fff; border-color:#3f4d63; }
+  .v3 .btn:hover { background:#3f4d63; box-shadow:0 8px 20px rgba(0,0,0,.35); }
+
+  /* ===== V4 — Ghost + asosiy urg'u oq (ierarxiya) ===== */
+  .v4 .btn { background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.24); }
+  .v4 .btn:hover { background:rgba(255,255,255,.16); }
+  .v4 .btn.primary { background:#fff; color:#1e293b; border-color:#fff; }
+  .v4 .btn.primary:hover { background:#eef1f6; box-shadow:0 8px 20px rgba(0,0,0,.3); }
+
+  /* ===== V5 — Frosted Glass (shisha tugmalar) ===== */
+  .v5 .btn { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.2); backdrop-filter:blur(6px); }
+  .v5 .btn:hover { background:rgba(255,255,255,.26); box-shadow:0 8px 22px rgba(0,0,0,.3); }
+  .v5 .btn.primary { background:rgba(255,255,255,.92); color:#1e293b; border-color:#fff; }
+  .v5 .btn.primary:hover { background:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page-title">Bulk-panel — 5 variant</h1>
+  <p class="page-sub">Galochka bosilganda chiqadigan panel. Fon to'q #1e293b (Dark Header bilan bir oila). «▶ Animatsiya» ni bosib slide-up'ni ko'ring.</p>
+
+  <div class="card" data-v="v1">
+    <div class="card-head"><span class="vnum">1</span><span class="vname">White Primary</span><span class="vtag">tugmalar oq — Акт tugmasi kabi</span></div>
+    <div class="stage v1"><button class="replay">▶ Animatsiya</button></div>
+  </div>
+
+  <div class="card" data-v="v2">
+    <div class="card-head"><span class="vnum">2</span><span class="vname">Ghost Outline</span><span class="vtag">shaffof, oq ramka, hover'da to'ladi</span></div>
+    <div class="stage v2"><button class="replay">▶ Animatsiya</button></div>
+  </div>
+
+  <div class="card" data-v="v3">
+    <div class="card-head"><span class="vnum">3</span><span class="vname">Tonal Slate</span><span class="vtag">ochroq slate #334155 tugmalar</span></div>
+    <div class="stage v3"><button class="replay">▶ Animatsiya</button></div>
+  </div>
+
+  <div class="card" data-v="v4">
+    <div class="card-head"><span class="vnum">4</span><span class="vname">Ghost + Urg'u</span><span class="vtag">Yorliq/QR shaffof, «Yorliq+QR» oq</span></div>
+    <div class="stage v4"><button class="replay">▶ Animatsiya</button></div>
+  </div>
+
+  <div class="card" data-v="v5">
+    <div class="card-head"><span class="vnum">5</span><span class="vname">Frosted Glass</span><span class="vtag">shisha tugmalar + blur</span></div>
+    <div class="stage v5"><button class="replay">▶ Animatsiya</button></div>
+  </div>
+</div>
+
+<script>
+  const IC_PRINT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  const IC_QR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="14"/><line x1="14" y1="17.5" x2="14" y2="21"/><line x1="17.5" y1="14" x2="21" y2="14"/><line x1="21" y1="17.5" x2="21" y2="21"/><line x1="17.5" y1="17.5" x2="17.5" y2="17.5"/></svg>';
+  const IC_BOTH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><path d="M14 4h7v5h-7z"/><path d="M14 13h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>';
+
+  // V4/V5 — «Yorliq+QR» = primary; boshqalarda hamma bir xil.
+  function barHTML(variant){
+    const primCls = (variant==='v4'||variant==='v5') ? 'primary' : '';
+    return `<div class="bar">
+      <span class="count"><strong>2</strong> ta tanlandi</span>
+      <div class="acts">
+        <button class="btn">${IC_PRINT}<span>Yorliq</span></button>
+        <button class="btn">${IC_QR}<span>QR</span></button>
+        <button class="btn ${primCls}">${IC_BOTH}<span>Yorliq + QR</span></button>
+      </div>
+    </div>`;
+  }
+
+  document.querySelectorAll('.card').forEach(card => {
+    const v = card.dataset.v;
+    const stage = card.querySelector('.stage');
+    stage.insertAdjacentHTML('beforeend', barHTML(v));
+    // boshlang'ich holatda ko'rinib tursin (animatsiya «▶» tugmasida)
+    stage.classList.add('show');
+    card.querySelector('.replay').addEventListener('click', () => {
+      stage.classList.remove('show');
+      setTimeout(() => stage.classList.add('show'), 260);
+    });
+  });
+</script>
+</body>
+</html>

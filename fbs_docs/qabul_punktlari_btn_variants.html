@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>«Qabul punktlari» tugmasi — 5 variant</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 2rem 5rem;
+    font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    color: #101828;
+    background:
+      radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
+      radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%),
+      #f4f5f9;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; font-weight: 800; margin: 0 0 .35rem; }
+  .sub { color: #667085; font-size: .92rem; margin: 0 0 2rem; }
+
+  /* ── Asl status qatori (faithful copy fbs_orders.html'dan) ──────── */
+  .fbs-status-line {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .6rem; flex-wrap: wrap;
+  }
+  .fbs-status-row {
+    display: flex; gap: .4rem; flex-wrap: wrap; align-items: center;
+  }
+  .fbs-status-chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .3rem .7rem; border-radius: 8px;
+    font-size: .78rem; font-weight: 600;
+    background: #f3f4f6; border: 1px solid transparent;
+    color: #475569; cursor: pointer;
+  }
+  .fbs-status-chip.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+  .fbs-status-chip-count {
+    display: inline-flex; min-width: 18px; padding: 0 6px; border-radius: 999px;
+    background: rgba(255,255,255,.25); font-size: .68rem; font-weight: 700;
+  }
+  .fbs-status-chip:not(.active) .fbs-status-chip-count { background: #fff; color: #475569; }
+  .fbs-status-nav {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .3rem .8rem; border-radius: 8px;
+    font-size: .78rem; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+    color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe;
+  }
+
+  /* Uzum «U» belgisi (asl SVG) */
+  .uz { display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 5px; flex: none; }
+  .uz svg { width: 11px; height: 11px; display: block; }
+
+  /* ── Demo karkasi ─────────────────────────────────────────────── */
+  .variant {
+    background: #fff; border: 1px solid #eaecf0; border-radius: 18px;
+    padding: 1.1rem 1.25rem 1.25rem; margin-bottom: 1.4rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .variant-head { display: flex; align-items: baseline; gap: .6rem; margin-bottom: .9rem; }
+  .variant-tag {
+    font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: #4169E1; background: rgba(65,105,225,.1);
+    padding: .25rem .6rem; border-radius: 999px;
+  }
+  .variant-name { font-size: 1.02rem; font-weight: 800; }
+  .variant-desc { font-size: .85rem; color: #667085; margin: 0 0 1rem; }
+  .demo-strip {
+    background:
+      radial-gradient(420px 200px at 96% -40px, rgba(124,58,237,.10), transparent 70%),
+      #fff;
+    border: 1px solid #f0f0f4; border-radius: 14px; padding: 1rem 1.1rem;
+  }
+  .base-btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .58rem 1.2rem; border-radius: 12px;
+    font-size: .88rem; font-weight: 700; cursor: pointer;
+    border: 1px solid transparent;
+    transition: background .15s, color .15s, border-color .15s,
+                transform .12s ease, box-shadow .18s ease;
+  }
+  .base-btn:active { transform: translateY(0) scale(.99); }
+
+  /* ══════════ JORIY (eski) — taqqoslash uchun ══════════ */
+  .v-old { color: #fff; background: #7c3aed; border-color: #7c3aed; }
+  .v-old .uz { background: #a78bfa; }
+  .v-old:hover { background: #6d28d9; border-color: #6d28d9; transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(124,58,237,.38); }
+
+  /* ══════════ VARIANT 1 — «Soft Lavender» ══════════
+     Поставка nav-chip bilan bir oila: yengil lavanda fon, binafsha matn.
+     Eng tinch — qatorga to'liq qo'shilib ketadi. */
+  .v1 {
+    background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe;
+  }
+  .v1 .uz { background: #7c3aed; }
+  .v1:hover {
+    background: #7c3aed; color: #fff; border-color: #7c3aed;
+    transform: translateY(-1px); box-shadow: 0 6px 16px rgba(124,58,237,.28);
+  }
+  .v1:hover .uz { background: rgba(255,255,255,.28); }
+
+  /* ══════════ VARIANT 2 — «Glass Outline» ══════════
+     Shaffof shisha + binafsha qirra. Floating-glass header bilan rezonans.
+     Hover'da yengil to'lib, ko'tariladi. */
+  .v2 {
+    background: rgba(255,255,255,.6);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    color: #6d28d9; border-color: rgba(124,58,237,.45);
+  }
+  .v2 .uz { background: #7c3aed; }
+  .v2:hover {
+    background: rgba(124,58,237,.1); border-color: #7c3aed;
+    transform: translateY(-1px); box-shadow: 0 6px 18px -6px rgba(124,58,237,.3);
+  }
+
+  /* ══════════ VARIANT 3 — «Soft Gradient Pill» ══════════
+     Lavanda→oq nozik gradient, to'liq dumaloq pill, yumshoq soya.
+     Biroz premium, ammo baribir yengil. */
+  .v3 {
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ede9fe, #faf5ff);
+    color: #6d28d9; border-color: #e0d7fb;
+    box-shadow: 0 2px 6px rgba(124,58,237,.1);
+  }
+  .v3 .uz { background: #7c3aed; }
+  .v3:hover {
+    background: linear-gradient(135deg, #ddd2fb, #f1e9ff);
+    transform: translateY(-1px); box-shadow: 0 8px 18px -6px rgba(124,58,237,.3);
+  }
+
+  /* ══════════ VARIANT 4 — «Ghost + Aksent» ══════════
+     Deyarli neytral (oq/kulrang), faqat kichik binafsha Uzum belgisi
+     aksent beradi. Eng minimalist — toolbar bilan eriydi. */
+  .v4 {
+    background: #fff; color: #344054; border-color: #e4e4ec;
+    box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  }
+  .v4 .uz { background: #7c3aed; }
+  .v4:hover {
+    background: #faf5ff; color: #6d28d9; border-color: #ddd6fe;
+    transform: translateY(-1px);
+  }
+
+  /* ══════════ VARIANT 5 — «Tinted Solid» (yumshatilgan to'la) ══════════
+     Joriy uslubni saqlaydi, lekin pastel-binafsha (#8b5cf6) + yengilroq
+     soya + nozik ichki yorug'lik. Hali "harakat" tugmasidek ko'rinadi,
+     lekin urib turmaydi. */
+  .v5 {
+    color: #fff; border-color: #8b5cf6;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    box-shadow: 0 4px 12px -2px rgba(124,58,237,.35),
+                inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .v5 .uz { background: rgba(255,255,255,.22); }
+  .v5:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    transform: translateY(-1px); box-shadow: 0 8px 20px -2px rgba(124,58,237,.45);
+  }
+
+  .note { font-size: .8rem; color: #98a2b3; margin-top: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>«Qabul punktlari» tugmasi — 5 variant</h1>
+  <p class="sub">Har variant «Yig'ilmoqda» status qatorining haqiqiy konteksti ichida (asl chiplar + aurora fon). Tepada — joriy (eski) ko'rinish, taqqoslash uchun.</p>
+
+  <!-- JORIY -->
+  <div class="variant" style="border-color:#fecaca;background:#fff;">
+    <div class="variant-head">
+      <span class="variant-tag" style="color:#dc2626;background:#fee2e2;">Joriy</span>
+      <span class="variant-name">Hozirgi ko'rinish (dizaynga urib turadi)</span>
+    </div>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v-old"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 1 -->
+  <div class="variant">
+    <div class="variant-head"><span class="variant-tag">Variant 1</span><span class="variant-name">Soft Lavender</span></div>
+    <p class="variant-desc">«Поставка» chipi bilan bir oila — yengil lavanda fon, binafsha matn. Eng tinch, qatorga to'liq qo'shiladi. Hover'da to'liq binafshaga to'ladi.</p>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v1"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 2 -->
+  <div class="variant">
+    <div class="variant-head"><span class="variant-tag">Variant 2</span><span class="variant-name">Glass Outline</span></div>
+    <p class="variant-desc">Shaffof shisha + binafsha qirra (blur fon bilan). Floating-glass header bilan rezonans qiladi. Hover'da yengil to'lib, ko'tariladi.</p>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v2"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 3 -->
+  <div class="variant">
+    <div class="variant-head"><span class="variant-tag">Variant 3</span><span class="variant-name">Soft Gradient Pill</span></div>
+    <p class="variant-desc">Lavanda→oq nozik gradient, to'liq dumaloq pill, yumshoq soya. Biroz premium, ammo baribir yengil va silliq.</p>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v3"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 4 -->
+  <div class="variant">
+    <div class="variant-head"><span class="variant-tag">Variant 4</span><span class="variant-name">Ghost + Aksent</span></div>
+    <p class="variant-desc">Deyarli neytral (oq/kulrang), faqat kichik binafsha Uzum belgisi aksent beradi. Eng minimalist — toolbar bilan eriydi. Hover'da lavanda tus oladi.</p>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v4"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 5 -->
+  <div class="variant">
+    <div class="variant-head"><span class="variant-tag">Variant 5</span><span class="variant-name">Tinted Solid (yumshatilgan)</span></div>
+    <p class="variant-desc">Joriy uslubni saqlaydi, lekin pastel-binafsha gradient + yengilroq soya + nozik ichki yorug'lik. Hali «harakat» tugmasidek ko'rinadi, lekin urib turmaydi.</p>
+    <div class="demo-strip">
+      <div class="fbs-status-line">
+        <div class="fbs-status-row">
+          <button class="fbs-status-chip">Yangi <span class="fbs-status-chip-count">0</span></button>
+          <button class="fbs-status-chip active">Yig'ilmoqda <span class="fbs-status-chip-count">2</span></button>
+          <a class="fbs-status-nav">📦 Поставка</a>
+        </div>
+        <button class="base-btn v5"><span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span><span>Qabul punktlari</span></button>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">Tugma ustiga sichqonchani olib boring — har birining hover holatini ko'rasiz. Qaysi biri yoqsa raqamini ayting, fbs_orders.html'ga qo'llab, prodga chiqaraman.</p>
+</div>
+</body>
+</html>

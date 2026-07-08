@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aktiv chip — bosilgan holat variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1000px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}.note b{color:#dcdce4}
+.wrap{padding:30px 22px 60px}.stage{max-width:1000px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:30px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:26px 24px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+.lbl{font:700 .7rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:#A6A2AE;margin-bottom:14px}
+
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:16px;flex-wrap:wrap}
+.st{position:relative;display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;white-space:nowrap;transition:.15s}
+.st:hover{color:#1A1A22}
+.st .n{min-width:20px;padding:0 7px;border-radius:999px;background:#fff;color:#7A7684;font:700 .72rem/20px 'Inter';text-align:center;transition:.15s}
+.st svg{width:16px;height:16px}
+.dd-trigger{display:inline-flex;align-items:center;gap:10px;padding:11px 16px 11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;border:0;background:transparent}
+.dd-trigger .cv{width:15px;height:15px;color:#9B98A5}
+
+/* ===== aktiv holat variantlari ===== */
+/* A · Indigo to'liq */
+.va .st.on{background:#4169E1;color:#fff;box-shadow:0 7px 18px -5px rgba(65,105,225,.55)}
+.va .st.on .n{background:rgba(255,255,255,.26);color:#fff}
+/* B · Gradient (indigo→binafsha) */
+.vb .st.on{background:linear-gradient(135deg,#4169E1,#7C3AED);color:#fff;box-shadow:0 7px 18px -5px rgba(96,60,200,.5)}
+.vb .st.on .n{background:rgba(255,255,255,.26);color:#fff}
+/* C · To'q (slate, hozirgiga yaqin lekin yumshoqroq) */
+.vc .st.on{background:#1A1A22;color:#fff}
+.vc .st.on .n{background:rgba(255,255,255,.2);color:#fff}
+/* D · Oq karta + rangli pastki chiziq */
+.vd .st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.vd .st.on::after{content:"";position:absolute;left:18px;right:18px;bottom:6px;height:2.6px;border-radius:2px;background:linear-gradient(90deg,#4169E1,#7C3AED)}
+.vd .st.on .n{background:#4169E1;color:#fff}
+
+.demo-stack{display:flex;flex-direction:column;gap:24px}
+.row-demo{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.row-demo .cap{font:700 .82rem 'Inter';color:#56535F;min-width:54px}
+</style>
+</head>
+<body>
+<div class="pvbar">
+  <h1>Aktiv (bosilgan) chip</h1>
+  <span class="sub">4 variant · «Сборка» aktiv</span>
+  <div class="seg" id="seg">
+    <button data-v="va" class="on">A · Indigo</button>
+    <button data-v="vb">B · Gradient</button>
+    <button data-v="vc">C · To'q</button>
+    <button data-v="vd">D · Oq + chiziq</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel">
+  <div class="lbl">Filter qatori — aktiv holat ko'rinishi</div>
+  <div id="host"></div>
+  <div class="lbl" style="margin-top:28px">Har xil status aktiv bo'lganda</div>
+  <div class="demo-stack" id="stack"></div>
+</div></div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function track(activeIdx){
+  const items=[
+    ['Новый','0',false],
+    ['Сборка','2',false],
+    ['Поставка','5','truck'],
+    ['В пути','0',false],
+  ];
+  const chips=items.map((it,i)=>{
+    const on=i===activeIdx?'on':'';
+    const ic=it[2]==='truck'?TRUCK:'';
+    return `<span class="st ${on}">${ic}${it[0]} <span class="n">${it[1]}</span></span>`;
+  }).join('');
+  return `<div class="segtrack">${chips}<button class="dd-trigger">Boshqa holatlar… ${CV}</button></div>`;
+}
+
+const host=document.getElementById('host');
+const stack=document.getElementById('stack');
+let cur='va';
+function render(v){cur=v;
+  host.className=v;
+  host.innerHTML=track(1);
+  // pastki demo: 0,2,3 indekslari aktiv
+  stack.className='demo-stack '+v;
+  stack.innerHTML=[
+    ['Новый',0],['Поставка',2],['В пути',3]
+  ].map(d=>`<div class="row-demo"><span class="cap">${d[0]}:</span>${track(d[1])}</div>`).join('');
+}
+render('va');
+
+const NOTES={
+ va:'<b>A · Indigo</b> — aktiv chip to\'liq <b>royal-blue</b> (#4169E1) fon, oq matn. Toza, brend rangida, yorqin ajraladi.',
+ vb:'<b>B · Gradient</b> — aktiv chip <b>indigo→binafsha gradient</b>, oq matn. Eng zamonaviy/premium, «Обновить» tugmasi bilan bir tilda.',
+ vc:'<b>C · To\'q</b> — aktiv chip to\'q (slate #1A1A22), oq matn. Hozirgingizga yaqin, ammo yumshoqroq va kontrastli.',
+ vd:'<b>D · Oq + chiziq</b> — oq karta (hozirgidek) + ostida nozik <b>gradient chiziq</b> + rangli son. Eng nozik, minimal.'
+};
+const note=document.getElementById('note');note.innerHTML=NOTES.va;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ render(b.dataset.v);note.innerHTML=NOTES[b.dataset.v];});
+</script>
+</body>
+</html>

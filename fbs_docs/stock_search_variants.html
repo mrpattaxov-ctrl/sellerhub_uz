@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ombor qidiruv qatori — variantlar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1E2435; --navy-2:#2b3450; --navy-tint:rgba(30,36,53,.07);
+    --ink:#101828; --muted:#667085; --line:#e4e7ec;
+    --rose:#b42318; --rose-bg:#fef3f2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Inter",system-ui,sans-serif;color:var(--ink);
+    background:radial-gradient(700px 320px at 10% -40px,rgba(65,105,225,.10),transparent 70%),#eceff5;
+    padding:40px 28px 80px;-webkit-font-smoothing:antialiased;}
+  .page-h{max-width:1120px;margin:0 auto 30px;}
+  .page-h h1{font-size:1.5rem;font-weight:900;margin:0 0 6px;letter-spacing:-.02em;}
+  .page-h p{margin:0;color:var(--muted);font-size:.95rem;}
+
+  .demo{max-width:1120px;margin:0 auto 24px;background:#fff;border:1px solid #edf0f6;border-radius:22px;
+    box-shadow:0 12px 34px -18px rgba(20,16,40,.22);}
+  .demo-top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f1f3f8;}
+  .demo-num{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--navy);color:#fff;font-weight:800;font-size:.9rem;}
+  .demo-name{font-weight:800;font-size:1rem;}
+  .demo-tag{margin-left:auto;color:var(--muted);font-size:.82rem;font-weight:600;}
+  .demo-body{padding:24px;background:#f7f8fb;border-radius:0 0 22px 22px;}
+
+  /* Segment (kontekst, navy) — barcha variantlarda bir xil */
+  .seg{display:inline-flex;gap:4px;padding:5px;border-radius:15px;flex:none;
+    background:color-mix(in srgb,#eef1f8 82%,transparent);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid #e4e9f3;}
+  .seg button{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border:0;border-radius:11px;
+    background:transparent;color:#5A5762;font-weight:700;font-size:.88rem;cursor:pointer;}
+  .seg button.on{background:var(--navy);color:#fff;box-shadow:0 7px 18px -5px rgba(24,28,48,.45);}
+  .seg .c{font-size:.72rem;font-weight:700;color:#7A7684;background:#fff;min-width:20px;text-align:center;
+    padding:.08rem .45rem;border-radius:999px;}
+  .seg button.on .c{color:#fff;background:rgba(255,255,255,.26);}
+
+  .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .ic{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:#98a2b3;pointer-events:none;}
+
+  /* ============================================================
+     V1 — Soft Pill + chip-summary
+     ============================================================ */
+  .v1-search{position:relative;flex:1 1 280px;min-width:220px;}
+  .v1-search input{width:100%;padding:.7rem .9rem .7rem 2.4rem;border:1px solid var(--line);border-radius:13px;
+    font-size:.9rem;color:var(--ink);background:#fff;font-family:inherit;transition:border-color .15s,box-shadow .15s;}
+  .v1-search input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 4px var(--navy-tint);}
+  .chips{display:inline-flex;align-items:center;gap:7px;flex:none;}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:.34rem .7rem;border-radius:999px;
+    font-size:.78rem;font-weight:700;background:#eef0f5;color:#475467;white-space:nowrap;}
+  .chip b{color:var(--ink);}
+  .chip.rose{background:var(--rose-bg);color:var(--rose);}
+  .chip.ghost{background:transparent;color:#98a2b3;font-weight:600;}
+  .chip.ghost svg{opacity:.7;}
+
+  /* ============================================================
+     V2 — Unified bar (summary INSIDE the search pill)
+     ============================================================ */
+  .v2-bar{flex:1 1 420px;min-width:300px;display:flex;align-items:center;gap:.6rem;
+    padding:.4rem .5rem .4rem 2.4rem;position:relative;
+    border:1px solid var(--line);border-radius:14px;background:#fff;transition:border-color .15s,box-shadow .15s;}
+  .v2-bar:focus-within{border-color:var(--navy);box-shadow:0 0 0 4px var(--navy-tint);}
+  .v2-bar input{flex:1 1 auto;border:0;outline:none;background:transparent;font-family:inherit;
+    font-size:.9rem;color:var(--ink);padding:.3rem 0;min-width:80px;}
+  .v2-bar .div{width:1px;align-self:stretch;background:#e9edf3;margin:.2rem 0;}
+  .v2-bar .chips{padding-right:.2rem;}
+
+  /* ============================================================
+     V3 — Glass search + nuqta-ajratgichli summary
+     ============================================================ */
+  .v3-search{position:relative;flex:1 1 280px;min-width:220px;}
+  .v3-search input{width:100%;padding:.72rem .9rem .72rem 2.4rem;border-radius:13px;font-family:inherit;
+    font-size:.9rem;color:var(--ink);border:1px solid rgba(255,255,255,.6);
+    background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    box-shadow:inset 0 1px 2px rgba(16,24,40,.04);transition:border-color .15s,box-shadow .15s,background .15s;}
+  .v3-search input:focus{outline:none;border-color:var(--navy);background:rgba(255,255,255,.85);
+    box-shadow:0 0 0 4px var(--navy-tint);}
+  .v3-sum{display:inline-flex;align-items:center;gap:.5rem;flex:none;font-size:.82rem;font-weight:600;color:var(--muted);white-space:nowrap;}
+  .v3-sum b{color:var(--ink);font-weight:800;}
+  .v3-sum .rose{color:var(--rose);font-weight:800;}
+  .v3-sum .dot{width:4px;height:4px;border-radius:99px;background:#cbd2de;}
+  .v3-sum .fresh{color:#98a2b3;font-weight:500;}
+
+  /* ============================================================
+     V4 — Boxed module (search + summary bitta panelда)
+     ============================================================ */
+  .v4-wrap{flex:1 1 420px;min-width:300px;display:flex;align-items:center;gap:14px;
+    padding:8px;border-radius:16px;background:#fff;border:1px solid #edf0f6;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  .v4-search{position:relative;flex:1 1 auto;}
+  .v4-search input{width:100%;padding:.62rem .9rem .62rem 2.3rem;border:1px solid var(--line);border-radius:11px;
+    font-size:.9rem;color:var(--ink);background:#f7f8fb;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s;}
+  .v4-search input:focus{outline:none;border-color:var(--navy);background:#fff;box-shadow:0 0 0 4px var(--navy-tint);}
+  .v4-search .ic{left:.8rem;}
+
+  .hint{max-width:1120px;margin:34px auto 0;color:var(--muted);font-size:.9rem;text-align:center;}
+  .hint b{color:var(--ink);}
+</style>
+</head>
+<body>
+  <div class="page-h">
+    <h1>Ombor qidiruv qatori — 4 dizayn variant</h1>
+    <p>«Jami … SKU» summary va qidiruv maydoni dizaynimizga (navy urg'u, soft, glass) moslab. Yoqqanini ayting — prodga qo'shaman.</p>
+  </div>
+
+  <!-- V1 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">1</span><span class="demo-name">Soft Pill + chip-summary</span>
+      <span class="demo-tag">summary → yumaloq «chip»lar</span></div>
+    <div class="demo-body">
+      <div class="row">
+        <div class="seg"><button class="on">Hammasi <span class="c">1782</span></button><button>Mavjud <span class="c">0</span></button><button>Tugagan <span class="c">1782</span></button></div>
+        <div class="v1-search">
+          <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Nomi, SKU yoki shtrix-kod bo'yicha qidirish…">
+        </div>
+        <div class="chips">
+          <span class="chip"><b>1 782</b> SKU</span>
+          <span class="chip rose"><b>1 782</b> tugagan</span>
+          <span class="chip ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>hozirgina</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V2 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">2</span><span class="demo-name">Unified Bar</span>
+      <span class="demo-tag">summary qidiruv ICHIDA · yagona pill</span></div>
+    <div class="demo-body">
+      <div class="row">
+        <div class="seg"><button class="on">Hammasi <span class="c">1782</span></button><button>Mavjud <span class="c">0</span></button><button>Tugagan <span class="c">1782</span></button></div>
+        <div class="v2-bar">
+          <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Nomi, SKU yoki shtrix-kod bo'yicha qidirish…">
+          <span class="div"></span>
+          <span class="chips">
+            <span class="chip"><b>1 782</b> SKU</span>
+            <span class="chip rose"><b>1 782</b> tugagan</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V3 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">3</span><span class="demo-name">Glass Search</span>
+      <span class="demo-tag">frosted maydon · nuqta-ajratgichli matn</span></div>
+    <div class="demo-body">
+      <div class="row">
+        <div class="seg"><button class="on">Hammasi <span class="c">1782</span></button><button>Mavjud <span class="c">0</span></button><button>Tugagan <span class="c">1782</span></button></div>
+        <div class="v3-search">
+          <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Nomi, SKU yoki shtrix-kod bo'yicha qidirish…">
+        </div>
+        <span class="v3-sum"><span><b>1 782</b> SKU</span><span class="dot"></span><span class="rose">1 782 tugagan</span><span class="dot"></span><span class="fresh">Yangilandi: hozirgina</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- V4 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">4</span><span class="demo-name">Boxed Module</span>
+      <span class="demo-tag">search + summary bitta panelда</span></div>
+    <div class="demo-body">
+      <div class="row">
+        <div class="seg"><button class="on">Hammasi <span class="c">1782</span></button><button>Mavjud <span class="c">0</span></button><button>Tugagan <span class="c">1782</span></button></div>
+        <div class="v4-wrap">
+          <div class="v4-search">
+            <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="Nomi, SKU yoki shtrix-kod bo'yicha qidirish…">
+          </div>
+          <div class="chips">
+            <span class="chip"><b>1 782</b> SKU</span>
+            <span class="chip rose"><b>1 782</b> tugagan</span>
+            <span class="chip ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>hozirgina</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">Qaysi raqam yoqdi? Ayting — masalan «<b>2-variant</b>» — o'shani Ombor sahifasiga (dark-tema bilan) qo'shaman.</p>
+</body>
+</html>

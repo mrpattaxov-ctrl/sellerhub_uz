@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyurtma modali — Накладная uslubida · 5 variant</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 20px 80px;
+    background: #eef0f7;
+    font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    color: #101828;
+  }
+  .page-title { text-align: center; margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+  .page-sub { text-align: center; color: #667085; font-size: 14px; margin: 0 0 36px; }
+  .variant { max-width: 760px; margin: 0 auto 56px; }
+  .variant-tag {
+    display: flex; align-items: baseline; gap: 10px; margin: 0 0 14px; padding: 0 4px;
+  }
+  .variant-tag .n {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: #1e293b; color: #fff; font-weight: 800; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .variant-tag h2 { margin: 0; font-size: 17px; font-weight: 800; }
+  .variant-tag p { margin: 0; color: #8b90a3; font-size: 13px; }
+
+  /* ════════ SHARED MODAL CHROME (накладная DNA) ════════ */
+  .md {
+    background: #fff; border-radius: 22px; overflow: hidden; position: relative;
+    box-shadow: 0 32px 80px -24px rgba(24,30,60,.4), 0 2px 8px rgba(24,30,60,.06);
+  }
+  /* — Dark slate header band — */
+  .md-head {
+    position: relative; background: #1e293b; color: #fff;
+    padding: 20px 56px 20px 22px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .md-head::after {
+    content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, #7b4eff 0%, #22d3ee 58%, transparent 100%);
+  }
+  .md-badge {
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    background: #fff; color: #1e293b; display: grid; place-items: center; font-size: 20px;
+  }
+  .md-htext { min-width: 0; flex: 1; }
+  .md-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: #94a3b8; line-height: 1;
+  }
+  .md-title { margin: 3px 0 0; font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .md-head-pills { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 1;
+  }
+  .pill.amber { background: #fef3c7; color: #b45309; }
+  .pill.amber::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.scheme { background: rgba(255,255,255,.18); color: #fff; }
+  .md-x {
+    position: absolute; top: 14px; right: 16px; width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff; border: 0; cursor: pointer;
+    display: grid; place-items: center; font-size: 16px;
+  }
+  .md-x:hover { background: rgba(255,255,255,.22); }
+  .head-akt {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 11px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.28); color: #fff;
+    font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    transition: .15s;
+  }
+  .head-akt:hover { background: #fff; color: #1e293b; border-color: #fff; }
+
+  .md-body { padding: 18px 22px 6px; }
+
+  /* — Fact grid (oq kartalar, icon + label + value) — */
+  .facts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 10px; margin-bottom: 12px;
+  }
+  .fact {
+    display: flex; gap: 11px; align-items: flex-start;
+    background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  .fact-ic {
+    flex: none; width: 30px; height: 30px; border-radius: 9px;
+    background: #eef1f6; color: #334155; display: grid; place-items: center; font-size: 15px;
+  }
+  .fact .k { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #667085; }
+  .fact .v { font-size: 14.5px; font-weight: 700; color: #101828; margin-top: 2px; line-height: 1.25; }
+  .fact .sub { font-size: 12px; font-weight: 700; margin-top: 3px; color: #475467; }
+  .fact .sub.urgent { color: #b45309; }
+  .fact.primary .fact-ic { background: #1e293b; color: #fff; }
+
+  /* — Tarkib sarlavhasi — */
+  .sec {
+    display: flex; align-items: center; gap: 9px; margin: 14px 2px 9px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #98a2b3;
+  }
+  .sec .cnt { background: #eef1f6; color: #1e293b; border-radius: 999px; padding: 2px 9px; font-size: 11px; }
+
+  /* — Mahsulot qatorlari (lines) — */
+  .lines { display: flex; flex-direction: column; gap: 9px; }
+  .line {
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+    border: 1px solid #ebedf3; border-radius: 16px;
+  }
+  .li-thumb {
+    flex: none; width: 54px; height: 54px; border-radius: 13px; background: #eef1f6;
+    border: 1px solid #e6e9ef; display: grid; place-items: center; font-size: 22px; color: #b0b6c5;
+  }
+  .li-mid { flex: 1; min-width: 0; }
+  .li-title { font-weight: 700; font-size: 14.5px; color: #16182b; line-height: 1.3; }
+  .li-sub { font-size: 11.5px; color: #8b90a3; font-weight: 500; margin-top: 3px; }
+  .li-right { text-align: right; white-space: nowrap; flex: none; }
+  .li-qty { font-size: 11.5px; color: #8b90a3; font-weight: 600; }
+  .li-sum { font-size: 15.5px; font-weight: 800; color: #16182b; margin-top: 1px; }
+
+  /* — Jami panel — */
+  .total {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #eef1f6; border-radius: 16px; padding: 15px 18px; margin: 14px 0 4px;
+  }
+  .total .lbl { font-size: 13.5px; font-weight: 700; color: #334155; }
+  .total .val { font-size: 23px; font-weight: 800; letter-spacing: -.02em; color: #0f172a; }
+
+  /* — Amal tugmalari — */
+  .acts { display: flex; gap: 11px; padding: 16px 22px 24px; flex-wrap: wrap; }
+  .btn {
+    flex: 1 1 140px; height: 50px; border: 0; border-radius: 14px; cursor: pointer;
+    font-size: 14.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: .14s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-dark { background: #1e293b; color: #fff; box-shadow: 0 8px 20px -8px rgba(30,41,59,.5); }
+  .btn-soft { background: #eef1f6; color: #1e293b; }
+  .btn-danger { background: #fdecec; color: #e23b3b; }
+  .btn-success { background: #0d9f6e; color: #fff; box-shadow: 0 8px 20px -8px rgba(13,159,110,.55); }
+
+  /* ════════ V2 — RAIL (накладная order-card uslubi) ════════ */
+  .v2-card {
+    display: grid; grid-template-columns: minmax(0,1fr) 198px;
+    border: 1px solid #eaecf0; border-radius: 16px; overflow: hidden; background: #fff;
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+  }
+  .v2-left { padding: 6px 16px; }
+  .v2-pl { display: flex; align-items: center; gap: 13px; padding: 11px 0; min-width: 0; }
+  .v2-pl + .v2-pl { border-top: 1px solid #f2f4f7; }
+  .v2-pl .li-thumb { width: 50px; height: 50px; }
+  .v2-dpill {
+    flex: none; min-width: 60px; text-align: center; padding: 5px 10px; border-radius: 999px;
+    background: #eef1f6; color: #334155; font-weight: 800; font-size: 12.5px;
+  }
+  .v2-rail {
+    background: #f8f9fc; box-shadow: inset 1px 0 0 #eaecf0; padding: 18px 18px;
+    display: flex; flex-direction: column; justify-content: center; gap: 12px;
+  }
+  .v2-rail-it { }
+  .v2-rail .rk { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #98a2b3; }
+  .v2-rail .rv { font-size: 15px; font-weight: 800; color: #16182b; margin-top: 2px; }
+  .v2-rail .rv.status { color: #0d9f6e; font-size: 13.5px; }
+  .v2-rail .rv.sum { font-size: 19px; }
+
+  /* ════════ V3 — COUNTDOWN SPOTLIGHT ════════ */
+  .v3-spot {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 12px;
+    background: linear-gradient(100deg, #fff7ed, #fff); border: 1px solid #fde0c0;
+    border-radius: 16px; padding: 14px 18px;
+  }
+  .v3-spot .ring {
+    flex: none; width: 54px; height: 54px; border-radius: 50%;
+    background: conic-gradient(#f59e0b 0 70%, #fde0c0 0); display: grid; place-items: center;
+  }
+  .v3-spot .ring span { width: 42px; height: 42px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 20px; }
+  .v3-spot .k { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #b45309; }
+  .v3-spot .big { font-size: 19px; font-weight: 800; color: #7a4400; margin-top: 1px; }
+  .v3-spot .sml { font-size: 12.5px; color: #b45309; font-weight: 600; }
+  .v3-mini { display: flex; gap: 22px; flex-wrap: wrap; padding: 4px 4px 12px; }
+  .v3-mini .k { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #98a2b3; }
+  .v3-mini .v { font-size: 14px; font-weight: 700; color: #101828; margin-top: 2px; }
+
+  /* ════════ V4 — IXCHAM (compact inline strip) ════════ */
+  .v4-strip {
+    display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center;
+    background: #f8f9fc; border: 1px solid #eaecf0; border-radius: 13px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .v4-item { display: flex; align-items: center; gap: 8px; }
+  .v4-item .ic { color: #64748b; font-size: 14px; }
+  .v4-item .k { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #98a2b3; }
+  .v4-item .v { font-size: 13.5px; font-weight: 700; color: #101828; }
+  .v4-line { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid #f2f4f7; }
+  .v4-line:last-child { border-bottom: 0; }
+  .v4-line .li-thumb { width: 42px; height: 42px; border-radius: 10px; font-size: 17px; }
+  .v4-line .li-title { font-size: 13.5px; }
+
+  /* ════════ V5 — AURORA (premium glow) ════════ */
+  .v5 .md-head {
+    background: radial-gradient(120% 160% at 0% 0%, #2b3a6b 0%, #1e293b 48%, #161d2e 100%);
+  }
+  .v5 .md-head::after {
+    height: 4px;
+    background: linear-gradient(90deg, #a78bfa 0%, #7b4eff 30%, #22d3ee 70%, #34d399 100%);
+    box-shadow: 0 0 16px rgba(123,78,255,.55);
+  }
+  .v5 .md-badge { background: linear-gradient(135deg, #7b4eff, #22d3ee); color: #fff; }
+  .v5 .fact { border-color: #ece8ff; box-shadow: 0 6px 18px -10px rgba(105,56,239,.35); }
+  .v5 .fact-ic { background: rgba(105,56,239,.10); color: #6938ef; }
+  .v5 .fact.primary .fact-ic { background: linear-gradient(135deg,#7b4eff,#22d3ee); color: #fff; }
+  .v5 .fact.primary .v { color: #6938ef; }
+  .v5 .total {
+    background: linear-gradient(100deg, rgba(105,56,239,.10), rgba(34,211,238,.10));
+    border: 1px solid rgba(105,56,239,.14);
+  }
+  .v5 .total .val { color: #6938ef; }
+  .v5 .btn-dark { background: linear-gradient(135deg, #7b4eff, #6938ef); box-shadow: 0 10px 22px -8px rgba(105,56,239,.6); }
+</style>
+</head>
+<body>
+  <h1 class="page-title">Buyurtma detali — «Накладная» uslubida</h1>
+  <p class="page-sub">2-rasmdagi «Buyurtma №111550959» oynasi, накладная dizayniga moslangan · 5 variant</p>
+
+  <!-- ════════════════ V1 — SODIQ ════════════════ -->
+  <div class="variant">
+    <div class="variant-tag">
+      <div class="n">1</div>
+      <div><h2>Sodiq (накладная nusxasi)</h2><p>Aynan накладная: ingichka to'q band + oq fact-kartalar + qator mahsulotlar</p></div>
+    </div>
+    <div class="md">
+      <div class="md-head">
+        <button class="md-x">×</button>
+        <div class="md-badge">📦</div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · Yaratildi 13.06.2026 17:03</div>
+          <div class="md-title">№111550959</div>
+          <div class="md-head-pills">
+            <span class="pill amber">Yig'ilmoqda</span>
+            <span class="pill scheme">FBS</span>
+          </div>
+        </div>
+        <button class="head-akt">🖨 Etiketka</button>
+      </div>
+      <div class="md-body">
+        <div class="facts">
+          <div class="fact"><div class="fact-ic">⏱</div><div><div class="k">Tasdiqlash muddati</div><div class="v">14.06 09:03</div></div></div>
+          <div class="fact"><div class="fact-ic">🚚</div><div><div class="k">Yetkazib berish</div><div class="v">17.06 16:00</div><div class="sub urgent">1 kun 23 soat</div></div></div>
+          <div class="fact primary"><div class="fact-ic">$</div><div><div class="k">To'liq summa</div><div class="v">75 900 UZS</div></div></div>
+          <div class="fact"><div class="fact-ic">№</div><div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div></div>
+        </div>
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+        <div class="lines">
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (O'lcham: 2.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div><div class="li-right"><div class="li-qty">15 000 × 3</div><div class="li-sum">45 000</div></div></div>
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (O'lcham: 3.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div><div class="li-right"><div class="li-qty">15 000 × 1</div><div class="li-sum">15 000</div></div></div>
+          <div class="line"><div class="li-thumb">📿</div><div class="li-mid"><div class="li-title">Ayollar zanjiri — nafis aksessuar (Rang: Malla)</div><div class="li-sub">SKU BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div><div class="li-right"><div class="li-qty">7 950 × 2</div><div class="li-sum">15 900</div></div></div>
+        </div>
+        <div class="total"><span class="lbl">Jami summa</span><span class="val">75 900 UZS</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-danger">✕ Bekor qilish</button>
+        <button class="btn btn-soft">▦ QR chop etish</button>
+        <button class="btn btn-dark">🖨 Etiketka chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ V2 — RAIL ════════════════ -->
+  <div class="variant">
+    <div class="variant-tag">
+      <div class="n">2</div>
+      <div><h2>Rail (o'ng panel)</h2><p>Накладная order-kartasi: mahsulotlar bitta kartada + o'ng tomonda Status/Jami/Summa paneli</p></div>
+    </div>
+    <div class="md">
+      <div class="md-head">
+        <button class="md-x">×</button>
+        <div class="md-badge">📦</div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · Yaratildi 13.06.2026 17:03</div>
+          <div class="md-title">№111550959</div>
+          <div class="md-head-pills"><span class="pill amber">Yig'ilmoqda</span><span class="pill scheme">FBS</span></div>
+        </div>
+        <button class="head-akt">🖨 Etiketka</button>
+      </div>
+      <div class="md-body">
+        <div class="facts">
+          <div class="fact"><div class="fact-ic">⏱</div><div><div class="k">Tasdiqlash muddati</div><div class="v">14.06 09:03</div></div></div>
+          <div class="fact"><div class="fact-ic">🚚</div><div><div class="k">Yetkazib berish</div><div class="v">17.06 16:00</div><div class="sub urgent">1 kun 23 soat</div></div></div>
+          <div class="fact"><div class="fact-ic">№</div><div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div></div>
+        </div>
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+        <div class="v2-card">
+          <div class="v2-left">
+            <div class="v2-pl"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit (2.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-25</div></div><div class="v2-dpill">3 dona</div></div>
+            <div class="v2-pl"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit (3.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-35</div></div><div class="v2-dpill">1 dona</div></div>
+            <div class="v2-pl"><div class="li-thumb">📿</div><div class="li-mid"><div class="li-title">Ayollar zanjiri (Malla)</div><div class="li-sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ</div></div><div class="v2-dpill">2 dona</div></div>
+          </div>
+          <div class="v2-rail">
+            <div class="v2-rail-it"><div class="rk">Status</div><div class="rv status">Yig'ilmoqda</div></div>
+            <div class="v2-rail-it"><div class="rk">Jami</div><div class="rv">6 dona</div></div>
+            <div class="v2-rail-it"><div class="rk">Summa</div><div class="rv sum">75 900 UZS</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-danger">✕ Bekor qilish</button>
+        <button class="btn btn-soft">▦ QR chop etish</button>
+        <button class="btn btn-dark">🖨 Etiketka chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ V3 — COUNTDOWN SPOTLIGHT ════════════════ -->
+  <div class="variant">
+    <div class="variant-tag">
+      <div class="n">3</div>
+      <div><h2>Muddat-spotlight</h2><p>Yetkazib berish vaqti — yirik hisoblagich karta (sotuvchi shoshilinchni darrov ko'radi)</p></div>
+    </div>
+    <div class="md">
+      <div class="md-head">
+        <button class="md-x">×</button>
+        <div class="md-badge">📦</div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · Yaratildi 13.06.2026 17:03</div>
+          <div class="md-title">№111550959</div>
+          <div class="md-head-pills"><span class="pill amber">Yig'ilmoqda</span><span class="pill scheme">FBS</span></div>
+        </div>
+        <button class="head-akt">🖨 Etiketka</button>
+      </div>
+      <div class="md-body">
+        <div class="v3-spot">
+          <div class="ring"><span>⏳</span></div>
+          <div style="flex:1">
+            <div class="k">Yetkazib berishgacha</div>
+            <div class="big">1 kun 23 soat</div>
+            <div class="sml">17.06.2026, 16:00 gacha</div>
+          </div>
+          <div style="text-align:right">
+            <div class="k">To'liq summa</div>
+            <div class="big" style="color:#0f172a">75 900</div>
+            <div class="sml" style="color:#98a2b3">UZS</div>
+          </div>
+        </div>
+        <div class="v3-mini">
+          <div><div class="k">Tasdiqlash muddati</div><div class="v">14.06.2026, 09:03</div></div>
+          <div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div>
+          <div><div class="k">Sxema</div><div class="v">FBS</div></div>
+        </div>
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+        <div class="lines">
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (2.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div><div class="li-right"><div class="li-qty">15 000 × 3</div><div class="li-sum">45 000</div></div></div>
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (3.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div><div class="li-right"><div class="li-qty">15 000 × 1</div><div class="li-sum">15 000</div></div></div>
+          <div class="line"><div class="li-thumb">📿</div><div class="li-mid"><div class="li-title">Ayollar zanjiri (Rang: Malla)</div><div class="li-sub">SKU BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div><div class="li-right"><div class="li-qty">7 950 × 2</div><div class="li-sum">15 900</div></div></div>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-danger">✕ Bekor qilish</button>
+        <button class="btn btn-soft">▦ QR chop etish</button>
+        <button class="btn btn-dark">🖨 Etiketka chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ V4 — IXCHAM ════════════════ -->
+  <div class="variant">
+    <div class="variant-tag">
+      <div class="n">4</div>
+      <div><h2>Ixcham</h2><p>Fact-lar bitta ingichka strip, mahsulotlar zich — scrollsiz sig'adi</p></div>
+    </div>
+    <div class="md">
+      <div class="md-head" style="padding-top:16px;padding-bottom:16px">
+        <button class="md-x">×</button>
+        <div class="md-badge" style="width:40px;height:40px;font-size:18px">📦</div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · FBS · 13.06.2026 17:03</div>
+          <div class="md-title" style="font-size:21px">№111550959 <span class="pill amber" style="vertical-align:middle;margin-left:6px">Yig'ilmoqda</span></div>
+        </div>
+        <button class="head-akt">🖨 Etiketka</button>
+      </div>
+      <div class="md-body">
+        <div class="v4-strip">
+          <div class="v4-item"><span class="ic">⏱</span><div><div class="k">Tasdiqlash</div><div class="v">14.06 09:03</div></div></div>
+          <div class="v4-item"><span class="ic">🚚</span><div><div class="k">Yetkazish</div><div class="v">17.06 16:00 · <span style="color:#b45309">1k 23s</span></div></div></div>
+          <div class="v4-item"><span class="ic">№</span><div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div></div>
+          <div class="v4-item"><span class="ic">$</span><div><div class="k">Summa</div><div class="v">75 900 UZS</div></div></div>
+        </div>
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+        <div>
+          <div class="v4-line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit (2.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div><div class="li-right"><div class="li-qty">15 000 × 3</div><div class="li-sum" style="font-size:14px">45 000</div></div></div>
+          <div class="v4-line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit (3.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div><div class="li-right"><div class="li-qty">15 000 × 1</div><div class="li-sum" style="font-size:14px">15 000</div></div></div>
+          <div class="v4-line"><div class="li-thumb">📿</div><div class="li-mid"><div class="li-title">Ayollar zanjiri (Malla)</div><div class="li-sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div><div class="li-right"><div class="li-qty">7 950 × 2</div><div class="li-sum" style="font-size:14px">15 900</div></div></div>
+        </div>
+        <div class="total" style="padding:11px 16px"><span class="lbl">Jami summa</span><span class="val" style="font-size:20px">75 900 UZS</span></div>
+      </div>
+      <div class="acts" style="padding-top:12px">
+        <button class="btn btn-danger" style="height:46px">✕ Bekor</button>
+        <button class="btn btn-soft" style="height:46px">▦ QR</button>
+        <button class="btn btn-dark" style="height:46px">🖨 Etiketka chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ V5 — AURORA ════════════════ -->
+  <div class="variant v5">
+    <div class="variant-tag">
+      <div class="n">5</div>
+      <div><h2>Aurora (premium)</h2><p>Накладная skeleti + gradient nur (binafsha→moviy) header, gradient fact-ikonlar va summa paneli</p></div>
+    </div>
+    <div class="md">
+      <div class="md-head">
+        <button class="md-x">×</button>
+        <div class="md-badge">📦</div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · Yaratildi 13.06.2026 17:03</div>
+          <div class="md-title">№111550959</div>
+          <div class="md-head-pills"><span class="pill amber">Yig'ilmoqda</span><span class="pill scheme">FBS</span></div>
+        </div>
+        <button class="head-akt">🖨 Etiketka</button>
+      </div>
+      <div class="md-body">
+        <div class="facts">
+          <div class="fact"><div class="fact-ic">⏱</div><div><div class="k">Tasdiqlash muddati</div><div class="v">14.06 09:03</div></div></div>
+          <div class="fact"><div class="fact-ic">🚚</div><div><div class="k">Yetkazib berish</div><div class="v">17.06 16:00</div><div class="sub urgent">1 kun 23 soat</div></div></div>
+          <div class="fact primary"><div class="fact-ic">$</div><div><div class="k">To'liq summa</div><div class="v">75 900 UZS</div></div></div>
+          <div class="fact"><div class="fact-ic">№</div><div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div></div>
+        </div>
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+        <div class="lines">
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (2.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div><div class="li-right"><div class="li-qty">15 000 × 3</div><div class="li-sum">45 000</div></div></div>
+          <div class="line"><div class="li-thumb">🧲</div><div class="li-mid"><div class="li-title">Stresga qarshi magnit, 2 dona (3.5sm)</div><div class="li-sub">SKU BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div><div class="li-right"><div class="li-qty">15 000 × 1</div><div class="li-sum">15 000</div></div></div>
+          <div class="line"><div class="li-thumb">📿</div><div class="li-mid"><div class="li-title">Ayollar zanjiri (Rang: Malla)</div><div class="li-sub">SKU BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div><div class="li-right"><div class="li-qty">7 950 × 2</div><div class="li-sum">15 900</div></div></div>
+        </div>
+        <div class="total"><span class="lbl">Jami summa</span><span class="val">75 900 UZS</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-danger">✕ Bekor qilish</button>
+        <button class="btn btn-soft">▦ QR chop etish</button>
+        <button class="btn btn-dark">🖨 Etiketka chop etish</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

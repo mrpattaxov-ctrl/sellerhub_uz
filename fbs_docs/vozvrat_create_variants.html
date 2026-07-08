@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Создать возврат — 5 вариантов дизайна</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Manrope',system-ui,sans-serif;background:#ECEAE4;color:#1C2030;-webkit-font-smoothing:antialiased}
+  .page{max-width:1100px;margin:0 auto;padding:30px 20px 120px}
+  /* variant nav */
+  .vnav{position:sticky;top:0;z-index:100;display:flex;gap:8px;flex-wrap:wrap;padding:14px;background:rgba(236,234,228,.85);backdrop-filter:blur(10px);border-bottom:1px solid #D8D5CD;margin-bottom:28px}
+  .vnav a{text-decoration:none;font-weight:800;font-size:13px;padding:8px 14px;border-radius:10px;background:#fff;color:#2A2F45;border:1px solid #E0DDD5;transition:.15s}
+  .vnav a:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+  .vsec{margin-bottom:56px}
+  .vlabel{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+  .vlabel h2{font-size:20px;font-weight:800}
+  .vlabel span{font-size:13px;color:#7A7F90;font-weight:600}
+  .vtag{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:7px}
+
+  /* ── shared row data helpers via utility classes per-variant below ── */
+  .img{border-radius:10px;background:#EDEBE4;display:flex;align-items:center;justify-content:center;color:#B9B6AD;flex:none;overflow:hidden}
+  .img img{width:100%;height:100%;object-fit:cover}
+  input.qty{font-family:inherit;font-weight:700;text-align:center;outline:none}
+  .reverse-ico{display:inline-flex}
+
+  /* ════════ V1 — Soft Amber Reverse ════════ */
+  .v1-card{background:#fff;border-radius:22px;padding:26px;box-shadow:0 18px 50px rgba(120,80,20,.07)}
+  .v1-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .v1-badge{width:50px;height:50px;border-radius:15px;background:linear-gradient(135deg,#FFF1DF,#FFE2BE);display:flex;align-items:center;justify-content:center;color:#C9701B;flex:none}
+  .v1-head h3{font-size:21px;font-weight:800}
+  .v1-head p{font-size:13px;color:#9A8A6E;font-weight:600;margin-top:2px}
+  .v1-banner{display:flex;gap:12px;align-items:flex-start;background:#FFF8EE;border:1px solid #F6E4C8;border-radius:14px;padding:14px 16px;margin-bottom:16px;color:#9A7026;font-weight:600;font-size:13px;line-height:1.5}
+  .v1-search{display:flex;align-items:center;gap:10px;background:#F7F5F0;border:1.5px solid transparent;border-radius:13px;padding:12px 15px;margin-bottom:16px;transition:.15s}
+  .v1-search:focus-within{border-color:#E8A24A;background:#fff}
+  .v1-search input{border:none;background:none;outline:none;font-size:14px;font-weight:600;width:100%;font-family:inherit}
+  .v1-th{display:grid;grid-template-columns:1fr 130px 170px;padding:10px 8px;font-size:11px;font-weight:800;letter-spacing:.05em;color:#A99B82;text-transform:uppercase}
+  .v1-row{display:grid;grid-template-columns:1fr 130px 170px;align-items:center;padding:14px 8px;border-top:1px solid #F2EFE8;transition:.12s}
+  .v1-row:hover{background:#FFFBF4}
+  .v1-prod{display:flex;align-items:center;gap:13px;min-width:0}
+  .v1-prod .img{width:48px;height:48px}
+  .v1-prod b{font-weight:700;font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+  .v1-prod small{color:#9A9690;font-size:12px}
+  .v1-gab{display:inline-block;background:#FBEFD9;color:#B6852A;font-weight:800;font-size:12px;padding:5px 12px;border-radius:8px}
+  .v1-qtywrap{display:flex;align-items:center;gap:10px}
+  .v1-qty{width:88px;height:42px;border:1.5px solid #EBE7DE;border-radius:11px;font-size:15px}
+  .v1-qty:focus{border-color:#E8A24A}
+  .v1-max{color:#B7B2A8;font-weight:700;font-size:13px}
+  .v1-foot{display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding-top:20px;border-top:1px solid #F2EFE8}
+  .v1-selall{background:#fff;border:1.5px solid #EBE7DE;border-radius:12px;padding:12px 20px;font-weight:800;font-size:14px;color:#5A5F72;cursor:pointer;transition:.15s}
+  .v1-selall:hover{border-color:#E8A24A;color:#C9701B}
+  .v1-actions{display:flex;gap:10px;align-items:center}
+  .v1-sum{font-weight:800;font-size:14px;color:#1C2030;margin-right:8px}
+  .v1-sum span{color:#A99B82;font-weight:600}
+  .v1-back{background:#fff;border:1.5px solid #EBE7DE;border-radius:12px;padding:12px 22px;font-weight:800;color:#5A5F72;cursor:pointer}
+  .v1-go{background:linear-gradient(135deg,#F0A14B,#E2802E);border:none;border-radius:12px;padding:12px 30px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 8px 20px rgba(226,128,46,.35);transition:.15s}
+  .v1-go:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(226,128,46,.45)}
+
+  /* ════════ V2 — Uzum Violet Modern ════════ */
+  .v2-card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px rgba(90,40,160,.1)}
+  .v2-hero{background:linear-gradient(120deg,#7B2FF7,#9D5BFF);padding:24px 26px;color:#fff;position:relative;overflow:hidden}
+  .v2-hero::after{content:"";position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.08)}
+  .v2-hero h3{font-size:22px;font-weight:800;display:flex;align-items:center;gap:12px}
+  .v2-hero p{font-size:13px;opacity:.85;font-weight:600;margin-top:6px}
+  .v2-body{padding:22px 26px}
+  .v2-search{display:flex;align-items:center;gap:10px;background:#F4F1FB;border:1.5px solid transparent;border-radius:13px;padding:12px 15px;margin-bottom:18px;transition:.15s}
+  .v2-search:focus-within{border-color:#9D5BFF;background:#fff}
+  .v2-search input{border:none;background:none;outline:none;font-size:14px;font-weight:600;width:100%;font-family:inherit}
+  .v2-row{display:grid;grid-template-columns:1fr 120px 160px;align-items:center;padding:14px 6px;border-bottom:1px solid #F1EEF8}
+  .v2-row:hover{background:#FBFAFF}
+  .v2-prod{display:flex;align-items:center;gap:13px;min-width:0}
+  .v2-prod .img{width:48px;height:48px;border-radius:12px}
+  .v2-prod b{font-weight:700;font-size:14px;display:block}
+  .v2-prod small{color:#9A96A4;font-size:12px}
+  .v2-gab{display:inline-block;background:#F0E9FE;color:#7B2FF7;font-weight:800;font-size:12px;padding:5px 12px;border-radius:8px}
+  .v2-qtywrap{display:flex;align-items:center;gap:9px}
+  .v2-qty{width:84px;height:42px;border:1.5px solid #ECE7F6;border-radius:11px;font-size:15px}
+  .v2-qty:focus{border-color:#9D5BFF}
+  .v2-max{color:#B5B0C0;font-weight:700;font-size:13px}
+  .v2-foot{display:flex;align-items:center;justify-content:space-between;padding:18px 26px;background:#FAF9FD;border-top:1px solid #F1EEF8}
+  .v2-selall{background:#fff;border:1.5px solid #E7E2F2;border-radius:11px;padding:11px 18px;font-weight:800;font-size:14px;color:#6B5A8C;cursor:pointer}
+  .v2-go{background:#7B2FF7;border:none;border-radius:11px;padding:12px 28px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 8px 20px rgba(123,47,247,.3)}
+  .v2-back{background:#fff;border:1.5px solid #E7E2F2;border-radius:11px;padding:12px 22px;font-weight:800;color:#6B5A8C;cursor:pointer}
+
+  /* ════════ V3 — Split + Return Cart ════════ */
+  .v3-wrap{display:grid;grid-template-columns:1fr 320px;gap:18px}
+  .v3-card{background:#fff;border-radius:20px;padding:24px;box-shadow:0 14px 40px rgba(20,40,60,.06)}
+  .v3-card h3{font-size:19px;font-weight:800;display:flex;align-items:center;gap:11px;margin-bottom:6px}
+  .v3-card .sub{font-size:13px;color:#8A95A0;font-weight:600;margin-bottom:18px}
+  .v3-search{display:flex;align-items:center;gap:10px;background:#F1F6F6;border:1.5px solid transparent;border-radius:12px;padding:11px 14px;margin-bottom:14px}
+  .v3-search:focus-within{border-color:#11A89A;background:#fff}
+  .v3-search input{border:none;background:none;outline:none;font-size:14px;font-weight:600;width:100%;font-family:inherit}
+  .v3-row{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid #F0F3F4}
+  .v3-prod{display:flex;align-items:center;gap:12px;min-width:0}
+  .v3-prod .img{width:44px;height:44px}
+  .v3-prod b{font-weight:700;font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+  .v3-prod small{color:#9AA0A6;font-size:11.5px}
+  .v3-gab{display:inline-block;background:#E3F4F1;color:#0E8C7F;font-weight:800;font-size:11px;padding:3px 9px;border-radius:6px;margin-top:3px}
+  .v3-qty{width:80px;height:40px;border:1.5px solid #E6EEEC;border-radius:10px;font-size:14px}
+  .v3-qty:focus{border-color:#11A89A}
+  .v3-cart{background:linear-gradient(165deg,#0F2A2E,#15403F);border-radius:20px;padding:22px;color:#fff;position:sticky;top:80px;align-self:start}
+  .v3-cart h4{font-size:15px;font-weight:800;display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .v3-citem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+  .v3-citem b{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;display:block}
+  .v3-citem small{color:#84A6A2;font-size:11px}
+  .v3-cqty{background:rgba(255,255,255,.12);border-radius:8px;padding:4px 10px;font-weight:800;font-size:13px;flex:none}
+  .v3-ctot{display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800}
+  .v3-ctot span{color:#84A6A2;font-weight:600;font-size:13px}
+  .v3-ctot b{font-size:22px}
+  .v3-go{width:100%;background:#2BD4BD;border:none;border-radius:12px;padding:14px;font-weight:800;color:#0F2A2E;font-size:15px;cursor:pointer;transition:.15s}
+  .v3-go:hover{background:#3FE6CF}
+  .v3-empty{color:#6E908C;font-size:13px;font-weight:600;text-align:center;padding:20px 0}
+
+  /* ════════ V4 — Mono Minimal ════════ */
+  .v4-card{background:#fff;border:1px solid #E6E3DC;border-radius:6px;padding:34px}
+  .v4-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:26px}
+  .v4-top h3{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .v4-top h3 .u{color:#FF4D4D}
+  .v4-top p{font-size:13px;color:#8A8A8A;font-weight:500;margin-top:5px;max-width:380px;line-height:1.5}
+  .v4-step{font-size:12px;font-weight:800;color:#BBB;letter-spacing:.1em}
+  .v4-search{border:none;border-bottom:2px solid #1C2030;padding:10px 2px;font-size:15px;font-weight:600;width:100%;margin-bottom:24px;outline:none;font-family:inherit}
+  .v4-search::placeholder{color:#BBB}
+  .v4-row{display:grid;grid-template-columns:1fr 110px 130px;align-items:center;padding:16px 0;border-bottom:1px solid #EEE}
+  .v4-prod{display:flex;align-items:center;gap:14px;min-width:0}
+  .v4-prod .img{width:46px;height:46px;border-radius:3px}
+  .v4-prod b{font-weight:700;font-size:14px;display:block}
+  .v4-prod small{color:#AAA;font-size:12px;letter-spacing:.01em}
+  .v4-gab{font-size:12px;font-weight:700;color:#666;letter-spacing:.05em}
+  .v4-qtywrap{display:flex;align-items:baseline;gap:8px;justify-content:flex-end}
+  .v4-qty{width:64px;height:38px;border:none;border-bottom:2px solid #DDD;font-size:16px;text-align:center}
+  .v4-qty:focus{border-color:#FF4D4D}
+  .v4-max{color:#BBB;font-weight:600;font-size:13px}
+  .v4-foot{display:flex;align-items:center;justify-content:space-between;margin-top:30px}
+  .v4-selall{background:none;border:none;font-weight:800;font-size:14px;color:#1C2030;cursor:pointer;border-bottom:2px solid #1C2030;padding-bottom:2px}
+  .v4-go{background:#1C2030;border:none;border-radius:3px;padding:14px 34px;font-weight:800;color:#fff;font-size:14px;cursor:pointer;letter-spacing:.02em}
+  .v4-go:hover{background:#FF4D4D}
+  .v4-back{background:none;border:none;font-weight:700;color:#999;cursor:pointer;margin-right:18px}
+
+  /* ════════ V5 — Gradient Spotlight Modal ════════ */
+  .v5-stage{background:radial-gradient(120% 100% at 50% 0%,#2A1745,#160B26);border-radius:24px;padding:40px 20px;display:flex;justify-content:center}
+  .v5-modal{width:100%;max-width:680px;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.45)}
+  .v5-head{position:relative;background:linear-gradient(120deg,#FF5E7E,#A24BFF);padding:28px 28px 30px;color:#fff;text-align:center}
+  .v5-ico{width:58px;height:58px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+  .v5-head h3{font-size:22px;font-weight:800}
+  .v5-head p{font-size:13px;opacity:.9;font-weight:600;margin-top:6px}
+  .v5-steps{display:flex;justify-content:center;gap:8px;margin-top:18px}
+  .v5-steps i{width:30px;height:5px;border-radius:3px;background:rgba(255,255,255,.35)}
+  .v5-steps i.on{background:#fff;width:44px}
+  .v5-body{padding:22px 26px}
+  .v5-search{display:flex;align-items:center;gap:10px;background:#F6F3FB;border:1.5px solid transparent;border-radius:13px;padding:12px 15px;margin-bottom:16px}
+  .v5-search:focus-within{border-color:#A24BFF;background:#fff}
+  .v5-search input{border:none;background:none;outline:none;font-size:14px;font-weight:600;width:100%;font-family:inherit}
+  .v5-row{display:grid;grid-template-columns:1fr 110px 150px;align-items:center;padding:13px 4px;border-bottom:1px solid #F2EEF8}
+  .v5-prod{display:flex;align-items:center;gap:12px;min-width:0}
+  .v5-prod .img{width:46px;height:46px;border-radius:12px}
+  .v5-prod b{font-weight:700;font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+  .v5-prod small{color:#A09AAC;font-size:12px}
+  .v5-gab{display:inline-block;background:#F4ECFE;color:#A24BFF;font-weight:800;font-size:11px;padding:4px 10px;border-radius:7px}
+  .v5-qtywrap{display:flex;align-items:center;gap:9px;justify-content:flex-end}
+  .v5-qty{width:78px;height:42px;border:1.5px solid #ECE6F4;border-radius:11px;font-size:15px}
+  .v5-qty:focus{border-color:#A24BFF}
+  .v5-max{color:#B6AFC2;font-weight:700;font-size:13px}
+  .v5-foot{display:flex;align-items:center;justify-content:space-between;padding:20px 26px;border-top:1px solid #F2EEF8}
+  .v5-selall{background:#F6F3FB;border:none;border-radius:11px;padding:12px 18px;font-weight:800;font-size:14px;color:#7A5AA0;cursor:pointer}
+  .v5-go{background:linear-gradient(120deg,#FF5E7E,#A24BFF);border:none;border-radius:12px;padding:13px 30px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 10px 26px rgba(162,75,255,.4)}
+  .v5-back{background:none;border:1.5px solid #ECE6F4;border-radius:12px;padding:13px 22px;font-weight:800;color:#7A5AA0;cursor:pointer}
+
+  /* reverse arrow icon reused */
+  .ra{width:24px;height:24px}
+</style>
+</head>
+<body>
+<div class="vnav">
+  <a href="#v1">1 · Soft Amber</a>
+  <a href="#v2">2 · Uzum Violet</a>
+  <a href="#v3">3 · Split Cart</a>
+  <a href="#v4">4 · Mono Minimal</a>
+  <a href="#v5">5 · Spotlight</a>
+</div>
+<div class="page">
+
+<!-- reusable inline SVGs -->
+<svg style="display:none">
+  <symbol id="ico-return" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/>
+  </symbol>
+  <symbol id="ico-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></symbol>
+  <symbol id="ico-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></symbol>
+</svg>
+
+<!-- ════════════════ V1 ════════════════ -->
+<section class="vsec" id="v1">
+  <div class="vlabel"><h2>Вариант 1</h2><span>Soft Amber Reverse — тёплый, мягкий, «возврат = разворот»</span><span class="vtag" style="background:#FBEFD9;color:#B6852A">AMBER</span></div>
+  <div class="v1-card">
+    <div class="v1-head">
+      <div class="v1-badge"><svg class="ra" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg></div>
+      <div><h3>Новый возврат</h3><p>Укажите количество товаров к возврату</p></div>
+    </div>
+    <div class="v1-banner"><svg width="20" height="20" style="flex:none;margin-top:1px"><use href="#ico-info"/></svg><div>Не объединяйте в один возврат крупногабаритный товар с малогабаритным и среднегабаритным</div></div>
+    <div class="v1-search"><svg width="17" height="17" style="color:#B0A68E"><use href="#ico-search"/></svg><input placeholder="SKU или название товара"></div>
+    <div class="v1-th"><div>Товар</div><div>Габариты</div><div>К возврату, шт</div></div>
+    <div class="v1-row"><div class="v1-prod"><div class="img" style="width:48px;height:48px">🧷</div><div><b>Набор женских колец 2,3,4,5,8 или 2в1</b><small>BLUMMY-KOMPLEKTLAR-БАГРОВ-18</small></div></div><div><span class="v1-gab">МГТ</span></div><div class="v1-qtywrap"><input class="v1-qty qty" value="2"><span class="v1-max">/ 10</span></div></div>
+    <div class="v1-row"><div class="v1-prod"><div class="img" style="width:48px;height:48px">💍</div><div><b>Zanglamaydigan po'latdan erkaklar halqasi</b><small>LUXUZ-RING27-СИНИЙ-20</small></div></div><div><span class="v1-gab">МГТ</span></div><div class="v1-qtywrap"><input class="v1-qty qty" value="0"><span class="v1-max">/ 3</span></div></div>
+    <div class="v1-row"><div class="v1-prod"><div class="img" style="width:48px;height:48px">👛</div><div><b>Hamyon, kartalar va mayda pullar uchun</b><small>LUXUZ-КОШЕЛЕК-БЕЖЕВ</small></div></div><div><span class="v1-gab">СГТ</span></div><div class="v1-qtywrap"><input class="v1-qty qty" value="0"><span class="v1-max">/ 6</span></div></div>
+    <div class="v1-foot">
+      <button class="v1-selall">Выбрать все</button>
+      <div class="v1-actions"><span class="v1-sum"><span>К возврату:</span> 2 шт</span><button class="v1-back">Назад</button><button class="v1-go">Создать возврат</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ V2 ════════════════ -->
+<section class="vsec" id="v2">
+  <div class="vlabel"><h2>Вариант 2</h2><span>Uzum Violet — фирменный фиолетовый, hero-шапка</span><span class="vtag" style="background:#F0E9FE;color:#7B2FF7">VIOLET</span></div>
+  <div class="v2-card">
+    <div class="v2-hero">
+      <h3><svg class="ra" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>Новый возврат</h3>
+      <p>Укажите количество товаров к возврату · магазин BLUMMY</p>
+    </div>
+    <div class="v2-body">
+      <div class="v2-search"><svg width="17" height="17" style="color:#A98FE0"><use href="#ico-search"/></svg><input placeholder="SKU или название товара"></div>
+      <div class="v2-row"><div class="v2-prod"><div class="img" style="width:48px;height:48px;border-radius:12px">🧷</div><div><b>Набор женских колец</b><small>BLUMMY-KOMPLEKTLAR-БАГРОВ-18 · ШК 1000100771908</small></div></div><div><span class="v2-gab">МГТ</span></div><div class="v2-qtywrap"><input class="v2-qty qty" value="2"><span class="v2-max">/ 10</span></div></div>
+      <div class="v2-row"><div class="v2-prod"><div class="img" style="width:48px;height:48px;border-radius:12px">💍</div><div><b>Erkaklar halqasi po'latdan</b><small>LUXUZ-RING27-СИНИЙ-20 · ШК 1000087944289</small></div></div><div><span class="v2-gab">МГТ</span></div><div class="v2-qtywrap"><input class="v2-qty qty" value="1"><span class="v2-max">/ 3</span></div></div>
+      <div class="v2-row"><div class="v2-prod"><div class="img" style="width:48px;height:48px;border-radius:12px">👛</div><div><b>Hamyon kartalar uchun</b><small>LUXUZ-КОШЕЛЕК-БЕЖЕВ · ШК 1000105409721</small></div></div><div><span class="v2-gab">СГТ</span></div><div class="v2-qtywrap"><input class="v2-qty qty" value="0"><span class="v2-max">/ 6</span></div></div>
+    </div>
+    <div class="v2-foot">
+      <button class="v2-selall">Выбрать все</button>
+      <div style="display:flex;gap:10px"><button class="v2-back">Назад</button><button class="v2-go">Готово</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ V3 ════════════════ -->
+<section class="vsec" id="v3">
+  <div class="vlabel"><h2>Вариант 3</h2><span>Split + Корзина возврата — слева выбор, справа живая корзина</span><span class="vtag" style="background:#E3F4F1;color:#0E8C7F">TEAL</span></div>
+  <div class="v3-wrap">
+    <div class="v3-card">
+      <h3><svg class="ra" viewBox="0 0 24 24" fill="none" stroke="#11A89A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>Товары к возврату</h3>
+      <div class="sub">Выберите SKU и количество — справа соберётся возврат</div>
+      <div class="v3-search"><svg width="16" height="16" style="color:#8FB8B3"><use href="#ico-search"/></svg><input placeholder="SKU или название товара"></div>
+      <div class="v3-row"><div class="v3-prod"><div class="img" style="width:44px;height:44px">🧷</div><div><b>Набор женских колец 2в1</b><small>BLUMMY-БАГРОВ-18</small><br><span class="v3-gab">МГТ</span></div></div><input class="v3-qty qty" value="2"></div>
+      <div class="v3-row"><div class="v3-prod"><div class="img" style="width:44px;height:44px">💍</div><div><b>Erkaklar halqasi po'latdan</b><small>LUXUZ-RING27-СИН-20</small><br><span class="v3-gab">МГТ</span></div></div><input class="v3-qty qty" value="1"></div>
+      <div class="v3-row"><div class="v3-prod"><div class="img" style="width:44px;height:44px">👛</div><div><b>Hamyon kartalar uchun</b><small>LUXUZ-КОШЕЛЕК-БЕЖ</small><br><span class="v3-gab">СГТ</span></div></div><input class="v3-qty qty" value="0"></div>
+    </div>
+    <div class="v3-cart">
+      <h4><svg class="ra" viewBox="0 0 24 24" fill="none" stroke="#2BD4BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>Возврат · 2 SKU</h4>
+      <div class="v3-citem"><div><b>Набор женских колец</b><small>МГТ</small></div><div class="v3-cqty">2 шт</div></div>
+      <div class="v3-citem"><div><b>Erkaklar halqasi</b><small>МГТ</small></div><div class="v3-cqty">1 шт</div></div>
+      <div class="v3-ctot"><span>Итого единиц</span><b>3</b></div>
+      <button class="v3-go">Создать возврат</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ V4 ════════════════ -->
+<section class="vsec" id="v4">
+  <div class="vlabel"><h2>Вариант 4</h2><span>Mono Minimal — чёткие линии, типографика, один акцент</span><span class="vtag" style="background:#FFE9E9;color:#FF4D4D">MONO</span></div>
+  <div class="v4-card">
+    <div class="v4-top">
+      <div><h3>Возврат<span class="u">.</span></h3><p>Укажите количество товаров к возврату. Не объединяйте крупногабаритный товар с остальным.</p></div>
+      <div class="v4-step">ШАГ 1 / 2</div>
+    </div>
+    <input class="v4-search" placeholder="SKU или название товара">
+    <div class="v4-row"><div class="v4-prod"><div class="img" style="width:46px;height:46px;border-radius:3px">🧷</div><div><b>Набор женских колец 2в1</b><small>BLUMMY-KOMPLEKTLAR-БАГРОВ-18</small></div></div><div class="v4-gab">МГТ</div><div class="v4-qtywrap"><input class="v4-qty qty" value="2"><span class="v4-max">/10</span></div></div>
+    <div class="v4-row"><div class="v4-prod"><div class="img" style="width:46px;height:46px;border-radius:3px">💍</div><div><b>Erkaklar halqasi po'latdan</b><small>LUXUZ-RING27-СИНИЙ-20</small></div></div><div class="v4-gab">МГТ</div><div class="v4-qtywrap"><input class="v4-qty qty" value="0"><span class="v4-max">/3</span></div></div>
+    <div class="v4-row"><div class="v4-prod"><div class="img" style="width:46px;height:46px;border-radius:3px">👛</div><div><b>Hamyon kartalar uchun</b><small>LUXUZ-КОШЕЛЕК-БЕЖЕВ</small></div></div><div class="v4-gab">СГТ</div><div class="v4-qtywrap"><input class="v4-qty qty" value="0"><span class="v4-max">/6</span></div></div>
+    <div class="v4-foot">
+      <button class="v4-selall">Выбрать все</button>
+      <div><button class="v4-back">Назад</button><button class="v4-go">Готово →</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ V5 ════════════════ -->
+<section class="vsec" id="v5">
+  <div class="vlabel"><h2>Вариант 5</h2><span>Gradient Spotlight — центрированное модальное окно со степпером</span><span class="vtag" style="background:#F4ECFE;color:#A24BFF">SPOTLIGHT</span></div>
+  <div class="v5-stage">
+    <div class="v5-modal">
+      <div class="v5-head">
+        <div class="v5-ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg></div>
+        <h3>Оформление возврата</h3>
+        <p>Укажите количество товаров к возврату</p>
+        <div class="v5-steps"><i class="on"></i><i></i></div>
+      </div>
+      <div class="v5-body">
+        <div class="v5-search"><svg width="17" height="17" style="color:#B79AE0"><use href="#ico-search"/></svg><input placeholder="SKU или название товара"></div>
+        <div class="v5-row"><div class="v5-prod"><div class="img" style="width:46px;height:46px;border-radius:12px">🧷</div><div><b>Набор женских колец 2в1</b><small>BLUMMY-БАГРОВ-18</small></div></div><div><span class="v5-gab">МГТ</span></div><div class="v5-qtywrap"><input class="v5-qty qty" value="2"><span class="v5-max">/ 10</span></div></div>
+        <div class="v5-row"><div class="v5-prod"><div class="img" style="width:46px;height:46px;border-radius:12px">💍</div><div><b>Erkaklar halqasi po'latdan</b><small>LUXUZ-RING27-СИН-20</small></div></div><div><span class="v5-gab">МГТ</span></div><div class="v5-qtywrap"><input class="v5-qty qty" value="1"><span class="v5-max">/ 3</span></div></div>
+        <div class="v5-row"><div class="v5-prod"><div class="img" style="width:46px;height:46px;border-radius:12px">👛</div><div><b>Hamyon kartalar uchun</b><small>LUXUZ-КОШЕЛЕК-БЕЖ</small></div></div><div><span class="v5-gab">СГТ</span></div><div class="v5-qtywrap"><input class="v5-qty qty" value="0"><span class="v5-max">/ 6</span></div></div>
+      </div>
+      <div class="v5-foot">
+        <button class="v5-selall">Выбрать все</button>
+        <div style="display:flex;gap:10px"><button class="v5-back">Назад</button><button class="v5-go">Далее</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

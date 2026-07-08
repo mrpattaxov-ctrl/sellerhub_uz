@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="uz" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBS / DBS — 4 dizayn yo'nalishi</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b0f;color:#111;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+.pv-bar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 20px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pv-bar h1{font-size:14px;margin:0;font-weight:800}
+.pv-bar .sub{font-size:12px;color:#8b8b97}
+.pv-seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.pv-seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 15px;border-radius:9px;cursor:pointer;transition:.15s}
+.pv-seg button.on{background:#fff;color:#111}
+.pv-spacer{flex:1}
+.note{max-width:1180px;margin:0 auto;padding:16px 20px 0;color:#9a9aa6;font-size:12.5px}
+.note b{color:#cfcfd8}
+.pane{display:none}.pane.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.stage{max-width:1180px;margin:0 auto;padding:22px 20px 90px;border-radius:0}
+
+/* shared icons sizing */
+svg{display:block}
+
+/* ============================================================
+   1 · AURORA  — yumshoq, havodor, indigo→binafsha nur
+   ============================================================ */
+.v-aurora{--page:#F4F4F7;--surface:#fff;--border:#ECECF0;--text:#1A1A22;--text2:#5A5762;--muted:#8E8B97;
+  --indigo:#4169E1;--indigo2:#6E8FE8;--violet:#7C3AED;--vsoft:#F0EAFF;--green:#0EA271;
+  --sh1:0 1px 2px rgba(20,16,40,.05),0 6px 18px rgba(20,16,40,.05);--sh2:0 12px 36px rgba(20,16,40,.12);
+  background:var(--page);color:var(--text)}
+.v-aurora .kick{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font:700 11px/1 'Inter';letter-spacing:.06em;text-transform:uppercase;background:var(--vsoft);color:var(--violet)}
+.v-aurora .hero{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:22px;background:var(--surface);box-shadow:var(--sh1);padding:22px 24px;margin-bottom:18px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.v-aurora .hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(124,58,237,.18),transparent 60%),radial-gradient(circle at 70% 60%,rgba(65,105,225,.16),transparent 60%);filter:blur(6px)}
+.v-aurora .hero h2{margin:.55rem 0 .35rem;font-size:1.7rem;font-weight:800;letter-spacing:-.02em;position:relative}
+.v-aurora .hero p{margin:0;color:var(--text2);font-size:.92rem;max-width:520px;position:relative}
+.v-aurora .tabs{display:inline-flex;gap:4px;padding:5px;background:var(--page);border:1px solid var(--border);border-radius:14px;height:max-content;position:relative}
+.v-aurora .tabs a{padding:9px 15px;border-radius:10px;color:var(--text2);font-weight:600;font-size:.86rem}
+.v-aurora .tabs a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh1)}
+.v-aurora .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.v-aurora .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;box-shadow:var(--sh1);position:relative;overflow:hidden}
+.v-aurora .kpi .l{font:700 .72rem 'Inter';letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.v-aurora .kpi .v{font:800 1.7rem 'Inter';letter-spacing:-.02em;margin-top:4px}
+.v-aurora .kpi .i{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+.v-aurora .kpi .i svg{width:18px;height:18px}
+.v-aurora .k1 .i{background:#eef4ff;color:var(--indigo)}.v-aurora .k1 .v{color:var(--indigo)}
+.v-aurora .k2 .i{background:#fff5d6;color:#9a6207}.v-aurora .k2 .v{color:#9a6207}
+.v-aurora .k3 .i{background:var(--vsoft);color:var(--violet)}.v-aurora .k3 .v{color:var(--violet)}
+.v-aurora .k4 .i{background:#dff7ec;color:var(--green)}.v-aurora .k4 .v{color:var(--green)}
+.v-aurora .panel{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--sh1);padding:16px 18px}
+.v-aurora .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.v-aurora .fld{display:flex;flex-direction:column;gap:5px}
+.v-aurora .fld label{font:700 .7rem 'Inter';text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.v-aurora .fld select,.v-aurora .fld input{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:9px 12px;font:500 .86rem 'Inter';min-width:150px}
+.v-aurora .btn-d{border:0;border-radius:11px;padding:10px 18px;font:600 .88rem 'Inter';cursor:pointer;background:var(--text);color:var(--surface)}
+.v-aurora .chips{display:flex;gap:7px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.v-aurora .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:10px;font:600 .8rem 'Inter';background:var(--page);color:var(--text2);cursor:pointer}
+.v-aurora .chip.on{background:var(--text);color:var(--surface)}
+.v-aurora .chip .n{min-width:18px;padding:0 6px;border-radius:999px;background:var(--surface);font:700 .68rem/18px 'Inter';text-align:center}
+.v-aurora .chip.on .n{background:rgba(255,255,255,.22);color:#fff}
+.v-aurora .chip.nav{background:var(--vsoft);color:var(--violet);font-weight:700}
+.v-aurora .rows{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+.v-aurora .row{display:grid;grid-template-columns:auto 1.5fr 1fr 1.7fr auto;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 16px;cursor:pointer;transition:.16s}
+.v-aurora .row:hover{box-shadow:var(--sh2);border-color:transparent;transform:translateY(-1px)}
+.v-aurora .id{font:700 .92rem 'Inter'}
+.v-aurora .submeta{font:.78rem/1.3 'Inter';color:var(--muted);margin-top:3px}
+
+/* ============================================================
+   2 · ONYX  — qorong'i ops-konsol, neon aksent, zich
+   ============================================================ */
+.v-onyx{--bg:#0B0D12;--panel:#13161D;--panel2:#171B24;--border:#222834;--text:#E7EAF0;--text2:#9AA3B2;--muted:#646D7E;
+  --cyan:#22D3EE;--lime:#A3E635;--amber:#FBBF24;--pink:#F472B6;--blue:#60A5FA;
+  background:var(--bg);color:var(--text);font-family:'Inter',sans-serif}
+.v-onyx .top{display:grid;grid-template-columns:1.4fr 2.6fr;gap:14px;margin-bottom:14px}
+.v-onyx .hero{position:relative;overflow:hidden;border-radius:20px;padding:22px 24px;background:radial-gradient(120% 120% at 0% 0%,#1b2030,#0e1119);border:1px solid var(--border)}
+.v-onyx .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.35),transparent 70%)}
+.v-onyx .kick{display:inline-flex;gap:6px;padding:5px 11px;border-radius:999px;font:700 11px/1 'Inter';letter-spacing:.08em;text-transform:uppercase;background:rgba(34,211,238,.14);color:var(--cyan)}
+.v-onyx .hero h2{margin:.6rem 0 .35rem;font:800 1.5rem/1.1 'Space Grotesk';letter-spacing:-.01em;position:relative}
+.v-onyx .hero p{margin:0 0 16px;color:var(--text2);font-size:.84rem;max-width:320px;position:relative}
+.v-onyx .tabs{display:flex;gap:6px;position:relative}
+.v-onyx .tabs a{padding:8px 13px;border-radius:10px;font:600 .82rem 'Inter';background:rgba(255,255,255,.06);color:#fff}
+.v-onyx .tabs a.on{background:var(--cyan);color:#04141a}
+.v-onyx .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.v-onyx .stat{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 15px;position:relative}
+.v-onyx .stat .l{font:700 .68rem 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.v-onyx .stat .dot{width:7px;height:7px;border-radius:50%}
+.v-onyx .stat .v{font:800 1.7rem 'Space Grotesk';margin-top:4px;font-variant-numeric:tabular-nums}
+.v-onyx .stat .d{font:600 .72rem 'Inter';margin-top:2px;color:var(--lime)}
+.v-onyx .console{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden}
+.v-onyx .cbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.v-onyx .pill{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;font:600 .8rem 'Inter';background:var(--panel2);color:var(--text2);cursor:pointer}
+.v-onyx .pill.on{background:var(--blue);color:#04101f}
+.v-onyx .pill .n{padding:0 6px;border-radius:999px;background:rgba(255,255,255,.08);font:700 .68rem 'Inter'}
+.v-onyx .pill.on .n{background:rgba(0,0,0,.18)}
+.v-onyx .pill.nav{margin-left:auto;background:rgba(244,114,182,.14);color:var(--pink)}
+.v-onyx .search{flex:1;min-width:160px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:9px;padding:8px 12px;font:500 .82rem 'Inter'}
+.v-onyx table{width:100%;border-collapse:collapse}
+.v-onyx thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:11px 16px;background:var(--panel2);border-bottom:1px solid var(--border);white-space:nowrap}
+.v-onyx tbody td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:.85rem;vertical-align:middle}
+.v-onyx tbody tr{cursor:pointer;transition:.12s}
+.v-onyx tbody tr:hover{background:var(--panel2)}
+.v-onyx tbody td:first-child{border-left:3px solid transparent}
+.v-onyx tr.c1 td:first-child{border-left-color:var(--blue)}
+.v-onyx tr.c2 td:first-child{border-left-color:var(--amber)}
+.v-onyx .mono{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text2)}
+.v-onyx .money{font:700 .9rem 'Space Grotesk';font-variant-numeric:tabular-nums}
+
+/* ============================================================
+   3 · EDITORIAL  — minimal, yirik tipografika, hairline, oq
+   ============================================================ */
+.v-edit{--bg:#FBFBF9;--ink:#16160F;--ink2:#56564C;--line:#E4E3DC;--accent:#E0452C;--blue:#1F3A8A;
+  background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif}
+.v-edit .masthead{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.v-edit .eyebrow{font:700 .72rem 'Inter';letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.v-edit .masthead h2{margin:.4rem 0 0;font:900 2.6rem/.95 'Space Grotesk';letter-spacing:-.03em}
+.v-edit .masthead p{margin:.5rem 0 0;color:var(--ink2);font-size:.9rem;max-width:440px}
+.v-edit .tabs{display:flex;gap:0;border:1px solid var(--ink);border-radius:0}
+.v-edit .tabs a{padding:11px 18px;font:700 .82rem 'Inter';color:var(--ink);border-right:1px solid var(--ink)}
+.v-edit .tabs a:last-child{border-right:0}
+.v-edit .tabs a.on{background:var(--ink);color:var(--bg)}
+.v-edit .stats{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:26px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.v-edit .st{padding:18px 20px 18px 0;border-right:1px solid var(--line)}
+.v-edit .st:last-child{border-right:0}
+.v-edit .st .l{font:700 .72rem 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--ink2)}
+.v-edit .st .v{font:800 2.4rem/1 'Space Grotesk';margin-top:8px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.v-edit .st .v.acc{color:var(--accent)}
+.v-edit .filt{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.v-edit .f{font:700 .85rem 'Inter';color:var(--ink2);cursor:pointer;padding-bottom:4px;border-bottom:2px solid transparent}
+.v-edit .f.on{color:var(--ink);border-bottom-color:var(--accent)}
+.v-edit .f .n{color:var(--ink2);font-weight:600}
+.v-edit .f.nav{color:var(--blue)}
+.v-edit .list{margin-top:6px}
+.v-edit .item{display:grid;grid-template-columns:auto 1.6fr 1fr 1.4fr auto;gap:20px;align-items:center;padding:18px 4px;border-bottom:1px solid var(--line);cursor:pointer;transition:.15s}
+.v-edit .item:hover{background:#fff}
+.v-edit .idx{font:800 1.05rem 'Space Grotesk';color:var(--ink);width:34px}
+.v-edit .ttl{font:700 .92rem 'Inter'}
+.v-edit .sub{font:.78rem/1.3 'Inter';color:var(--ink2);margin-top:3px}
+.v-edit .num{font:800 1.05rem 'Space Grotesk';text-align:right;font-variant-numeric:tabular-nums}
+
+/* ============================================================
+   4 · VIVID  — jonli gradient, yirik radius, o'ynoqi
+   ============================================================ */
+.v-vivid{--bg:#F6F4FF;--surface:#fff;--border:#ECE7FB;--text:#1C1530;--text2:#5C5378;--muted:#938BAA;
+  background:radial-gradient(120% 80% at 100% 0%,#efe9ff 0%,#f6f4ff 45%);color:var(--text);font-family:'Inter',sans-serif}
+.v-vivid .hero{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.v-vivid .kick{display:inline-flex;gap:6px;padding:6px 13px;border-radius:999px;font:800 11px/1 'Inter';letter-spacing:.06em;text-transform:uppercase;color:#fff;background:linear-gradient(135deg,#7c3aed,#4169E1)}
+.v-vivid .hero h2{margin:.6rem 0 .35rem;font:900 2rem/1 'Space Grotesk';letter-spacing:-.025em}
+.v-vivid .hero p{margin:0;color:var(--text2);font-size:.92rem;max-width:480px}
+.v-vivid .tabs{display:inline-flex;gap:6px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(108,71,201,.12)}
+.v-vivid .tabs a{padding:10px 16px;border-radius:11px;font:700 .86rem 'Inter';color:var(--text2)}
+.v-vivid .tabs a.on{background:linear-gradient(135deg,#7c3aed,#4169E1);color:#fff}
+.v-vivid .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.v-vivid .kpi{border-radius:20px;padding:18px;color:#fff;position:relative;overflow:hidden;box-shadow:0 12px 30px rgba(60,40,120,.18)}
+.v-vivid .kpi .l{font:700 .74rem 'Inter';text-transform:uppercase;letter-spacing:.04em;opacity:.9}
+.v-vivid .kpi .v{font:900 2rem 'Space Grotesk';margin-top:6px;font-variant-numeric:tabular-nums}
+.v-vivid .kpi .i{position:absolute;right:14px;top:14px;opacity:.45}
+.v-vivid .kpi .i svg{width:34px;height:34px}
+.v-vivid .k1{background:linear-gradient(135deg,#5b8def,#4169E1)}
+.v-vivid .k2{background:linear-gradient(135deg,#fbbf24,#f59e0b)}
+.v-vivid .k3{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.v-vivid .k4{background:linear-gradient(135deg,#34d399,#059669)}
+.v-vivid .panel{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:18px 20px;box-shadow:0 12px 34px rgba(80,55,160,.08)}
+.v-vivid .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.v-vivid .chip{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;font:700 .82rem 'Inter';background:var(--bg);color:var(--text2);border:1px solid var(--border);cursor:pointer}
+.v-vivid .chip.on{background:linear-gradient(135deg,#7c3aed,#4169E1);color:#fff;border-color:transparent}
+.v-vivid .chip .n{min-width:20px;padding:0 6px;border-radius:999px;background:var(--surface);font:800 .7rem/20px 'Inter';text-align:center}
+.v-vivid .chip.on .n{background:rgba(255,255,255,.25)}
+.v-vivid .chip.nav{background:linear-gradient(135deg,#f472b6,#ec4899);color:#fff;border-color:transparent}
+.v-vivid .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.v-vivid .card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:16px;box-shadow:0 6px 20px rgba(80,55,160,.06);cursor:pointer;transition:.16s;display:flex;flex-direction:column;gap:13px}
+.v-vivid .card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(80,55,160,.16)}
+.v-vivid .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.v-vivid .card .id{font:800 1rem 'Space Grotesk'}
+.v-vivid .card .date{font:.76rem 'Inter';color:var(--muted);margin-top:2px}
+.v-vivid .card .body{display:flex;gap:12px;align-items:center}
+.v-vivid .card .pt{font:700 .88rem 'Inter'}
+.v-vivid .card .pm{font:.77rem 'Inter';color:var(--muted);margin-top:3px}
+.v-vivid .card .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:13px;border-top:1px solid var(--border)}
+.v-vivid .card .money{font:800 1rem 'Space Grotesk'}
+
+/* shared bits reused across variants */
+.thumb{flex:none;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:700;overflow:hidden;position:relative;width:44px;height:44px;background:linear-gradient(135deg,#6E8FE8,#4169E1)}
+.thumb svg{width:46%;height:46%;opacity:.92}
+.thumb.t2{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.thumb.t3{background:linear-gradient(135deg,#34d399,#059669)}
+.thumb.t4{background:linear-gradient(135deg,#fb923c,#ea580c)}
+.thumb .cnt{position:absolute;right:-4px;bottom:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#fff;color:#111;font:700 11px/20px 'Inter';display:grid;place-items:center;box-shadow:0 0 0 2px #fff}
+.prod{display:flex;align-items:center;gap:11px;min-width:0}
+.pt{font:600 .85rem 'Inter';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm{font:.77rem 'Inter';color:#8E8B97;margin-top:2px}
+.spill{display:inline-block;padding:3px 10px;border-radius:999px;font:700 11.5px/1.5 'Inter';white-space:nowrap;border:1px solid transparent}
+.s-created{background:#eef4ff;border-color:#cfddff;color:#2b54c9}
+.s-packing{background:#fff5d6;border-color:#f5d878;color:#9a6207}
+.dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11.5px/1.3 'Inter';border:1px solid transparent;white-space:nowrap}
+.dl svg{width:11px;height:11px}
+.dl.ok{background:#e9fbf2;color:#0a7a52;border-color:#bdeed7}
+.dl.warn{background:#fff6e3;color:#9a6207;border-color:#f6dd9b}
+.dl.urgent{background:#feeceb;color:#c0362b;border-color:#f8c4bf;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+.money{font-weight:700;font-variant-numeric:tabular-nums}
+@media(max-width:860px){
+ .v-aurora .kpis,.v-onyx .stats,.v-edit .stats,.v-vivid .kpis{grid-template-columns:repeat(2,1fr)}
+ .v-onyx .top{grid-template-columns:1fr}
+ .v-aurora .row,.v-edit .item{grid-template-columns:1fr;gap:8px}
+}
+</style>
+</head>
+<body>
+
+<div class="pv-bar">
+  <h1>FBS / DBS dizayn</h1>
+  <span class="sub">4 yo'nalish — birini tanlang</span>
+  <div class="pv-seg" id="seg">
+    <button data-p="aurora" class="on">1 · Aurora</button>
+    <button data-p="onyx">2 · Onyx</button>
+    <button data-p="edit">3 · Editorial</button>
+    <button data-p="vivid">4 · Vivid</button>
+  </div>
+  <div class="pv-spacer"></div>
+</div>
+<div class="note" id="note"></div>
+
+<!-- ===== 1 AURORA ===== -->
+<div class="stage v-aurora pane on" id="pane-aurora">
+  <section class="hero">
+    <div>
+      <span class="kick">● FBS / DBS</span>
+      <h2>Buyurtmalar</h2>
+      <p>Uzum FBS va DBS buyurtmalari. Yumshoq, havodor, fokus mahsulot va keyingi qadamda.</p>
+    </div>
+    <nav class="tabs"><a class="on">Buyurtmalar</a><a>Ombor</a></nav>
+  </section>
+  <div class="kpis">
+    <div class="kpi k1"><div class="l">Yangi</div><div class="v">2</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+    <div class="kpi k2"><div class="l">Yig'ilmoqda</div><div class="v">2</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div></div>
+    <div class="kpi k3"><div class="l">Topshirishga</div><div class="v">5</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>
+    <div class="kpi k4"><div class="l">Yakunlandi</div><div class="v">235</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+  </div>
+  <div class="panel">
+    <div class="bar">
+      <div class="fld"><label>Do'kon</label><select><option>Hammasi</option></select></div>
+      <div class="fld"><label>Sxema</label><select><option>FBS + DBS</option></select></div>
+      <div class="fld"><label>Qidirish</label><input placeholder="№ yoki manzil…" style="min-width:200px"></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn-d">↻ Yangilash</button></div>
+    </div>
+    <div class="chips">
+      <span class="chip on">Yangi <span class="n">2</span></span>
+      <span class="chip">Yig'ilmoqda <span class="n">2</span></span>
+      <span class="chip nav">📦 Поставка</span>
+      <span class="chip">Yetkazildi <span class="n">5</span></span>
+      <span class="chip">Bekor <span class="n">268</span></span>
+    </div>
+    <div class="rows" id="auroraRows"></div>
+  </div>
+</div>
+
+<!-- ===== 2 ONYX ===== -->
+<div class="stage v-onyx pane" id="pane-onyx">
+  <div class="top">
+    <div class="hero">
+      <span class="kick">● FBS / DBS</span>
+      <h2>Operatsion markaz</h2>
+      <p>Barcha buyurtmalar bitta konsolda. Tez filtr, bulk amal, накладные.</p>
+      <nav class="tabs"><a class="on">Buyurtmalar</a><a>Ombor</a></nav>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="l"><span class="dot" style="background:var(--blue)"></span>Yangi</div><div class="v">2</div><div class="d">+2 bugun</div></div>
+      <div class="stat"><div class="l"><span class="dot" style="background:var(--amber)"></span>Yig'ilmoqda</div><div class="v">2</div><div class="d" style="color:var(--muted)">faol</div></div>
+      <div class="stat"><div class="l"><span class="dot" style="background:var(--pink)"></span>Topshirishga</div><div class="v">5</div><div class="d">tayyor</div></div>
+      <div class="stat"><div class="l"><span class="dot" style="background:var(--lime)"></span>Summa</div><div class="v" style="font-size:1.25rem">85 850</div><div class="d" style="color:var(--muted)">UZS</div></div>
+    </div>
+  </div>
+  <div class="console">
+    <div class="cbar">
+      <span class="pill on">Yangi <span class="n">2</span></span>
+      <span class="pill">Yig'ilmoqda <span class="n">2</span></span>
+      <span class="pill">Yo'lda <span class="n">0</span></span>
+      <span class="pill">Yetkazildi <span class="n">5</span></span>
+      <input class="search" placeholder="🔍 № yoki manzil…">
+      <span class="pill nav">📦 Поставка</span>
+    </div>
+    <table>
+      <thead><tr><th>Buyurtma</th><th>Mahsulot</th><th>Do'kon</th><th>Summa</th><th>Muddat</th><th>Holat</th></tr></thead>
+      <tbody id="onyxBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== 3 EDITORIAL ===== -->
+<div class="stage v-edit pane" id="pane-edit">
+  <div class="masthead">
+    <div>
+      <div class="eyebrow">FBS / DBS — Operatsion</div>
+      <h2>Buyurtmalar</h2>
+      <p>Sokin, tipografika-yetakchi ko'rinish. Ortiqcha bezaksiz, ma'lumotga fokus.</p>
+    </div>
+    <nav class="tabs"><a class="on">Buyurtmalar</a><a>Ombor</a></nav>
+  </div>
+  <div class="stats">
+    <div class="st"><div class="l">Yangi</div><div class="v acc">2</div></div>
+    <div class="st"><div class="l">Yig'ilmoqda</div><div class="v">2</div></div>
+    <div class="st"><div class="l">Topshirishga</div><div class="v">5</div></div>
+    <div class="st"><div class="l">Yakunlandi</div><div class="v">235</div></div>
+  </div>
+  <div class="filt">
+    <span class="f on">Yangi <span class="n">2</span></span>
+    <span class="f">Yig'ilmoqda <span class="n">2</span></span>
+    <span class="f nav">Поставка</span>
+    <span class="f">Yetkazildi <span class="n">5</span></span>
+    <span class="f">Bekor <span class="n">268</span></span>
+  </div>
+  <div class="list" id="editList"></div>
+</div>
+
+<!-- ===== 4 VIVID ===== -->
+<div class="stage v-vivid pane" id="pane-vivid">
+  <section class="hero">
+    <div>
+      <span class="kick">● FBS / DBS</span>
+      <h2>Buyurtmalar</h2>
+      <p>Jonli, o'ynoqi, gradient aksentlar. Har buyurtma — alohida karta.</p>
+    </div>
+    <nav class="tabs"><a class="on">Buyurtmalar</a><a>Ombor</a></nav>
+  </section>
+  <div class="kpis">
+    <div class="kpi k1"><div class="l">Yangi</div><div class="v">2</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+    <div class="kpi k2"><div class="l">Yig'ilmoqda</div><div class="v">2</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div></div>
+    <div class="kpi k3"><div class="l">Topshirishga</div><div class="v">5</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>
+    <div class="kpi k4"><div class="l">Yakunlandi</div><div class="v">235</div><div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+  </div>
+  <div class="panel">
+    <div class="chips">
+      <span class="chip on">Yangi <span class="n">2</span></span>
+      <span class="chip">Yig'ilmoqda <span class="n">2</span></span>
+      <span class="chip nav">📦 Поставка</span>
+      <span class="chip">Yetkazildi <span class="n">5</span></span>
+      <span class="chip">Bekor <span class="n">268</span></span>
+    </div>
+    <div class="grid" id="vividGrid"></div>
+  </div>
+</div>
+
+<script>
+const IBOX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>';
+const ICLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const O=[
+ {id:'120000995496',date:"09.06, 11:03",left:'25 soat',lc:'warn',shop:'Sergeli',total:2,sum:'30 000',addr:"Yunusobod t., 13 mavze",t:'t1',pt:'Erkak krossovka, 42-razmer',pm:'SKU 884512 · 2 dona',stl:'Yaratilgan',spill:'s-created',c:'c1'},
+ {id:'120000990153',date:"08.06, 01:37",left:'1 soat',lc:'urgent',shop:'Sergeli',total:1,sum:'15 000',addr:"Yunusobod t., 13 mavze",t:'t2',pt:'Termokружка 500ml',pm:'SKU 771203 · 1 dona',stl:'Yaratilgan',spill:'s-created',c:'c1'},
+ {id:'120000990070',date:"08.06, 00:48",left:'14 soat',lc:'ok',shop:'Sergeli',total:1,sum:'22 950',addr:"Yunusobod t., 13 mavze",t:'t3',pt:'Quloqchin TWS Pro',pm:'SKU 553998 · 1 dona',stl:"Yig'ilmoqda",spill:'s-packing',c:'c2'},
+ {id:'120000990055',date:"08.06, 00:37",left:'3 soat',lc:'warn',shop:'Sergeli',total:1,sum:'17 900',addr:"Qarshi sh., Beshkent yo'li",t:'t4',pt:'Powerbank 20000mAh',pm:'SKU 220741 · 1 dona',stl:"Yig'ilmoqda",spill:'s-packing',c:'c2'},
+];
+const thumb=o=>`<div class="thumb ${o.t}">${IBOX}${o.total>1?`<span class="cnt">${o.total}</span>`:''}</div>`;
+const dl=o=>`<span class="dl ${o.lc}">${ICLK}${o.left}</span>`;
+
+// Aurora rows
+auroraRows.innerHTML=O.map(o=>`<div class="row">
+  <div><div class="id">№ ${o.id}</div><div class="submeta">${o.date}</div>${dl(o)}</div>
+  <div class="prod">${thumb(o)}<div style="min-width:0"><div class="pt">${o.pt}</div><div class="pm">${o.pm}</div></div></div>
+  <div style="font:600 .82rem 'Inter';color:#5A5762">${o.shop}</div>
+  <div style="color:#5A5762;font-size:13px">${o.addr}</div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="spill ${o.spill}">${o.stl}</span><span class="money">${o.sum}</span></div>
+</div>`).join('');
+
+// Onyx table
+onyxBody.innerHTML=O.map(o=>`<tr class="${o.c}">
+  <td><div style="font:700 .85rem 'Inter'">№ ${o.id}</div><div class="mono" style="margin-top:2px">${o.date}</div></td>
+  <td><div class="prod"><div class="thumb ${o.t}" style="width:36px;height:36px">${IBOX}</div><div style="min-width:0"><div class="pt" style="color:#E7EAF0">${o.pt}</div><div class="pm" style="color:#9AA3B2">${o.pm}</div></div></div></td>
+  <td style="color:#9AA3B2">${o.shop}</td>
+  <td><span class="money">${o.sum}</span></td>
+  <td>${dl(o)}</td>
+  <td><span class="spill ${o.spill}">${o.stl}</span></td>
+</tr>`).join('');
+
+// Editorial list
+editList.innerHTML=O.map((o,i)=>`<div class="item">
+  <div class="idx">${String(i+1).padStart(2,'0')}</div>
+  <div><div class="ttl">${o.pt}</div><div class="sub">№ ${o.id} · ${o.date} · ${o.pm}</div></div>
+  <div style="color:#56564C;font-size:.84rem">${o.shop}<br>${o.addr}</div>
+  <div>${dl(o)}<div style="margin-top:6px"><span class="spill ${o.spill}">${o.stl}</span></div></div>
+  <div class="num">${o.sum}</div>
+</div>`).join('');
+
+// Vivid cards
+vividGrid.innerHTML=O.map(o=>`<div class="card">
+  <div class="top"><div><div class="id">№ ${o.id}</div><div class="date">${o.date} · ${o.shop}</div></div><span class="spill ${o.spill}">${o.stl}</span></div>
+  <div class="body">${thumb(o)}<div style="min-width:0"><div class="pt">${o.pt}</div><div class="pm">${o.pm}</div></div></div>
+  <div class="foot">${dl(o)}<span class="money">${o.sum} so'm</span></div>
+</div>`).join('');
+
+const NOTES={
+ aurora:'<b>Aurora</b> — yumshoq oq kartalar, indigo→binafsha nur, KPI qatori + karta-qatorlar ro\'yxati. Tinch, professional, hozirgi ko\'rinishga yaqin.',
+ onyx:'<b>Onyx</b> — qorong\'i ops-konsol, neon aksentlar (cyan/lime/pink), zich jadval + chap rang-rail. Ko\'p buyurtma bilan tez ishlash uchun.',
+ edit:'<b>Editorial</b> — minimal, yirik tipografika, hairline chiziqlar, deyarli rangsiz (bitta qizil aksent). Sokin, jurnal uslubi.',
+ vivid:'<b>Vivid</b> — jonli gradient KPI plitkalar, yirik radius, har buyurtma alohida karta (grid). Energiyali, zamonaviy SaaS hissi.'
+};
+note.innerHTML=NOTES.aurora;
+seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='pane-'+b.dataset.p));
+ note.innerHTML=NOTES[b.dataset.p];window.scrollTo({top:0,behavior:'smooth'});});
+</script>
+</body>
+</html>

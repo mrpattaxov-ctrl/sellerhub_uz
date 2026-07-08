@@ -41,8 +41,11 @@ def _make_session_cm_mock():
 # ── openapi action/DBS/detail funcs forward fail_fast to the chokepoint ─
 def _capture_chokepoint_fail_fast(run):
     """Run ``run()`` with the chokepoint mocked to return a 429 (so the
-    func raises right after recording) + pace_uzum_call stubbed. Returns
-    the ``fail_fast`` value the func forwarded into the chokepoint."""
+    func raises right after recording). Returns the ``fail_fast`` value the
+    func forwarded into the chokepoint.
+
+    Pacing lives INSIDE the chokepoint now (Bosqich A.11), and the chokepoint
+    is fully mocked here, so no bucket/pace stubbing is needed."""
     seen = {}
 
     def fake_req(url, token, **kw):
@@ -51,8 +54,7 @@ def _capture_chokepoint_fail_fast(run):
         # forwarding; we only care about the recorded value.
         return ({"errors": [{"code": "x"}]}, 429, "", "raw")
 
-    with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req), \
-         patch.object(uzum_openapi, "pace_uzum_call"):
+    with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req):
         try:
             run()
         except Exception:

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyurtma modali — boshqacha dizaynlar</title>
+<style>
+  :root{
+    --bg:#f2f4f7; --card:#fff;
+    --ink:#101828; --ink2:#475467; --mut:#94a3b8;
+    --line:#eaecf0; --line2:#e5e8ef;
+    --brand:#4169E1; --brand2:#6E8FE8; --brand-deep:#2b3bb0;
+    --brand-soft:#eef2ff; --brand-ink:#1d3bd8;
+    --indigo-soft:#f4f3ff; --indigo-ink:#4338ca;
+    --ok:#047857; --danger:#b91c1c; --warn:#b45309;
+    --shadow:0 26px 64px -22px rgba(24,32,72,.40), 0 8px 22px -14px rgba(24,32,72,.25);
+  }
+  [data-theme="dark"]{
+    --bg:#13151d; --card:#1a1d27;
+    --ink:#e7ebf3; --ink2:#aab3c5; --mut:#7c869b;
+    --line:#252a3f; --line2:#2d3148;
+    --brand:#6384ff; --brand2:#93b4ff; --brand-deep:#1b2a7a;
+    --brand-soft:#1a2140; --brand-ink:#9db0ff;
+    --indigo-soft:#1a1040; --indigo-ink:#a78bfa;
+    --ok:#10b981; --danger:#ef4444; --warn:#fbbf24;
+    --shadow:0 30px 80px -22px rgba(0,0,0,.72), 0 10px 28px -14px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+    background:radial-gradient(1100px 560px at 82% -8%, rgba(65,105,225,.07), transparent 60%),var(--bg);
+    color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+  [data-theme="dark"] body{background:radial-gradient(1100px 560px at 82% -8%, rgba(99,132,255,.10), transparent 60%),
+    linear-gradient(160deg,#0f1117,#131625 56%,#111420)}
+  .bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+    padding:.7rem 1.1rem;background:color-mix(in srgb,var(--card) 80%,transparent);
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--line2)}
+  .bar h1{font-size:.95rem;margin:0 1rem 0 0;font-weight:800}
+  .bar .sp{flex:1}
+  .tab{border:1px solid var(--line2);background:var(--card);color:var(--ink2);padding:.42rem .9rem;
+    border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;transition:.16s}
+  .tab:hover{border-color:var(--brand);color:var(--brand-ink)}
+  .tab.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 20px -8px var(--brand)}
+  .stage{min-height:calc(100vh - 56px);display:grid;place-items:start center;padding:2.4rem 1.2rem 4rem;
+    background:radial-gradient(900px 460px at 50% 0%, rgba(24,32,72,.10), transparent 70%)}
+  .variant{display:none}
+  .variant.show{display:block;animation:pop .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+  .note{max-width:620px;margin:0 auto 1.1rem;text-align:center;color:var(--mut);font-size:.84rem;line-height:1.5}
+  .note b{color:var(--ink2)}
+
+  .pill{display:inline-flex;align-items:center;gap:.3rem;padding:3px 12px;border-radius:999px;font-size:.74rem;font-weight:800}
+  .pill-new{background:var(--card);color:var(--brand-ink);box-shadow:inset 0 0 0 1.4px color-mix(in srgb,var(--brand) 45%,transparent)}
+  .pill-fbs{background:var(--indigo-soft);color:var(--indigo-ink)}
+  .x{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;border:0;cursor:pointer;
+    background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--mut);font-size:1.15rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:0;cursor:pointer;
+    font-weight:750;font-size:.92rem;padding:.72rem 1.4rem;border-radius:11px}
+  .btn-ok{background:var(--ok);color:#fff}.btn-no{background:var(--danger);color:#fff}
+  .thumb{object-fit:cover;flex:none;background:#e9ecf2;border:1px solid var(--line);border-radius:9px}
+  [data-theme="dark"] .thumb{background:#222634}
+
+  /* ============================================================
+     A · BLUE BAND — to'la royal-blue sarlavha bandi
+     ============================================================ */
+  .vA{width:min(600px,94vw);background:var(--card);border-radius:22px;box-shadow:var(--shadow);
+    border:1px solid var(--line2);overflow:hidden}
+  .vA .band{position:relative;padding:1.5rem 1.6rem 1.35rem;color:#fff;
+    background:linear-gradient(135deg,var(--brand-deep),var(--brand) 55%,var(--brand2))}
+  .vA .band .x{position:absolute;top:1.25rem;right:1.3rem;background:rgba(255,255,255,.18);color:#fff}
+  .vA .ono{font-size:1.5rem;font-weight:850;letter-spacing:-.02em;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .vA .band .pill-new{background:rgba(255,255,255,.95);color:var(--brand-ink);box-shadow:none}
+  .vA .band .pill-fbs{background:rgba(255,255,255,.2);color:#fff}
+  .vA .band .meta{font-size:.8rem;opacity:.85;margin-top:.55rem}
+  .vA .info{display:grid;grid-template-columns:1fr 1fr;gap:.95rem 1.4rem;padding:1.2rem 1.6rem 0}
+  .vA .f .k{font-size:.72rem;color:var(--mut);font-weight:700}
+  .vA .f .v{font-size:1rem;font-weight:800;color:var(--ink);margin-top:.15rem}
+  .vA .f .cd{font-size:.77rem;font-weight:700;color:var(--brand-ink);margin-top:.08rem}
+  .vA .f .cd.u{color:var(--warn)}
+  .vA .items{padding:1.1rem 1.6rem 0}
+  .vA .row{display:flex;align-items:center;gap:.85rem;padding:.65rem 0}
+  .vA .row + .row{border-top:1px solid var(--line)}
+  .vA .row .thumb{width:42px;height:42px}
+  .vA .row .t{font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vA .row .s{font-size:.75rem;color:var(--mut);margin-top:.1rem}
+  .vA .row .sum{font-size:.95rem;font-weight:850;white-space:nowrap;text-align:right}
+  .vA .row .q{font-size:.77rem;color:var(--mut);font-weight:700;text-align:right;margin-top:.1rem}
+  .vA .foot{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 1.6rem;margin-top:1.1rem;border-top:1px solid var(--line)}
+  .vA .foot .k{font-size:.76rem;color:var(--mut);font-weight:700}.vA .foot .v{font-size:1.35rem;font-weight:850;letter-spacing:-.02em}
+  .vA .acts{display:flex;gap:.6rem}
+
+  /* ============================================================
+     B · TWO-PANE — chap panel (meta+amal) / o'ng (mahsulotlar)
+     ============================================================ */
+  .vB{width:min(880px,95vw);background:var(--card);border-radius:22px;box-shadow:var(--shadow);
+    border:1px solid var(--line2);overflow:hidden;display:grid;grid-template-columns:290px 1fr}
+  .vB .left{padding:1.5rem 1.4rem;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,var(--brand-soft),color-mix(in srgb,var(--brand-soft) 30%,var(--card)));
+    border-right:1px solid var(--line2)}
+  .vB .ono{font-size:.74rem;color:var(--brand-ink);font-weight:800;letter-spacing:.04em}
+  .vB .otitle{font-size:1.35rem;font-weight:850;letter-spacing:-.02em;margin:.1rem 0 .6rem;color:var(--ink)}
+  .vB .pills{display:flex;gap:.4rem;margin-bottom:1.2rem}
+  .vB .lf{margin-bottom:.95rem}
+  .vB .lf .k{font-size:.7rem;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .vB .lf .v{font-size:.96rem;font-weight:800;color:var(--ink);margin-top:.12rem}
+  .vB .lf .cd{font-size:.76rem;font-weight:700;color:var(--brand-ink);margin-top:.06rem}.vB .lf .cd.u{color:var(--warn)}
+  .vB .ltotal{margin-top:auto;padding-top:1rem;border-top:1px dashed var(--line2)}
+  .vB .ltotal .k{font-size:.74rem;color:var(--mut);font-weight:700}
+  .vB .ltotal .v{font-size:1.6rem;font-weight:850;letter-spacing:-.02em;color:var(--ink)}
+  .vB .lacts{display:flex;flex-direction:column;gap:.5rem;margin-top:.9rem}
+  .vB .lacts .btn{width:100%}
+  .vB .right{padding:1.4rem 1.5rem;position:relative}
+  .vB .right .x{position:absolute;top:1.1rem;right:1.2rem}
+  .vB .rh{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:800;margin:0 0 .5rem}
+  .vB .row{display:flex;align-items:center;gap:.85rem;padding:.7rem 0}
+  .vB .row + .row{border-top:1px solid var(--line)}
+  .vB .row .thumb{width:46px;height:46px}
+  .vB .row .t{font-size:.91rem;font-weight:700;line-height:1.3}
+  .vB .row .s{font-size:.76rem;color:var(--mut);margin-top:.12rem}
+  .vB .row .sum{font-size:.96rem;font-weight:850;white-space:nowrap;text-align:right}
+  .vB .row .q{font-size:.77rem;color:var(--mut);font-weight:700;text-align:right;margin-top:.1rem}
+
+  /* ============================================================
+     C · INVOICE — hujjat/hisob-faktura uslubi, raqamlangan
+     ============================================================ */
+  .vC{width:min(640px,94vw);background:var(--card);border-radius:18px;box-shadow:var(--shadow);
+    border:1px solid var(--line2);overflow:hidden}
+  .vC .hd{display:flex;justify-content:space-between;align-items:flex-start;padding:1.5rem 1.7rem 1.2rem;
+    border-bottom:2px solid var(--ink);position:relative}
+  [data-theme="dark"] .vC .hd{border-bottom-color:var(--line2)}
+  .vC .hd .x{position:absolute;top:1.2rem;right:1.3rem}
+  .vC .ono{font-size:.72rem;color:var(--mut);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+  .vC .otitle{font-size:1.6rem;font-weight:850;letter-spacing:-.02em;margin:.15rem 0 .5rem}
+  .vC .pills{display:flex;gap:.4rem}
+  .vC .hd .rmeta{text-align:right;font-size:.78rem;color:var(--mut);line-height:1.7;font-weight:600}
+  .vC .hd .rmeta b{color:var(--ink);font-weight:800}
+  .vC .hd .rmeta .u{color:var(--warn);font-weight:800}
+  .vC .tbl{width:100%;border-collapse:collapse;margin:.4rem 0}
+  .vC .tbl th{text-align:left;font-size:.67rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);
+    font-weight:800;padding:.7rem 1.7rem .5rem}
+  .vC .tbl th.r,.vC .tbl td.r{text-align:right}
+  .vC .tbl td{padding:.6rem 1.7rem;border-top:1px solid var(--line);vertical-align:middle;font-size:.9rem}
+  .vC .idx{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;
+    background:var(--brand-soft);color:var(--brand-ink);font-size:.74rem;font-weight:800;margin-right:.2rem}
+  .vC .t{font-weight:700}.vC .s{font-size:.74rem;color:var(--mut);margin-top:.1rem}
+  .vC .num{font-weight:800;color:var(--ink2)}.vC .sum{font-weight:850;color:var(--ink)}
+  .vC .totals{padding:1rem 1.7rem 0;display:flex;flex-direction:column;align-items:flex-end;gap:.35rem}
+  .vC .tline{display:flex;gap:2rem;font-size:.86rem;color:var(--mut);font-weight:700}
+  .vC .tline.grand{font-size:1.1rem;color:var(--ink);font-weight:850;border-top:2px solid var(--line);padding-top:.6rem;margin-top:.3rem}
+  .vC .acts{display:flex;justify-content:flex-end;gap:.6rem;padding:1.2rem 1.7rem 1.5rem}
+
+  /* ============================================================
+     D · VISUAL GRID — mahsulotlar mini-kartochka panjarasi
+     ============================================================ */
+  .vD{width:min(640px,94vw);background:var(--card);border-radius:22px;box-shadow:var(--shadow);
+    border:1px solid var(--line2);overflow:hidden}
+  .vD .accent{height:4px;background:linear-gradient(90deg,var(--brand),var(--brand2))}
+  .vD .hd{display:flex;justify-content:space-between;align-items:flex-start;padding:1.3rem 1.5rem .1rem}
+  .vD .ono{font-size:1.4rem;font-weight:850;letter-spacing:-.02em;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .vD .strip{display:flex;gap:.6rem;flex-wrap:wrap;padding:.9rem 1.5rem 0}
+  .vD .chip{flex:1;min-width:130px;border:1px solid var(--line2);border-radius:12px;padding:.6rem .8rem;background:color-mix(in srgb,var(--brand) 3%,var(--card))}
+  .vD .chip .k{font-size:.66rem;color:var(--mut);font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+  .vD .chip .v{font-size:.92rem;font-weight:800;color:var(--ink);margin-top:.15rem}
+  .vD .chip .v small{display:block;font-size:.72rem;font-weight:700;color:var(--brand-ink);margin-top:.05rem}
+  .vD .chip .v small.u{color:var(--warn)}
+  .vD .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;padding:1.1rem 1.5rem 0}
+  .vD .mc{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--card)}
+  .vD .mc .ph{height:96px;background:linear-gradient(135deg,#3b3f4d,#23262f)}
+  .vD .mc .b{padding:.6rem .7rem}
+  .vD .mc .t{font-size:.8rem;font-weight:700;line-height:1.25;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .vD .mc .s{font-size:.68rem;color:var(--mut);margin-top:.2rem}
+  .vD .mc .p{font-size:.92rem;font-weight:850;color:var(--ink);margin-top:.35rem}
+  .vD .mc .p small{font-size:.7rem;font-weight:700;color:var(--mut)}
+  .vD .foot{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 1.5rem;margin-top:1.1rem;border-top:1px solid var(--line)}
+  .vD .foot .k{font-size:.76rem;color:var(--mut);font-weight:700}.vD .foot .v{font-size:1.35rem;font-weight:850;letter-spacing:-.02em}
+  .vD .acts{display:flex;gap:.6rem}
+
+  @media(max-width:720px){.vB{grid-template-columns:1fr}.vD .grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Boshqacha dizaynlar</h1>
+    <button class="tab on" data-v="A">A · Blue Band</button>
+    <button class="tab" data-v="B">B · Two-Pane</button>
+    <button class="tab" data-v="C">C · Invoice</button>
+    <button class="tab" data-v="D">D · Visual Grid</button>
+    <span class="sp"></span>
+    <button class="tab" id="theme">🌙 Tema</button>
+  </div>
+
+  <div class="stage"><div>
+
+  <!-- A -->
+  <div class="variant show" data-v="A">
+    <p class="note"><b>Blue Band</b> — to'la royal-blue sarlavha bandi (oq yozuv); pastda oq tana, mahsulotlar bir qatorli. Dadil, brendli.</p>
+    <div class="vA">
+      <div class="band">
+        <button class="x">×</button>
+        <div class="ono">Buyurtma №856114-0049 <span class="pill pill-new">Yangi</span> <span class="pill pill-fbs">FBS</span></div>
+        <div class="meta">Yaratildi 10.06.2026, 17:39</div>
+      </div>
+      <div class="info">
+        <div class="f"><div class="k">Tasdiqlash muddati</div><div class="v">11.06.2026, 09:39</div><div class="cd u">15 soat 59 daqiqa</div></div>
+        <div class="f"><div class="k">Yetkazib berish</div><div class="v">13.06.2026, 16:00</div><div class="cd">2 kun 22 soat</div></div>
+        <div class="f"><div class="k">Buyurtma ID</div><div class="v">856114-0049</div></div>
+        <div class="f"><div class="k">Tarkib va summa</div><div class="v">3 dona, 37 950 UZS</div></div>
+      </div>
+      <div class="items">
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 2 dona (2.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT2-25</div></div><div><div class="sum">15 000</div><div class="q">15 000 × 1</div></div></div>
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 2 dona (3.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT2-35</div></div><div><div class="sum">15 000</div><div class="q">15 000 × 1</div></div></div>
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 4 dona (4.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT4-45</div></div><div><div class="sum">7 950</div><div class="q">7 950 × 1</div></div></div>
+      </div>
+      <div class="foot"><div><div class="k">Jami summa</div><div class="v">37 950 UZS</div></div><div class="acts"><button class="btn btn-ok">✓ Tasdiqlash</button><button class="btn btn-no">✕ Bekor</button></div></div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="variant" data-v="B">
+    <p class="note"><b>Two-Pane</b> — chapda buyurtma ma'lumoti + jami + tugmalar (qotirilgan), o'ngда mahsulotlar ro'yxati. Dashboard ko'rinishi.</p>
+    <div class="vB">
+      <div class="left">
+        <div class="ono">BUYURTMA</div>
+        <div class="otitle">№856114-0049</div>
+        <div class="pills"><span class="pill pill-new">Yangi</span><span class="pill pill-fbs">FBS</span></div>
+        <div class="lf"><div class="k">Tasdiqlash muddati</div><div class="v">11.06.2026, 09:39</div><div class="cd u">15 soat 59 daqiqa</div></div>
+        <div class="lf"><div class="k">Yetkazib berish</div><div class="v">13.06.2026, 16:00</div><div class="cd">2 kun 22 soat</div></div>
+        <div class="lf"><div class="k">Buyurtma ID</div><div class="v">856114-0049</div></div>
+        <div class="ltotal"><div class="k">Jami summa</div><div class="v">37 950 UZS</div>
+          <div class="lacts"><button class="btn btn-ok">✓ Tasdiqlash</button><button class="btn btn-no">✕ Bekor qilish</button></div>
+        </div>
+      </div>
+      <div class="right">
+        <button class="x">×</button>
+        <p class="rh">Mahsulotlar · 3 ta</p>
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 2 dona (O'lcham: 2.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT2-25 · Barkod 1000007817150</div></div><div><div class="sum">15 000</div><div class="q">15 000 × 1</div></div></div>
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 2 dona (O'lcham: 3.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT2-35 · Barkod 1000007817167</div></div><div><div class="sum">15 000</div><div class="q">15 000 × 1</div></div></div>
+        <div class="row"><img class="thumb" src="x"><div style="flex:1;min-width:0"><div class="t">Stresga qarshi magnit, 4 dona (O'lcham: 4.5sm)</div><div class="s">SKU: BLUMMY-MAGNIT4-45 · Barkod 1000007817174</div></div><div><div class="sum">7 950</div><div class="q">7 950 × 1</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="variant" data-v="C">
+    <p class="note"><b>Invoice</b> — hisob-faktura/hujjat uslubi: raqamlangan qatorlar, ustunlar, pastda umumiy yakun chiziqlari. Rasmiy, professional.</p>
+    <div class="vC">
+      <div class="hd">
+        <button class="x">×</button>
+        <div>
+          <div class="ono">Buyurtma</div>
+          <div class="otitle">№856114-0049</div>
+          <div class="pills"><span class="pill pill-new">Yangi</span><span class="pill pill-fbs">FBS</span></div>
+        </div>
+        <div class="rmeta">
+          Yaratildi: <b>10.06.2026, 17:39</b><br>
+          Tasdiqlash: <span class="u">11.06 09:39 · 15s 59d</span><br>
+          Yetkazish: <b>13.06.2026, 16:00</b>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Mahsulot</th><th class="r">Narx</th><th class="r">Soni</th><th class="r">Jami</th></tr></thead>
+        <tbody>
+          <tr><td><span class="idx">1</span><span class="t">Stresga qarshi magnit (2.5sm)</span><div class="s" style="margin-left:1.6rem">SKU: BLUMMY-MAGNIT2-25</div></td><td class="r num">15 000</td><td class="r num">1</td><td class="r sum">15 000</td></tr>
+          <tr><td><span class="idx">2</span><span class="t">Stresga qarshi magnit (3.5sm)</span><div class="s" style="margin-left:1.6rem">SKU: BLUMMY-MAGNIT2-35</div></td><td class="r num">15 000</td><td class="r num">1</td><td class="r sum">15 000</td></tr>
+          <tr><td><span class="idx">3</span><span class="t">Stresga qarshi magnit (4.5sm)</span><div class="s" style="margin-left:1.6rem">SKU: BLUMMY-MAGNIT4-45</div></td><td class="r num">7 950</td><td class="r num">1</td><td class="r sum">7 950</td></tr>
+        </tbody>
+      </table>
+      <div class="totals">
+        <div class="tline"><span>Mahsulotlar (3 dona)</span><span>37 950 UZS</span></div>
+        <div class="tline grand"><span>Jami summa</span><span>37 950 UZS</span></div>
+      </div>
+      <div class="acts"><button class="btn btn-ok">✓ Tasdiqlash</button><button class="btn btn-no">✕ Bekor qilish</button></div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="variant" data-v="D">
+    <p class="note"><b>Visual Grid</b> — mahsulotlar rasm bilan mini-kartochka panjarasida; muddatlar yuqorida «chip»larда. Vizual, e-commerce ko'rinish.</p>
+    <div class="vD">
+      <div class="accent"></div>
+      <div class="hd"><div class="ono">Buyurtma №856114-0049 <span class="pill pill-new">Yangi</span> <span class="pill pill-fbs">FBS</span></div><button class="x">×</button></div>
+      <div class="strip">
+        <div class="chip"><div class="k">⏱ Tasdiqlash</div><div class="v">11.06, 09:39<small class="u">15 soat 59 daqiqa</small></div></div>
+        <div class="chip"><div class="k">🚚 Yetkazish</div><div class="v">13.06, 16:00<small>2 kun 22 soat</small></div></div>
+        <div class="chip"><div class="k">📦 Tarkib</div><div class="v">3 dona<small>ID 856114-0049</small></div></div>
+      </div>
+      <div class="grid">
+        <div class="mc"><div class="ph"></div><div class="b"><div class="t">Stresga qarshi magnit, 2 dona (2.5sm)</div><div class="s">BLUMMY-MAGNIT2-25</div><div class="p">15 000 <small>× 1</small></div></div></div>
+        <div class="mc"><div class="ph"></div><div class="b"><div class="t">Stresga qarshi magnit, 2 dona (3.5sm)</div><div class="s">BLUMMY-MAGNIT2-35</div><div class="p">15 000 <small>× 1</small></div></div></div>
+        <div class="mc"><div class="ph"></div><div class="b"><div class="t">Stresga qarshi magnit, 4 dona (4.5sm)</div><div class="s">BLUMMY-MAGNIT4-45</div><div class="p">7 950 <small>× 1</small></div></div></div>
+      </div>
+      <div class="foot"><div><div class="k">Jami summa</div><div class="v">37 950 UZS</div></div><div class="acts"><button class="btn btn-ok">✓ Tasdiqlash</button><button class="btn btn-no">✕ Bekor</button></div></div>
+    </div>
+  </div>
+
+  </div></div>
+
+<script>
+  const tabs=document.querySelectorAll('.tab[data-v]');
+  tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove('on'));t.classList.add('on');
+    document.querySelectorAll('.variant').forEach(el=>el.classList.toggle('show',el.dataset.v===t.dataset.v));});
+  document.getElementById('theme').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';};
+  (function(){let h=(location.hash||'').replace('#','');if(!h)return;
+    let dark=h.endsWith('dark');if(dark)h=h.replace('dark','');
+    if(dark)document.documentElement.dataset.theme='dark';
+    const t=document.querySelector('.tab[data-v="'+h+'"]');if(t)t.click();})();
+</script>
+</body>
+</html>

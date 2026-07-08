@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ i18n.title }}</title>
+  <style>
+    /* FBS tovar-QR stikeri — POS «QR Chop etish» (templates/print_labels.html)
+       BILAN AYNAN BIR XIL usul: brauzer HTML'ni chop etadi (server PDF EMAS),
+       QR esa `api.qrserver.com`'dan + `image-rendering: pixelated` bilan o'tkir
+       masshtablanadi. Shu sababli QR aniq/toza chiqadi — PDF ko'ruvchining
+       silliqlash (blur) muammosi yo'q (Abdulaziz 2026-06-16). */
+    {# `sheet` (A4-grid) rejimi: oddiy printer uchun yorliqlar A4 varaqqa to'rga
+       teriladi (Uzum «Принтер» PDF'i kabi). Aks holda har yorliq alohida sahifa
+       (termoprinter rulon). FBS `sheet` uzatmaydi → eski xatti-harakat. #}
+    {# Chekka (margin) `@page`'da — bu HAR sahifaga bir xil qo'llanadi. Avval
+       `.labels-sheet` padding ishlatilardi, lekin CSS padding faqat 1-sahifa tepasida
+       chiqib, 2+ sahifalar tepasiga qo'llanmasdi (QR yopishib qolardi). `@page margin`
+       har sahifada ishlaydi. Brauzerда «Поля: Нет» bilan birga aniq shu margin chiqadi. #}
+    @page { size: {% if sheet %}A4{% else %}{{ lbl.w }}mm {{ lbl.h }}mm{% endif %}; margin: {% if sheet %}{{ lbl.pad if lbl.pad is defined else 5 }}mm{% else %}0{% endif %}; }
+    body { margin: 0; padding: 0; background: #fff; font-family: Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    .screen-toolbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      padding: .9rem 1rem; border-bottom: 1px solid #eaecf0;
+      background: rgba(255,255,255,.94); backdrop-filter: blur(10px);
+    }
+    .screen-toolbar__meta { color: #344054; font-size: .95rem; font-weight: 700; }
+    .screen-toolbar__btn {
+      border: 0; border-radius: 999px; padding: .75rem 1rem;
+      background: #101828; color: #fff; font-weight: 700; cursor: pointer;
+    }
+
+    .labels-sheet { padding: .75rem;
+      {% if sheet %}display: flex; flex-wrap: wrap; align-content: flex-start;
+      /* Bo'shliqsiz — yorliqlar tegib turadi, o'ng+pastki punktir chiziqlari
+         birlashib butun varaq bo'ylab UZLUKSIZ kesish to'rini beradi. Chekka (margin)
+         har o'lcham uchun `lbl.pad` (mm), berilmasa 5mm (eski 38×21.2 = 6 ustun). Uzum
+         «48.5×25.4» kabi zich 5 ustun uchun pad=2 → (210−4)/41≈5 ustun sig'adi. */
+      padding: {{ lbl.pad if lbl.pad is defined else 5 }}mm;{% endif %}
+    }
+    .label {
+      width: {{ lbl.w }}mm; height: {{ lbl.h }}mm;
+      display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+      overflow: hidden; box-sizing: border-box; background: #fff;
+      padding: 0 {% if sheet %}1.8mm{% else %}1mm{% endif %};
+      {% if sheet %}break-inside: avoid;
+      /* Kesish to'ri — o'ng + pastki punktir chiziq. Yorliqlar tegib turgani uchun
+         qo'shni yorliqlarniki birlashib butun varaq bo'ylab UZLUKSIZ chiziq beradi
+         (alohida ramka EMAS). */
+      border-right: 0.3mm dashed #c4c4c4; border-bottom: 0.3mm dashed #c4c4c4;
+      {% else %}page-break-after: always;{% endif %}
+    }
+    {% if not sheet %}.label:last-child { page-break-after: auto; }{% endif %}
+
+    {# Sheet (printer) rejimida vertikal matn yorliq balandligidan 3mm qisqa —
+       yuqori/pastki kesish chizig'iga tegmasin. FBS'da to'liq balandlik (eski). #}
+    {% set txtlen = (lbl.h - 3) if sheet else lbl.h %}
+    .text-column {
+      width: {{ lbl.tcol }}mm; height: {{ lbl.h }}mm;
+      display: flex; align-items: center; justify-content: center;
+      flex: 0 0 {{ lbl.tcol }}mm;
+    }
+    .vertical-text-wrapper {
+      transform: rotate(-90deg); display: flex; align-items: center; justify-content: center;
+      width: {{ txtlen }}mm; min-width: {{ txtlen }}mm; height: {{ lbl.tcol }}mm;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .sku-top {
+      width: {{ txtlen }}mm; font-size: {{ lbl.sku_fs }}pt; font-weight: bold;
+      text-align: center; line-height: 1.08; white-space: normal;
+      overflow-wrap: break-word; word-break: normal; display: block;
+      max-height: {{ lbl.tcol }}mm; overflow: hidden;
+    }
+    .number {
+      transform: rotate(-90deg); width: {{ txtlen }}mm;
+      display: inline-flex; align-items: flex-end; justify-content: center; gap: 0;
+      text-align: center; white-space: nowrap; line-height: 1;
+      font-size: {{ lbl.num_fs }}pt; font-weight: 600;
+    }
+    .number .last4 { font-size: {{ lbl.num_last4_fs }}pt; font-weight: 900; line-height: 1; }
+
+    {# QR auto-fit (FBS `render_product_qr_pdf` bilan bir xil mantiq): preset'dagi
+       `qr` — MAQSAD o'lcham; lekin QR yorliqdan oshmasin. Balandlik bo'yicha ≤ h−3mm
+       (yuqori/past 1.5mm), en bo'yicha ≤ w − 2×tcol (ikki matn ustuni). Masalan
+       70×37 da qr=40 → balandlik 37mm → 34mm ga qisiladi (qirqilmaydi). Boshqa
+       o'lchamlar allaqachon sig'adi → o'zgarmaydi. #}
+    {% set _qr_max_h = lbl.h - 3 %}
+    {% set _qr_max_w = lbl.w - 2 * lbl.tcol %}
+    {% set qreff = [lbl.qr, _qr_max_h, _qr_max_w] | min %}
+    .qr-container {
+      width: {{ qreff }}mm; height: {{ qreff }}mm;
+      display: flex; align-items: center; justify-content: center;
+      flex: 0 0 {{ qreff }}mm;
+    }
+    /* `pixelated` — brauzer QR'ni NEAREST bilan masshtablaydi → modullar o'tkir,
+       xiralik yo'q (POS bilan bir xil). */
+    .qr-code { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+
+    @media print {
+      .screen-toolbar { display: none; }
+      {# Chop paytida konteyner padding'ini HAMMA rejimda 0 qilamiz — chekka endi
+         `@page margin`'dan keladi (har sahifaga ishlaydi). Aks holda 1-sahifada
+         padding + @page margin = ikki marta margin bo'lardi. #}
+      .labels-sheet { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-toolbar">
+    <div class="screen-toolbar__meta">{{ i18n.count_prefix }} {{ labels|length }}</div>
+    <button class="screen-toolbar__btn" type="button" onclick="window.print()">{{ i18n.reprint }}</button>
+  </div>
+
+  <div class="labels-sheet">
+    {% for lab in labels %}
+    <div class="label">
+      <div class="text-column">
+        <div class="vertical-text-wrapper">
+          <div class="sku-top">{{ lab.sku }}</div>
+        </div>
+      </div>
+      <div class="qr-container">
+        {# Sheet (printer) rejimida 1 varaqда ~30 ta QR bo'lgani uchun rasmni
+           kichikroq (300px) so'raymiz — chop sifati 16mm uchun yetarli, lekin
+           `pixelated` masshtabi yengil → ko'ruvchi/PDF qotmaydi. FBS: 600px. #}
+        <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?ecc=M&margin=0&size={% if sheet %}300x300{% else %}600x600{% endif %}&data={{ lab.barcode | urlencode }}">
+      </div>
+      <div class="text-column">
+        <div class="number js-last4">{{ lab.barcode }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    function notifyParentDone() {
+      if (window.parent && window.parent !== window) {
+        try { window.parent.postMessage({ type: "fbs-qr-print-done" }, "*"); } catch (e) {}
+      }
+    }
+    function fitSkuText() {
+      document.querySelectorAll(".sku-top").forEach(function (el) {
+        let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+        const minFontSize = 2.8;
+        while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && fontSize > minFontSize) {
+          fontSize -= 0.15;
+          el.style.fontSize = fontSize + "px";
+        }
+      });
+    }
+    // «N ta oxirgi 4 raqam» — POS bilan bir xil: oxirgi 4 belgini yo'g'on qiladi.
+    document.querySelectorAll(".js-last4").forEach(function (el) {
+      const text = (el.textContent || "").trim();
+      if (text.length <= 4) return;
+      el.innerHTML = text.slice(0, -4) + '<span class="last4">' + text.slice(-4) + "</span>";
+    });
+    window.addEventListener("load", function () {
+      fitSkuText();
+      // Chop oynasini AVTOMATIK ochamiz (yashirin iframe — yangi tab ochilmaydi).
+      // QR rasm(lar) yuklanib bo'lgach — aks holda bo'sh QR chop bo'lishi mumkin.
+      var imgs = Array.prototype.slice.call(document.querySelectorAll("img.qr-code"));
+      var pending = imgs.filter(function (im) { return !im.complete; }).length;
+      function go() { window.setTimeout(function () { window.print(); }, 120); }
+      if (!pending) { go(); }
+      else {
+        imgs.forEach(function (im) {
+          im.addEventListener("load", function () { if (--pending <= 0) go(); });
+          im.addEventListener("error", function () { if (--pending <= 0) go(); });
+        });
+        // Xavfsizlik — 6s ichida baribir ochamiz.
+        window.setTimeout(go, 6000);
+      }
+      window.setTimeout(notifyParentDone, 2000);
+    });
+    window.addEventListener("afterprint", notifyParentDone);
+  </script>
+</body>
+</html>

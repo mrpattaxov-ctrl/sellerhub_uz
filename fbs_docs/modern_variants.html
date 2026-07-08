@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBS — zamonaviy dizayn (3 yo'nalish)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}
+.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 14px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1100px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}
+.note b{color:#dcdce4}
+.frame{display:none;padding:26px 22px 80px}.frame.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.stage{max-width:1100px;margin:0 auto}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+
+/* shared row bits */
+.prod{display:flex;align-items:center;gap:10px;min-width:0}
+.qty{flex:none;display:inline-block;padding:2px 9px;border-radius:999px;font:700 .67rem 'Inter'}
+.sku{font:600 .82rem 'Inter';line-height:1.3}
+.bc{font:.73rem 'JetBrains Mono';margin-top:2px}
+.tag{display:inline-block;padding:3px 10px;border-radius:7px;font:700 .67rem 'Inter'}
+.dt{font:.82rem 'Inter'}.money{font:800 .9rem 'Inter';font-variant-numeric:tabular-nums}
+.dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11px/1.3 'Inter';border:1px solid transparent;white-space:nowrap;margin-top:5px}
+.dl svg{width:11px;height:11px}
+.onum{font:700 .9rem 'Inter'}
+
+/* =====================================================================
+   M1 · SOFT  — silliq segment-kontrol, gradient tugma, mayin soyalar
+   ===================================================================== */
+.m1{background:#F3F4F8;border-radius:26px;padding:28px}
+.m1 .panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+.m1 .bar{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.m1 .fld{display:flex;flex-direction:column;gap:6px}
+.m1 .fld label{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.07em;color:#9B98A5}
+.m1 .sel{position:relative}
+.m1 .sel select{appearance:none;-webkit-appearance:none;border:1px solid #E6E6EC;background:#FBFBFD;color:#1A1A22;border-radius:12px;padding:11px 38px 11px 14px;font:600 .86rem 'Inter';min-width:160px;cursor:pointer;transition:.15s}
+.m1 .sel select:hover{border-color:#CFCFE0;background:#fff}
+.m1 .sel svg{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#9B98A5;pointer-events:none}
+.m1 .btn-refresh{border:0;border-radius:12px;padding:12px 22px;font:700 .88rem 'Inter';cursor:pointer;color:#fff;background:linear-gradient(135deg,#4169E1,#7C3AED);box-shadow:0 8px 20px -6px rgba(96,60,200,.55);display:inline-flex;align-items:center;gap:8px;transition:.16s}
+.m1 .btn-refresh:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(96,60,200,.6)}
+.m1 .btn-refresh svg{width:16px;height:16px}
+.m1 .btn-pin{border:1px solid #E6E6EC;background:#fff;color:#7C3AED;border-radius:12px;padding:12px 18px;font:600 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.16s}
+.m1 .btn-pin:hover{border-color:#D6C9FB;background:#FAF7FF}
+/* segment track */
+.m1 .filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid #F0F0F4}
+.m1 .segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:16px;flex-wrap:wrap}
+.m1 .st{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;transition:.15s;white-space:nowrap}
+.m1 .st:hover{color:#1A1A22}
+.m1 .st .n{min-width:20px;padding:0 7px;border-radius:999px;background:#fff;color:#7A7684;font:700 .72rem/20px 'Inter';text-align:center}
+.m1 .st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.m1 .st.on .n{background:#1A1A22;color:#fff}
+.m1 .st.nav{color:#7C3AED}.m1 .st.nav svg{width:16px;height:16px}
+.m1 .st.nav.on{background:linear-gradient(135deg,#8b5cf6,#7C3AED);color:#fff;box-shadow:0 6px 16px -4px rgba(124,58,237,.5)}
+/* «Boshqa holatlar» — trek ichida, xuddi 5-segmentdek (bir xil dizayn) */
+.m1 .moresel{position:relative;display:inline-flex}
+.m1 .moresel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:#5A5762;border-radius:11px;padding:11px 40px 11px 18px;font:700 .9rem 'Inter';cursor:pointer;transition:.15s}
+.m1 .moresel select:hover{color:#1A1A22;background:rgba(255,255,255,.6)}
+.m1 .moresel svg{position:absolute;right:15px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#9B98A5;pointer-events:none}
+.m1 table{width:100%;border-collapse:separate;border-spacing:0 9px;margin-top:18px}
+.m1 thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:#A6A2AE;text-align:left;padding:0 16px 4px;white-space:nowrap}
+.m1 thead th.r{text-align:right}
+.m1 tbody td{background:#FBFBFD;padding:15px 16px;font-size:.85rem;vertical-align:middle;border-top:1px solid #EFEFF3;border-bottom:1px solid #EFEFF3}
+.m1 tbody td:first-child{border-left:1px solid #EFEFF3;border-radius:16px 0 0 16px}
+.m1 tbody td:last-child{border-right:1px solid #EFEFF3;border-radius:0 16px 16px 0;text-align:right}
+.m1 tbody tr{transition:.16s}.m1 tbody tr:hover td{background:#fff;border-color:transparent}
+.m1 tbody tr:hover{transform:translateY(-2px);filter:drop-shadow(0 14px 26px rgba(20,16,40,.1))}
+.m1 .qty{background:#EEF1FF;color:#3D5CCB}.m1 .sku{color:#1A1A22}.m1 .bc{color:#9B98A5}
+.m1 .tag.fbs{background:#EEF1FF;color:#3D5CCB}.m1 .tag.dbs{background:#FFF4D6;color:#9A6207}
+.m1 .dt{color:#56535F}.m1 .money{color:#1A1A22}
+.m1 .dl.urgent{background:#FEECEB;color:#C0362B;border-color:#F8C4BF;animation:pulse 2s infinite}
+.m1 .dl.ok{background:#E9FBF2;color:#0A7A52;border-color:#BDEED7}
+
+/* =====================================================================
+   M2 · GLASS  — frosted panel, jonli gradient fon, vibrant
+   ===================================================================== */
+.m2{position:relative;border-radius:26px;padding:30px;overflow:hidden;background:#0e1020}
+.m2::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(50% 60% at 12% 8%,rgba(124,58,237,.55),transparent 60%),
+  radial-gradient(50% 55% at 92% 12%,rgba(56,120,255,.5),transparent 60%),
+  radial-gradient(60% 60% at 70% 100%,rgba(236,72,153,.35),transparent 60%);}
+.m2 .panel{position:relative;background:rgba(255,255,255,.08);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:22px 24px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5)}
+.m2 .bar{display:flex;gap:13px;flex-wrap:wrap;align-items:flex-end}
+.m2 .fld{display:flex;flex-direction:column;gap:6px}
+.m2 .fld label{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.6)}
+.m2 .sel{position:relative}
+.m2 .sel select{appearance:none;-webkit-appearance:none;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:11px 38px 11px 14px;font:600 .86rem 'Inter';min-width:160px;cursor:pointer}
+.m2 .sel select option{color:#111}
+.m2 .sel svg{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:rgba(255,255,255,.7);pointer-events:none}
+.m2 .btn-refresh{border:0;border-radius:12px;padding:12px 22px;font:700 .88rem 'Inter';cursor:pointer;color:#1a1145;background:#fff;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 22px -6px rgba(0,0,0,.5);transition:.16s}
+.m2 .btn-refresh:hover{transform:translateY(-1px)}
+.m2 .btn-refresh svg{width:16px;height:16px}
+.m2 .btn-pin{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:12px 18px;font:600 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.m2 .filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.14)}
+.m2 .st{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:11px;font:700 .82rem 'Inter';color:rgba(255,255,255,.78);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);cursor:pointer;white-space:nowrap;transition:.15s}
+.m2 .st:hover{background:rgba(255,255,255,.14);color:#fff}
+.m2 .st .n{min-width:18px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.16);font:700 .66rem/18px 'Inter';text-align:center}
+.m2 .st.on{background:#fff;color:#1a1145;border-color:#fff}.m2 .st.on .n{background:rgba(26,17,69,.14);color:#1a1145}
+.m2 .st.nav{background:rgba(236,72,153,.22);color:#ffd1e8;border-color:rgba(236,72,153,.4)}.m2 .st.nav svg{width:15px;height:15px}
+.m2 .moresel{position:relative;margin-left:auto}
+.m2 .moresel select{appearance:none;-webkit-appearance:none;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;border-radius:11px;padding:10px 36px 10px 15px;font:600 .82rem 'Inter';cursor:pointer}
+.m2 .moresel select option{color:#111}
+.m2 .moresel svg{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:rgba(255,255,255,.7);pointer-events:none}
+.m2 table{width:100%;border-collapse:separate;border-spacing:0 9px;margin-top:18px}
+.m2 thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.55);text-align:left;padding:0 16px 4px;white-space:nowrap}
+.m2 thead th.r{text-align:right}
+.m2 tbody td{background:rgba(255,255,255,.07);padding:15px 16px;font-size:.85rem;vertical-align:middle;border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);color:#EAEAF2}
+.m2 tbody td:first-child{border-left:1px solid rgba(255,255,255,.1);border-radius:16px 0 0 16px}
+.m2 tbody td:last-child{border-right:1px solid rgba(255,255,255,.1);border-radius:0 16px 16px 0;text-align:right}
+.m2 tbody tr:hover td{background:rgba(255,255,255,.13)}
+.m2 .qty{background:rgba(124,58,237,.3);color:#e3d6ff}.m2 .sku{color:#fff}.m2 .bc{color:rgba(255,255,255,.55)}
+.m2 .tag.fbs{background:rgba(96,140,255,.3);color:#cdddff}.m2 .tag.dbs{background:rgba(251,191,36,.28);color:#ffe6a3}
+.m2 .dt{color:rgba(255,255,255,.7)}.m2 .money{color:#fff;font-family:'Space Grotesk'}
+.m2 .dl.urgent{background:rgba(232,71,71,.28);color:#ffc4c4;border-color:rgba(232,71,71,.45);animation:pulse 2s infinite}
+.m2 .dl.ok{background:rgba(16,183,110,.26);color:#a7f3d0;border-color:rgba(16,183,110,.4)}
+
+/* =====================================================================
+   M3 · MONO-BOLD  — kuchli tipografika, kontrast, indigo aksent
+   ===================================================================== */
+.m3{background:#fff;border-radius:26px;padding:30px;border:1px solid #ECECEC}
+.m3 .panel{background:#fff;border:1.5px solid #18181B;border-radius:20px;padding:22px 24px;box-shadow:6px 6px 0 0 #18181B}
+.m3 .bar{display:flex;gap:13px;flex-wrap:wrap;align-items:flex-end}
+.m3 .fld{display:flex;flex-direction:column;gap:6px}
+.m3 .fld label{font:800 .66rem 'Inter';text-transform:uppercase;letter-spacing:.1em;color:#18181B}
+.m3 .sel{position:relative}
+.m3 .sel select{appearance:none;-webkit-appearance:none;border:1.5px solid #18181B;background:#fff;color:#18181B;border-radius:11px;padding:11px 38px 11px 14px;font:700 .86rem 'Inter';min-width:160px;cursor:pointer}
+.m3 .sel svg{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#18181B;pointer-events:none}
+.m3 .btn-refresh{border:1.5px solid #18181B;border-radius:11px;padding:12px 22px;font:800 .88rem 'Inter';cursor:pointer;color:#fff;background:#4338CA;display:inline-flex;align-items:center;gap:8px;box-shadow:3px 3px 0 0 #18181B;transition:.12s}
+.m3 .btn-refresh:hover{transform:translate(1px,1px);box-shadow:2px 2px 0 0 #18181B}
+.m3 .btn-refresh svg{width:16px;height:16px}
+.m3 .btn-pin{border:1.5px solid #18181B;background:#fff;color:#4338CA;border-radius:11px;padding:12px 18px;font:700 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:3px 3px 0 0 #18181B;transition:.12s}
+.m3 .btn-pin:hover{transform:translate(1px,1px);box-shadow:2px 2px 0 0 #18181B}
+.m3 .filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1.5px solid #18181B}
+.m3 .st{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:9px;font:700 .82rem 'Inter';color:#18181B;background:#fff;border:1.5px solid #18181B;cursor:pointer;white-space:nowrap;transition:.12s}
+.m3 .st:hover{background:#F4F4F5}
+.m3 .st .n{min-width:18px;padding:0 6px;border-radius:999px;background:#F0F0F2;color:#52525B;font:800 .66rem/18px 'Inter';text-align:center}
+.m3 .st.on{background:#18181B;color:#fff}.m3 .st.on .n{background:rgba(255,255,255,.2);color:#fff}
+.m3 .st.nav{color:#6D28D9;border-color:#6D28D9}.m3 .st.nav svg{width:15px;height:15px}
+.m3 .st.nav.on{background:#6D28D9;color:#fff}
+.m3 .moresel{position:relative;margin-left:auto}
+.m3 .moresel select{appearance:none;-webkit-appearance:none;border:1.5px solid #18181B;background:#fff;color:#18181B;border-radius:9px;padding:10px 36px 10px 14px;font:700 .82rem 'Inter';cursor:pointer}
+.m3 .moresel svg{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#18181B;pointer-events:none}
+.m3 table{width:100%;border-collapse:separate;border-spacing:0 10px;margin-top:18px}
+.m3 thead th{font:800 .66rem 'Inter';text-transform:uppercase;letter-spacing:.08em;color:#52525B;text-align:left;padding:0 16px 4px;white-space:nowrap}
+.m3 thead th.r{text-align:right}
+.m3 tbody td{background:#fff;padding:15px 16px;font-size:.85rem;vertical-align:middle;border-top:1.5px solid #18181B;border-bottom:1.5px solid #18181B}
+.m3 tbody td:first-child{border-left:1.5px solid #18181B;border-radius:13px 0 0 13px}
+.m3 tbody td:last-child{border-right:1.5px solid #18181B;border-radius:0 13px 13px 0;text-align:right}
+.m3 tbody tr{transition:.12s}.m3 tbody tr:hover td{background:#FAFAFA}
+.m3 tbody tr:hover{transform:translate(-1px,-1px)}
+.m3 .qty{background:#E7E5FF;color:#4338CA;border:1px solid #4338CA}.m3 .sku{color:#18181B;font-weight:700}.m3 .bc{color:#71717A}
+.m3 .tag{border:1px solid currentColor}
+.m3 .tag.fbs{background:#E7E5FF;color:#4338CA}.m3 .tag.dbs{background:#FEF0C7;color:#92400E}
+.m3 .dt{color:#3F3F46}.m3 .money{color:#18181B;font-family:'Space Grotesk';font-weight:700}
+.m3 .dl.urgent{background:#FEE2E2;color:#B42318;border:1.5px solid #B42318;animation:pulse 2s infinite}
+.m3 .dl.ok{background:#DCFCE7;color:#15803D;border:1.5px solid #15803D}
+</style>
+</head>
+<body>
+
+<div class="pvbar">
+  <h1>FBS — zamonaviy dizayn</h1>
+  <span class="sub">3 yo'nalish · «Boshqa holatlar» dropdown saqlangan</span>
+  <div class="seg" id="seg">
+    <button data-v="m1" class="on">1 · Soft</button>
+    <button data-v="m2">2 · Glass</button>
+    <button data-v="m3">3 · Mono-Bold</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="frame on" id="f-m1"><div class="stage"><div class="m1"><div class="panel" id="p-m1"></div></div></div></div>
+<div class="frame" id="f-m2"><div class="stage"><div class="m2"><div class="panel" id="p-m2"></div></div></div></div>
+<div class="frame" id="f-m3"><div class="stage"><div class="m3"><div class="panel" id="p-m3"></div></div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const REF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+const SECONDARY=[['Доставлен',5],['В пункте приёма',0],['В пункте выдачи',0],['Завершён',235],['Отменён',268],['Возврат',183]];
+const ROWS=[
+ {id:'110388551',qty:'1 dona',sku:'KROSSFT-SHALVAR5-СЕРЫЙ-L',bc:'1000101649008',sc:'fbs',cr:'06.06.2026, 17:49',md:'10.06.2026, 16:00',shop:'KrossFit',sum:'59 900',left:'1 soat qoldi',lc:'urgent'},
+ {id:'110373473',qty:'1 dona',sku:'BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ',bc:'1000103129447',sc:'dbs',cr:'06.06.2026, 16:23',md:'02.07.2026, 23:59',shop:'BLUMMY',sum:'7 950',left:'537 soat qoldi',lc:'ok'},
+];
+
+function build(){
+  const moreOpts=`<option value="">Boshqa holatlar…</option>`+SECONDARY.map(c=>`<option>${c[0]} (${c[1]})</option>`).join('');
+  const rows=ROWS.map(r=>`<tr>
+    <td><div class="onum">№${r.id}</div><span class="dl ${r.lc}">${ICLK}${r.left}</span></td>
+    <td><div class="prod"><span class="qty">${r.qty}</span><div style="min-width:0"><div class="sku">SKU: ${r.sku}</div><div class="bc">Shtrix: ${r.bc}</div></div></div></td>
+    <td><span class="tag ${r.sc}">${r.sc.toUpperCase()}</span></td>
+    <td class="dt">${r.cr}</td><td class="dt">${r.md}</td><td class="dt">${r.shop}</td>
+    <td><span class="money">${r.sum} UZS</span></td>
+  </tr>`).join('');
+  return `
+  <div class="bar">
+    <div class="fld"><label>Do'kon</label><div class="sel"><select><option>Hammasi</option></select>${CHEV}</div></div>
+    <div class="fld"><label>Sxema</label><div class="sel"><select><option>FBS + DBS (hammasi)</option></select>${CHEV}</div></div>
+    <div class="fld"><label>Sahifada</label><div class="sel"><select><option>20</option></select>${CHEV}</div></div>
+    <div class="fld"><label>&nbsp;</label><button class="btn-refresh">${REF}Обновить</button></div>
+    <div class="fld"><label>&nbsp;</label><button class="btn-pin">${PIN}Пункт приёма</button></div>
+  </div>
+  <div class="filters">
+    <div class="segtrack">
+      <span class="st">Новый <span class="n">0</span></span>
+      <span class="st on">Сборка <span class="n">2</span></span>
+      <span class="st nav">${TRUCK}Поставка</span>
+      <span class="st">В пути <span class="n">0</span></span>
+      <div class="moresel"><select>${moreOpts}</select>${CHEV}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="r">Summa</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+['p-m1','p-m2','p-m3'].forEach(id=>document.getElementById(id).innerHTML=build());
+
+const NOTES={
+ m1:'<b>1 · Soft</b> — silliq segment-kontrol (asosiy 4 ta bitta yumshoq trekda), gradient «Обновить» tugma + mayin glow, maxsus dropdown\'lar, hover\'da qator ko\'tariladi. Eng <b>polished SaaS</b> hissi.',
+ m2:'<b>2 · Glass</b> — frosted (xira shisha) panel jonli gradient fon ustida, vibrant aksentlar, oq aktiv chip. Eng <b>dadil va premium</b>, lekin yorqin fon kerak.',
+ m3:'<b>3 · Mono-Bold</b> — kuchli qora konturlar + soya bloklari (neo-brutalist), indigo aksent, qalin tipografika. <b>O\'ziga xos, esda qoladi</b>an, kontrastli.'
+};
+const note=document.getElementById('note');note.innerHTML=NOTES.m1;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.frame').forEach(f=>f.classList.toggle('on',f.id==='f-'+b.dataset.v));
+ note.innerHTML=NOTES[b.dataset.v];window.scrollTo({top:0,behavior:'smooth'});});
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+/* ============================================================
+   FBS «Soft» dizayn qatlami — FAQAT .fbs-page ostida skoplangan.
+   Mavjud inline uslublarni specificity (.fbs-page .x) bilan yengadi;
+   boshqa modullarга tegmaydi. JS (fbs_aurora_orders.js) bilan birga
+   ishlaydi: ikkilamchi statuslar «Boshqa holatlar» menyusiga ko'chadi.
+   ============================================================ */
+.fbs-page{
+  --sx-surface:#fff; --sx-track:#F3F4F8; --sx-bd:#ECECF2;
+  --sx-chip:#5A5762; --sx-chip-hover:#1A1A22; --sx-active:#1E2435; --sx-active2:#7C3AED;
+  --sx-count-bg:#fff; --sx-count-fg:#7A7684;
+  --sx-menu:#fff; --sx-menu-bd:#ECECF0; --sx-mi:#3A3A44; --sx-mi-hover:#F4F5F8;
+  --sx-ct-bg:#EFEFF3; --sx-ct-fg:#6A6676;
+  --sx-input-bg:#FBFBFD; --sx-input-bd:#E6E6EC; --sx-input-fg:#1A1A22;
+}
+[data-bs-theme="dark"] .fbs-page{
+  --sx-surface:#1a1d27; --sx-track:#1c2334; --sx-bd:#2b3346;
+  --sx-chip:#9aa3b2; --sx-chip-hover:#e8edf5; --sx-active:#323B57; --sx-active2:#8b5cf6;
+  --sx-count-bg:#0f1117; --sx-count-fg:#9aa3b2;
+  --sx-menu:#1c2334; --sx-menu-bd:#2b3346; --sx-mi:#cbd5e1; --sx-mi-hover:#232a3d;
+  --sx-ct-bg:#0f1117; --sx-ct-fg:#9aa3b2;
+  --sx-input-bg:#1e2130; --sx-input-bd:#3a3f5c; --sx-input-fg:#e2e8f0;
+}
+
+/* ── Toolbar: tugmalar + select ─────────────────────────────── */
+.fbs-page #fbsReload.btn{
+  background:var(--sx-active);
+  border:0;color:#fff;border-radius:12px;padding:.62rem 1.3rem;font-weight:700;
+  box-shadow:0 8px 20px -6px rgba(24,28,48,.42);
+  transition:transform .16s ease, box-shadow .16s ease;
+}
+.fbs-page #fbsReload.btn:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(24,28,48,.5);}
+.fbs-page #fbsDropoffBtn.btn{
+  border-radius:12px;border:1px solid var(--sx-bd);color:var(--sx-active2);
+  background:var(--sx-surface);font-weight:600;
+}
+.fbs-page #fbsDropoffBtn.btn:hover:not(:disabled){border-color:var(--sx-active2);}
+.fbs-page .fbs-toolbar select,
+.fbs-page .fbs-toolbar input,
+.fbs-page .fbs-filter-row input{
+  border-radius:12px;border:1px solid var(--sx-input-bd);
+  background:var(--sx-input-bg);color:var(--sx-input-fg);
+  padding:.6rem .85rem;
+}
+.fbs-page .fbs-toolbar select{
+  appearance:none;-webkit-appearance:none;padding-right:2rem;
+  background:var(--sx-input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .7rem center;
+  background-size:14px 14px;
+}
+
+/* ── Status qatori → segment-trek («Floating Glass») ─────────
+   Trek glass panel ostida erkin turadi: yarim-shaffof fon + blur.
+   Aktiv holatni endi chip o'zi emas, sirpanuvchi .fbsx-thumb
+   (gradient plita, fbs_aurora_orders.js joylaydi) ko'rsatadi. */
+.fbs-page .fbs-status-row{
+  position:relative;
+  display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;
+  width:max-content;max-width:100%;
+  padding:6px;margin:0;
+  border:1px solid var(--sx-bd);border-bottom:1px solid var(--sx-bd);
+  border-radius:16px;
+  background:var(--sx-track);
+  background:color-mix(in srgb, var(--sx-track) 82%, transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+}
+/* Sirpanuvchi gradient thumb — aktiv tab ostida suzadi. JS left/top/width/
+   height'ni o'rnatadi; transition sirpanish effektini beradi. */
+.fbs-page .fbsx-thumb{
+  position:absolute;z-index:0;pointer-events:none;opacity:0;
+  border-radius:11px;
+  background:var(--sx-active);
+  box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+  transition:left .28s cubic-bezier(.3,1.2,.4,1),width .28s cubic-bezier(.3,1.2,.4,1),
+             top .2s ease,height .2s ease,opacity .15s ease;
+}
+/* Tab'lar thumb USTIDA turadi. */
+.fbs-page .fbs-status-chip,
+.fbs-page .fbs-status-nav,
+.fbs-page .fbsx-dd{position:relative;z-index:1;}
+.fbs-page .fbs-status-chip{
+  border:0;background:transparent;color:var(--sx-chip);
+  padding:.62rem 1.05rem;border-radius:11px;font-weight:700;font-size:.9rem;
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+}
+.fbs-page .fbs-status-chip:hover{background:transparent;color:var(--sx-chip-hover);}
+.fbs-page .fbs-status-chip.active{
+  background:transparent;color:#fff;border-color:transparent;box-shadow:none;
+}
+/* Fallback: thumb yo'q bo'lsa (JS yuklanmadi) aktiv chip o'zi bo'yaladi. */
+.fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-chip.active{
+  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+}
+.fbs-page .fbs-status-chip-count{
+  background:var(--sx-count-bg);color:var(--sx-count-fg);
+  min-width:20px;padding:0 7px;border-radius:999px;
+  font-weight:700;font-size:.72rem;line-height:20px;
+}
+.fbs-page .fbs-status-chip.active .fbs-status-chip-count{background:rgba(255,255,255,.26);color:#fff;}
+
+/* «Поставка» nav — endi boshqalardek (neytral + son) */
+.fbs-page .fbs-status-nav{
+  background:transparent;border:0;color:var(--sx-chip);font-weight:700;
+  padding:.62rem 1.05rem;border-radius:11px;box-shadow:none;
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+}
+.fbs-page .fbs-status-nav svg{flex:none;}
+.fbs-page .fbs-status-nav:hover{background:transparent;color:var(--sx-chip-hover);transform:none;box-shadow:none;}
+.fbs-page .fbs-status-nav.is-active{
+  background:transparent;color:#fff;border-color:transparent;box-shadow:none;
+}
+.fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-nav.is-active{
+  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+}
+.fbs-page .fbs-status-nav.is-active .fbs-status-chip-count{background:rgba(255,255,255,.26);color:#fff;}
+
+/* ── «Boshqa holatlar» custom dropdown ──────────────────────── */
+.fbs-page .fbsx-dd{position:relative;display:inline-flex;}
+/* Ochilganda butun «Boshqa holatlar» dropdown'ini yuqoriga ko'taramiz: aks
+   holda menyu (`.fbsx-menu` z-index:1090) `.fbsx-dd`ning z-index:1 konteksti
+   ichida qamalib, pastki qatordagi «Sahifada» (20) select uning ustiga chiqib
+   ketardi (bag, Abdulaziz 2026-06-16). */
+.fbs-page .fbsx-dd.open{z-index:1090;}
+.fbs-page .fbsx-trigger{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:.62rem .9rem .62rem 1.05rem;border:0;background:transparent;cursor:pointer;
+  border-radius:11px;font-weight:700;font-size:.9rem;color:var(--sx-chip);
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+}
+.fbs-page .fbsx-trigger:hover{color:var(--sx-chip-hover);background:rgba(255,255,255,.55);}
+[data-bs-theme="dark"] .fbs-page .fbsx-trigger:hover{background:rgba(255,255,255,.05);}
+.fbs-page .fbsx-trigger.is-active{
+  background:transparent;color:#fff;box-shadow:none;
+}
+.fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbsx-trigger.is-active{
+  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+}
+.fbs-page .fbsx-trigger .fbsx-cv{width:15px;height:15px;opacity:.7;transition:transform .2s ease;}
+.fbs-page .fbsx-dd.open .fbsx-trigger .fbsx-cv{transform:rotate(180deg);}
+
+.fbs-page .fbsx-menu{
+  position:absolute;top:calc(100% + 9px);left:0;z-index:1090;min-width:284px;
+  opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;
+  transition:opacity .17s ease,transform .17s cubic-bezier(.16,1,.3,1);
+}
+.fbs-page .fbsx-dd.open .fbsx-menu{opacity:1;transform:none;pointer-events:auto;}
+.fbs-page .fbsx-card{
+  background:var(--sx-menu);border:1px solid var(--sx-menu-bd);border-radius:16px;
+  box-shadow:0 22px 50px -12px rgba(20,16,40,.28),0 4px 10px rgba(20,16,40,.06);padding:7px;
+}
+[data-bs-theme="dark"] .fbs-page .fbsx-card{box-shadow:0 22px 50px -12px rgba(0,0,0,.6);}
+.fbs-page .fbsx-mi{
+  display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;cursor:pointer;
+  font-weight:600;font-size:.88rem;color:var(--sx-mi);transition:background .13s ease;
+}
+.fbs-page .fbsx-mi:hover{background:var(--sx-mi-hover);}
+.fbs-page .fbsx-lbl{flex:1 1 auto;white-space:nowrap;}
+.fbs-page .fbsx-mi .fbsx-ct{
+  padding:2px 9px;border-radius:999px;background:var(--sx-ct-bg);color:var(--sx-ct-fg);
+  font-weight:700;font-size:.72rem;min-width:auto;line-height:1.4;
+}
+.fbs-page .fbsx-ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;}
+.fbs-page .fbsx-ic svg{width:16px;height:16px;}
+.fbs-page .fbsx-ck{margin-left:2px;width:18px;height:18px;color:var(--sx-active2);opacity:0;flex:none;}
+.fbs-page .fbsx-mi.is-sel{background:rgba(124,58,237,.08);}
+.fbs-page .fbsx-mi.is-sel .fbsx-ck{opacity:1;}
+.fbs-page .fbsx-mi.is-sel .fbsx-lbl{color:var(--sx-active2);}
+
+/* status ranglari (menyu ikonkalari) */
+.fbs-page .fbsx-ic.c-green{background:#E9FBF2;color:#0A7A52;}
+.fbs-page .fbsx-ic.c-blue{background:#EEF4FF;color:#2B54C9;}
+.fbs-page .fbsx-ic.c-slate{background:#F1F3F7;color:#5A6477;}
+.fbs-page .fbsx-ic.c-red{background:#FEECEB;color:#C0362B;}
+.fbs-page .fbsx-ic.c-rose{background:#FFF1F4;color:#BE123C;}
+[data-bs-theme="dark"] .fbs-page .fbsx-ic.c-green{background:rgba(16,183,110,.16);color:#6ee7a8;}
+[data-bs-theme="dark"] .fbs-page .fbsx-ic.c-blue{background:rgba(96,140,255,.16);color:#9bb8ff;}
+[data-bs-theme="dark"] .fbs-page .fbsx-ic.c-slate{background:#232a3d;color:#9aa3b2;}
+[data-bs-theme="dark"] .fbs-page .fbsx-ic.c-red{background:rgba(232,71,71,.18);color:#fca5a5;}
+[data-bs-theme="dark"] .fbs-page .fbsx-ic.c-rose{background:rgba(244,63,94,.18);color:#fda4af;}
+
+/* Uzum belgisi (В пункте выдачи) */
+.fbs-page .fbsx-uz{
+  width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+  background:#7A2BFF;
+  box-shadow:0 4px 10px -3px rgba(106,43,217,.5);
+}
+.fbs-page .fbsx-uz svg{width:30px;height:30px;}
+
+/* ── Jadval B·Rasmli — mahsulot thumbnail (bir xil balandlik) ──────── */
+.fbs-page .fbs-products .fbs-prod{display:flex;align-items:center;gap:.8rem;}
+.fbs-page .fbs-prod-thumb{
+  width:72px;height:72px;flex:none;border-radius:15px;object-fit:cover;
+  background:#f1f3f7;border:1px solid var(--sx-bd);
+}
+.fbs-page .fbs-prod-thumb--ph{
+  display:grid;place-items:center;color:#fff;border:0;
+  background:#4169E1;
+}
+.fbs-page .fbs-prod-thumb--ph svg{width:46%;height:46%;opacity:.92;}
+.fbs-page .fbs-products .info{flex:1 1 auto;min-width:0;}
+.fbs-page .fbs-products .qty-pill{margin-left:auto;flex:none;}
+[data-bs-theme="dark"] .fbs-page .fbs-prod-thumb{background:#232a3d;}
+/* Rasm ustiga hover → zoom kursor + yengil kattalashish (popup ochiladi). */
+.fbs-page img.fbs-prod-thumb[data-image]{cursor:zoom-in;transition:transform .15s ease,box-shadow .15s ease;}
+.fbs-page img.fbs-prod-thumb[data-image]:hover{transform:scale(1.07);box-shadow:0 8px 20px rgba(16,24,40,.2);}
+/* № va «N dona» endi popup ochmaydi → zoom kursor olib tashlanadi. */
+.fbs-page .fbs-id[data-image],
+.fbs-page .fbs-products .qty-pill[data-image]{cursor:default;}
+.fbs-page .fbs-products .qty-pill[data-image]:hover{background:#e0e7ff;}
+
+/* ── Pastki qator: pagination (ixcham raqamli) + «Sahifada» ─────────
+   Texnik meta (#fbsMeta) yashiriladi; «Sahifada» select JS bilan
+   toolbar'dan shu yerga ko'chiriladi. */
+.fbs-page #fbsMeta{display:none !important;}
+.fbs-page .fbs-bottombar{
+  display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;
+  margin-top:18px;padding-top:18px;border-top:1px solid var(--sx-bd);
+}
+.fbs-page .fbs-bottombar:empty{display:none;}
+.fbs-page .fbsx-pager{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;}
+.fbs-page .fbsx-pgbtn{
+  display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
+  border:1px solid var(--sx-bd);background:var(--sx-surface);color:var(--sx-mi);
+  border-radius:10px;cursor:pointer;transition:border-color .13s ease,background .13s ease;
+}
+.fbs-page .fbsx-pgbtn:hover:not(:disabled){border-color:var(--sx-active);}
+.fbs-page .fbsx-pgbtn:disabled{opacity:.4;cursor:default;}
+.fbs-page .fbsx-pgbtn svg{width:15px;height:15px;}
+.fbs-page .fbsx-pgn{
+  min-width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
+  border:0;background:transparent;color:var(--sx-chip);border-radius:10px;
+  font-weight:700;font-size:.84rem;cursor:pointer;transition:background .13s ease,color .13s ease;
+}
+.fbs-page .fbsx-pgn:hover{background:var(--sx-track);color:var(--sx-chip-hover);}
+.fbs-page .fbsx-pgn.on{background:var(--sx-active);color:#fff;box-shadow:0 6px 14px -5px rgba(24,28,48,.5);cursor:default;}
+.fbs-page .fbsx-dots{min-width:24px;text-align:center;color:var(--sx-count-fg);font-weight:700;user-select:none;}
+.fbs-page .fbsx-psize{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:.8rem;color:var(--sx-chip);}
+.fbs-page .fbsx-psize select{
+  appearance:none;-webkit-appearance:none;cursor:pointer;color:var(--sx-input-fg);
+  border:1px solid var(--sx-input-bd);border-radius:10px;padding:.5rem 1.8rem .5rem .75rem;
+  font-weight:700;font-size:.82rem;min-width:auto;
+  background:var(--sx-input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .55rem center;
+  background-size:13px 13px;
+}

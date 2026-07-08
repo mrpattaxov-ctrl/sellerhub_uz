@@ -2,68 +2,97 @@
 
 {% block extra_css %}
 <style>
+  /* Buyurtmalar ↔ Ombor o'tishi — silliq cross-fade (Abdulaziz 2026-06-13).
+     Ilgari har o'tishda butun sahifa qayta yuklanib «titrab» otardi. Endi
+     View Transitions API ikki sahifani yumshoq erita-almashtiradi. Ikkala FBS
+     sahifasi ham opt-in qilgani uchun transition FAQAT FBS↔FBS navigatsiyada
+     ishlaydi (boshqa modullar tegmaydi). Eski brauzer e'tiborsiz qoldiradi. */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: .2s;
+    animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation-duration: .001s; }
+  }
   .fbs-page {
-    max-width: 1200px;
-    margin: 0 auto;
+    /* Butun ekran eniga yoyamiz — ilgari 1200px'ga siqilib, chap-o'ngda katta
+       bo'sh joy qolardi. `none` → mavjud kenglikni to'liq egallaydi. */
+    max-width: none;
+    margin: 0;
     display: grid;
-    gap: 1.25rem;
+    gap: 1rem;
+    /* Yuqori burchaklarda yumshoq aurora nur — glass header shu fonda suzadi. */
+    background:
+      radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
+      radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
   }
 
-  .fbs-hero {
-    border: 1px solid rgba(53, 86, 185, .12);
-    border-radius: 20px;
-    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
-    box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
-    padding: 1.3rem 1.4rem;
-    /* Tab'lar hero ichida (o'ng yuqorida): chap = kicker+sarlavha+izoh,
-       o'ng = section-tab'lar. Bitta yaxlit karta, oradagi bo'sh joy yo'q. */
-    display: flex; align-items: flex-start; justify-content: space-between;
-    gap: .9rem 1.5rem; flex-wrap: wrap;
+  /* ── Glass header («Floating Glass») ─────────────────────────
+     Eski baland hero (kicker + sarlavha + 2 qatorli izoh) o'rniga bitta
+     yupqa yarim-shaffof panel: sarlavha + FBS/DBS belgi + bo'lim tab'lari
+     + filtr kapsulalari + Yangilash. Jadvalga joy ko'proq qoladi. */
+  .fbs-glass {
+    position: relative;
+    display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+    background: rgba(255,255,255,.74);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.55);
+    border-radius: 18px; padding: .85rem 1.05rem;
+    box-shadow: 0 10px 30px -12px rgba(20,16,40,.18);
   }
-  .fbs-hero-main { flex: 1 1 340px; min-width: 0; }
-  .fbs-kicker {
-    display: inline-flex; align-items: center; gap: .4rem;
-    padding: .32rem .7rem;
-    border-radius: 999px;
-    background: rgba(52, 86, 185, .1);
-    color: #3456b9;
-    font-size: .72rem; font-weight: 700;
-    letter-spacing: .05em; text-transform: uppercase;
-    margin-bottom: .6rem;
+  /* Shisha qirrasi — yuqori chetdagi nozik yorug' chiziq. */
+  .fbs-glass::before {
+    content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1px;
+    border-radius: 99px; pointer-events: none; opacity: .55;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
   }
-  .fbs-title { margin: 0; font-size: 1.6rem; font-weight: 700; color: #101828; }
-  .fbs-subtitle { margin: .35rem 0 0; color: #667085; font-size: .95rem; line-height: 1.5; max-width: 640px; }
+  .fbs-glass-title { font-size: 1.3rem; font-weight: 800; color: #101828; }
+  .fbs-glass-spacer { flex: 1 1 auto; }
+  .fbs-brand {
+    display: inline-flex; align-items: center;
+    padding: .36rem .8rem; border-radius: 999px;
+    background: rgba(65, 105, 225, .1); color: #4169E1;
+    font-size: .74rem; font-weight: 800;
+    letter-spacing: .05em; text-transform: uppercase; flex: none;
+  }
 
   /* Section tabs (Buyurtmalar / Ombor) — segment-pill. Hero kartaning
      o'ng yuqorisida turadi (flex item); tor ekranda pastga o'raladi. */
   .fbs-section-tabs {
-    display: inline-flex; gap: 4px; padding: 4px;
-    background: #f1f4fa; border: 1px solid #e4e9f3;
-    border-radius: 14px;
+    position: relative;
+    display: inline-flex; gap: 4px; padding: 5px;
+    background: rgba(238,241,248,.82);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border: 1px solid #e4e9f3; border-radius: 15px;
     flex: none; align-self: flex-start;
   }
+  /* Sirpanuvchi navy gradient plita (thumb) — fbs_section_tabs.js joylaydi. */
+  .seg-thumb {
+    position: absolute; z-index: 0; top: 5px; height: calc(100% - 10px);
+    border-radius: 11px; opacity: 0;
+    background: linear-gradient(135deg, #1E2435, #2b3450);
+    box-shadow: 0 8px 18px -6px rgba(24,28,48,.5);
+    transition: left .3s cubic-bezier(.3,1.2,.4,1), width .3s cubic-bezier(.3,1.2,.4,1), opacity .2s ease;
+  }
   .fbs-section-tabs a {
+    position: relative; z-index: 1;
     display: inline-flex; align-items: center; gap: .45rem;
-    padding: .55rem 1rem;
-    border-radius: 10px;
+    padding: .55rem 1.05rem; border-radius: 11px;
     color: #475467; font-weight: 600; font-size: .88rem;
-    text-decoration: none; transition: background .15s, color .15s;
+    text-decoration: none; transition: color .2s ease;
   }
-  .fbs-section-tabs a:hover { color: #101828; background: rgba(255,255,255,.55); }
-  .fbs-section-tabs a.active {
-    background: #fff; color: #101828;
-    box-shadow: 0 1px 2px rgba(16,24,40,.08), 0 1px 3px rgba(16,24,40,.06);
-  }
+  .fbs-section-tabs a:hover:not(.active) { color: #101828; }
+  .fbs-section-tabs a.active { color: #fff; }
   .fbs-section-tabs a svg { flex: none; }
   [data-bs-theme="dark"] .fbs-section-tabs {
-    background: #1c2334; border-color: #2b3346;
+    background: rgba(28,35,52,.7); border-color: #2b3346;
   }
   [data-bs-theme="dark"] .fbs-section-tabs a { color: #9aa3b2; }
-  [data-bs-theme="dark"] .fbs-section-tabs a:hover { color: #e8edf5; background: rgba(255,255,255,.04); }
-  [data-bs-theme="dark"] .fbs-section-tabs a.active {
-    background: #2a3349; color: #ffffff;
-    box-shadow: 0 1px 2px rgba(0,0,0,.4);
-  }
+  [data-bs-theme="dark"] .fbs-section-tabs a:hover:not(.active) { color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-section-tabs a.active { color: #ffffff; }
 
   .fbs-card {
     background: #fff;
@@ -71,19 +100,34 @@
     border-radius: 18px;
     padding: 1rem 1.1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    /* DIQQAT: bu yerga `overflow: hidden` QO'YMANG — u «Boshqa holatlar»
+       dropdown menyusini (.fbsx-menu, absolute) qirqib tashlaydi. Postavka
+       iframe burchaklari `.fbs-postavka-frame { border-radius }` bilan o'zi
+       yumaloqlanadi, shuning uchun kartani qirqishning hojati yo'q. */
   }
 
-  .fbs-toolbar {
-    display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end;
+  /* ── Filtr kapsulalari — yorliq + select bitta yumaloq qutida ── */
+  .fbs-cap {
+    display: flex; align-items: center; gap: .55rem;
+    background: #FBFBFD; border: 1px solid #E6E6EC; border-radius: 14px;
+    padding: .34rem .35rem .34rem 1rem;
   }
-  .fbs-toolbar > div { display: flex; flex-direction: column; }
-  .fbs-toolbar label { font-size: .72rem; color: #667085; font-weight: 600;
-                       margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .04em; }
-  .fbs-toolbar select,
-  .fbs-toolbar input {
-    border: 1px solid #d0d5dd; border-radius: 10px;
-    padding: .45rem .7rem; font-size: .88rem; min-width: 160px;
+  .fbs-cap label {
+    font-size: .72rem; color: #6A6676; font-weight: 800; margin: 0;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
   }
+  .fbs-cap select {
+    appearance: none; -webkit-appearance: none;
+    border: 0; border-radius: 10px; color: #1A1A22; cursor: pointer;
+    font-weight: 700; font-size: .95rem;
+    padding: .48rem 1.9rem .48rem .4rem;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .6rem center;
+    background-size: 14px 14px;
+  }
+  .fbs-cap select:hover { background-color: rgba(127,127,160,.07); }
+  /* «Sahifada» select pastki qatorga ko'chadi (fbs_aurora_pager.js);
+     wrapper boshidanoq yashirin — glass panelda ko'rinmasin. */
+  .fbs-size-wrap { display: none; }
 
   /* ── Filter row (search + date range) ────────────────────────
      Sits between the toolbar (shop/scheme/size/reload) and the
@@ -110,7 +154,7 @@
   .fbs-filter-badge {
     display: inline-flex; align-items: center; gap: .3rem;
     padding: .3rem .65rem; border-radius: 999px;
-    background: #eef2ff; color: #3456b9;
+    background: #eef2ff; color: #4169E1;
     font-size: .76rem; font-weight: 600;
     white-space: nowrap;
   }
@@ -163,7 +207,7 @@
   }
   .fbs-status-nav svg { flex: none; }
   .fbs-status-nav:hover {
-    background: linear-gradient(135deg, #9061f9, #7c3aed);
+    background: #7c3aed;
     color: #fff; border-color: #7c3aed;
     transform: translateY(-1px);
     box-shadow: 0 6px 16px rgba(124,58,237,.32);
@@ -172,17 +216,114 @@
     background: rgba(124,58,237,.16); color: #c4b5fd; border-color: rgba(124,58,237,.4);
   }
   [data-bs-theme="dark"] .fbs-status-nav:hover {
-    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    background: #6d28d9;
     color: #fff; border-color: #6d28d9;
   }
   /* Faol holat — «Поставка» ko'rinishi (iframe) ochiq turganda. */
   .fbs-status-nav.is-active {
-    background: linear-gradient(135deg, #9061f9, #7c3aed);
+    background: #7c3aed;
     color: #fff; border-color: #7c3aed;
     box-shadow: 0 6px 16px rgba(124,58,237,.32);
   }
+
+  /* .fbs-status-line — glass-trek va 📍 tugmani bitta qatorga yoyadi:
+     trek chapda, tugma O'NG CHETDA. Wrapper'ning o'zi marginsiz — trek
+     o'z marginini saqlaydi, atrofdagi layout o'zgarmaydi. */
+  .fbs-status-line {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .6rem; flex-wrap: wrap;
+    /* BAG FIX (Abdulaziz 2026-06-16): «Boshqa holatlar» menyusi (.fbsx-menu,
+       z-index:1090) ICHKI `.fbs-status-row`da `backdrop-filter` borligi uchun
+       o'sha qatorning stacking-kontekstida QAMALIB qoladi — uning baland
+       z-index'i sahifa darajasiga «chiqmaydi». Natijada keyingi DOM'dagi
+       `.fbs-card` ichidagi page-size «20» (fxsel outline) tanlagichi ochiq
+       menyu USTIDAN ko'rinib qolardi. Yechim: butun status-qatorini bitta
+       stacking-kontekst sifatida kartadan baland ko'taramiz (modal=2095,
+       bulk-bar=2070, img-pop=1080 — barchasidan PAST qoldiramiz). */
+    position: relative; z-index: 30;
+  }
+
+  /* 📍 «Qabul punktlari» toolbar tugmasi — bulk-bar'dagi .is-postavka
+     tugmaning nusxasi: o'sha dark slate (#334155), o'sha hover ko'tarilish
+     + glow; o'lchami glass-trek chiplari bilan bir balandlikda. Disabled
+     (buyurtma belgilanmagan) holatda kulrang — lekin KO'RINIB turadi,
+     foydalanuvchi tugma borligini bilsin. */
+  .fbs-dropoff-btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .58rem 1.2rem; border-radius: 12px;
+    font-size: .88rem; font-weight: 700;
+    color: #fff; background: #334155; border: 1px solid #334155;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s,
+                transform .12s ease, box-shadow .18s ease;
+  }
+  /* Uzum «U» belgisi — «Qabul punktlari» tugmalarida 📍 o'rnida.
+     Yumshoq pastel-binafsha kvadratcha: o'chiq kulrang tugmada ham
+     bilinadi, lekin ko'zga urilmaydi (halqasiz, soyasiz). */
+  .fbs-uzmark { display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 5px; flex: none;
+    background: #a78bfa; }
+  .fbs-uzmark svg { width: 11px; height: 11px; display: block; }
+  /* Hover: bulk-bar tugmalari (Yorliq/QR) bilan AYNAN bir xil — OQ fon,
+     qora matn (Abdulaziz 2026-06-16). */
+  .fbs-dropoff-btn:hover:not(:disabled) {
+    background: #fff; color: #1e293b; border-color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  }
+  .fbs-dropoff-btn:active:not(:disabled) { transform: translateY(0) scale(.99); }
+  .fbs-dropoff-btn:disabled {
+    background: #f3f4f6; border-color: #e5e7eb; color: #9ca3af;
+    cursor: not-allowed;
+  }
+  [data-bs-theme="dark"] .fbs-dropoff-btn:disabled {
+    background: #1e2130; border-color: #2d3148; color: #64748b;
+  }
+  /* Temir-beton himoya: «Поставка» ko'rinishi faol bo'lsa (nav chipida
+     .is-active) tugma HAR DOIM yashirin — JS chaqiruv tartibidan qat'i
+     nazar. JS'dagi __fbsPostavkaOn bayrog'ini to'ldiradi, almashtirmaydi. */
+  .fbs-status-line:has(.fbs-status-nav.is-active) .fbs-dropoff-btn {
+    display: none !important;
+  }
+  /* Custom tooltip — o'chiq tugma ustiga sichqoncha kelganda «Avval
+     buyurtmani tanlang» pufakchasi. Native title O'RNIGA: dizaynga mos
+     to'q-navy pill (bulk-bar rangi), yumshoq soya, pastga sirpanib
+     chiqadi. Tugma sahifaning o'ng yuqori burchagida turgani uchun
+     pufakcha PASTGA ochiladi va o'ng chetga tekislanadi — ekrandan
+     chiqib ketmaydi. Matn data-tip atributidan olinadi (JS boshqaradi). */
+  .fbs-dropoff-btn { position: relative; }
+  .fbs-dropoff-btn[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; top: calc(100% + 12px); right: 0; z-index: 40;
+    white-space: nowrap;
+    padding: .52rem .9rem; border-radius: 11px;
+    font-size: .8rem; font-weight: 600; letter-spacing: .01em;
+    color: #f8fafc; background: #1e293b;
+    box-shadow: 0 14px 30px -8px rgba(15,23,42,.5);
+    opacity: 0; transform: translateY(-7px) scale(.96);
+    pointer-events: none;
+    transition: opacity .16s ease, transform .22s cubic-bezier(.16,1,.3,1);
+  }
+  /* Pufakcha strelkasi — bubble tepasiga qadalgan kichik romb. */
+  .fbs-dropoff-btn[data-tip]::before {
+    content: ""; position: absolute; top: calc(100% + 8px); right: 26px; z-index: 41;
+    width: 10px; height: 10px; border-radius: 2px;
+    background: #1e293b;
+    opacity: 0; transform: rotate(45deg) translate(-5px, 5px);
+    pointer-events: none;
+    transition: opacity .16s ease, transform .22s cubic-bezier(.16,1,.3,1);
+  }
+  .fbs-dropoff-btn[data-tip]:hover::after {
+    opacity: 1; transform: translateY(0) scale(1);
+  }
+  .fbs-dropoff-btn[data-tip]:hover::before {
+    opacity: 1; transform: rotate(45deg) translate(0, 0);
+  }
+  [data-bs-theme="dark"] .fbs-dropoff-btn[data-tip]::after,
+  [data-bs-theme="dark"] .fbs-dropoff-btn[data-tip]::before {
+    background: #2b3346; box-shadow: 0 14px 30px -8px rgba(0,0,0,.6);
+  }
   [data-bs-theme="dark"] .fbs-status-nav.is-active {
-    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    background: #6d28d9;
     color: #fff; border-color: #6d28d9;
   }
   /* «Поставка» iframe — Накладные sahifasini shu joyda ko'rsatadi. Balandlik
@@ -190,8 +331,18 @@
   .fbs-postavka-frame {
     width: 100%; border: 0; display: block;
     min-height: 360px; height: 480px;
-    transition: height .25s ease;
+    /* Balandlikni ANIMATSIYA QILMAYMIZ: embed sahifa render bo'lganda
+       (skelet→kontent→rasm) `fbs-invoices-height` xabarini bir necha marta
+       yuboradi; `height` transition bo'lsa har biri animatsiyali sakraydi =
+       «titrash». Endi balandlik darrov (jumpsiz) o'rnatiladi; faqat boshlang'ich
+       ko'rinish `opacity` bilan yumshoq paydo bo'ladi (oq miltillash yo'q). */
+    opacity: 0; transition: opacity .2s ease;
+    /* Iframe o'z burchaklari yumaloqlanmasa, embed kontentning to'g'ri (kvadrat)
+       burchaklari karta ichida oq o'yiq bo'lib chiqib turardi. Yumaloqlab,
+       fonni shaffof qilamiz — orqadagi oq karta bilan uzluksiz qo'shiladi. */
+    border-radius: 16px; background: transparent; color-scheme: light dark;
   }
+  .fbs-postavka-frame.is-loaded { opacity: 1; }
 
   /* ── Status pill (inside table) ──────────────────────────────── */
   .fbs-status-pill {
@@ -382,7 +533,7 @@
     display: inline-flex; align-items: center; gap: .3rem;
     margin-top: .45rem;
     padding: 2px 11px; border-radius: 999px;
-    background: #eef2ff; color: #3456b9; border: 1px solid #dbe3ff;
+    background: #eef2ff; color: #4169E1; border: 1px solid #dbe3ff;
     font-size: .72rem; font-weight: 700; cursor: pointer;
     transition: background .12s;
   }
@@ -414,18 +565,23 @@
   .fbs-warning a { color: #92400e; text-decoration: underline; font-weight: 700; }
 
   /* ── Dark mode ──────────────────────────────────────────────── */
-  [data-bs-theme="dark"] .fbs-hero {
-    background: linear-gradient(160deg, #0f1117 0%, #131625 56%, #111420 100%);
-    border-color: #2d3148;
-    box-shadow: 0 12px 28px rgba(0,0,0,.3);
+  [data-bs-theme="dark"] .fbs-page {
+    background:
+      radial-gradient(640px 300px at 6% -60px, rgba(91,124,240,.16), transparent 70%),
+      radial-gradient(560px 280px at 94% -50px, rgba(139,92,246,.14), transparent 70%);
   }
-  [data-bs-theme="dark"] .fbs-kicker { background: rgba(99,132,255,.15); color: #93b4ff; }
-  [data-bs-theme="dark"] .fbs-title { color: #e2e8f0; }
-  [data-bs-theme="dark"] .fbs-subtitle { color: #8892a4; }
+  [data-bs-theme="dark"] .fbs-glass {
+    background: rgba(26,29,39,.74);
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 10px 30px -12px rgba(0,0,0,.65);
+  }
+  [data-bs-theme="dark"] .fbs-glass::before { opacity: .22; }
+  [data-bs-theme="dark"] .fbs-glass-title { color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-brand { background: rgba(99,132,255,.15); color: #93b4ff; }
   [data-bs-theme="dark"] .fbs-card { background: #1a1d27; border-color: #2d3148; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-  [data-bs-theme="dark"] .fbs-toolbar label { color: #94a3b8; }
-  [data-bs-theme="dark"] .fbs-toolbar select,
-  [data-bs-theme="dark"] .fbs-toolbar input { background: #1e2130; border-color: #3a3f5c; color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-cap { background: #1e2130; border-color: #3a3f5c; }
+  [data-bs-theme="dark"] .fbs-cap label { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-cap select { color: #e2e8f0; }
 
   [data-bs-theme="dark"] .fbs-status-row { border-bottom-color: #2d3148; }
   [data-bs-theme="dark"] .fbs-status-chip { background: #1e2130; color: #94a3b8; }
@@ -438,13 +594,7 @@
   [data-bs-theme="dark"] .fbs-meta-row { color: #64748b; }
   [data-bs-theme="dark"] .fbs-meta-row code { background: #1e2130; color: #94a3b8; }
 
-  /* Stage 4d — Yangilash button spinner + "Oxirgi yangilangan" hint */
-  #fbsReload { display: inline-flex; align-items: center; gap: .4rem; min-width: 110px; justify-content: center; }
-  #fbsReload[disabled] { opacity: .8; cursor: progress; }
-  #fbsReload .spinner-border-sm {
-    width: 14px; height: 14px; border-width: 2px; display: none;
-  }
-  #fbsReload.is-loading .spinner-border-sm { display: inline-block; }
+  /* Stage 4d — "Oxirgi yangilangan" hint (Yangilash tugmasi A.12'da olib tashlandi) */
   .fbs-last-synced {
     color: #94a3b8; font-size: .78rem; font-style: italic;
     margin-left: auto;
@@ -504,34 +654,91 @@
      row-click → detail page, so the checkbox stops propagation in JS
      to avoid every checkbox click also navigating away. Toolbar slides
      up from the bottom only when at least one row is checked. */
-  .fbs-check-col, .fbs-check-cell { width: 36px; text-align: center; }
-  .fbs-check-cell input[type="checkbox"],
-  .fbs-check-col input[type="checkbox"] {
-    width: 16px; height: 16px; cursor: pointer; accent-color: #3456b9;
+  .fbs-check-col, .fbs-check-cell { width: 52px; text-align: center; padding-left: .35rem; padding-right: .35rem; }
+  /* ── Maxsus galochka (Abdulaziz 2026-06-11) ───────────────────────
+     Native checkbox o'rniga brend-ko'k (#4169E1) gradient + oq belgili
+     yumshoq, kartaga mos galochka. `.fbs-row-check` (jadval qatori),
+     `#fbsSelectAll` (sarlavha) va `.oi-check` (накладна ichidagi qator)
+     bitta ko'rinishni baham ko'radi. */
+  .fbs-row-check,
+  #fbsSelectAll,
+  .fbs-inv-order .oi-check {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    width: 22px; height: 22px; margin: 0; flex: none;
+    border: 2px solid #cdd5e3; border-radius: 7px;
+    background: #fff; cursor: pointer; position: relative;
+    transition: border-color .15s ease, background .15s ease,
+                box-shadow .15s ease, transform .12s ease;
+  }
+  .fbs-check-cell { vertical-align: middle; }
+  .fbs-check-cell .fbs-row-check { vertical-align: middle; }
+  .fbs-row-check:hover,
+  #fbsSelectAll:hover,
+  .fbs-inv-order .oi-check:hover {
+    border-color: #4169E1;
+    box-shadow: 0 0 0 4px rgba(65,105,225,.12);
+  }
+  .fbs-row-check:active,
+  #fbsSelectAll:active,
+  .fbs-inv-order .oi-check:active { transform: scale(.9); }
+  .fbs-row-check:checked,
+  #fbsSelectAll:checked,
+  #fbsSelectAll:indeterminate,
+  .fbs-inv-order .oi-check:checked {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4169E1 0%, #6384ff 100%);
+    box-shadow: 0 4px 10px rgba(65,105,225,.32);
+  }
+  /* Oq «✓» belgi — checked holatda paydo bo'ladi */
+  .fbs-row-check:checked::after,
+  #fbsSelectAll:checked::after,
+  .fbs-inv-order .oi-check:checked::after {
+    content: ""; position: absolute;
+    left: 7px; top: 3px; width: 5px; height: 10px;
+    border: solid #fff; border-width: 0 2.5px 2.5px 0;
+    border-radius: 1px; transform: rotate(42deg);
+    animation: fbsCheckPop .18s ease;
+  }
+  /* «Select all» yarim-tanlangan holati — gorizontal chiziq */
+  #fbsSelectAll:indeterminate::after {
+    content: ""; position: absolute;
+    left: 4px; right: 4px; top: 8px; height: 2.5px;
+    background: #fff; border-radius: 2px;
+  }
+  .fbs-row-check:focus-visible,
+  #fbsSelectAll:focus-visible,
+  .fbs-inv-order .oi-check:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px rgba(65,105,225,.28);
+  }
+  @keyframes fbsCheckPop {
+    0% { opacity: 0; transform: rotate(42deg) scale(.4); }
+    100% { opacity: 1; transform: rotate(42deg) scale(1); }
+  }
+  /* Dark rejim */
+  [data-bs-theme="dark"] .fbs-row-check,
+  [data-bs-theme="dark"] #fbsSelectAll,
+  [data-bs-theme="dark"] .fbs-inv-order .oi-check {
+    background: #1a1d27; border-color: #3a4058;
+  }
+  [data-bs-theme="dark"] .fbs-row-check:hover,
+  [data-bs-theme="dark"] #fbsSelectAll:hover,
+  [data-bs-theme="dark"] .fbs-inv-order .oi-check:hover {
+    border-color: #6384ff; box-shadow: 0 0 0 4px rgba(99,132,255,.16);
+  }
+  [data-bs-theme="dark"] .fbs-row-check:checked,
+  [data-bs-theme="dark"] #fbsSelectAll:checked,
+  [data-bs-theme="dark"] #fbsSelectAll:indeterminate,
+  [data-bs-theme="dark"] .fbs-inv-order .oi-check:checked {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4169E1 0%, #6384ff 100%);
+    box-shadow: 0 4px 12px rgba(65,105,225,.45);
   }
   .fbs-table tbody tr.is-selected td { background: rgba(99,132,255,.08); }
   [data-bs-theme="dark"] .fbs-table tbody tr.is-selected td { background: rgba(99,132,255,.16); }
 
-  /* "Just-arrived" highlight — a row that was NOT in the previous
-     render fades from green to transparent over 2.6s. Drives the
-     visible Yangilash feedback (without this, a sub-second JIT refresh
-     feels like nothing happened, even when new orders did appear). */
-  @keyframes fbs-row-flash {
-    0%   { background: rgba(34,197,94,.30); }
-    60%  { background: rgba(34,197,94,.18); }
-    100% { background: transparent; }
-  }
-  .fbs-table tbody tr.is-new td {
-    animation: fbs-row-flash 2.6s ease-out 1;
-  }
-  [data-bs-theme="dark"] .fbs-table tbody tr.is-new td {
-    animation-name: fbs-row-flash-dark;
-  }
-  @keyframes fbs-row-flash-dark {
-    0%   { background: rgba(34,197,94,.42); }
-    60%  { background: rgba(34,197,94,.22); }
-    100% { background: transparent; }
-  }
+  /* «Yangi kelgan qator» yashil chaqnashi OLIB TASHLANDI (Abdulaziz 2026-06-11):
+     status/ko'rinish almashganda butun ro'yxat «yangi» deb chaqnar edi. Boshqa
+     animatsiyalarga (deadline pulse, hover, toast) tegilmadi. */
 
   /* ── Modern card-style rows ──────────────────────────────────────
      Each row reads as its own rounded card (white surface, 1px hairline,
@@ -541,6 +748,11 @@
      without !important. */
   table.fbs-table { border-collapse: separate; border-spacing: 0 8px; }
   table.fbs-table thead th {
+    /* base.html'dagi `.table thead th { position:sticky; top:0 }` global
+       qoidasini bekor qilamiz: karta-qatorli «Soft» dizaynda shaffof sarlavha
+       scroll'da yuqori navbar bilan ustma-ust tushardi (bag, Abdulaziz 2026-06-11).
+       Sarlavha endi kontent bilan birga oddiy oqadi — navbar bilan to'qnashmaydi. */
+    position: static; z-index: auto;
     border: none; background: transparent;
     text-transform: uppercase; letter-spacing: .055em;
     color: #98a2b3; font-weight: 600; font-size: .68rem;
@@ -576,6 +788,31 @@
   [data-bs-theme="dark"] table.fbs-table.table-hover tbody tr:hover td { background: #1e2233; border-color: #3a4058; }
   [data-bs-theme="dark"] table.fbs-table tbody tr:hover { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
 
+  /* Bosqich 2 — bulk-confirm: buyurtma «Yangi»dan chiqishi (Variant 1:
+     silliq surilish + so'nish + joy yumshoq yopiladi). Tasdiqlangan qator
+     o'ngga suriladi va so'nadi, so'ng balandligi 0 ga yig'iladi → pastdagi
+     qatorlar yumshoq ko'tariladi. */
+  table.fbs-table tbody tr.fbs-row-leaving { pointer-events: none; position: relative; z-index: 1; }
+  table.fbs-table tbody tr.fbs-row-leaving > td {
+    animation: fbsRowSlideOut .46s cubic-bezier(.5,0,.2,1) forwards;
+  }
+  @keyframes fbsRowSlideOut {
+    0%   { transform: translateX(0);    opacity: 1; }
+    30%  { transform: translateX(6px);  opacity: 1; }
+    100% { transform: translateX(118%); opacity: 0; }
+  }
+  /* faza 2 — balandlikni silliq yopish (pastdagilar ko'tariladi) */
+  table.fbs-table tbody tr.fbs-row-collapse > td {
+    padding-top: 0 !important; padding-bottom: 0 !important;
+    border-top-width: 0 !important; border-bottom-width: 0 !important;
+    line-height: 0 !important; font-size: 0 !important;
+    transition: padding .26s ease, line-height .26s ease, font-size .26s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    table.fbs-table tbody tr.fbs-row-leaving > td { animation-duration: .01s; }
+    table.fbs-table tbody tr.fbs-row-collapse > td { transition-duration: .01s; }
+  }
+
   /* ── «К отправке» — накладная-grouped (invoice) view ───────────────
      PENDING_DELIVERY orders shown grouped by their накладная: each invoice
      is a card; clicking it expands the orders below (accordion), each with a
@@ -603,8 +840,9 @@
   .fbs-inv-order { display: flex; align-items: flex-start; gap: 12px; padding: .6rem .4rem;
     border-bottom: 1px solid #f1f5f9; cursor: pointer; margin: 0; }
   .fbs-inv-order:last-child { border-bottom: none; }
-  .fbs-inv-order .oi-check { width: 16px; height: 16px; margin-top: 2px; flex: none;
-    cursor: pointer; accent-color: #3456b9; }
+  /* O'lcham/rang yuqoridagi umumiy maxsus-galochka qoidasidan keladi;
+     bu yerda faqat накладна qatoriga moslab yuqoridan biroz tushiramiz. */
+  .fbs-inv-order .oi-check { margin-top: 1px; }
   .fbs-inv-order .oi-main { flex: 1 1 auto; min-width: 0; }
   .fbs-inv-order .oi-top { display: flex; align-items: center; gap: .5rem; }
   .fbs-inv-order .oi-num { font-weight: 700; color: #101828; font-size: .85rem; }
@@ -629,15 +867,15 @@
   [data-bs-theme="dark"] .fbs-inv-order .oi-item img { background: #1e2130; border-color: #2d3148; }
 
   .fbs-bulk-bar {
-    position: fixed; left: 50%; bottom: 1.25rem;
-    transform: translate(-50%, calc(100% + 30px));
-    display: flex; align-items: center; gap: .75rem;
-    padding: .6rem .9rem; border-radius: 14px;
+    position: fixed; left: 50%; bottom: 1.5rem;
+    transform: translate(-50%, calc(100% + 40px));
+    display: flex; align-items: center; gap: .6rem;
+    padding: .72rem 1.1rem; border-radius: 16px;
     background: #1e293b; color: #f8fafc;
-    box-shadow: 0 14px 32px rgba(0,0,0,.25);
+    box-shadow: 0 16px 36px rgba(0,0,0,.3);
     z-index: 2070; pointer-events: none; opacity: 0;
-    transition: transform .22s ease-out, opacity .22s ease-out;
-    max-width: calc(100vw - 2rem); flex-wrap: wrap;
+    transition: transform .24s cubic-bezier(.22,1,.36,1), opacity .24s ease-out;
+    max-width: calc(100vw - 2rem); flex-wrap: nowrap;
   }
   .fbs-bulk-bar.is-visible {
     transform: translate(-50%, 0); opacity: 1; pointer-events: auto;
@@ -651,23 +889,70 @@
     padding-bottom: 140px;
   }
   .fbs-bulk-bar .fbs-bulk-count {
-    font-weight: 700; padding-right: .25rem;
-    border-right: 1px solid rgba(255,255,255,.18);
-    margin-right: .25rem;
+    font-weight: 700; font-size: .96rem; white-space: nowrap;
+    padding-right: .6rem; border-right: 1px solid rgba(255,255,255,.18);
+    margin-right: .15rem;
   }
-  .fbs-bulk-bar button {
-    background: rgba(255,255,255,.1); color: #f8fafc;
-    border: 1px solid rgba(255,255,255,.16);
-    padding: .58rem 1.25rem; border-radius: 12px;
-    font-size: .92rem; font-weight: 600; cursor: pointer;
+  /* QR stiker o'lcham tanlagichi — maxsus (custom) dropdown. Trigger tugmalar
+     bilan bir oila «Ghost Outline»; ro'yxat to'q popover, YUQORIGA ochiladi.
+     Накладная modal panelidagi `.qrsz` bilan AYNAN bir xil. */
+  .qrsz { position: relative; flex: none; }
+  .qrsz-trigger {
     display: inline-flex; align-items: center; gap: .4rem;
-    transition: background .15s, opacity .12s, transform .14s ease,
-                box-shadow .18s ease;
+    background: rgba(255,255,255,.08); color: #f8fafc;
+    border: 1px solid rgba(255,255,255,.28); border-radius: 12px;
+    padding: .58rem .72rem; font-size: .92rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, border-color .15s;
   }
-  .fbs-bulk-bar button:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .qrsz-trigger:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.42); }
+  .qrsz-ic { width: 15px; height: 15px; color: #cbd5e1; flex: none; }
+  .qrsz-val { min-width: 72px; text-align: left; }
+  .qrsz-caret { width: 14px; height: 14px; color: #cbd5e1; flex: none; transition: transform .18s ease; }
+  .qrsz.is-open .qrsz-caret { transform: rotate(180deg); }
+  .qrsz-menu {
+    position: absolute; left: 0; bottom: calc(100% + 8px);
+    margin: 0; padding: 6px; list-style: none;
+    min-width: 100%; width: max-content;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+    opacity: 0; transform: translateY(6px); pointer-events: none;
+    transition: opacity .16s ease, transform .18s cubic-bezier(.22,1,.36,1);
+    z-index: 5;
+  }
+  .qrsz.is-open .qrsz-menu { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .qrsz-opt {
+    padding: .5rem .7rem; border-radius: 9px; font-size: .9rem; font-weight: 600;
+    color: #e2e8f0; cursor: pointer; white-space: nowrap;
+    transition: background .12s, color .12s;
+  }
+  .qrsz-opt:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .qrsz-opt.is-sel { background: #4169E1; color: #fff; }
+  /* «Ghost Outline» — модал bulk-paneli bilan bir xil: shaffof + oq ramka,
+     hover'da oqga to'ladi (slate matn). Eski ko'k/binafsha olib tashlandi. */
+  .fbs-bulk-bar button {
+    background: rgba(255,255,255,.08); color: #f8fafc;
+    border: 1px solid rgba(255,255,255,.28);
+    padding: .64rem 1.15rem; border-radius: 12px;
+    font-size: .94rem; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .45rem;
+    white-space: nowrap; flex: none;
+    transition: background .15s, color .15s, border-color .15s, opacity .12s,
+                transform .14s ease, box-shadow .18s ease;
+  }
+  /* Ikonka SVG siqilmasin (bir qatorda nuqtaga aylanmasin). */
+  .fbs-bulk-bar button svg { flex: none; }
+  .fbs-bulk-bar .fbs-bulk-count { flex: none; }
+  .fbs-bulk-bar button:hover:not(:disabled) {
+    background: #fff; color: #1e293b; border-color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  }
   .fbs-bulk-bar button:active:not(:disabled) { transform: translateY(1px) scale(.99); }
-  .fbs-bulk-bar button.is-primary { background: #3456b9; border-color: #3456b9; }
-  .fbs-bulk-bar button.is-primary:hover:not(:disabled) { background: #2a47a0; }
+  .fbs-bulk-bar button.is-primary { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.28); }
+  .fbs-bulk-bar button.is-primary:hover:not(:disabled) {
+    background: #fff; color: #1e293b; border-color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  }
   .fbs-bulk-bar button.is-ghost { background: transparent; border-color: transparent; opacity: .85; }
   .fbs-bulk-bar button.is-ghost:hover { background: rgba(255,255,255,.08); opacity: 1; }
   /* Two-step workflow colours: confirm («Ishga olish» / Взять в работу) is
@@ -678,30 +963,23 @@
   .fbs-bulk-bar button.is-postavka {
     position: relative; overflow: hidden; color: #fff;
   }
-  .fbs-bulk-bar button.is-confirm  { background: linear-gradient(135deg, #10b981, #059669); border-color: #059669; }
-  .fbs-bulk-bar button.is-postavka { background: linear-gradient(135deg, #9061f9, #7c3aed); border-color: #7c3aed; }
-  /* Hover: lift + coloured glow. */
+  .fbs-bulk-bar button.is-confirm  { background: #10b981; border-color: #059669; }
+  /* «Qabul punktlari» (is-postavka) — toolbar'dagi `.fbs-dropoff-btn` bilan
+     AYNAN bir xil dark slate (#334155): ikki «Qabul punktlari» tugmasi bir
+     xil qoramtir rangda bo'lsin, ko'k EMAS (Abdulaziz 2026-06-16). is-confirm
+     (yashil «Ishga olish») semantik «yur» amali — yashilligicha qoldirildi. */
+  .fbs-bulk-bar button.is-postavka { background: #334155; border-color: #334155; }
+  /* Hover: lift + coloured glow (tekis ranglar, gradientsiz). */
   .fbs-bulk-bar button.is-confirm:hover:not(:disabled) {
-    background: linear-gradient(135deg, #0ea271, #047857);
+    background: #059669;
     transform: translateY(-2px);
     box-shadow: 0 8px 22px rgba(5,150,105,.45);
   }
+  /* Hover: qo'shni tugmalar (is-primary) bilan AYNAN bir xil OQ fon. */
   .fbs-bulk-bar button.is-postavka:hover:not(:disabled) {
-    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 22px rgba(124,58,237,.5);
+    background: #fff; color: #1e293b; border-color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
   }
-  /* Shine sweep — a soft highlight slides across on hover (modern flair). */
-  .fbs-bulk-bar button.is-confirm::after,
-  .fbs-bulk-bar button.is-postavka::after {
-    content: ""; position: absolute; top: 0; left: -120%;
-    width: 55%; height: 100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,.38), transparent);
-    transform: skewX(-20deg); pointer-events: none;
-    transition: left .55s ease;
-  }
-  .fbs-bulk-bar button.is-confirm:hover:not(:disabled)::after,
-  .fbs-bulk-bar button.is-postavka:hover:not(:disabled)::after { left: 135%; }
   /* Disabled state — must win over .is-primary so the blue background
      doesn't make the button look clickable. Placed after the .is-primary
      rule and uses !important to ensure ordering doesn't change the
@@ -717,6 +995,27 @@
   .fbs-bulk-bar .spinner-border-sm { width: 12px; height: 12px; border-width: 2px; display: none; }
   .fbs-bulk-bar button.is-busy .spinner-border-sm { display: inline-block; }
   .fbs-bulk-bar button.is-busy { opacity: .8; cursor: progress; }
+
+  /* «Поставка» akt-bar — Variant 1 «Brendlangan ko'k» (Abdulaziz 2026-06-13).
+     «Akt» = to'liq brend-ko'k (Yorliq/QR bilan bir oila), hover'da lift + ko'k
+     shu'la; «Yuklab olish» = nozik konturli ghost. Faqat shu bar'ga scoped —
+     buyurtmalar (#fbsBulkBar) tugmalariga tegmaydi. */
+  #fbsPostavkaAktBar svg { width: 16px; height: 16px; flex: none; }
+  #fbsPostavkaAktBar button.is-ghost {
+    background: transparent; border-color: rgba(255,255,255,.16);
+    color: #cbd5e1; opacity: 1;
+  }
+  #fbsPostavkaAktBar button.is-ghost:hover:not(:disabled) {
+    background: rgba(255,255,255,.09); color: #fff;
+  }
+  #fbsPostavkaAktBar button.is-akt {
+    background: #4169E1; border-color: #4169E1; color: #fff;
+  }
+  #fbsPostavkaAktBar button.is-akt:hover:not(:disabled) {
+    background: #3556c9; transform: translateY(-2px);
+    box-shadow: 0 9px 22px rgba(65,105,225,.5);
+  }
+  #fbsPostavkaAktBar button.is-busy svg { display: none; }
 
   /* Size selector — compact dark dropdown, sits between the count
      badge and the action buttons. Native <select> styled to feel
@@ -747,126 +1046,135 @@
     box-shadow: 0 14px 32px rgba(0,0,0,.5);
   }
 </style>
+{# «Soft» dizayn qatlami — inline uslublardan KEYIN (.fbs-page specificity bilan yengadi) #}
+<link rel="stylesheet" href="/static/fbs_aurora.css">
 {% endblock %}
 
 {% block content %}
 <div class="fbs-page">
-  <section class="fbs-hero">
-    <div class="fbs-hero-main">
-      <span class="fbs-kicker">FBS / DBS</span>
-      <h1 class="fbs-title">Buyurtmalar</h1>
-      <p class="fbs-subtitle">
-        Uzum'ning FBS («Fulfillment by Seller») va DBS («Delivery by Seller»)
-        buyurtmalari. Ma'lumotlar Seller OpenAPI orqali shaxsiy token bilan olinadi.
-      </p>
-    </div>
-
-    <nav class="fbs-section-tabs" aria-label="FBS bo'limi">
+  {# «Floating Glass» header — sarlavha + FBS/DBS belgi + bo'lim tab'lari +
+     filtr kapsulalari + Yangilash, hammasi bitta yupqa yarim-shaffof panelda.
+     Eski hero (kicker + sarlavha + izoh) va alohida toolbar shu yerga birlashdi. #}
+  <section class="fbs-glass">
+    <span class="fbs-glass-title">{{ list_labels.page_title_orders }}</span>
+    <span class="fbs-brand">FBS / DBS</span>
+    <nav class="fbs-section-tabs" aria-label="{{ list_labels.aria_section_fbs }}">
     <a href="/fbs" class="active">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      Buyurtmalar
+      {{ list_labels.tab_orders }}
     </a>
     <a href="/fbs/stock">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-      Ombor
+      {{ list_labels.tab_stock }}
     </a>
     </nav>
+    <span class="fbs-glass-spacer"></span>
+    <div class="fbs-cap">
+      <label for="fbsShop">{{ list_labels.label_shop }}</label>
+      <select id="fbsShop" data-fxsel data-fxsel-variant="bare">
+        {% if not shops %}
+        <option value="">{{ list_labels.opt_no_shop }}</option>
+        {% else %}
+        <option value="all">{{ list_labels.opt_all_shops }}</option>
+        {% for s in shops %}
+        <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }} ({{ s.uzum_id }})</option>
+        {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+    <div class="fbs-cap">
+      <label for="fbsScheme">{{ list_labels.label_scheme }}</label>
+      <select id="fbsScheme" data-fxsel data-fxsel-variant="bare">
+        <option value="">{{ list_labels.opt_scheme_all }}</option>
+        <option value="FBS">FBS</option>
+        <option value="DBS">DBS</option>
+      </select>
+    </div>
+    {# «Sahifada» — yashirin; fbs_aurora_pager.js select'ni pastki qatorga ko'chiradi. #}
+    <div class="fbs-size-wrap">
+      <label for="fbsSize">{{ list_labels.label_page_size }}</label>
+      <select id="fbsSize" data-fxsel data-fxsel-variant="outline">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+    {# Bosqich A.12 — «Yangilash» tugmasi OLIB TASHLANDI. Yangilash logikasi
+       o'zgartirildi: sahifaga kirganda Yangi + Yig'ilmoqda jonli olinadi,
+       aktiv chipni (qayta) bosganda o'sha chip jonli yangilanadi. Alohida
+       tugma kerak emas — chipni bosishning o'zi yangilash. #}
   </section>
 
   {% if not has_token %}
   <div class="fbs-warning">
-    Uzum Seller OpenAPI tokeni o'rnatilmagan. Buyurtmalarni ko'rish uchun
-    avval <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+    {{ list_labels.warn_token_pre }} <a href="/fetch">{{ list_labels.link_my_shops }}</a>{{ list_labels.warn_token_post }}
   </div>
   {% endif %}
 
+  {# Status chip row — counts come from /fbs/api/count (Stage 1: stub, 501).
+     PENDING_DELIVERY ("Jo'natishga tayyor") chipi o'rniga «Поставка» navigatsiya
+     chipi qo'yilgan: u status filtri emas, to'liq Накладные sahifasiga
+     (/fbs/invoices) olib boradi — eski yuqori tab funksiyasi shu yerga ko'chdi.
+     Trek endi kartadan TASHQARIDA, glass panel ostida erkin turadi («Floating
+     Glass»); sirpanuvchi gradient thumb'ni fbs_aurora_orders.js boshqaradi. #}
+  {# .fbs-status-line — glass-trek (chapda) va 📍 toolbar tugmasi (O'NG
+     CHETDA) bitta qatorda. Tugma trek ICHIDA EMAS — aks holda u glass
+     pill ichiga tushib, «Boshqa holatlar» bilan aralashib qoladi. #}
+  <div class="fbs-status-line">
+  <div class="fbs-status-row" id="fbsStatusRow" data-more-label="{{ list_labels.more_statuses }}">
+    {% for st in status_enum %}
+    {% if st == "PENDING_DELIVERY" %}
+    <a href="/fbs/invoices" class="fbs-status-nav" title="{{ list_labels.delivery_nav_title }}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <span>{{ list_labels.delivery_nav }}</span>
+    </a>
+    {% else %}
+    <button type="button"
+            class="fbs-status-chip {% if st == default_status %}active{% endif %}"
+            data-status="{{ st }}"
+            title="{{ st }}">
+      <span>{{ status_labels.get(st, st) }}</span>
+      <span class="fbs-status-chip-count" data-status-count="{{ st }}">·</span>
+    </button>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {# «Qabul punktlari» — qatorning O'NG chetida, FAQAT «Yig'ilmoqda»
+     (PACKING) tabida ko'rinadi (yangi foydalanuvchi bulk-panel chiqishini
+     kutmay tugmani ko'rsin); boshqa tablarda butunlay yashirin. Buyurtma
+     belgilanmaguncha O'CHIQ. Ko'rinish/holatni updateBulkBar() boshqaradi;
+     boshlang'ich display:none — default tab «Yangi» (CREATED). Bosilganda
+     bulk-paneldagi tugma bilan AYNAN bir xil modal ochiladi. #}
+  <button type="button" id="fbsDropoffBtn" class="fbs-dropoff-btn" disabled
+          style="display:none" data-tip="{{ list_labels.tip_pick_order_first }}">
+    {# Uzum belgisi — status-dropdown'dagi «U» power-glyph bilan bir xil
+       (fbs_aurora_orders.js SVG.uzum). Oq shtrix rangli tugmada ko'rinadi. #}
+    <span class="fbs-uzmark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" fill="none" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span>
+    <span>{{ list_labels.dropoff_btn }}</span>
+  </button>
+  </div>
+
   <section class="fbs-card">
-    <div class="fbs-toolbar">
-      <div>
-        <label for="fbsShop">Do'kon</label>
-        <select id="fbsShop">
-          {% if not shops %}
-          <option value="">— do'kon yo'q —</option>
-          {% else %}
-          <option value="all">Hammasi</option>
-          {% for s in shops %}
-          <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }} ({{ s.uzum_id }})</option>
-          {% endfor %}
-          {% endif %}
-        </select>
-      </div>
-      <div>
-        <label for="fbsScheme">Sxema</label>
-        <select id="fbsScheme">
-          <option value="">FBS + DBS (hammasi)</option>
-          <option value="FBS">FBS</option>
-          <option value="DBS">DBS</option>
-        </select>
-      </div>
-      <div>
-        <label for="fbsSize">Sahifada</label>
-        <select id="fbsSize">
-          <option value="10">10</option>
-          <option value="20" selected>20</option>
-          <option value="50">50</option>
-        </select>
-      </div>
-      <div>
-        <button id="fbsReload" type="button" class="btn btn-dark">
-          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-          <span class="fbs-reload-label">{{ list_labels.btn_refresh }}</span>
-        </button>
-      </div>
-      <div>
-        <button id="fbsDropoffBtn" type="button" class="btn btn-outline-primary" disabled
-                title="Avval buyurtma belgilang">
-          <span aria-hidden="true">📍</span>
-          <span>{{ list_labels.dropoff_btn }}</span>
-        </button>
-      </div>
-    </div>
-
-
-    {# Status chip row — counts come from /fbs/api/count (Stage 1: stub, 501).
-       PENDING_DELIVERY ("Jo'natishga tayyor") chipi o'rniga «Поставка» navigatsiya
-       chipi qo'yilgan: u status filtri emas, to'liq Накладные sahifasiga
-       (/fbs/invoices) olib boradi — eski yuqori tab funksiyasi shu yerga ko'chdi. #}
-    <div class="fbs-status-row" id="fbsStatusRow">
-      {% for st in status_enum %}
-      {% if st == "PENDING_DELIVERY" %}
-      <a href="/fbs/invoices" class="fbs-status-nav" title="Поставка — накладные">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        <span>Поставка</span>
-      </a>
-      {% else %}
-      <button type="button"
-              class="fbs-status-chip {% if st == default_status %}active{% endif %}"
-              data-status="{{ st }}"
-              title="{{ st }}">
-        <span>{{ status_labels.get(st, st) }}</span>
-        <span class="fbs-status-chip-count" data-status-count="{{ st }}">·</span>
-      </button>
-      {% endif %}
-      {% endfor %}
-    </div>
-
-    <div id="fbsResult" style="margin-top: 1rem">
+    <div id="fbsResult">
       <div class="fbs-empty">
-        Yuklash uchun «Yangilash» tugmasini bosing yoki status tanlang.
+        {{ list_labels.empty_pick_status }}
       </div>
     </div>
 
     <div class="fbs-meta-row" id="fbsMeta" style="display:none">
       <span>
-        Topildi: <strong id="fbsTotal">0</strong> ·
-        Sahifa: <strong id="fbsPage">0</strong> ·
-        Status: <strong id="fbsCurStatus">—</strong>
+        {{ list_labels.meta_found }} <strong id="fbsTotal">0</strong> ·
+        {{ list_labels.meta_page }} <strong id="fbsPage">0</strong> ·
+        {{ list_labels.meta_status }} <strong id="fbsCurStatus">—</strong>
       </span>
       <span>
         Endpoint: <code id="fbsUsedUrl">—</code>
       </span>
       <span class="fbs-last-synced" id="fbsLastSynced"></span>
     </div>
+
+    {# «Soft» pastki qator — ixcham raqamli pagination + «Sahifada» (JS to'ldiradi) #}
+    <div class="fbs-bottombar" id="fbsBottomBar"></div>
   </section>
 </div>
 
@@ -879,6 +1187,25 @@
   <span class="fbs-bulk-count">
     <span id="fbsBulkCount">0</span> {{ list_labels.bulk_n_selected }}
   </span>
+  {# QR stiker o'lchami — maxsus (custom) dropdown. «QR» va «Yorliq + QR» chop
+     etishda tovar-stiker sahifa o'lchami (mm). Backend product_qr_size; tanlov
+     localStorage (`fbsQrSize`) — Накладная modal paneli bilan bir kalit. Panel
+     ekran tagida turgani uchun ro'yxat YUQORIGA (popover) ochiladi. #}
+  <div class="qrsz" id="fbsBulkQrSizeDd" data-value="uzum">
+    <button type="button" class="qrsz-trigger" aria-haspopup="listbox" aria-expanded="false" title="{{ list_labels.qr_size_title }}">
+      <svg class="qrsz-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v3M11 7v4M15 7v3M19 7v4"/></svg>
+      <span class="qrsz-val">{{ list_labels.qr_size_uzum_full }}</span>
+      <svg class="qrsz-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <ul class="qrsz-menu" role="listbox" aria-label="{{ list_labels.qr_size_aria }}">
+      <li class="qrsz-opt" role="option" data-val="30x20">30 × 20 mm</li>
+      <li class="qrsz-opt" role="option" data-val="43x25">43 × 25 mm</li>
+      <li class="qrsz-opt" role="option" data-val="40x30">40 × 30 mm</li>
+      <li class="qrsz-opt" role="option" data-val="60x60">60 × 60 mm</li>
+      <li class="qrsz-opt" role="option" data-val="70x37">70 × 37 mm</li>
+      <li class="qrsz-opt" role="option" data-val="uzum">{{ list_labels.qr_size_uzum_full }}</li>
+    </ul>
+  </div>
   {# «Ishga olish» (bulk-confirm) — faqat «Yangi» (CREATED) tabida ko'rinadi.
      Tanlangan CREATED buyurtmalarni bir bosishda tasdiqlaydi (status →
      PACKING). Backend: POST /fbs/api/orders/bulk-confirm. #}
@@ -890,18 +1217,46 @@
   {# «Qabul punktlari» — tanlangan buyurtmalar uchun qabul punktini tanlash
      modalini ochadi (toolbar'dagi 📍 tugma bilan bir xil ish). Faqat
      «Yig'ilmoqda» (PACKING) tabida ko'rinadi. #}
-  <button type="button" id="fbsBulkYorliq" class="is-primary" title="Tanlangan buyurtmalar yorlig'ini chop etish">
-    <span aria-hidden="true">🖨</span>
-    <span>Yorliq</span>
+  <button type="button" id="fbsBulkYorliq" class="is-primary" title="{{ list_labels.bulk_yorliq_title }}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    <span>{{ list_labels.bulk_yorliq_btn }}</span>
   </button>
-  <button type="button" id="fbsBulkQr" class="is-primary" title="Tanlangan buyurtmalar QR kodini chop etish">
-    <span aria-hidden="true">▦</span>
+  <button type="button" id="fbsBulkQr" class="is-primary" title="{{ list_labels.bulk_qr_title }}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/><line x1="17" y1="21" x2="14" y2="21"/></svg>
     <span>QR</span>
+  </button>
+  {# «Yorliq + QR» — bitta PDF'da: avval jo'natma yorlig'i, keyin har tovar
+     uchun QR-stiker. Ombor yig'ish oqimi uchun. DBS'da yorliq qismi yo'q,
+     shuning uchun «Yorliq» kabi faqat FBS buyurtmalarda ishlaydi. #}
+  <button type="button" id="fbsBulkBoth" class="is-primary" title="{{ list_labels.bulk_both_title }}">
+    <span>{{ list_labels.bulk_both_btn }}</span>
   </button>
   <button type="button" id="fbsBulkPickup" class="is-postavka"
           title="{{ list_labels.dropoff_btn_hint }}">
-    <span aria-hidden="true">📍</span>
+    <span class="fbs-uzmark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" fill="none" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span>
     <span>{{ list_labels.dropoff_btn }}</span>
+  </button>
+</div>
+
+{# «Поставка» (iframe) akt bulk-bar — viewport-fixed PARENT darajasida.
+   iframe ichidagi `position:fixed` bar iframe (kontent-balandlik) tagiga
+   yopishib, zakaz ko'p bo'lsa ekrandan chiqib ketardi (Abdulaziz 2026-06-13).
+   Tanlov soni iframe'dan postMessage bilan keladi; tugma bosilsa amal
+   iframe'ga qaytariladi (PDF/print mantiqi o'sha yerda). «Yig'ilmoqda» bar
+   bilan bir xil `.fbs-bulk-bar` ko'rinishi. #}
+<div class="fbs-bulk-bar" id="fbsPostavkaAktBar" role="region" aria-label="Akt actions">
+  <span class="fbs-bulk-count">
+    <span id="fbsPostavkaAktCount">0</span> {{ list_labels.bulk_n_selected }}
+  </span>
+  <button type="button" id="fbsPostavkaAktDownload" class="is-ghost" title="{{ list_labels.akt_download_title }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span>{{ list_labels.akt_download_btn }}</span>
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+  </button>
+  <button type="button" id="fbsPostavkaAktPrint" class="is-akt" title="{{ list_labels.akt_print_title }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    <span>{{ list_labels.akt_print_btn }}</span>
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
   </button>
 </div>
 
@@ -920,7 +1275,7 @@
   <div class="fbs-od-modal-card" role="document">
     <button type="button" class="fbs-od-modal-x" data-od-close="1"
             aria-label="{{ list_labels.aria_close }}" title="{{ list_labels.aria_close }}">×</button>
-    <iframe id="fbsOrderModalFrame" class="fbs-od-modal-frame" title="Buyurtma" loading="lazy"></iframe>
+    <iframe id="fbsOrderModalFrame" class="fbs-od-modal-frame" title="{{ list_labels.iframe_order_title }}" loading="lazy" allow="geolocation"></iframe>
   </div>
 </div>
 <style>
@@ -935,26 +1290,28 @@
      card stays invisible until the embedded page reports its content height
      — then it appears already at the right size with a smooth pop+fade. No
      empty box, no jump, no spinner. */
-  .fbs-od-modal-card { position: relative; width: min(680px, 100%);
-    max-height: 88vh; background: #fff; border-radius: 18px; overflow: hidden;
-    box-shadow: 0 24px 70px rgba(16,24,40,.32); display: flex;
+  .fbs-od-modal-card { position: relative; width: min(920px, 96vw);
+    max-height: 88vh; background: #fff; border-radius: 26px; overflow: hidden;
+    box-shadow: 0 32px 80px -24px rgba(24,30,60,.4), 0 2px 8px rgba(24,30,60,.06);
+    display: flex;
     opacity: 0; transform: translateY(12px) scale(.96);
     transition: opacity .24s ease, transform .26s cubic-bezier(.16,1,.3,1); }
   .fbs-od-modal.is-ready .fbs-od-modal-card { opacity: 1; transform: none; }
-  .fbs-od-modal-x { position: absolute; top: 10px; right: 12px; z-index: 2;
-    width: 32px; height: 32px; padding: 0; display: flex; align-items: center;
-    justify-content: center; border: 0; border-radius: 9px;
-    background: rgba(255,255,255,.7); color: #98a2b3; font-size: 1.6rem;
-    line-height: 1; cursor: pointer; transition: background .12s, color .12s; }
-  .fbs-od-modal-x:hover { background: #f1f4fa; color: #475467; }
+  /* × — V3: ko'k hero ustida turadigan shisha doira (oq belgili). */
+  .fbs-od-modal-x { position: absolute; top: 20px; right: 22px; z-index: 2;
+    width: 38px; height: 38px; padding: 0 0 2px; display: flex; align-items: center;
+    justify-content: center; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,.18); backdrop-filter: blur(4px);
+    color: #fff; font-size: 1.45rem;
+    line-height: 1; cursor: pointer; transition: background .12s; }
+  .fbs-od-modal-x:hover { background: rgba(255,255,255,.3); }
   /* Height still transitions for later re-renders (e.g. after an action). */
   .fbs-od-modal-frame { width: 100%; height: 200px; max-height: 88vh; border: 0;
     display: block; background: transparent;
     transition: height .3s cubic-bezier(.16,1,.3,1); }
   [data-bs-theme="dark"] .fbs-od-modal-card { background: #1a1d27;
     box-shadow: 0 20px 60px rgba(0,0,0,.6); }
-  [data-bs-theme="dark"] .fbs-od-modal-x { background: rgba(26,29,39,.7); color: #64748b; }
-  [data-bs-theme="dark"] .fbs-od-modal-x:hover { background: #252a3f; color: #cbd5e1; }
+  /* Hero gradienti ikkala temada ham ko'k — × o'zgarmaydi. */
 </style>
 
 {# ── Накладна-detal modali ────────────────────────────────────────────
@@ -968,7 +1325,7 @@
   <div class="fbs-inv-modal-card" role="document">
     <button type="button" class="fbs-inv-modal-x" data-inv-close="1"
             aria-label="{{ list_labels.aria_close }}" title="{{ list_labels.aria_close }}">×</button>
-    <iframe id="fbsInvoiceModalFrame" class="fbs-inv-modal-frame" title="Накладная" loading="lazy"></iframe>
+    <iframe id="fbsInvoiceModalFrame" class="fbs-inv-modal-frame" title="{{ list_labels.iframe_invoice_title }}" loading="lazy" allow="geolocation"></iframe>
   </div>
 </div>
 <style>
@@ -986,49 +1343,56 @@
     opacity: 0; transform: translateY(12px) scale(.97);
     transition: opacity .24s ease, transform .26s cubic-bezier(.16,1,.3,1); }
   .fbs-inv-modal.is-ready .fbs-inv-modal-card { opacity: 1; transform: none; }
-  .fbs-inv-modal-x { position: absolute; top: 12px; right: 14px; z-index: 2;
+  /* «Dark Header Band» — × to'q slate sarlavha ustida turadi → oq shisha. */
+  .fbs-inv-modal-x { position: absolute; top: 14px; right: 16px; z-index: 2;
     width: 34px; height: 34px; padding: 0; display: flex; align-items: center;
     justify-content: center; border: 0; border-radius: 10px;
-    background: rgba(255,255,255,.82); color: #98a2b3; font-size: 1.7rem;
+    background: rgba(255,255,255,.16); color: #fff; font-size: 1.7rem;
     line-height: 1; cursor: pointer; transition: background .12s, color .12s; }
-  .fbs-inv-modal-x:hover { background: #f1f4fa; color: #475467; }
-  .fbs-inv-modal-frame { width: 100%; height: 200px; max-height: 95vh; border: 0;
+  .fbs-inv-modal-x:hover { background: rgba(255,255,255,.28); color: #fff; }
+  .fbs-inv-modal-frame { width: 100%; height: 88vh; max-height: 95vh; border: 0;
     display: block; background: transparent;
     transition: height .3s cubic-bezier(.16,1,.3,1); }
   [data-bs-theme="dark"] .fbs-inv-modal-card { background: #1a1d27;
     box-shadow: 0 20px 60px rgba(0,0,0,.6); }
-  [data-bs-theme="dark"] .fbs-inv-modal-x { background: rgba(26,29,39,.7); color: #64748b; }
-  [data-bs-theme="dark"] .fbs-inv-modal-x:hover { background: #252a3f; color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-inv-modal-x { background: rgba(255,255,255,.12); color: #fff; }
+  [data-bs-theme="dark"] .fbs-inv-modal-x:hover { background: rgba(255,255,255,.22); color: #fff; }
 </style>
 
-{# Drop-off points modal — opened from the toolbar 📍 button. #}
+{# Drop-off points modal — opened from the toolbar 📍 button.
+   «Royal Blue Spotlight» redizayn (2026-06): katta ikki-tonli sarlavha,
+   pastki-chiziqli tab'lar, doiracha-masofa, hover'da gradient nur. #}
 <div id="fbsDropoffModal" class="fbs-dropoff-modal" role="dialog"
      aria-hidden="true" aria-labelledby="fbsDropoffTitle">
   <div class="fbs-dropoff-backdrop" data-dropoff-close="1"></div>
   <div class="fbs-dropoff-card">
     <div class="fbs-dropoff-head">
-      <h3 id="fbsDropoffTitle">📍 {{ list_labels.dropoff_modal_title }}</h3>
+      {%- set _dt = list_labels.dropoff_modal_title.split(' ', 1) %}
+      <h3 id="fbsDropoffTitle">{{ _dt[0] }}{% if _dt|length > 1 %} <span class="grad">{{ _dt[1] }}</span>{% endif %}</h3>
       <button type="button" class="fbs-dropoff-x" data-dropoff-close="1"
-              aria-label="{{ list_labels.aria_close }}">×</button>
+              aria-label="{{ list_labels.aria_close }}">✕</button>
     </div>
-    <div class="fbs-dropoff-tools">
-      <div class="fbs-dropoff-source" role="tablist" aria-label="Source">
-        <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
-                data-source="db" role="tab">
-          {{ list_labels.dropoff_src_db }}
-        </button>
-        <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
-                data-source="uzum" role="tab">
-          {{ list_labels.dropoff_src_uzum }}
-        </button>
-      </div>
-      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
-        <span aria-hidden="true">🧭</span>
-        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+    <div class="fbs-dropoff-tabs" role="tablist" aria-label="Source">
+      <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
+              data-source="db" role="tab">
+        {{ list_labels.dropoff_src_db }}
       </button>
-      <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
+      <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
+              data-source="uzum" role="tab">
+        {{ list_labels.dropoff_src_uzum }}
+      </button>
     </div>
-    <div class="fbs-dropoff-match-row">
+    <div class="fbs-dropoff-ctl">
+      <div class="fbs-dropoff-search-row">
+        <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
+        <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
+               placeholder="{{ list_labels.dropoff_search_ph }}"
+               autocomplete="off" spellcheck="false">
+        <button type="button" id="fbsDropoffSearchClear"
+                class="fbs-dropoff-search-clear" hidden
+                aria-label="{{ list_labels.aria_close }}">×</button>
+        <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
+      </div>
       <label class="fbs-dropoff-match">
         <input type="checkbox" id="fbsDropoffMatchOnly" checked>
         <span class="fbs-dropoff-match-track"><span class="fbs-dropoff-match-thumb"></span></span>
@@ -1037,147 +1401,331 @@
       <span class="fbs-dropoff-match-help" tabindex="0"
             title="{{ list_labels.dropoff_match_hint }}"
             aria-label="{{ list_labels.dropoff_match_hint }}">?</span>
+      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+      </button>
     </div>
-    <div class="fbs-dropoff-search-row">
-      <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
-      <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
-             placeholder="{{ list_labels.dropoff_search_ph }}"
-             autocomplete="off" spellcheck="false">
-      <button type="button" id="fbsDropoffSearchClear"
-              class="fbs-dropoff-search-clear" hidden
-              aria-label="{{ list_labels.aria_close }}">×</button>
-      <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
-    </div>
+    <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
     <div id="fbsDropoffBody" class="fbs-dropoff-body">
-      <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+      <div id="fbsDropoffList" class="fbs-dropoff-list">
+        <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+      </div>
+      <div id="fbsDropoffPanel" class="fbs-dropoff-panel">
+        <div class="dp-panel-empty">{{ list_labels.dropoff_panel_hint }}</div>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
+  /* ── «Royal Blue Spotlight» drop-off modal ─────────────────────────
+     Oq karta, ikki-tonli sarlavha, pastki-chiziqli tab'lar, doiracha
+     masofa; qatorga hover qilganda gradient nur + qora tugma ko'k
+     gradientga aylanadi. */
+  /* z-index 2090: bulk-bar (2070) USTIDA tursin — aks holda «N ta
+     tanlandi» paneli modal pastini to'sib qo'yadi. Toast (2100) baribir
+     tepada qoladi. */
   .fbs-dropoff-modal { position: fixed; inset: 0; display: none;
-    z-index: 1050; align-items: center; justify-content: center; }
+    z-index: 2090; align-items: center; justify-content: center; padding: 14px; }
   .fbs-dropoff-modal.is-open { display: flex; }
   .fbs-dropoff-backdrop { position: absolute; inset: 0;
-    background: rgba(0,0,0,.55); }
-  .fbs-dropoff-card { position: relative; background: var(--bs-body-bg, #fff);
-    color: var(--bs-body-color, #111); border-radius: 12px;
-    width: min(720px, 92vw); max-height: 86vh; overflow: hidden;
-    box-shadow: 0 18px 50px rgba(0,0,0,.4); display: flex; flex-direction: column; }
-  .fbs-dropoff-head { display: flex; justify-content: space-between;
-    align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(128,128,128,.2); }
-  .fbs-dropoff-head h3 { margin: 0; font-size: 1.05rem; }
-  .fbs-dropoff-x { background: transparent; border: 0; font-size: 1.6rem;
-    cursor: pointer; color: inherit; line-height: 1; padding: 0 6px; }
-  .fbs-dropoff-body { padding: 14px 18px; overflow-y: auto; }
-  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
-    padding: 28px 8px; opacity: .7; }
-  .fbs-dropoff-item { padding: 12px 14px; border: 1px solid rgba(128,128,128,.2);
-    border-radius: 10px; margin-bottom: 10px; display: flex;
-    justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
-  .fbs-dropoff-item .addr { font-weight: 600; font-size: 1rem; flex: 1 1 280px; }
-  .fbs-dropoff-item .shops { font-size: .85rem; opacity: .75; margin-top: 4px; }
-  .fbs-dropoff-item .counts { display: flex; gap: 10px; align-items: center;
-    flex: 0 0 auto; }
-  .fbs-dropoff-item .badge-active { background: #f59e0b; color: #1a1300;
-    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
-  .fbs-dropoff-item .badge-total { background: rgba(128,128,128,.18);
-    padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
-  .fbs-dropoff-item .btn-copy { background: transparent; border: 1px solid rgba(128,128,128,.4);
-    padding: 4px 10px; border-radius: 6px; cursor: pointer; color: inherit;
-    font-size: .85rem; }
-  .fbs-dropoff-item .btn-copy:hover { background: rgba(128,128,128,.12); }
-  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
-  /* Geolocation + favorite */
-  .fbs-dropoff-tools { padding: 10px 18px; display: flex; gap: 10px;
-    align-items: center; flex-wrap: wrap;
-    border-bottom: 1px solid rgba(128,128,128,.15); }
-  .fbs-dropoff-source { display: inline-flex; border: 1px solid rgba(128,128,128,.3);
-    border-radius: 8px; overflow: hidden; }
-  .fbs-dropoff-src-btn { background: transparent; border: 0; padding: 6px 14px;
-    cursor: pointer; color: inherit; font-size: .85rem; font-weight: 600;
-    border-right: 1px solid rgba(128,128,128,.3); }
-  .fbs-dropoff-src-btn:last-child { border-right: 0; }
-  .fbs-dropoff-src-btn.is-active { background: #3456b9; color: #fff; }
-  .fbs-dropoff-src-btn:hover:not(.is-active) { background: rgba(128,128,128,.12); }
-  /* «Faqat mos keladigan» toggle */
-  .fbs-dropoff-match-row { padding: 9px 18px; display: flex; align-items: center;
-    gap: 8px; border-bottom: 1px solid rgba(128,128,128,.15); }
-  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 9px;
-    cursor: pointer; font-size: .88rem; font-weight: 600; user-select: none; }
+    background: rgba(16,24,40,.55); backdrop-filter: blur(3px); }
+  .fbs-dropoff-card { position: relative; background: #fff; color: #101828;
+    border-radius: 26px; width: min(760px, 94vw); max-height: 88vh;
+    overflow: hidden; box-shadow: 0 36px 90px rgba(16,24,40,.45);
+    display: flex; flex-direction: column; }
+  .fbs-dropoff-head { display: flex; align-items: center; gap: 12px;
+    padding: 20px 26px 0; }
+  .fbs-dropoff-head h3 { margin: 0; flex: 1; font-size: 1.3rem;
+    font-weight: 900; letter-spacing: -.02em; }
+  .fbs-dropoff-head h3 .grad { background: linear-gradient(120deg,#4169E1,#6384ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fbs-dropoff-x { width: 34px; height: 34px; border-radius: 50%; border: 0;
+    background: #f2f4f7; color: #667085; font-size: 1rem; cursor: pointer;
+    line-height: 1; padding: 0; transition: background .2s, color .2s, transform .2s; }
+  .fbs-dropoff-x:hover { background: #101828; color: #fff; transform: rotate(90deg); }
+  /* Tab'lar — pastki gradient chiziq bilan */
+  .fbs-dropoff-tabs { display: flex; gap: 26px; margin: 14px 26px 0;
+    border-bottom: 1px solid #eaecf0; }
+  .fbs-dropoff-src-btn { border: 0; background: transparent; padding: 0 2px 12px;
+    font-size: .9rem; font-weight: 700; color: #667085; position: relative;
+    cursor: pointer; transition: color .15s; }
+  .fbs-dropoff-src-btn.is-active { color: #4169E1; }
+  .fbs-dropoff-src-btn.is-active::after { content: ""; position: absolute;
+    left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg,#4169E1,#6384ff); }
+  .fbs-dropoff-src-btn:hover:not(.is-active) { color: #101828; }
+  /* Boshqaruv qatori: qidiruv + toggle + geo */
+  .fbs-dropoff-ctl { display: flex; gap: 10px; align-items: center;
+    padding: 14px 26px 0; flex-wrap: wrap; }
+  .fbs-dropoff-search-row { flex: 1; min-width: 220px; display: flex;
+    align-items: center; gap: 8px; background: #f7f8fb;
+    border: 1.5px solid transparent; border-radius: 14px; padding: 9px 14px;
+    transition: border-color .2s, background .2s; }
+  .fbs-dropoff-search-row:focus-within { border-color: rgba(65,105,225,.4);
+    background: #fff; }
+  .fbs-dropoff-search-icon { opacity: .55; font-size: .95rem; }
+  .fbs-dropoff-search { flex: 1; border: 0; background: transparent;
+    color: inherit; font-size: .88rem; outline: none; font-family: inherit;
+    min-width: 0; }
+  .fbs-dropoff-search-clear { background: rgba(102,112,133,.15);
+    border: 0; width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    color: inherit; font-size: .95rem; line-height: 1; padding: 0; flex: none; }
+  .fbs-dropoff-search-clear:hover { background: rgba(102,112,133,.3); }
+  .fbs-dropoff-search-count { font-size: .74rem; font-weight: 700; color: #4169E1;
+    background: rgba(65,105,225,.08); padding: 3px 9px; border-radius: 999px;
+    flex: none; }
+  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: .82rem; font-weight: 600; user-select: none; }
   .fbs-dropoff-match input { position: absolute; opacity: 0; width: 0; height: 0; }
   .fbs-dropoff-match-track { width: 38px; height: 22px; border-radius: 999px;
-    background: rgba(128,128,128,.4); position: relative; transition: background .15s;
+    background: rgba(128,128,128,.35); position: relative; transition: background .15s;
     flex: 0 0 auto; }
   .fbs-dropoff-match-thumb { position: absolute; top: 2px; left: 2px; width: 18px;
     height: 18px; border-radius: 50%; background: #fff; transition: transform .15s;
     box-shadow: 0 1px 3px rgba(0,0,0,.3); }
-  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track { background: #3456b9; }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track {
+    background: linear-gradient(135deg,#4169E1,#6384ff); }
   .fbs-dropoff-match input:checked + .fbs-dropoff-match-track .fbs-dropoff-match-thumb { transform: translateX(16px); }
-  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(52,86,185,.55); outline-offset: 2px; }
-  .fbs-dropoff-match-help { width: 18px; height: 18px; border-radius: 50%;
-    background: rgba(128,128,128,.25); color: inherit; font-size: .75rem;
+  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(65,105,225,.55); outline-offset: 2px; }
+  .fbs-dropoff-match-help { width: 17px; height: 17px; border-radius: 50%;
+    background: #f2f4f7; color: #667085; font-size: .7rem;
     font-weight: 700; display: inline-flex; align-items: center;
-    justify-content: center; cursor: help; }
-  .fbs-dropoff-search-row { padding: 8px 18px; display: flex; gap: 8px;
-    align-items: center; border-bottom: 1px solid rgba(128,128,128,.15);
-    position: relative; }
-  .fbs-dropoff-search-icon { opacity: .6; font-size: 1rem; }
-  .fbs-dropoff-search { flex: 1; padding: 8px 12px; border-radius: 8px;
-    border: 1px solid rgba(128,128,128,.3); background: transparent;
-    color: inherit; font-size: .9rem; outline: none; }
-  .fbs-dropoff-search:focus { border-color: #3456b9;
-    box-shadow: 0 0 0 3px rgba(52,86,185,.15); }
-  .fbs-dropoff-search-clear { background: rgba(128,128,128,.18);
-    border: 0; width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
-    color: inherit; font-size: 1rem; line-height: 1; padding: 0; }
-  .fbs-dropoff-search-clear:hover { background: rgba(128,128,128,.3); }
-  .fbs-dropoff-search-count { font-size: .8rem; opacity: .7;
-    background: rgba(128,128,128,.15); padding: 3px 8px; border-radius: 999px; }
+    justify-content: center; cursor: help; flex: none; }
+  .fbs-dropoff-geo-btn { border: 0; background: transparent; color: #4169E1;
+    font-size: .84rem; font-weight: 700; display: inline-flex;
+    align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px;
+    cursor: pointer; transition: background .15s; }
+  .fbs-dropoff-geo-btn:hover { background: rgba(65,105,225,.08); }
+  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-geo-status { display: block; padding: 8px 26px 0;
+    font-size: .78rem; font-weight: 600; color: #027a48; }
+  .fbs-dropoff-geo-status:empty { display: none; }
+  .fbs-dropoff-body { padding: 12px 16px 20px; overflow-y: auto; }
+  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
+    padding: 28px 8px; opacity: .7; }
+  /* Punkt qatori — spotlight */
+  .fbs-dropoff-item { position: relative; display: flex; gap: 13px;
+    align-items: center; padding: 14px; border-radius: 18px;
+    flex-wrap: wrap;
+    transition: transform .2s cubic-bezier(.16,.84,.36,1); }
+  .fbs-dropoff-item + .fbs-dropoff-item { margin-top: 4px; }
+  .fbs-dropoff-item::before { content: ""; position: absolute; inset: 0;
+    border-radius: 18px; opacity: 0; transition: opacity .2s;
+    background: linear-gradient(120deg,rgba(65,105,225,.07),rgba(99,132,255,.07));
+    border: 1px solid rgba(65,105,225,.25); pointer-events: none; }
+  .fbs-dropoff-item:hover { transform: translateX(4px); }
+  .fbs-dropoff-item:hover::before { opacity: 1; }
+  .fbs-dropoff-item .btn-fav { border: 0; background: transparent;
+    font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 0;
+    color: #d0d3dd; flex: none; transition: color .2s, transform .2s; }
+  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
+  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; transform: scale(1.25); }
+  .fbs-dropoff-item .dist-circle { flex: none; width: 44px; height: 44px;
+    border-radius: 50%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #4169E1;
+    background: rgba(65,105,225,.08); transition: background .2s, color .2s; }
+  .fbs-dropoff-item .dist-circle b { font-weight: 900; font-size: .9rem; line-height: 1; }
+  .fbs-dropoff-item .dist-circle i { font-style: normal; font-size: .68rem;
+    font-weight: 800; opacity: .85; line-height: 1.2; }
+  .fbs-dropoff-item .dist-circle.is-nodist { font-size: .95rem; }
+  .fbs-dropoff-item:hover .dist-circle {
+    background: linear-gradient(135deg,#4169E1,#6384ff); color: #fff; }
+  .fbs-dropoff-item .mid { flex: 1; min-width: 0; }
+  .fbs-dropoff-item .addr { font-weight: 700; font-size: .92rem;
+    line-height: 1.35; letter-spacing: -.01em; }
+  .fbs-dropoff-item .meta { margin-top: 4px; font-size: .82rem; color: #667085;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fbs-dropoff-item .shops { color: #4169E1; font-weight: 800; font-size: .8rem; }
+  .fbs-dropoff-item .badge-nearest { font-size: .67rem; font-weight: 800;
+    color: #027a48; background: #ecfdf3; border: 1px solid #abefc6;
+    padding: 2px 9px; border-radius: 999px;
+    animation: fbsDropoffPulse 2.4s infinite; }
+  @keyframes fbsDropoffPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(2,122,72,.35); }
+    50% { box-shadow: 0 0 0 7px rgba(2,122,72,0); }
+  }
+  .fbs-dropoff-item .counts { display: flex; gap: 7px; align-items: center;
+    flex: 0 0 auto; }
+  .fbs-dropoff-item .btn-slots { border: 0; background: #101828; color: #fff;
+    padding: 8px 15px; border-radius: 12px; font-size: .8rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: background .2s, box-shadow .2s; }
+  .fbs-dropoff-item:hover .btn-slots {
+    background: linear-gradient(120deg,#4169E1,#6384ff);
+    box-shadow: 0 6px 16px rgba(65,105,225,.4); }
+  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-item .btn-copy { border: 1px solid #eaecf0; background: #fff;
+    color: #667085; width: 35px; height: 35px; border-radius: 12px;
+    font-size: .85rem; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0; flex: none;
+    transition: color .15s, border-color .15s; }
+  .fbs-dropoff-item .btn-copy:hover { color: #4169E1; border-color: #4169E1; }
+  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
   .fbs-dropoff-item mark { background: #fde68a; color: inherit;
     padding: 0 2px; border-radius: 3px; }
-  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
-  .fbs-dropoff-geo-btn { background: transparent; border: 1px solid #3456b9;
-    color: #3456b9; padding: 6px 14px; border-radius: 8px; cursor: pointer;
-    font-size: .9rem; display: inline-flex; align-items: center; gap: 6px;
-    font-weight: 600; }
-  .fbs-dropoff-geo-btn:hover { background: rgba(52,86,185,.1); }
-  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
-  .fbs-dropoff-geo-status { font-size: .85rem; opacity: .75; }
-  .fbs-dropoff-item.is-favorite { border-color: #f59e0b;
-    background: rgba(245,158,11,.06); }
-  .fbs-dropoff-item .btn-fav { background: transparent; border: 0;
-    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px;
-    color: rgba(128,128,128,.45); margin-right: 2px; }
-  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
-  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; }
-  .fbs-dropoff-item .badge-dist { background: rgba(52,86,185,.12);
-    color: #3456b9; padding: 4px 10px; border-radius: 999px;
-    font-weight: 700; font-size: .85rem; }
-  .fbs-dropoff-item .badge-nearest { background: #10b981; color: #fff;
-    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .8rem; }
-  .fbs-dropoff-item .btn-slots { background: transparent; border: 1px solid #3456b9;
-    color: #3456b9; padding: 4px 10px; border-radius: 6px; cursor: pointer;
-    font-size: .85rem; font-weight: 600; }
-  .fbs-dropoff-item .btn-slots:hover { background: rgba(52,86,185,.1); }
-  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
-  .fbs-dropoff-slots { width: 100%; margin-top: 10px;
-    border-top: 1px dashed rgba(128,128,128,.3); padding-top: 10px;
-    display: flex; flex-wrap: wrap; gap: 8px; }
+  /* Slotlar — qator ostida, yashil chiplar */
+  .fbs-dropoff-slots { flex-basis: 100%; margin: 2px 0 0 70px;
+    display: flex; flex-wrap: wrap; gap: 7px; }
   .fbs-dropoff-slots .slot-empty, .fbs-dropoff-slots .slot-loading,
-  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .85rem;
-    opacity: .75; text-align: center; padding: 8px; }
+  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .82rem;
+    opacity: .75; padding: 4px 0; }
   .fbs-dropoff-slots .slot-error { color: #dc2626; }
-  .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12);
-    color: #047857; padding: 5px 11px; border-radius: 8px;
-    font-size: .85rem; font-weight: 600; border: 1px solid rgba(16,185,129,.3); }
-  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { color: #34d399; }
+  .fbs-dropoff-slots .slot-pill { background: #ecfdf3; color: #027a48;
+    padding: 6px 13px; border-radius: 11px; font-size: .78rem;
+    font-weight: 700; border: 1.5px solid #abefc6; }
   .fbs-dropoff-slots .slot-pill.is-clickable { cursor: pointer;
-    transition: transform .08s ease, background .15s ease; }
-  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22);
-    transform: translateY(-1px); }
+    transition: transform .15s ease, background .15s ease, box-shadow .15s ease; }
+  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: #d1fadf;
+    transform: translateY(-2px); box-shadow: 0 6px 14px rgba(2,122,72,.18); }
   .fbs-dropoff-slots .slot-pill.is-clickable:active { transform: translateY(0); }
   .fbs-dropoff-slots .slot-pill.is-clickable:disabled { opacity: .55; cursor: progress; }
+  /* Dark theme */
+  [data-bs-theme="dark"] .fbs-dropoff-card { background: #1c2333; color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-x { background: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-x:hover { background: #e8edf5; color: #101828; }
+  [data-bs-theme="dark"] .fbs-dropoff-tabs { border-bottom-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn.is-active { color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn:hover:not(.is-active) { color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-search-row { background: #232a3d; }
+  [data-bs-theme="dark"] .fbs-dropoff-search-row:focus-within { background: #1c2333; }
+  [data-bs-theme="dark"] .fbs-dropoff-match-help { background: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .meta { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .shops { color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .dist-circle { background: rgba(99,132,255,.16); color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .btn-copy { background: transparent; border-color: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .btn-copy:hover { color: #8aa4ff; border-color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .badge-nearest { background: rgba(16,185,129,.14); color: #34d399; border-color: rgba(16,185,129,.4); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.35); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22); }
+  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
+  /* ══ Split «Slate» redizayn (Abdulaziz, 2026-06-15): chapda punktlar,
+     o'ngda tanlangan punkt slotlari + sig'im rozetkasi (bo'sh/jami).
+     Ko'k urg'u → qora/slate (#1e293b). fbs_invoices.html bilan SINXRON. ══ */
+  .fbs-dropoff-card { width: min(1200px, 96vw); height: 92vh; max-height: 92vh; }  /* keng + baland (ekranni to'ldiradi) */
+  .fbs-dropoff-head h3 .grad { background: linear-gradient(120deg,#0f172a,#475569);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fbs-dropoff-subtitle { background: rgba(30,41,59,.07);
+    border-color: rgba(30,41,59,.22); color: #1e293b; }
+  .fbs-dropoff-src-btn.is-active { color: #0f172a; }
+  .fbs-dropoff-src-btn.is-active::after { background: linear-gradient(90deg,#1e293b,#475569); }
+  .fbs-dropoff-search-row:focus-within { border-color: rgba(30,41,59,.4); }
+  .fbs-dropoff-search-count { color: #1e293b; background: rgba(30,41,59,.08); }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track {
+    background: linear-gradient(135deg,#1e293b,#475569); }
+  /* «Joylashuv» — V4 «Gradient Border» */
+  .fbs-dropoff-geo-btn { position: relative; color: #1e293b; background: #fff;
+    border-radius: 13px; padding: 9px 15px; font-weight: 800; }
+  .fbs-dropoff-geo-btn::before { content: ""; position: absolute; inset: 0;
+    border-radius: 13px; padding: 1.5px;
+    background: linear-gradient(120deg,#1e293b,#475569,#94a3b8);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .fbs-dropoff-geo-btn:hover { background: #fff; transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(30,41,59,.18); }
+  /* Split tana */
+  .fbs-dropoff-body { flex: 1; min-height: 0; padding: 0; display: flex;
+    border-top: 1px solid #eaecf0; overflow: hidden; }
+  .fbs-dropoff-list { flex: 1; min-width: 0; overflow-y: auto; padding: 8px;
+    border-right: 1px solid #eaecf0; }
+  .fbs-dropoff-panel { width: 380px; flex: none; display: flex;
+    flex-direction: column; background: #f7f8fb; min-height: 0; }
+  .dp-panel-empty { margin: auto; padding: 30px 20px; text-align: center;
+    color: #98a2b3; font-size: .85rem; max-width: 220px; }
+  /* Chap qator — bosiladigan, tanlanadigan */
+  .fbs-dropoff-item { gap: 11px; padding: 12px; border-radius: 15px;
+    flex-wrap: nowrap; cursor: pointer; border: 1.5px solid transparent;
+    transition: background .16s, border-color .16s; }
+  .fbs-dropoff-item + .fbs-dropoff-item { margin-top: 2px; }
+  .fbs-dropoff-item::before { display: none; }
+  .fbs-dropoff-item:hover { transform: none; background: rgba(30,41,59,.05); }
+  .fbs-dropoff-item.is-selected {
+    background: linear-gradient(120deg,rgba(30,41,59,.08),rgba(71,85,105,.05));
+    border-color: rgba(30,41,59,.22); }
+  .fbs-dropoff-item .dist-circle { width: 46px; height: 46px; border-radius: 13px;
+    color: #1e293b; background: rgba(30,41,59,.08); }
+  .fbs-dropoff-item:hover .dist-circle { background: rgba(30,41,59,.08); color: #1e293b; }
+  .fbs-dropoff-item.is-selected .dist-circle {
+    background: linear-gradient(135deg,#0f172a,#475569); color: #fff;
+    box-shadow: 0 6px 16px rgba(30,41,59,.34); }
+  .fbs-dropoff-item .addr { font-size: .94rem; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fbs-dropoff-item .shops { color: #475569; }
+  .fbs-dropoff-item .chev { flex: none; color: #c0c4ce; font-size: 1.05rem;
+    transition: transform .16s, color .16s; }
+  .fbs-dropoff-item.is-selected .chev { color: #1e293b; transform: translateX(2px); }
+  .fbs-dropoff-item .btn-fav { font-size: 1.05rem; }
+  /* O'ng panel — sarlavha + slotlar + footer */
+  .dp-panel-head { padding: 15px 17px 11px; }
+  .dp-panel-addr { font-weight: 800; font-size: .9rem; line-height: 1.34;
+    letter-spacing: -.01em; }
+  .dp-panel-sub { margin-top: 5px; font-size: .74rem; color: #667085;
+    display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+  .dp-slotwrap { flex: 1; min-height: 0; overflow-y: auto; padding: 0 13px 14px; }
+  .dp-daygrp { margin-top: 11px; }
+  .dp-dayhd { font-size: .71rem; font-weight: 800; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em; margin: 0 2px 7px;
+    display: flex; align-items: center; gap: 7px; }
+  .dp-dayhd::after { content: ""; flex: 1; height: 1px; background: #eaecf0; }
+  .dp-slot { display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; background: #fff; border: 1.5px solid #eaecf0; border-radius: 13px;
+    padding: 11px 13px; margin-bottom: 7px; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, transform .15s, background .15s; }
+  .dp-slot:hover { border-color: #1e293b; transform: translateX(3px);
+    box-shadow: 0 6px 16px rgba(30,41,59,.12); }
+  .dp-slot.is-picked { border-color: #1e293b;
+    background: linear-gradient(120deg,rgba(30,41,59,.08),rgba(71,85,105,.05));
+    box-shadow: 0 0 0 1px rgba(30,41,59,.22); }
+  .dp-slot-time { font-weight: 800; font-size: .84rem; }
+  .dp-cap { font-size: .71rem; font-weight: 800; padding: 3px 9px;
+    border-radius: 99px; white-space: nowrap; flex: none; }
+  .dp-cap.ok   { color: #027a48; background: #ecfdf3; border: 1px solid #abefc6; }
+  .dp-cap.mid  { color: #b54708; background: #fffaeb; border: 1px solid #fedf89; }
+  .dp-cap.full { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; }
+  .dp-slot.is-full { opacity: .6; cursor: not-allowed; }
+  .dp-slot.is-full:hover { transform: none; border-color: #eaecf0; box-shadow: none; }
+  .dp-slot-msg { font-size: .82rem; color: #667085; padding: 14px 4px;
+    display: flex; flex-direction: column; gap: 8px; }
+  .dp-slot-msg.is-error { color: #dc2626; }
+  .dp-foot { padding: 12px 16px; border-top: 1px solid #eaecf0; background: #fff;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dp-foot-hint { font-size: .76rem; color: #667085; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-confirm { border: 0; border-radius: 12px; padding: 10px 20px; font-weight: 800;
+    font-size: .85rem; color: #fff; flex: none;
+    background: linear-gradient(120deg,#0f172a,#475569);
+    box-shadow: 0 8px 20px rgba(30,41,59,.34);
+    transition: transform .16s, box-shadow .16s, opacity .16s; cursor: pointer; }
+  .dp-confirm:hover:not(:disabled) { transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(30,41,59,.4); }
+  .dp-confirm:disabled { background: #d7dae3; box-shadow: none; cursor: not-allowed; }
+  .dp-show-all { align-self: flex-start; background: #1e293b; color: #fff; border: 0;
+    padding: 7px 14px; border-radius: 9px; cursor: pointer; font-weight: 700; font-size: .82rem; }
+  @media (max-width: 640px) {
+    .fbs-dropoff-body { flex-direction: column; }
+    .fbs-dropoff-list { border-right: 0; border-bottom: 1px solid #eaecf0; max-height: 38vh; }
+    .fbs-dropoff-panel { width: auto; }
+  }
+  [data-bs-theme="dark"] .fbs-dropoff-body,
+  [data-bs-theme="dark"] .fbs-dropoff-list { border-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-panel { background: #161c29; }
+  [data-bs-theme="dark"] .fbs-dropoff-item:hover { background: rgba(255,255,255,.05); }
+  [data-bs-theme="dark"] .fbs-dropoff-item.is-selected {
+    background: rgba(124,155,255,.12); border-color: rgba(124,155,255,.3); }
+  [data-bs-theme="dark"] .fbs-dropoff-item .dist-circle { background: rgba(255,255,255,.08); color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-dropoff-item.is-selected .dist-circle {
+    background: linear-gradient(135deg,#334155,#64748b); color: #fff; }
+  [data-bs-theme="dark"] .dp-panel-addr { color: #e8edf5; }
+  [data-bs-theme="dark"] .dp-slot { background: #1c2333; border-color: #2b3346; }
+  [data-bs-theme="dark"] .dp-slot-time { color: #e8edf5; }
+  [data-bs-theme="dark"] .dp-dayhd::after { background: #2b3346; }
+  [data-bs-theme="dark"] .dp-foot { background: #1c2333; border-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-geo-btn { background: #1c2333; color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-geo-btn:hover { background: #1c2333; }
 </style>
 
 <script>
@@ -1186,7 +1734,6 @@
   const shopSel = $("fbsShop");
   const schemeSel = $("fbsScheme");
   const sizeSel = $("fbsSize");
-  const btnReload = $("fbsReload");
   const out = $("fbsResult");
   const meta = $("fbsMeta");
   const metaTotal = $("fbsTotal");
@@ -1223,9 +1770,45 @@
   const bulkConfirmBtn = document.getElementById("fbsBulkConfirm");
   const bulkYorliqBtn = document.getElementById("fbsBulkYorliq");
   const bulkQrBtn = document.getElementById("fbsBulkQr");
+  const bulkBothBtn = document.getElementById("fbsBulkBoth");
   const dropoffBtn = document.getElementById("fbsDropoffBtn");
+  const bulkQrSizeDd = document.getElementById("fbsBulkQrSizeDd");
+  // QR stiker o'lchami — maxsus dropdown. localStorage (`fbsQrSize`) bilan eslab
+  // qolinadi; Накладная modal paneli bilan bir kalit → ikkala panelda izchil.
+  function initQrSizeDropdown(rootId, storageKey){
+    const root = document.getElementById(rootId);
+    if (!root) return null;
+    const trigger = root.querySelector(".qrsz-trigger");
+    const valEl   = root.querySelector(".qrsz-val");
+    const opts    = Array.from(root.querySelectorAll(".qrsz-opt"));
+    if (!trigger || !valEl || !opts.length) return null;
+    const apply = (v, persist) => {
+      const opt = opts.find(o => o.dataset.val === v) || opts[opts.length - 1];
+      root.dataset.value = opt.dataset.val;
+      valEl.textContent = opt.textContent;
+      opts.forEach(o => o.classList.toggle("is-sel", o === opt));
+      if (persist) { try { localStorage.setItem(storageKey, opt.dataset.val); } catch (_) {} }
+    };
+    let init = "uzum";
+    try { const s = localStorage.getItem(storageKey); if (s) init = s; } catch (_) {}
+    apply(init, false);
+    const close = () => { root.classList.remove("is-open"); trigger.setAttribute("aria-expanded", "false"); };
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const willOpen = !root.classList.contains("is-open");
+      root.classList.toggle("is-open", willOpen);
+      trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+    opts.forEach(o => o.addEventListener("click", (e) => { e.stopPropagation(); apply(o.dataset.val, true); close(); }));
+    document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    return { get value(){ return root.dataset.value || "uzum"; } };
+  }
+  const _bulkQrSize = initQrSizeDropdown("fbsBulkQrSizeDd", "fbsQrSize");
   const dropoffModal = document.getElementById("fbsDropoffModal");
   const dropoffBody = document.getElementById("fbsDropoffBody");
+  const dropoffList = document.getElementById("fbsDropoffList");
+  const dropoffPanel = document.getElementById("fbsDropoffPanel");
   const dropoffGeoBtn = document.getElementById("fbsDropoffGeoBtn");
   const dropoffGeoLabel = document.getElementById("fbsDropoffGeoLabel");
   const dropoffGeoStatus = document.getElementById("fbsDropoffGeoStatus");
@@ -1244,6 +1827,10 @@
   // by haversineKm() to attach a distance to each point.
   let _dropoffPoints = [];
   let _userLatLng = null;
+  let _renderedPoints = [];   // joriy ko'rsatilgan (saralangan/filtrlangan) ro'yxat
+  let _selectedIdx = -1;      // o'ng panelda ochilgan punkt indeksi
+  let _selectedAddr = null;   // tanlangan punkt manzili (re-render'da saqlash)
+  let _pickedSlot = null;     // tanlangan slot — footer «Tasdiqlash» yuboradi
   const FAV_KEY = "fbs_dropoff_favorite_addr";
   // Pre-fetched data per source. When the user clicks the toolbar button
   // we use the cached payload (instant) and refresh in the background.
@@ -1296,7 +1883,6 @@
     {% endfor %}
   };
 
-  const reloadLabel = btnReload.querySelector(".fbs-reload-label");
   const lastSyncedEl = $("fbsLastSynced");
   const toastContainer = $("fbsListToastContainer");
 
@@ -1370,11 +1956,11 @@
     const t = _parseWhen(when);
     if (!isFinite(t)) return null;
     const diffMs = t - Date.now();
-    if (diffMs <= 0) return { text: "Muddat o'tdi", cls: "is-past" };
+    if (diffMs <= 0) return { text: LIST_LBL.cd_overdue, cls: "is-past" };
     const hours = Math.floor(diffMs / 3600000);
     let text, cls;
-    if (hours >= 1) text = `${hours} soat qoldi`;
-    else            text = `${Math.max(1, Math.floor(diffMs / 60000))} daq qoldi`;
+    if (hours >= 1) text = LIST_LBL.cd_hours_left.replace("{n}", hours);
+    else            text = LIST_LBL.cd_minutes_left.replace("{n}", Math.max(1, Math.floor(diffMs / 60000)));
     if (hours >= 24)      cls = "is-ok";
     else if (hours >= 6)  cls = "is-warn";
     else                  cls = "is-urgent";
@@ -1405,17 +1991,6 @@
       + LIST_LBL.auto_sync_note;
   }
   setInterval(renderLastSynced, 30000);
-
-  // ─── Yangilash button state ───────────────────────────────────
-  function setReloadBusy(busy){
-    btnReload.disabled = busy;
-    btnReload.classList.toggle("is-loading", busy);
-    if (reloadLabel) {
-      reloadLabel.textContent = busy
-        ? LIST_LBL.btn_refresh_active
-        : LIST_LBL.btn_refresh;
-    }
-  }
 
   function escapeHtml(s){
     return String(s == null ? "" : s)
@@ -1459,33 +2034,14 @@
     return `<span class="${cls}">${escapeHtml(s)}</span>`;
   }
 
-  // Order IDs seen on the previous render. Used to flash newly-arrived
-  // rows on the next render so a Yangilash that brings in new orders is
-  // visually unmistakable. Empty on the first render (skip flash so
-  // initial page-load isn't a green wash of every row).
-  let _prevOrderIds = null;
-
   function renderOrders(orders){
     if (!orders.length) {
-      out.innerHTML = `<div class="fbs-empty"><strong>Buyurtmalar topilmadi.</strong><br>Boshqa status tanlang yoki sxemani o'zgartiring.</div>`;
-      _prevOrderIds = new Set();
+      out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.empty_no_orders}</strong><br>${LIST_LBL.empty_no_orders_hint}</div>`;
       // Wipe selection when the table empties so the toolbar doesn't
       // linger with stale IDs that no longer have a row.
       clearSelection();
       return;
     }
-    // Compute which IDs are NEW (not in previous render). Suppress the
-    // flash on the first render (_prevOrderIds === null) so the initial
-    // page load doesn't paint every row green.
-    const newIds = new Set();
-    if (_prevOrderIds !== null) {
-      orders.forEach(o => {
-        const id = String(o.id);
-        if (!_prevOrderIds.has(id)) newIds.add(id);
-      });
-    }
-    _prevOrderIds = new Set(orders.map(o => String(o.id)));
-
     // Cache the per-render order list so bulk actions can look up an
     // order's status by id without re-fetching. Used to enable/disable
     // the "Toplu tasdiqlash" button.
@@ -1530,10 +2086,8 @@
       const firstItemImg = itemImgs.length ? itemImgs[0].url : "";
       const isChecked = _selectedIds.has(String(id));
 
-      const isNew = newIds.has(String(id));
       const rowClasses = [
         isChecked ? 'is-selected' : '',
-        isNew ? 'is-new' : '',
       ].filter(Boolean).join(' ');
       // N6 (HAR audit A.13) — surface the deadline the seller is racing.
       // CREATED is bounded by acceptUntil (confirm before this); later active
@@ -1581,12 +2135,22 @@
             pillData = ` data-image="${escapeHtml(img)}"` + meta;
           }
         }
+        // «Soft» B·Rasmli — har qatorga mahsulot rasmi (44px). Rasm yo'q bo'lsa
+        // gradient placeholder (quti ikonkasi) — shунда barcha qatorlar bir xil
+        // balandlikda turadi («20 qatorga moslashgan»).
+        const thumbImg = pickImg(it);
+        // Rasm ustiga hover → katta popup (data-image). Matn (№/SKU) ustiga
+        // hover → popup OCHILMAYDI (IMG_HOVER_SEL faqat .fbs-prod-thumb'ni oladi).
+        const thumbHtml = thumbImg
+          ? `<img class="fbs-prod-thumb" src="${escapeHtml(thumbImg)}" alt="" loading="lazy" data-image="${escapeHtml(thumbImg)}"${sku ? ` data-sku="${escapeHtml(sku)}"` : ""}${bc ? ` data-barcode="${escapeHtml(bc)}"` : ""}>`
+          : '<span class="fbs-prod-thumb fbs-prod-thumb--ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></span>';
         return '<div class="fbs-prod">'
-             + (qty > 0 ? `<span class="${pillCls}"${pillData}>${qty} dona</span>` : "")
+             + thumbHtml
              + '<div class="info">'
-             +   `<div class="sku">${sku ? "SKU: " + escapeHtml(sku) : ""}</div>`
-             +   (bc ? `<div class="bc">Shtrix: ${escapeHtml(bc)}</div>` : "")
+             +   `<div class="sku">${sku ? LIST_LBL.row_sku_prefix + escapeHtml(sku) : ""}</div>`
+             +   (bc ? `<div class="bc">${LIST_LBL.row_barcode_prefix}${escapeHtml(bc)}</div>` : "")
              + '</div>'
+             + (qty > 0 ? `<span class="${pillCls}"${pillData}>${qty} ${LIST_LBL.unit_pcs}</span>` : "")
              + '</div>';
       };
       let productsHtml;
@@ -1609,9 +2173,9 @@
             <input type="checkbox" class="fbs-row-check"
                    data-order-id="${escapeHtml(id)}"
                    ${isChecked ? 'checked' : ''}
-                   aria-label="Buyurtma №${escapeHtml(id)}">
+                   aria-label="${escapeHtml(LIST_LBL.aria_order_no + id)}">
           </td>
-          <td class="fbs-id"${firstItemImg ? ` data-image="${escapeHtml(firstItemImg)}" data-images="${escapeHtml(JSON.stringify(itemImgs))}"` : ''}>${escapeHtml(id)}${deadlineRaw ? `<span class="fbs-deadline-timer" data-deadline="${escapeHtml(deadlineRaw)}" title="Qabul punktiga topshirish muddati">${_IC_DEADLINE}<span class="fbs-deadline-label"></span></span>` : ''}</td>
+          <td class="fbs-id"${firstItemImg ? ` data-image="${escapeHtml(firstItemImg)}" data-images="${escapeHtml(JSON.stringify(itemImgs))}"` : ''}>№${escapeHtml(id)}${deadlineRaw ? `<span class="fbs-deadline-timer" data-deadline="${escapeHtml(deadlineRaw)}" title="${escapeHtml(LIST_LBL.deadline_tip)}">${_IC_DEADLINE}<span class="fbs-deadline-label"></span></span>` : ''}</td>
           <td class="fbs-products">${productsHtml}</td>
           <td>${schemeBadge(o.scheme)}</td>
           <td>${escapeHtml(formatDate(o.dateCreated))}</td>
@@ -1635,12 +2199,12 @@
                        aria-label="${escapeHtml(LIST_LBL.bulk_select_all_aria)}">
               </th>
               <th>№</th>
-              <th>Mahsulot</th>
-              <th>Sxema</th>
-              <th>Yaratildi</th>
-              <th>Muddat</th>
-              <th>Do'kon</th>
-              <th class="text-end">Summa</th>
+              <th>${LIST_LBL.th_product}</th>
+              <th>${LIST_LBL.th_scheme}</th>
+              <th>${LIST_LBL.th_created}</th>
+              <th>${LIST_LBL.th_deadline}</th>
+              <th>${LIST_LBL.th_shop}</th>
+              <th class="text-end">${LIST_LBL.th_sum}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -1679,7 +2243,7 @@
         btn.classList.toggle("is-open", willOpen);
         btn.setAttribute("aria-expanded", String(willOpen));
         const lbl = btn.querySelector(".lbl");
-        if (lbl) lbl.textContent = willOpen ? "Yashirish" : ("+" + (btn.dataset.more || ""));
+        if (lbl) lbl.textContent = willOpen ? LIST_LBL.prod_collapse : ("+" + (btn.dataset.more || ""));
         // Birinchi tovar belgisidagi rasm-hover FAQAT ochiq holatda yonadi
         // (yopiqda toza qoladi). data-defer-image ↔ data-image almashinuvi.
         const deferPill = cell.querySelector(".qty-pill.is-defer");
@@ -1772,7 +2336,10 @@
     if (!_invModalEl || !_invFrame) return;
     _invModalSized = false;
     _invModalEl.classList.remove("is-ready");
-    _invFrame.style.height = "200px";            // faqat fallback ishlasa ko'rinadi
+    // Kontentga moslab o'lchanadi: kichik boshlanadi, detal balandligi kelganda
+    // silliq o'sadi (buyurtma-detal modali kabi). Eski «darhol 88vh» olib
+    // tashlandi — kontent kam bo'lsa modal pastida bo'sh joy bilan ochilardi.
+    _invFrame.style.height = "260px";
     _invFrame.src = `/fbs/invoices?embed=1&detail=${encodeURIComponent(invId)}`;
     _invFrame.onload = () => {
       setTimeout(() => { if (!_invModalSized) _invModalEl.classList.add("is-ready"); }, 250);
@@ -1822,6 +2389,18 @@
         sizePostavkaFrame();
         return;
       }
+      // «Поставка» iframe akt-tanlovi o'zgardi → parent viewport-fixed bar.
+      if (d.type === "fbs-postavka-akt-selection") {
+        const n = Number(d.count) || 0;
+        if (postavkaAktCount) postavkaAktCount.textContent = String(n);
+        if (postavkaAktBar) postavkaAktBar.classList.toggle("is-visible", n > 0 && postavkaActive);
+        return;
+      }
+      // Akt birlashtirish/yuklash davom etmoqda → tugmalarni «busy» qilamiz.
+      if (d.type === "fbs-postavka-akt-busy") {
+        [postavkaAktPrint, postavkaAktDownload].forEach(b => b && b.classList.toggle("is-busy", !!d.busy));
+        return;
+      }
       // «Поставка» ro'yxatida накладна qatori bosildi → KENG MODAL ochamiz
       // (parent darajasida — orqa fon o'zgarmaydi). Ro'yxatdan kelgan header'ni
       // saqlaymiz → detal sahifasi uni so'raydi va darhol ko'rsatadi (tez).
@@ -1842,8 +2421,13 @@
       // Modal ichidagi detail iframe'i o'z balandligini xabar qildi → kartani
       // kontentga moslab o'lchaymiz (buyurtma-detal modali kabi).
       if (d.type === "fbs-invoice-detail-height") {
+        // Kontentga moslab o'lchaymiz (88vh gacha) — buyurtma-detal modali kabi.
+        // Kontent kam bo'lsa modal qisqaradi (bo'sh joy yo'q); ko'p bo'lsa 88vh'da
+        // cheklanadi va iframe o'z ichida skroll bo'ladi. Floating panel chiqsa
+        // embed body'ga 88px padding qo'shiladi → bu yerga shu balandlik kelib
+        // modal silliq kengayadi, panel oxirgi zakazni yopmaydi.
         const max = Math.round(window.innerHeight * 0.88);
-        const h = Math.min(Math.max(Number(d.height) || 0, 160), max);
+        const h = Math.min(Math.max(Number(d.height) || 0, 120), max);
         if (_invFrame) _invFrame.style.height = h + "px";
         _invModalSized = true;
         if (_invModalEl) _invModalEl.classList.add("is-ready");
@@ -1878,7 +2462,7 @@
   }
   async function loadInvoicesView(){
     clearSelection();
-    out.innerHTML = `<div class="fbs-empty">Yuklanmoqda…</div>`;
+    out.innerHTML = `<div class="fbs-empty">${LIST_LBL.loading}</div>`;
     meta.style.display = "none";
     // Active invoices the seller still has to hand over: CREATED +
     // ACCEPTANCE_IN_PROGRESS (ACCEPTED/CANCELLED are already done).
@@ -1889,18 +2473,18 @@
       const res = await fetchWithTimeout(`/fbs/api/invoices?${qs.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        if (res.status === 429) showListToast(data.error || "Uzum hozir band. Birozdan keyin urinib ko'ring.", "error");
-        out.innerHTML = `<div class="fbs-empty"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        if (res.status === 429) showListToast(data.error || LIST_LBL.uzum_busy_short, "error");
+        out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.err_prefix}</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
         return;
       }
       renderInvoicesView(data.invoices || []);
     } catch (e) {
-      out.innerHTML = `<div class="fbs-empty"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message || "")}</div>`;
+      out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.net_err_prefix}</strong> ${escapeHtml(e.message || "")}</div>`;
     }
   }
   function renderInvoicesView(invoices){
     if (!invoices.length) {
-      out.innerHTML = `<div class="fbs-empty"><strong>Накладная yo'q.</strong><br>Jo'natishga tayyor накладная topilmadi.</div>`;
+      out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.inv_empty}</strong><br>${LIST_LBL.inv_empty_hint}</div>`;
       clearSelection();
       return;
     }
@@ -1914,7 +2498,7 @@
         <div class="fbs-inv-card" data-inv-id="${escapeHtml(String(inv.id))}">
           <div class="fbs-inv-head">
             <span class="fbs-inv-num">№${number}</span>
-            <span class="fbs-inv-count" title="Qabul qilingan / Jami">${escapeHtml(count)}</span>
+            <span class="fbs-inv-count" title="${escapeHtml(LIST_LBL.inv_count_tip)}">${escapeHtml(count)}</span>
             <span class="fbs-inv-meta">
               <span class="addr">📍 <b>${escapeHtml(addr)}</b></span>
               ${slot ? `<span>🕒 ${escapeHtml(slot)}</span>` : ""}
@@ -1937,20 +2521,20 @@
     if (card.classList.contains("is-open")) { card.classList.remove("is-open"); return; }
     card.classList.add("is-open");
     if (body.dataset.loaded === "1") return;
-    body.innerHTML = `<div class="fbs-inv-loading">Yuklanmoqda…</div>`;
+    body.innerHTML = `<div class="fbs-inv-loading">${LIST_LBL.loading}</div>`;
     try {
       // orders_only=1 → skip the redundant invoice-detail Uzum call; we
       // already have the header from the list. One paced call, not two.
       const res = await fetchWithTimeout(`/fbs/api/invoices/${encodeURIComponent(id)}?orders_only=1`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        body.innerHTML = `<div class="fbs-inv-loading">Xato: ${escapeHtml(data.error || res.status)}</div>`;
+        body.innerHTML = `<div class="fbs-inv-loading">${LIST_LBL.inv_err_prefix} ${escapeHtml(data.error || res.status)}</div>`;
         return;
       }
       const orders = data.orders || [];
       body.innerHTML = orders.length
         ? orders.map(renderInvOrderRow).join("")
-        : `<div class="fbs-inv-loading">Buyurtmalar topilmadi.</div>`;
+        : `<div class="fbs-inv-loading">${LIST_LBL.empty_no_orders}</div>`;
       body.dataset.loaded = "1";
       body.querySelectorAll(".oi-check").forEach(cb => {
         cb.checked = _selectedIds.has(cb.dataset.orderId);
@@ -1962,7 +2546,7 @@
         });
       });
     } catch (e) {
-      body.innerHTML = `<div class="fbs-inv-loading">Tarmoq xatosi.</div>`;
+      body.innerHTML = `<div class="fbs-inv-loading">${LIST_LBL.net_err}</div>`;
     }
   }
   function renderInvOrderRow(o){
@@ -1987,31 +2571,90 @@
   // Print the selected orders' labels as ONE merged PDF (server-side merge
   // → a single window.open, so no popup-blocker fight). mode "qr" prints the
   // product QR stickers; otherwise the full shipping label.
+  // Yorliq/QR chop etish bitta vaqtda bitta marta ishlaydi. Tugma bosilganda
+  // _printBusy ON bo'ladi va tugmalar «is-busy» (o'chiq) holatga o'tadi —
+  // shu sabab qayta-qayta bosish (va Uzum'ning 429 burst-jazosi) oldi olinadi.
+  let _printBusy = false;
+  function setPrintBusy(b){
+    _printBusy = b;
+    [bulkYorliqBtn, bulkQrBtn, bulkBothBtn].forEach(btn => {
+      if (!btn) return;
+      btn.classList.toggle("is-busy", b);
+      btn.disabled = b;
+    });
+  }
   async function printSelectedLabels(mode){
-    const ids = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
-    if (!ids.length) { showListToast("Avval buyurtma belgilang", "error"); return; }
-    showListToast(`${ids.length} ta yorliq tayyorlanmoqda…`, "success");
+    if (_printBusy) return;  // allaqachon tayyorlanyapti — ikkilamchi bosishni e'tiborsiz qoldir
+    const allIds = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
+    if (!allIds.length) { showListToast(LIST_LBL.pick_order_first, "error"); return; }
+    const isDbs = (id) => {
+      const o = _ordersById && _ordersById.get(String(id));
+      return o && String(o.scheme || "").toUpperCase() === "DBS";
+    };
+    // QR (tovar QR) — BIZ yasaymiz, shuning uchun DBS uchun ham chiqadi:
+    // hech narsa filtrlamaymiz. Yorliq (jo'natma yorlig'i) esa Uzum'niki —
+    // DBS'ga u bermaydi («fbs-18-invalid-order-type»), shuning uchun «label»
+    // rejimida DBS buyurtmalarni oldindan chiqarib tashlaymiz (aks holda har
+    // biri kafolatli «xato» bo'lib sanalardi).
+    let ids = allIds;
+    if (mode !== "qr") {
+      const dbsCount = allIds.filter(isDbs).length;
+      ids = allIds.filter(id => !isDbs(id));
+      if (!ids.length) {
+        showListToast(LIST_LBL.no_label_dbs, "error");
+        return;
+      }
+      if (dbsCount > 0) {
+        showListToast(LIST_LBL.dbs_skipped.replace("{n}", dbsCount), "error");
+      }
+    }
+    setPrintBusy(true);
+    showListToast(LIST_LBL.labels_preparing.replace("{n}", ids.length), "success");
     try {
+      // Ichki rejim → backend rejimi:
+      //   "qr"       → "qr"            (faqat tovar QR, DBS uchun ham)
+      //   "label_qr" → "label_with_qr" (yorliq + har tovar QR, bitta PDF)
+      //   "label"    → "full"          (faqat jo'natma yorlig'i)
+      const backendMode = mode === "qr" ? "qr"
+                        : mode === "label_qr" ? "label_with_qr"
+                        : "full";
+      // QR stiker o'lchami (mm) — «QR»/«Yorliq + QR» uchun. «Yorliq» (faqat
+      // jo'natma yorlig'i) uchun e'tiborsiz, lekin yuborilsa zarar qilmaydi.
+      const qrSize = (_bulkQrSize && _bulkQrSize.value) || "uzum";
       const res = await fetch("/fbs/api/orders/bulk-labels", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ order_ids: ids, size: "LARGE", mode: mode === "qr" ? "qr" : "full" }),
+        body: JSON.stringify({ order_ids: ids, size: "LARGE", mode: backendMode, product_qr_size: qrSize }),
         credentials: "same-origin",
       });
       if (!res.ok) {
         let msg = res.status;
         try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
-        showListToast("Yorliqlarni olishda xato: " + msg, "error");
+        showListToast(LIST_LBL.labels_fetch_err + " " + msg, "error");
         return;
       }
       const blob = await res.blob();
+      // TO'G'RIDAN-TO'G'RI CHOP (Abdulaziz 2026-06-12): PDF yashirin iframe'ga
+      // yuklanib print() chaqiriladi — tab ochilmaydi, srazu chop oynasi chiqadi
+      // (fbs_invoices.html'dagi printPdfBlobDirect bilan bir xil naqsh).
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      const fr = document.createElement("iframe");
+      fr.style.cssText = "position:fixed;right:0;bottom:0;width:2px;height:2px;border:0;visibility:hidden;";
+      fr.src = url;
+      fr.onload = () => {
+        setTimeout(() => {
+          try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+          catch (e) { try { window.open(url, "_blank"); } catch (_) {} }
+        }, 250);
+      };
+      document.body.appendChild(fr);
+      setTimeout(() => { try { fr.remove(); } catch (e) {} URL.revokeObjectURL(url); }, 120000);
       const errs = Number(res.headers.get("X-Fbs-Bulk-Errors") || 0);
-      showListToast(errs > 0 ? `Yorliqlar tayyor (${errs} tasi xato)` : "Yorliqlar tayyor", errs > 0 ? "error" : "success");
+      showListToast(errs > 0 ? LIST_LBL.labels_ready_some_err.replace("{n}", errs) : LIST_LBL.print_window_opening, errs > 0 ? "error" : "success");
     } catch (e) {
-      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+      showListToast(LIST_LBL.net_err_prefix + " " + (e.message || ""), "error");
+    } finally {
+      setPrintBusy(false);
     }
   }
 
@@ -2020,7 +2663,7 @@
   // hisobni toast'da ko'rsatamiz, so'ng ro'yxat + chip sonlarini yangilaymiz.
   async function bulkConfirmSelected(){
     const ids = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
-    if (!ids.length) { showListToast("Avval buyurtma belgilang", "error"); return; }
+    if (!ids.length) { showListToast(LIST_LBL.pick_order_first, "error"); return; }
     // Faqat CREATED tabida ishlaydi (Uzum penalty xavfi — boshqa statusda
     // tasdiqlash bekorga rate-limit yeydi).
     if (currentStatus !== "CREATED") {
@@ -2035,48 +2678,192 @@
       okLabel: LIST_LBL.bulk_btn_confirm,
     });
     if (!ok) return;
+    // Bosqich 2 — FON (async) tasdiqlash. Eski sinxron yo'l ~0.5s/order
+    // (2/sek bucket) bo'yicha butun so'rovni ushlab turardi → 120 ta ~60s
+    // foydalanuvchi qotib kutardi. Endi server darrov `job_id` qaytaradi va
+    // tasdiqlashlar fon-ipda ketadi; biz progressni poll qilamiz.
     setBulkBtnBusy(bulkConfirmBtn, true);
+    let data = {};
     try {
-      const res = await fetch("/fbs/api/orders/bulk-confirm", {
+      const res = await fetch("/fbs/api/orders/bulk-confirm-async", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ order_ids: ids }),
         credentials: "same-origin",
       });
-      let data = {};
       try { data = await res.json(); } catch (e) {}
       if (!res.ok) {
-        if (res.status === 429) {
-          showListToast(data.error || "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.", "error");
-        } else {
-          showListToast((LIST_LBL.bulk_toast_confirm_fail || "Tasdiqlashda xato") + ": " + (data.error || res.status), "error");
-        }
+        showListToast((LIST_LBL.bulk_toast_confirm_fail || "Tasdiqlashda xato") + ": " + (data.error || res.status), "error");
         return;
       }
-      const okN = Number(data.success_count || 0);
-      const errN = Number(data.error_count || 0);
-      if (errN > 0) {
-        showListToast(`${okN} ${LIST_LBL.bulk_toast_confirm_partial.replace("{n}", errN)}`, "error");
-      } else {
-        showListToast(`${okN} ${LIST_LBL.bulk_toast_confirm_ok}`, "success");
-      }
-      // Tasdiqlangan buyurtmalar endi PACKING'ga o'tdi — tanlovni tozalab,
-      // ro'yxat va chip sonlarini qayta yuklaymiz.
-      clearSelection();
-      await loadOrders(true);
-      loadCounts(false, { silent: true });
     } catch (e) {
-      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+      showListToast(LIST_LBL.net_err_prefix + " " + (e.message || ""), "error");
+      return;
     } finally {
-      // is-busy ni o'chiramiz, so'ng disabled holatni tanlovga qarab qayta
-      // tiklaymiz: xato yo'lida tanlov saqlangani uchun (n>0) tugma yana
-      // yonadi va qayta urinish mumkin bo'ladi (setBulkBtnBusy "yopishqoq"
-      // disabled qoldiradi — updateBulkBar uni n bo'yicha qayta hisoblaydi).
       setBulkBtnBusy(bulkConfirmBtn, false);
       updateBulkBar();
     }
+
+    const queued  = Number(data.queued || 0);
+    const skipped = Array.isArray(data.skipped) ? data.skipped : [];
+
+    // Tanlov bo'shaydi — buyurtmalar fonда qabul qilinmoqda, foydalanuvchi
+    // kutmaydi.
+    clearSelection();
+    updateBulkBar();
+
+    if (queued <= 0) {
+      // Hammasi o'tkazib yuborildi (CREATED emas) — tasdiqlash yo'q.
+      const msg = skipped.length
+        ? LIST_LBL.bulk_async_skipped.replace("{n}", skipped.length)
+        : (LIST_LBL.bulk_toast_confirm_fail || "Tasdiqlashda xato");
+      showListToast(msg, "error");
+      await loadOrders(false);
+      loadCounts(false, { silent: true });
+      return;
+    }
+
+    let startedMsg = LIST_LBL.bulk_async_started.replace("{n}", queued);
+    if (skipped.length) startedMsg += " (" + LIST_LBL.bulk_async_skipped.replace("{n}", skipped.length) + ")";
+    showListToast(startedMsg, "success");
+
+    if (data.job_id) {
+      // Worker confirm'larni YUBORILGAN tartibda (skipped'siz) bajaradi, shu
+      // sabab job'ning `done` soni → aynan qaysi qatorlar tasdiqlanganini
+      // beradi → ularni bittalab «Yangi»dan chiqarib tashlaymiz.
+      const skippedIds = new Set(skipped.map(s => Number(s.order_id)));
+      const queuedOrder = ids.filter(id => !skippedIds.has(id));
+      startBulkConfirmPoll(data.job_id, queued, queuedOrder);
+    } else {
+      // Job-id yo'q (Redis o'chgan bo'lishi mumkin) — kuzatuvsiz, ro'yxatni
+      // bir marta yangilab qo'yamiz (confirm'lar fonда baribir ketadi).
+      await loadOrders(false);
+      loadCounts(false, { silent: true });
+    }
   }
 
+  // Bosqich 2 — fondagi bulk-confirm progressini HYBRID poll bilan kuzatish:
+  //   • job-holatni (Redis, arzon) har 1s o'qib, "done/total" banner'ini
+  //     jonli yangilaymiz — raqam ko'z oldida ko'tariladi.
+  //   • ro'yxat + chip sonlarini har 3s yangilaymiz REFRESH'SIZ (DB'dan;
+  //     Uzum 2/sek bucket'ига bosim qo'shmaydi) → buyurtmalar bittalab
+  //     «Yangi»dan «Yig'ilmoqda»ga o'tib turadi.
+  // Tugaganда / 404 / max-vaqt (5 daq)да intervallar tozalanadi, xulosa
+  // ko'rsatiladi (haqiqiy natija — yolg'on "bo'ldi" yo'q).
+  let _bulkPollTimers = null;
+  function _stopBulkPoll(){
+    if (_bulkPollTimers){
+      clearInterval(_bulkPollTimers.status);
+      clearInterval(_bulkPollTimers.list);
+      _bulkPollTimers = null;
+    }
+  }
+  function _bulkProgressBanner(){
+    let el = document.getElementById("fbsBulkProgress");
+    if (!el){
+      el = document.createElement("div");
+      el.id = "fbsBulkProgress";
+      el.className = "fbs-list-toast is-success";
+      toastContainer.appendChild(el);
+    }
+    return el;
+  }
+  // Variant 1 — tasdiqlangan qatorni «Yangi»dan silliq chiqarib tashlash:
+  // surilish+so'nish (.46s) → balandlik yopilishi (.26s) → DOM'dan olib tashlash.
+  // `delay` bir poll-tik'да bir nechta qator chiqsa, ularni biroz zinapoyalaydi
+  // (bittalab ketayotgandek). `dataset.leaving` qayta tanlanishni to'sadi.
+  function animateConfirmedRowOut(orderId, delay){
+    const box = $("fbsResult");
+    if (!box) return;
+    const tr = box.querySelector('tbody tr[data-order-id="' + String(orderId) + '"]');
+    if (!tr || tr.dataset.leaving) return;
+    tr.dataset.leaving = "1";
+    setTimeout(() => {
+      tr.classList.add("fbs-row-leaving");                          // faza 1: surilish+so'nish
+      setTimeout(() => tr.classList.add("fbs-row-collapse"), 460);  // faza 2: balandlik yopilishi
+      setTimeout(() => { try { tr.remove(); } catch (e) {} }, 760); // so'ng olib tashlash
+    }, delay || 0);
+  }
+
+  function startBulkConfirmPoll(jobId, total, queuedOrder){
+    _stopBulkPoll();  // bir vaqtda bitta job
+    const url = "/fbs/api/orders/bulk-confirm-status/" + encodeURIComponent(jobId);
+    const startedAt = Date.now();
+    const MAX_MS = 5 * 60 * 1000;  // xavfsizlik chegarasi
+    const banner = _bulkProgressBanner();
+    banner.textContent = LIST_LBL.bulk_async_progress
+      .replace("{done}", 0).replace("{total}", total);
+    const order = Array.isArray(queuedOrder) ? queuedOrder : [];
+    const animated = new Set();
+
+    // Job davomida ro'yxatni TO'LIQ qayta render QILMAYMIZ (animatsiya buzilmasin)
+    // — faqat chip sonlarini yangilab turamiz. Qatorlar tasdiqlangani sayin
+    // bittalab silliq chiqib ketadi; xato bo'lganlari joyida qoladi.
+    const animateProcessed = (st) => {
+      const done = Number(st.done || 0);
+      const failedIds = new Set((st.failed || []).map(f => Number(f.order_id)));
+      let stagger = 0;
+      for (let i = 0; i < done && i < order.length; i++){
+        const id = order[i];
+        if (animated.has(id)) continue;
+        animated.add(id);
+        if (!failedIds.has(id)) { animateConfirmedRowOut(id, stagger); stagger += 130; }
+      }
+    };
+
+    const finishUp = async (status) => {
+      _stopBulkPoll();
+      if (status) animateProcessed(status);   // qolgan muvaffaqiyatlilarni ham chiqaramiz
+      try { banner.remove(); } catch (e) {}
+      // animatsiya tugashini biroz kutib, so'ng to'liq reconcile (xato qatorlar qoladi).
+      setTimeout(() => { loadOrders(false); loadCounts(false, { silent: true }); }, 820);
+      if (!status) return;  // 404/timeout — jim to'xtaymiz
+      const okN    = Number(status.ok || 0);
+      const failed = Array.isArray(status.failed) ? status.failed : [];
+      if (failed.length){
+        let msg = LIST_LBL.bulk_async_done_partial
+          .replace("{ok}", okN).replace("{fail}", failed.length);
+        const sample = failed.slice(0, 4)
+          .map(f => "№" + f.order_id + ": " + (f.error || "")).join("; ");
+        if (sample) msg += " — " + sample;
+        if (failed.length > 4) msg += " …";
+        showListToast(msg, "error");
+      } else {
+        showListToast(LIST_LBL.bulk_async_done_ok.replace("{n}", okN), "success");
+      }
+    };
+
+    const pollStatus = async () => {
+      if (Date.now() - startedAt > MAX_MS){ await finishUp(null); return; }
+      let st = null;
+      try {
+        const r = await fetch(url, { credentials: "same-origin" });
+        if (r.ok) st = await r.json();
+        else if (r.status === 404){ await finishUp(null); return; }
+      } catch (e) { return; }  // tarmoq uzilishi — keyingi tik'да qayta urinamiz
+      if (!st) return;
+      banner.textContent = LIST_LBL.bulk_async_progress
+        .replace("{done}", Number(st.done || 0))
+        .replace("{total}", Number(st.total || total));
+      animateProcessed(st);                  // yangi tasdiqlanganlarni chiqaramiz
+      if (st.finished) await finishUp(st);
+    };
+
+    _bulkPollTimers = {
+      status: setInterval(pollStatus, 1000),
+      list:   setInterval(() => loadCounts(false, { silent: true }), 3000),  // faqat chiplar
+    };
+    pollStatus();  // darrov bir marta — kutmasdan
+  }
+
+  // BAG FIX (Abdulaziz 2026-06-16): so'rov-ketma-ketlik qo'riqchisi. Sahifaga
+  // kirishda «Yangi» (CREATED) JONLI tortiladi (1–10s). Foydalanuvchi shu
+  // tugamasdan «Yig'ilmoqda» (PACKING)ni bossa, ikki `loadOrders` parallel
+  // ishlardi: tez tugagani render qilgach, sekin/eski javob KEYIN kelib joriy
+  // ro'yxat USTIGA yozilardi — «Новый buyurtmalar chiqib, keyin yo'qolardi».
+  // Har chaqiruv monoton `seq` oladi; await'dan keyin u eng oxirgi bo'lmasa,
+  // javob SUPERSED qilingan deb tashlanadi (render/meta/xato — hech biri yo'q).
+  let _loadOrdersSeq = 0;
   // Pass refresh=true ONLY when the user presses "Yangilash". Status
   // chip clicks, scheme changes, and the initial page load go through
   // the Redis SWR cache (stale-while-revalidate) — fast warm hit, async
@@ -2085,23 +2872,31 @@
     // «Поставка» (Накладные iframe) ochiq turganda buyurtmalar jadvalini
     // tortmaymiz — aks holda taymer/filtr iframe'ni almashtirib yuboradi.
     if (postavkaActive) return;
+    // `seq`ni ENG OLDIN olamiz — PENDING_DELIVERY (Поставки) early-return'dan
+    // ham OLDIN. Aks holda «Yig'ilmoqda»dan «Поставки»ga tez o'tilsa: PACKING
+    // jadval so'rovi hali in-flight, «Поставки» esa loadInvoicesView'ga
+    // yo'naladi va seq'ni oshirmaganligi uchun, eski PACKING javobi keyin
+    // kelib invoice ko'rinishi USTIGA jadval chizardi — «sborka zakazi
+    // postavkiga o'tib qolardi» (Abdulaziz 2026-06-16). Endi bu o'tish
+    // ham seq'ni oshiradi → in-flight jadval so'rovi bekor qilinadi.
+    const seq = ++_loadOrdersSeq;   // bu chaqiruvning navbat raqami
     const shop = shopSel.value;
     if (!shop) {
-      out.innerHTML = `<div class="fbs-empty"><strong>Do'kon tanlanmagan.</strong></div>`;
+      out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.shop_not_selected}</strong></div>`;
       meta.style.display = "none";
       return;
     }
     // «К отправке» (PENDING_DELIVERY) → накладная-grouped invoice view
     // (cards + accordion + checkboxes) instead of the flat order table.
     if (currentStatus === "PENDING_DELIVERY") { return loadInvoicesView(); }
-    out.innerHTML = `<div class="fbs-empty">Yuklanmoqda…</div>`;
+    out.innerHTML = `<div class="fbs-empty">${LIST_LBL.loading}</div>`;
     meta.style.display = "none";
 
     const qs = new URLSearchParams({
       shop_id: shop,
       status: currentStatus,
       size: sizeSel.value,
-      page: "0",
+      page: String(window.__fbsPage || 0),
     });
     if (schemeSel.value) qs.set("scheme", schemeSel.value);
     if (refresh) qs.set("refresh", "1");
@@ -2109,6 +2904,13 @@
     try {
       const res = await fetchWithTimeout(`/fbs/api/orders?${qs.toString()}`);
       const data = await res.json();
+      // Yangi chaqiruv bizni almashtirgan, YOKI «Поставка» (iframe) ko'rinishi
+      // shu orada yoqilgan bo'lsa — javobni TASHLAYMIZ. «Поставки» nav-chipi
+      // loadOrders'ni CHAQIRMAY to'g'ridan-to'g'ri showPostavkaView()ni
+      // ishlatadi (seq oshmaydi), shuning uchun in-flight jadval so'rovi
+      // iframe USTIGA chizilib qolardi — «sborka zakazi postavkiga o'tib
+      // qolardi» (Abdulaziz 2026-06-16). `postavkaActive` qo'shimcha qo'riqchi.
+      if (seq !== _loadOrdersSeq || postavkaActive) return;
       if (!res.ok) {
         // Bosqich A.9 (#5) — HTTP 429 = Uzum per-token throttle ("band"),
         // not a real error. Show a PASSIVE wait-hint toast and do NOT
@@ -2118,25 +2920,28 @@
         // is dormant — it lights up for the paths that DO surface 429
         // (the action endpoints in #5b).
         if (res.status === 429) {
-          showListToast(data.error || "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.", "error");
+          showListToast(data.error || LIST_LBL.uzum_busy, "error");
           return;
         }
-        out.innerHTML = `<div class="fbs-empty"><strong>Xatolik:</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
+        out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.err_prefix}</strong> ${escapeHtml(data.error || res.statusText)}</div>`;
         return;
       }
       renderOrders(data.orders || []);
+      // «Soft» pager — har yuklamadan keyin pastki raqamli pagination'ni yangilaydi.
+      if (window.__fbsAfterRender) { try { window.__fbsAfterRender(data.total || 0, data.page || 0); } catch (_) {} }
       metaTotal.textContent = data.total || 0;
       metaPage.textContent = (data.page ?? 0);
       metaStatus.textContent = data.status || "—";
       metaUrl.textContent = data.used_url || "—";
       meta.style.display = "";
-      // After a Yangilash press the server JIT-synced the current
-      // chip; the orders response carries the now-correct count for
-      // that status. Push it into the chip immediately so the chip
-      // matches the just-rendered list without waiting for the slower
-      // loadCounts() call. (Other chips stay as the bg worker last
-      // wrote them.)
-      if (refresh && data.status) {
+      // Bosqich A.12 — the CURRENT chip's badge is ALWAYS driven by the
+      // list total we just rendered (live or DB, scheme-filtered), so the
+      // number on the active chip can never contradict the list under it.
+      // counts-all is DB-only + scheme-blind, so it must NOT own this chip
+      // (it's told to skip currentStatus in loadCounts). This kills the
+      // "badge says 3 but list is empty" race where a stale DB count
+      // clobbered the live 0.
+      if (data.status) {
         const chipCountEl = statusRow.querySelector(
           `[data-status-count="${data.status}"]`
         );
@@ -2147,7 +2952,10 @@
       lastSyncedIso = data.last_synced_at || null;
       renderLastSynced();
     } catch (e) {
-      out.innerHTML = `<div class="fbs-empty"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message)}</div>`;
+      // Supersed qilingan (yoki «Поставка» ko'rinishi yoqilgan) chaqiruvning
+      // xatosi — jimgina tashlaymiz (joriy ko'rinishni buzmaymiz, toast yo'q).
+      if (seq !== _loadOrdersSeq || postavkaActive) return;
+      out.innerHTML = `<div class="fbs-empty"><strong>${LIST_LBL.net_err_prefix}</strong> ${escapeHtml(e.message)}</div>`;
       throw e;  // bubble so caller (refresh button) can show error toast
     }
   }
@@ -2159,7 +2967,10 @@
   // errors: {STATUS: msg}} — chips listed in `counts` get a number,
   // ones in `errors` (or missing entirely) keep their "·" placeholder.
   async function loadCounts(refresh = false, options = {}){
-    const { silent = false } = options;
+    // `statuses` (array) narrows which chips get a LIVE /count when
+    // refresh=1 — page entry passes ["CREATED","PACKING"] so only Yangi +
+    // Yig'ilmoqda hit Uzum, not all 4 active chips at once (Bosqich A.12).
+    const { silent = false, statuses = null } = options;
     const shop = shopSel.value;
     if (!shop) return;
     // Reset chip counts to "·" while loading. Skipped when called in
@@ -2174,6 +2985,9 @@
 
     const qs = new URLSearchParams({ shop_id: shop });
     if (refresh) qs.set("refresh", "1");
+    if (refresh && Array.isArray(statuses) && statuses.length) {
+      qs.set("statuses", statuses.join(","));
+    }
 
     try {
       const res = await fetchWithTimeout(`/fbs/api/counts-all?${qs.toString()}`);
@@ -2181,6 +2995,12 @@
       const data = await res.json();
       const counts = data.counts || {};
       Object.entries(counts).forEach(([status, count]) => {
+        // Bosqich A.12 — never overwrite the chip the seller is viewing:
+        // loadOrders owns it (= the rendered list total). counts-all is
+        // DB-only + scheme-blind, so clobbering here caused "badge 3 but
+        // list empty". In the «Поставка» iframe view loadOrders doesn't
+        // run, so there we DO let counts set every badge.
+        if (!postavkaActive && status === currentStatus) return;
         const el = statusRow.querySelector(`[data-status-count="${status}"]`);
         if (el) el.textContent = String(count);
       });
@@ -2218,9 +3038,38 @@
   // Qidiruv + sana filtr qatori buyurtmalar uchun; Накладные ko'rinishida
   // keraksiz, shuning uchun «Поставка» faol bo'lganda yashiriladi.
   const filterRow = document.querySelector(".fbs-filter-row");
+  // «Поставка» akt bulk-bar (parent) — iframe bilan postMessage ko'prigi.
+  // iframe ichidagi fixed bar uzun ro'yxatda ekrandan chiqib ketardi; endi
+  // bar shu yerda (viewport-fixed), tanlov/holat iframe'dan keladi.
+  const postavkaAktBar = document.getElementById("fbsPostavkaAktBar");
+  const postavkaAktCount = document.getElementById("fbsPostavkaAktCount");
+  const postavkaAktPrint = document.getElementById("fbsPostavkaAktPrint");
+  const postavkaAktDownload = document.getElementById("fbsPostavkaAktDownload");
+  function postToPostavkaFrame(msg){
+    const fr = document.getElementById("fbsPostavkaFrame");
+    if (fr && fr.contentWindow) { try { fr.contentWindow.postMessage(msg, "*"); } catch (_) {} }
+  }
+  function hidePostavkaAktBar(){
+    if (postavkaAktBar) postavkaAktBar.classList.remove("is-visible");
+    [postavkaAktPrint, postavkaAktDownload].forEach(b => b && b.classList.remove("is-busy"));
+    if (postavkaAktCount) postavkaAktCount.textContent = "0";
+  }
+  if (postavkaAktPrint) postavkaAktPrint.addEventListener("click", () => {
+    if (postavkaAktPrint.classList.contains("is-busy")) return;
+    postToPostavkaFrame({ type: "fbs-postavka-akt-action", action: "print" });
+  });
+  if (postavkaAktDownload) postavkaAktDownload.addEventListener("click", () => {
+    if (postavkaAktDownload.classList.contains("is-busy")) return;
+    postToPostavkaFrame({ type: "fbs-postavka-akt-action", action: "download" });
+  });
+
   let postavkaActive = false;
   function showPostavkaView(){
     postavkaActive = true;
+    hidePostavkaAktBar();   // yangi iframe yuklanguncha akt-bar yashirin
+    // updateBulkBar (clearSelection ichida chaqiriladi) toolbar'dagi
+    // «Qabul punktlari»ni yashirishi uchun — clearSelection'dan OLDIN.
+    window.__fbsPostavkaOn = true;
     clearSelection();
     meta.style.display = "none";
     if (filterRow) filterRow.style.display = "none";
@@ -2232,12 +3081,27 @@
       u.searchParams.delete("status");
       history.replaceState(null, "", u);
     } catch (_) { /* History API yo'q — muhim emas */ }
+    // scrolling="no" — iframe o'z scrollbar'ini KO'RSATMAYDI. Boshida iframe
+    // 480px, kontent uzun → ilgari ichki scrollbar bir lahza chiqib (keyin
+    // to'liq balandlikka cho'zilganda) yo'qolardi («ochilib-yopilardi»). Endi
+    // umuman chiqmaydi; sahifaning o'zi scroll bo'ladi.
     out.innerHTML = '<iframe id="fbsPostavkaFrame" class="fbs-postavka-frame"'
-      + ' src="/fbs/invoices?embed=1" title="Накладные" loading="lazy"></iframe>';
+      + ' src="/fbs/invoices?embed=1" title="Yuk xatlari" loading="lazy" scrolling="no"'
+      + ' allow="geolocation"></iframe>';
+    // Boshlang'ich balandlikni darrov ekranga sig'adigan o'lchamga qo'yamiz
+    // (480px default'dan birinchi xabargacha sakramasligi uchun) va kontent
+    // yuklangach iframe'ni yumshoq ko'rsatamiz (oq miltillashsiz).
+    const _fr = document.getElementById("fbsPostavkaFrame");
+    if (_fr) {
+      sizePostavkaFrame();
+      _fr.addEventListener("load", () => _fr.classList.add("is-loaded"), { once: true });
+    }
   }
   function exitPostavkaView(){
     if (!postavkaActive) return;
     postavkaActive = false;
+    window.__fbsPostavkaOn = false;
+    hidePostavkaAktBar();   // «Поставка»dan chiqilsa akt-bar ham yo'qolsin
     if (postavkaChip) postavkaChip.classList.remove("is-active");
     if (filterRow) filterRow.style.display = "";
     try {
@@ -2263,7 +3127,16 @@
     if (!fr) return;
     const top = fr.getBoundingClientRect().top;
     const avail = Math.max(360, Math.floor(window.innerHeight - top - 12));
-    fr.style.height = Math.min(_postavkaLastH || avail, avail) + "px";
+    // Foydalanuvchi ICHKI scroll'ni xohlamaydi (qizil ✗ → yashil ✓): iframe'ni
+    // to'liq kontent balandligiga cho'zamiz → ichki scrollbar yo'qoladi, butun
+    // SAHIFA o'zi scroll bo'ladi. `avail` — kontent balandligi kelmaguncha zaxira.
+    const next = _postavkaLastH || avail;
+    const cur = parseInt(fr.style.height, 10) || 0;
+    // Mayda (±2px) farqlarga e'tibor bermaymiz: embed sahifa rasm/skelet
+    // yuklanганда scrollHeight'ni bir necha marta (biroz farqli) yuboradi;
+    // har biriga height o'zgartirsak titrash bo'ladi. Faqat sezilarli
+    // o'zgarishda yangilaymiz — animatsiya yo'q, demak sakrash ko'rinmaydi.
+    if (Math.abs(next - cur) > 2) fr.style.height = next + "px";
   }
   window.addEventListener("resize", () => { if (postavkaActive) sizePostavkaFrame(); });
 
@@ -2290,7 +3163,9 @@
     bulkCount.textContent = String(n);
     bulkBar.classList.toggle("is-visible", n > 0);
     // Tugmalar tabga qarab ko'rinadi:
-    //   • Yorliq + QR  → faqat «К отправке» (PENDING_DELIVERY, накладная ko'rinishi)
+    //   • Yorliq + QR  → «Yig'ilmoqda» (PACKING) va «К отправке» (PENDING_DELIVERY).
+    //     Yorliq backend (get_label_pdfs) PACKING buyurtmalar uchun ham
+    //     ishlaydi, shuning uchun yig'ish bosqichida ham chop etish mumkin.
     //   • Qabul punktlari → faqat «Сборка» (PACKING)
     // Boshqa tabda noto'g'ri tugma chiqib qolmasin.
     //   • Ishga olish → faqat «Yangi» (CREATED)
@@ -2298,29 +3173,45 @@
     const isPending = (currentStatus === "PENDING_DELIVERY");
     const isPacking = (currentStatus === "PACKING");
     if (bulkConfirmBtn) bulkConfirmBtn.style.display = isCreated ? "" : "none";
-    if (bulkYorliqBtn) bulkYorliqBtn.style.display = isPending ? "" : "none";
-    if (bulkQrBtn)     bulkQrBtn.style.display     = isPending ? "" : "none";
+    if (bulkYorliqBtn) bulkYorliqBtn.style.display = (isPending || isPacking) ? "" : "none";
+    if (bulkQrBtn)     bulkQrBtn.style.display     = (isPending || isPacking) ? "" : "none";
+    if (bulkBothBtn)   bulkBothBtn.style.display   = (isPending || isPacking) ? "" : "none";
     if (bulkPickupBtn) bulkPickupBtn.style.display = isPacking ? "" : "none";
+    // QR o'lcham tanlagichi — FAQAT chop tugmalari (Yorliq/QR) ko'ringan tabда
+    // (PACKING/PENDING). «Yangi», «Bekor qilindi» va h.k.da yashirin — u yerда
+    // chop yo'q, o'lcham chalg'itadi (Abdulaziz 2026-06-16).
+    if (bulkQrSizeDd) bulkQrSizeDd.style.display = (isPending || isPacking) ? "" : "none";
     // «Ishga olish» — buyurtma belgilanmaguncha O'CHIQ.
     if (bulkConfirmBtn) {
       bulkConfirmBtn.disabled = (n === 0);
-      bulkConfirmBtn.title = (n === 0) ? "Avval buyurtma belgilang" : LIST_LBL.bulk_confirm_title;
+      bulkConfirmBtn.title = (n === 0) ? LIST_LBL.pick_order_first : LIST_LBL.bulk_confirm_title;
     }
     // «Qabul punktlari» (поставка) — tanlangan buyurtmalar uchun. Buyurtma
     // belgilanmaguncha O'CHIQ; tanlangandan keyingina ochiladi. Bulk paneldagi
     // tugma va toolbar'dagi 📍 tugma bir xil holatda turadi.
     if (bulkPickupBtn) {
       bulkPickupBtn.disabled = (n === 0);
-      bulkPickupBtn.title = (n === 0) ? "Avval buyurtma belgilang" : LIST_LBL.dropoff_btn_hint;
+      bulkPickupBtn.title = (n === 0) ? LIST_LBL.pick_order_first : LIST_LBL.dropoff_btn_hint;
     }
-    // Toolbar'dagi 📍 «Qabul punktlari» faqat «Yig'ilmoqda» (PACKING) tabida
-    // yonadi — boshqa tabda (masalan «Yangi») buyurtma tanlansa ham O'CHIQ
-    // turadi, chunki postavka faqat PACKING buyurtmalardan yasaladi.
+    // Toolbar'dagi «Qabul punktlari» FAQAT «Yig'ilmoqda» (PACKING) tabida
+    // KO'RINADI — boshqa tabda butunlay yashirin, chunki postavka faqat
+    // PACKING buyurtmalardan yasaladi; boshqa joyda tugma chalg'itadi.
     if (dropoffBtn) {
-      dropoffBtn.disabled = (n === 0 || !isPacking);
-      dropoffBtn.title = (n === 0)
-        ? "Avval buyurtma belgilang"
-        : (!isPacking ? "«Qabul punktlari» faqat «Yig'ilmoqda» buyurtmalar uchun" : LIST_LBL.dropoff_btn_hint);
+      // «Поставка» (накладные iframe) ko'rinishida ham yashirin —
+      // window.__fbsPostavkaOn ni showPostavkaView/exitPostavkaView qo'yadi.
+      // («Поставка» status chip emas: currentStatus PACKING'ligicha qoladi,
+      // shuning uchun faqat isPacking tekshiruvi yetarli emas.)
+      dropoffBtn.style.display = (isPacking && !window.__fbsPostavkaOn) ? "" : "none";
+      dropoffBtn.disabled = (n === 0);
+      // Native title EMAS — dizaynga mos custom tooltip (CSS ::after,
+      // data-tip atributidan o'qiydi). Faqat O'CHIQ holatda chiqadi va
+      // nima qilish kerakligini o'rgatadi; yoniq tugmada tooltip shart
+      // emas — hover-lift effekti o'zi "bosish mumkin" deydi.
+      if (dropoffBtn.disabled) {
+        dropoffBtn.setAttribute("data-tip", LIST_LBL.tip_pick_order_first);
+      } else {
+        dropoffBtn.removeAttribute("data-tip");
+      }
     }
   }
   function setBulkBtnBusy(btn, busy){
@@ -2401,7 +3292,7 @@
       + `<input type="radio" name="fbsShopPick" value="${escapeHtml(String(s.shopId))}"${i === 0 ? ' checked' : ''}>`
       + '<span class="fbs-shoppick-radio" aria-hidden="true"></span>'
       + `<span class="fbs-shoppick-name">${escapeHtml(String(s.name))}</span>`
-      + `<span class="fbs-shoppick-count">${escapeHtml(String(s.count))} ta</span>`
+      + `<span class="fbs-shoppick-count">${escapeHtml(String(s.count))} ${LIST_LBL.shoppick_count_suffix}</span>`
       + '</label>'
     )).join("");
     _shopPickModal.classList.add("is-open");
@@ -2434,8 +3325,24 @@
   // qilingan — funksiya deklaratsiyasi, hoist bo'ladi).
   if (bulkPickupBtn) bulkPickupBtn.addEventListener("click", openDropoffModal);
   if (bulkConfirmBtn) bulkConfirmBtn.addEventListener("click", bulkConfirmSelected);
+  // «QR» — POS «QR Chop etish» bilan AYNAN bir xil HTML-chop (brauzer chop
+  // etadi, qrserver + image-rendering:pixelated → o'tkir QR). PDF emas, shu
+  // sababli ko'ruvchi-silliqlash (xiralik) muammosi yo'q.
+  function printSelectedQrHtml(){
+    const ids = Array.from(_selectedIds).map(s => Number(s)).filter(Number.isFinite);
+    if (!ids.length) { showListToast(LIST_LBL.pick_order_first, "error"); return; }
+    const size = (_bulkQrSize && _bulkQrSize.value) || "40x30";
+    const url = `/fbs/print/qr?order_ids=${ids.join(",")}&size=${encodeURIComponent(size)}`;
+    showListToast(LIST_LBL.qr_print_opening, "success");
+    const fr = document.createElement("iframe");
+    fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    fr.src = url;
+    document.body.appendChild(fr);
+    setTimeout(() => { try { fr.remove(); } catch (e) {} }, 120000);
+  }
   if (bulkYorliqBtn) bulkYorliqBtn.addEventListener("click", () => printSelectedLabels("label"));
-  if (bulkQrBtn) bulkQrBtn.addEventListener("click", () => printSelectedLabels("qr"));
+  if (bulkQrBtn) bulkQrBtn.addEventListener("click", printSelectedQrHtml);
+  if (bulkBothBtn) bulkBothBtn.addEventListener("click", () => printSelectedLabels("label_qr"));
 
   // ─── Drop-off points modal ─────────────────────────────────────
   function openDropoffModal(){
@@ -2567,10 +3474,26 @@
     return { filtered, terms };
   }
   function renderDropoffPoints(){
-    const points = _dropoffPoints.slice();
+    let points = _dropoffPoints.slice();
+    // «Faqat mos keladigan» ON (faqat «Uzum'dan to'liq» manbai uchun) →
+    // katalog/tarixiy overlay punktlarini (suitable=false) yashiramiz; faqat
+    // Uzum hozir tanlangan buyurtmalarga MOS deb qaytargan punktlar qoladi.
+    // «Mening punktlarim» (db) manbaida filtrlamaymiz — u yerda suitable yo'q.
+    let _matchActive = _matchOnly && _dropoffSource === "uzum";
+    if (_matchActive) {
+      const _suit = points.filter(p => p && p.suitable === true);
+      // Mos punkt(lar) topilsa — faqat shularni ko'rsatamiz; bitta ham bo'lmasa
+      // ro'yxatni bo'm-bo'sh qoldirmaymiz (foydasiz) — hammasi ko'rinaveradi.
+      if (_suit.length) points = _suit;
+      else _matchActive = false;
+    }
     if (!points.length) {
-      dropoffBody.innerHTML =
-        `<div class="fbs-dropoff-empty">${LIST_LBL.dropoff_empty}</div>`;
+      dropoffList.innerHTML =
+        `<div class="fbs-dropoff-empty">${
+          _matchActive
+            ? LIST_LBL.dropoff_match_empty
+            : LIST_LBL.dropoff_empty}</div>`;
+      resetSlotPanel();
       updateSearchCount(0, 0);
       return;
     }
@@ -2613,11 +3536,12 @@
     const { filtered: shown, terms } = filterPointsByQuery(points);
     updateSearchCount(shown.length, points.length);
     if (!shown.length) {
-      dropoffBody.innerHTML = `
+      dropoffList.innerHTML = `
         <div class="fbs-dropoff-empty">
           ${LIST_LBL.dropoff_search_empty}
           <div style="margin-top:8px"><code>${escapeHtml(_dropoffQuery)}</code></div>
         </div>`;
+      resetSlotPanel();
       return;
     }
     // From here on, sort + render the FILTERED list.
@@ -2648,113 +3572,130 @@
       }
     });
 
-    dropoffBody.innerHTML = pointsToRender.map((p, idx) => {
+    _renderedPoints = pointsToRender;
+    const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const todayKey = WEEKDAYS[new Date().getDay()];
+    dropoffList.innerHTML = pointsToRender.map((p, idx) => {
       const shopsLine = (p.shops || []).length
-        ? `<div class="shops">${LIST_LBL.dropoff_shops_prefix} ${highlightMatch((p.shops || []).join(", "), terms)}</div>`
+        ? `<span class="shops">${highlightMatch((p.shops || []).join(", "), terms)}</span>`
         : "";
-      // Working hours — show TODAY's slot if Uzum sent them. Maps the
-      // Date's weekday (0=Sunday) onto the MONDAY..SUNDAY keys Uzum uses.
-      const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
-      const todayKey = WEEKDAYS[new Date().getDay()];
       const wh = (p.workingHours && p.workingHours[todayKey]) || null;
-      const hoursLine = wh
-        ? `<div class="shops">🕒 ${LIST_LBL.dropoff_hours_today}: ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</div>`
+      const hoursLine = (wh && (wh.start || wh.end))
+        ? `<span>🕒 ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</span>`
         : "";
-      const activeBadge = p.active
-        ? `<span class="badge-active" title="${LIST_LBL.dropoff_active_hint}">${p.active}</span>`
-        : "";
-      const distBadge = (p._distKm !== null)
-        ? `<span class="badge-dist" title="${LIST_LBL.dropoff_dist_hint}">${p._distKm.toFixed(1)} km</span>`
-        : "";
+      const distCircle = (p._distKm !== null)
+        ? `<span class="dist-circle" title="${LIST_LBL.dropoff_dist_hint}"><b>${p._distKm.toFixed(1)}</b><i>km</i></span>`
+        : `<span class="dist-circle is-nodist" aria-hidden="true">📍</span>`;
       const nearestBadge = (idx === nearestIdx)
-        ? `<span class="badge-nearest">${LIST_LBL.dropoff_nearest}</span>`
+        ? `<span class="badge-nearest">● ${LIST_LBL.dropoff_nearest}</span>`
         : "";
       const favOn = p._isFav ? "is-on" : "";
       const favTitle = p._isFav ? LIST_LBL.dropoff_fav_remove : LIST_LBL.dropoff_fav_add;
-      // "Slotlar" button only when we have a uuid (DB rows from legacy
-      // imports may lack uuid; Uzum requires it for the time-slot call).
-      const slotsBtn = p.uuid
-        ? `<button type="button" class="btn-slots" data-slots-idx="${idx}"
-                  data-uuid="${escapeHtml(p.uuid)}">
-             🕒 ${LIST_LBL.dropoff_slots_btn}
-           </button>`
-        : "";
       return `
-        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}">
-          <div style="flex:1 1 280px; display:flex; align-items:flex-start;">
-            <button type="button" class="btn-fav ${favOn}"
-                    data-fav-idx="${idx}" title="${favTitle}">
-              ${p._isFav ? '★' : '☆'}
-            </button>
-            <div>
-              <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
-              ${shopsLine}
-              ${hoursLine}
-            </div>
+        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}"
+             data-point-idx="${idx}" role="button" tabindex="0">
+          <button type="button" class="btn-fav ${favOn}"
+                  data-fav-idx="${idx}" title="${favTitle}">
+            ${p._isFav ? '★' : '☆'}
+          </button>
+          ${distCircle}
+          <div class="mid">
+            <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
+            <div class="meta">${shopsLine}${nearestBadge}${hoursLine}</div>
           </div>
-          <div class="counts">
-            ${nearestBadge}
-            ${distBadge}
-            ${activeBadge}
-            <span class="badge-total" title="${LIST_LBL.dropoff_total_hint}">∑ ${p.total}</span>
-            ${slotsBtn}
-            <button type="button" class="btn-copy" data-copy-idx="${idx}">
-              ${LIST_LBL.dropoff_copy}
-            </button>
-          </div>
-          <div class="fbs-dropoff-slots" data-slots-host="${idx}" hidden></div>
+          <span class="chev" aria-hidden="true">›</span>
         </div>`;
     }).join("");
-    // Wire copy buttons.
-    dropoffBody.querySelectorAll(".btn-copy").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.copyIdx);
-        const addr = (pointsToRender[idx] || {}).address || "";
-        if (!addr) return;
-        navigator.clipboard.writeText(addr).then(() => {
-          btn.classList.add("copied");
-          const orig = btn.textContent;
-          btn.textContent = LIST_LBL.dropoff_copied;
-          setTimeout(() => {
-            btn.classList.remove("copied");
-            btn.textContent = orig;
-          }, 1500);
-        }).catch(() => showListToast(LIST_LBL.dropoff_copy_fail, "error"));
-      });
-    });
-    // Wire favorite stars.
-    dropoffBody.querySelectorAll(".btn-fav").forEach(btn => {
-      btn.addEventListener("click", () => {
+    // Yulduzcha (sevimli) — qator tanlanishiga aralashmasin (stopPropagation).
+    dropoffList.querySelectorAll(".btn-fav").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const idx = Number(btn.dataset.favIdx);
         const p = pointsToRender[idx];
         if (!p) return;
-        if (p._isFav) setFavoriteAddr("");
-        else setFavoriteAddr(p.address);
+        if (p._isFav) setFavoriteAddr(""); else setFavoriteAddr(p.address);
         renderDropoffPoints();
       });
     });
-    // Wire slot buttons. First click → fetch + expand; second click → collapse.
-    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.slotsIdx);
-        const uuid = btn.dataset.uuid;
-        const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
-        if (!host) return;
-        // Toggle: if already shown, hide.
-        if (!host.hidden) {
-          host.hidden = true;
-          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_btn}`;
-          return;
-        }
-        host.hidden = false;
-        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
-        btn.disabled = true;
-        loadTimeSlots(uuid, host).finally(() => {
-          btn.disabled = false;
-          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_hide}`;
-        });
+    // Qator bosilsa → o'ng panelda shu punkt slotlari ochiladi.
+    dropoffList.querySelectorAll(".fbs-dropoff-item").forEach(row => {
+      const act = () => selectPoint(Number(row.dataset.pointIdx));
+      row.addEventListener("click", act);
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); }
       });
     });
+    const keep = _selectedAddr
+      ? pointsToRender.findIndex(p => p.address === _selectedAddr)
+      : -1;
+    if (keep >= 0) markSelectedRow(keep);
+    else if (_selectedIdx < 0 && !_dropoffQuery.trim()) selectPoint(0);
+    else resetSlotPanel();
+  }
+  // ── O'ng panel: punkt tanlash + slotlar ────────────────────────────
+  function markSelectedRow(idx){
+    _selectedIdx = idx;
+    const p = _renderedPoints[idx];
+    _selectedAddr = p ? p.address : null;
+    dropoffList.querySelectorAll(".fbs-dropoff-item").forEach(row => {
+      row.classList.toggle("is-selected", Number(row.dataset.pointIdx) === idx);
+    });
+  }
+  function resetSlotPanel(){
+    _selectedIdx = -1; _selectedAddr = null; _pickedSlot = null;
+    if (dropoffPanel) dropoffPanel.innerHTML =
+      `<div class="dp-panel-empty">${LIST_LBL.dropoff_panel_hint}</div>`;
+  }
+  function selectPoint(idx){
+    const p = _renderedPoints[idx];
+    if (!p) { resetSlotPanel(); return; }
+    markSelectedRow(idx);
+    _pickedSlot = null;
+    const wh = p.workingHours || {};
+    const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const whToday = wh[WEEKDAYS[new Date().getDay()]] || null;
+    const hoursTxt = (whToday && (whToday.start || whToday.end))
+      ? `🕒 ${escapeHtml(whToday.start || "")}–${escapeHtml(whToday.end || "")}` : "";
+    dropoffPanel.innerHTML = `
+      <div class="dp-panel-head">
+        <div class="dp-panel-addr">${escapeHtml(p.address || "—")}</div>
+        ${hoursTxt ? `<div class="dp-panel-sub">${hoursTxt}</div>` : ""}
+      </div>
+      <div class="dp-slotwrap" id="fbsDropoffSlotWrap">
+        <div class="dp-slot-msg">${LIST_LBL.dropoff_slots_loading}</div>
+      </div>
+      <div class="dp-foot">
+        <span class="dp-foot-hint" id="fbsDropoffFootHint">${LIST_LBL.dropoff_pick_slot}</span>
+        <button type="button" class="dp-confirm" id="fbsDropoffConfirm" disabled>${LIST_LBL.dropoff_confirm_btn}</button>
+      </div>`;
+    const confirmBtn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+    if (confirmBtn) confirmBtn.addEventListener("click", () => {
+      if (!_pickedSlot) return;
+      // createInvoiceForSlot O'ZI tasdiq dialogi + (ko'p do'kon) tanlovni
+      // so'raydi — shuning uchun skipConfirm YO'Q.
+      createInvoiceForSlot({
+        dopUuid: p.uuid,
+        pointAddr: p.address || "",
+        slotUuid: _pickedSlot.uuid || null,
+        slotFrom: _pickedSlot.from || null,
+        slotTo: _pickedSlot.to || null,
+        slotLabel: _pickedSlot.label || "",
+      });
+    });
+    const wrap = dropoffPanel.querySelector("#fbsDropoffSlotWrap");
+    if (p.uuid) loadTimeSlots(p.uuid, wrap);
+    else wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_empty}</div>`;
+  }
+  function pickSlot(slot, el){
+    _pickedSlot = slot;
+    if (dropoffPanel) {
+      dropoffPanel.querySelectorAll(".dp-slot").forEach(s => s.classList.remove("is-picked"));
+      if (el) el.classList.add("is-picked");
+      const hint = dropoffPanel.querySelector("#fbsDropoffFootHint");
+      if (hint) hint.textContent = slot.label || "";
+      const btn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+      if (btn) btn.disabled = false;
+    }
   }
   // Format an ISO timestamp pair as a human-friendly "DD.MM HH:MM–HH:MM"
   // slot label. Same-day collapse: shows date once on the left.
@@ -2804,12 +3745,12 @@
     // disabled until there's a selection, so reaching here without one is
     // a guard-rail, not a normal path.
     if (!_selectedIds || _selectedIds.size === 0) {
-      showListToast("Avval buyurtma belgilang", "error");
+      showListToast(LIST_LBL.pick_order_first, "error");
       return;
     }
     const candidates = allPacking.filter(o => _selectedIds.has(String(o.id)));
     if (!candidates.length) {
-      showListToast("Belgilangan buyurtmalar orasida «Сборка» holatidagisi yo'q", "error");
+      showListToast(LIST_LBL.no_packing_among_sel, "error");
       return;
     }
     // Do'kon bo'yicha guruhlash. Uzum накладна'si per-do'kon — bitta
@@ -2921,18 +3862,48 @@
     const [shopId, ids] = groups[0];
     return { shopId, ids };
   }
-  async function loadTimeSlots(uuid, host){
+  // ── Slot panel helper'lari ─────────────────────────────────────────
+  // Sana sarlavhasi — qo'lda nom (Intl uz-UZ ba'zi brauzerda «M06» fallback beradi).
+  const _DP_MON = {
+    uz: ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"],
+    ru: ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"],
+  };
+  const _DP_WD = {
+    uz: ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"],
+    ru: ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"],
+  };
+  function _dpDayHeader(ms){
+    const d = new Date(Number(ms));
+    const L = (LIST_LBL._lang === "ru") ? "ru" : "uz";
+    const day = d.getDate(), mon = _DP_MON[L][d.getMonth()], wd = _DP_WD[L][d.getDay()];
+    return (L === "ru") ? `${day} ${mon}, ${wd}` : `${day}-${mon}, ${wd}`;
+  }
+  function _dpTimeRange(from, to){
     try {
-      // «Faqat mos keladigan» (_matchOnly) ON → tanlangan PACKING
-      // buyurtmalarga moslab (deadline oynasi). Tanlanmagan bo'lsa, "avval
-      // buyurtma belgilang" hintи (bo'sh order_ids → backend "barcha aktiv"
-      // ga tushib, fbs-19 overdue-poisoning yo'liga kirmasin). OFF →
-      // order_ids'siz → backend barcha aktiv buyurtmalar bo'yicha kengroq oyna.
+      const a = new Date(Number(from)), b = new Date(Number(to));
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(a.getHours())}:${pad(a.getMinutes())} – ${pad(b.getHours())}:${pad(b.getMinutes())}`;
+    } catch (e) { return fmtSlot(from, to); }
+  }
+  // Sig'im rozetkasi: bo'sh/jami (remainingCapacity/capacity). Maydonlar
+  // bo'lmasa (rasmiy API bermasa) — yashiriladi. To'la (rem<=0) → qizil + bloklash.
+  function _dpCapBadge(s){
+    const cap = Number(s.capacity), rem = Number(s.remainingCapacity);
+    if (!Number.isFinite(cap) || cap <= 0 || !Number.isFinite(rem)) return { html: "", full: false };
+    const cls = rem <= 0 ? "full" : (rem / cap <= 0.15 ? "mid" : "ok");
+    return { html: `<span class="dp-cap ${cls}" title="${LIST_LBL.dropoff_cap_hint}">${rem}/${cap}</span>`, full: rem <= 0 };
+  }
+  // Slotlarni yuklash — o'ng panel `wrap` ichiga kun bo'yicha guruhlab.
+  // Slot tanlanib «Tasdiqlash» bosilganda createInvoiceForSlot chaqiriladi.
+  async function loadTimeSlots(uuid, wrap){
+    try {
+      // «Faqat mos keladigan» ON → tanlangan PACKING buyurtmalarga moslab
+      // (deadline oynasi). OFF → order_ids'siz → backend barcha aktiv oyna.
       let qs = "";
       if (_matchOnly) {
         const group = selectedPackingShopGroup();
         if (!group || !group.ids.length) {
-          host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_no_orders}</div>`;
+          wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_no_orders}</div>`;
           return;
         }
         qs = `?order_ids=${group.ids.join(",")}`;
@@ -2941,83 +3912,137 @@
                               {credentials: "same-origin"});
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        host.innerHTML = `<div class="slot-error">${escapeHtml(data.error || LIST_LBL.dropoff_slots_fail)}</div>`;
+        // Muddati o'tgan buyurtma (fbs-19) — Uzum OpenAPI undagi punktга slot
+        // bermaydi. Generic «xato» o'rniga aniq sabab + amaliy maslahat.
+        const code = String(data.uzum_code || "");
+        const em = String(data.error || data.uzum_message || "");
+        const overdue = /fbs-19/i.test(code) || /time.?is.?up|muddat|deadline|муддат/i.test(em);
+        wrap.innerHTML = `<div class="dp-slot-msg is-error">${
+          overdue
+            ? LIST_LBL.slot_overdue
+            : escapeHtml(em || LIST_LBL.dropoff_slots_fail)}</div>`;
         return;
       }
       if (data.reason === "no_active_orders") {
-        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_no_orders}</div>`;
+        wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_no_orders}</div>`;
         return;
       }
-      const slots = data.slots || [];
+      const slots = (data.slots || []).filter(s => s && s.timeFrom);
       if (!slots.length) {
-        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_empty}</div>`;
+        wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_empty}</div>`;
         return;
       }
-      // Slot pills are now CLICKABLE — clicking creates an invoice
-      // (накладная) tying the current PACKING orders to this point+slot.
-      // Encode the full slot object as data-attrs so the click handler
-      // can pass uuid (if present) or timeFrom as the slot identifier.
-      host.innerHTML = slots.map((s, i) =>
-        `<button type="button" class="slot-pill is-clickable"
-                 data-slot-idx="${i}"
-                 data-slot-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
-                 data-slot-from="${escapeHtml(s.timeFrom || '')}"
-                 data-slot-to="${escapeHtml(s.timeTo || '')}"
-                 title="${LIST_LBL.dropoff_slot_click_hint}">
-           ${escapeHtml(fmtSlot(s.timeFrom, s.timeTo))}
-         </button>`
-      ).join("");
-      // Wire clicks — find the parent point's dropoff uuid by walking up
-      // to the item card and reading the .btn-slots data-uuid.
-      const pointCard = host.closest(".fbs-dropoff-item");
-      const slotsBtn = pointCard ? pointCard.querySelector(".btn-slots") : null;
-      const dopUuid = slotsBtn ? slotsBtn.dataset.uuid : "";
-      const pointAddr = pointCard ? (pointCard.querySelector(".addr")?.textContent || "").trim() : "";
-      host.querySelectorAll(".slot-pill.is-clickable").forEach(pill => {
-        pill.addEventListener("click", () => {
-          createInvoiceForSlot({
-            dopUuid: dopUuid,
-            pointAddr: pointAddr,
-            slotUuid: pill.dataset.slotUuid || null,
-            slotFrom: pill.dataset.slotFrom || null,
-            slotTo: pill.dataset.slotTo || null,
-            slotLabel: pill.textContent.trim(),
-          });
+      slots.sort((a, b) => Number(a.timeFrom) - Number(b.timeFrom));
+      const groups = [], byDay = {};
+      slots.forEach(s => {
+        const d = new Date(Number(s.timeFrom));
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        if (!byDay[key]) { byDay[key] = { header: _dpDayHeader(s.timeFrom), items: [] }; groups.push(byDay[key]); }
+        byDay[key].items.push(s);
+      });
+      wrap.innerHTML = groups.map(g => `
+        <div class="dp-daygrp">
+          <div class="dp-dayhd">${escapeHtml(g.header)}</div>
+          ${g.items.map(s => {
+            const cap = _dpCapBadge(s);
+            return `<div class="dp-slot ${cap.full ? 'is-full' : ''}"
+                 data-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
+                 data-from="${escapeHtml(String(s.timeFrom || ''))}"
+                 data-to="${escapeHtml(String(s.timeTo || ''))}"
+                 data-label="${escapeHtml(fmtSlot(s.timeFrom, s.timeTo))}">
+              <span class="dp-slot-time">${escapeHtml(_dpTimeRange(s.timeFrom, s.timeTo))}</span>
+              ${cap.html}
+            </div>`;
+          }).join("")}
+        </div>`).join("");
+      wrap.querySelectorAll(".dp-slot").forEach(el => {
+        if (el.classList.contains("is-full")) return;  // to'la — bosilmaydi
+        el.addEventListener("click", () => {
+          pickSlot({
+            uuid: el.dataset.uuid || null,
+            from: el.dataset.from || null,
+            to: el.dataset.to || null,
+            label: el.dataset.label || el.querySelector(".dp-slot-time").textContent.trim(),
+          }, el);
         });
       });
     } catch (e) {
-      host.innerHTML = `<div class="slot-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
+      wrap.innerHTML = `<div class="dp-slot-msg is-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
     }
   }
+  // Hozir tanlangan, hali yetkazilishi kerak bo'lgan buyurtma ID'lari.
+  // Bularni Uzum'ga customerOrderIds sifatida uzatamiz — portal aynan
+  // shunday qiladi va aynan shu buyurtmalarga MOS to'liq punktlar
+  // ro'yxatini (~170+) qaytaradi. Uzatmasak backend butun aktiv pool'ni
+  // (50 ta aralash buyurtma) yuboradi → dimensional-group kesishuvi
+  // qisqarib faqat bir nechta regional punkt qoladi (bug). Boshqa
+  // holatdagi (yetkazilgan/bekor) buyurtma Uzum'ni 400 qilmasligi uchun
+  // faqat «deliverable» statuslarni olamiz.
+  const _DROPOFF_DELIVERABLE = new Set(
+    ["CREATED", "PACKING", "PENDING_DELIVERY", "DELIVERING"]);
+  function selectedDropoffOrderIds(){
+    const ids = [];
+    if (_ordersById && _selectedIds && _selectedIds.size) {
+      _ordersById.forEach(o => {
+        if (_selectedIds.has(String(o.id))
+            && _DROPOFF_DELIVERABLE.has(String(o.status))) {
+          const n = Number(o.id);
+          if (Number.isFinite(n)) ids.push(n);
+        }
+      });
+    }
+    return ids;
+  }
   async function loadDropoffPoints(){
+    // Ro'yxat almashmoqda (ochilish/manba) — tanlovni noldan boshlaymiz.
+    _selectedIdx = -1; _selectedAddr = null; _pickedSlot = null;
+    // Tanlangan buyurtmalarni HAR IKKI toggle holatida ham uzatamiz —
+    // «Faqat mos keladigan» sof client-side filtr (renderDropoffPoints),
+    // shuning uchun OFF ro'yxatni bo'shatmasligi kerak (avval OFF'da
+    // order_ids tushib qolib, backend 50-pool'ga o'tar va ro'yxat
+    // qisqarardi/bo'sharди — bug). Tanlov bo'lmasa (yuqoridagi umumiy
+    // «Qabul punktlari» tugmasi) — order_ids'siz, umumiy pool.
+    // order_ids faqat «Uzum'dan to'liq» (uzum) manbaida kerak — aynan
+    // o'sha tab punktlarni Uzum'dan tanlangan buyurtmalarga moslab tortadi.
+    // «Mening punktlarim» (db) render'i suitable'ni ishlatmaydi, shuning
+    // uchun unga order_ids uzatish behuda jonli Uzum chaqiruvini keltiradi.
+    const selIds = (_dropoffSource === "uzum") ? selectedDropoffOrderIds() : [];
+    const orderQs = selIds.length ? `&order_ids=${selIds.join(",")}` : "";
     // Show cached points INSTANTLY (no network wait) if we have a fresh
     // prefetch — this is what makes the modal feel snappy on second+
     // opens and on tab switches. Background refresh still happens so
-    // the data doesn't go stale.
-    const fresh = isPrefetchFresh(_dropoffSource);
+    // the data doesn't go stale. Prefetch faqat tanlovsiz umumiy
+    // ko'rinish uchun — tanlovga bog'liq natijani doim yangi tortamiz.
+    const fresh = !selIds.length && isPrefetchFresh(_dropoffSource);
     if (fresh) {
       console.log(`[dropoff] using prefetch source=${_dropoffSource} n=${_dropoffPrefetch[_dropoffSource].points.length}`);
       _dropoffPoints = _dropoffPrefetch[_dropoffSource].points;
       renderDropoffPoints();
     } else {
-      dropoffBody.innerHTML =
+      dropoffList.innerHTML =
         `<div class="fbs-dropoff-loading">${LIST_LBL.dropoff_loading}</div>`;
+      resetSlotPanel();
     }
     try {
-      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}`;
+      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}${orderQs}`;
       const t0 = Date.now();
       const res = await fetch(url, {credentials: "same-origin"});
       const data = await res.json().catch(() => ({}));
-      console.log(`[dropoff] fetch source=${_dropoffSource} took=${Date.now()-t0}ms status=${res.status}`);
+      console.log(`[dropoff] fetch source=${_dropoffSource} orders=${selIds.length} took=${Date.now()-t0}ms status=${res.status} n=${(data.points||[]).length}`);
       if (!res.ok) {
         if (!fresh) {
-          dropoffBody.innerHTML =
+          dropoffList.innerHTML =
             `<div class="fbs-dropoff-empty">${escapeHtml(data.error || LIST_LBL.dropoff_load_fail)}</div>`;
+          resetSlotPanel();
         }
         return;
       }
       _dropoffPoints = data.points || [];
-      _dropoffPrefetch[_dropoffSource] = { points: _dropoffPoints, ts: Date.now() };
+      // Prefetch'ni faqat tanlovsiz natija bilan to'ldiramiz (tanlovga
+      // bog'liq ro'yxat boshqa tanlov uchun eskirgan bo'lardi).
+      if (!selIds.length) {
+        _dropoffPrefetch[_dropoffSource] = { points: _dropoffPoints, ts: Date.now() };
+      }
       // If server fell back from "uzum" → "db" (e.g. no active orders),
       // surface that subtly so the user doesn't think they pressed the
       // wrong tab.
@@ -3029,8 +4054,9 @@
       renderDropoffPoints();
     } catch (e) {
       if (!fresh) {
-        dropoffBody.innerHTML =
+        dropoffList.innerHTML =
           `<div class="fbs-dropoff-empty">${escapeHtml(LIST_LBL.dropoff_load_fail + ": " + (e.message || ""))}</div>`;
+        resetSlotPanel();
       }
     }
   }
@@ -3146,7 +4172,9 @@
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
     );
   }
-  dropoffBtn.addEventListener("click", openDropoffModal);
+  // Toolbar'dagi 📍 «Qabul punktlari» — bulk-paneldagi tugma bilan bir xil
+  // modal ochadi; disabled/title holatini updateBulkBar() boshqaradi.
+  if (dropoffBtn) dropoffBtn.addEventListener("click", openDropoffModal);
   dropoffGeoBtn.addEventListener("click", requestUserLocation);
   dropoffSrcDbBtn.addEventListener("click", () => {
     if (_dropoffSource === "db") return;
@@ -3167,18 +4195,28 @@
   if (dropoffMatchOnly) {
     dropoffMatchOnly.addEventListener("change", () => {
       _matchOnly = dropoffMatchOnly.checked;
-      refreshOpenSlots();
+      // Punktlar ro'yxatini ham qayta filtrlaymiz (suitable bo'yicha). Tanlangan
+      // punkt filtrdan keyin ham qolsa — slotlarini yangi rejimda yangilaymiz;
+      // aks holda render o'zi to'g'ri holatga keltiradi.
+      const hadSelection = _selectedIdx >= 0;
+      renderDropoffPoints();
+      if (hadSelection && _selectedIdx >= 0) refreshOpenSlots();
     });
   }
   function refreshOpenSlots(){
-    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
-      const idx = Number(btn.dataset.slotsIdx);
-      const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
-      if (host && !host.hidden) {
-        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
-        loadTimeSlots(btn.dataset.uuid, host);
-      }
-    });
+    // «Faqat mos» o'zgargach — o'ng paneldagi tanlangan punkt slotlarini
+    // qayta yuklaymiz (panel doim ochiq turadi).
+    if (_selectedIdx < 0) return;
+    const p = _renderedPoints[_selectedIdx];
+    const wrap = dropoffPanel ? dropoffPanel.querySelector("#fbsDropoffSlotWrap") : null;
+    if (!p || !p.uuid || !wrap) return;
+    _pickedSlot = null;
+    const hint = dropoffPanel.querySelector("#fbsDropoffFootHint");
+    if (hint) hint.textContent = LIST_LBL.dropoff_pick_slot;
+    const cbtn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+    if (cbtn) cbtn.disabled = true;
+    wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_loading}</div>`;
+    loadTimeSlots(p.uuid, wrap);
   }
   // Esc inside the search input clears it (rather than closing the modal).
   dropoffSearchInput.addEventListener("keydown", (e) => {
@@ -3194,97 +4232,34 @@
     if (e.key === "Escape" && dropoffModal.classList.contains("is-open")) closeDropoffModal();
   });
 
-  // Wire up controls.
+  // «Soft» pager hook — fbs_aurora_pager.js shu funksiya orqali sahifaga o'tadi.
+  window.__fbsGoPage = function (p) {
+    window.__fbsPage = Math.max(0, p | 0);
+    loadOrders(false);
+  };
+
+  // Active-work chips fetch LIVE from Uzum on click / page entry (Bosqich
+  // A.12); terminal chips («Boshqa holatlar») stay on the DB read the bg
+  // worker keeps fresh. PENDING_DELIVERY («Поставка») is the iframe view.
+  const FBS_LIVE_CHIPS = new Set(["CREATED", "PACKING", "DELIVERING"]);
+  // Chips fetched live the moment the seller lands on the page (Yangi +
+  // Yig'ilmoqda) — the rest come from the DB until clicked.
+  const FBS_ENTRY_LIVE = ["CREATED", "PACKING"];
+
+  // Wire up controls. Clicking an active-work chip fetches it LIVE — this
+  // doubles as the manual refresh now that the «Yangilash» button is gone
+  // (re-clicking the active chip re-syncs it). Terminal chips read the DB.
   statusRow.querySelectorAll(".fbs-status-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-      setActiveStatus(chip.getAttribute("data-status"));
-      // Chip click reads from cache — no refresh.
-      loadOrders(false);
+      const st = chip.getAttribute("data-status");
+      setActiveStatus(st);
+      loadOrders(FBS_LIVE_CHIPS.has(st));
     });
   });
-  // "Yangilash" tugmasi → both calls refresh=1, sequenced so the toast
-  // only fires after BOTH finish. Button is disabled + shows spinner +
-  // label flips to "Yangilanmoqda..." while the request is in flight.
-  // On failure of either call we surface a single error toast instead
-  // of leaving the UI in a half-loaded state.
-  // Rate limit (agreed with user 2026-05-23):
-  //   * up to 3 clicks within any 5-second window are allowed
-  //   * the 4th rapid click is blocked for 3 seconds with a toast,
-  //     so spammers don't push needless Uzum calls through the JIT
-  //     refresh path (each click fires ~11 calls per active chip)
-  const _reloadClickTimes = [];
-  const RATE_WINDOW_MS = 5000;
-  const RATE_BURST = 3;
-  const RATE_LOCKOUT_MS = 3000;
-  let _reloadLockedUntil = 0;
-
-  btnReload.addEventListener("click", async () => {
-    // «Поставка» ko'rinishida Yangilash → iframe'ni qayta yuklaymiz.
-    if (postavkaActive) {
-      const fr = document.getElementById("fbsPostavkaFrame");
-      if (fr && fr.contentWindow) fr.contentWindow.location.reload();
-      loadCounts(true, { silent: true });
-      return;
-    }
-    const now = Date.now();
-    // Rate-limit toast is green and stays 6s (3× the normal success
-    // toast) — not red, so it informs without alarming the seller.
-    if (now < _reloadLockedUntil) {
-      showListToast(LIST_LBL.toast_rate_limited, "success", 6000);
-      return;
-    }
-    // Drop clicks outside the rolling 5s window.
-    while (_reloadClickTimes.length && now - _reloadClickTimes[0] > RATE_WINDOW_MS) {
-      _reloadClickTimes.shift();
-    }
-    if (_reloadClickTimes.length >= RATE_BURST) {
-      _reloadLockedUntil = now + RATE_LOCKOUT_MS;
-      _reloadClickTimes.length = 0;
-      showListToast(LIST_LBL.toast_rate_limited, "success", 6000);
-      return;
-    }
-    _reloadClickTimes.push(now);
-
-    if (btnReload.disabled) return;
-    // Yangilash policy (Abdulaziz 2026-05-26 — SWR with bg spinner):
-    // Phase 1: instant DB read. Seller sees last-known data in
-    //          ~100-200ms — no spinner needed (DB is sub-second).
-    //          Data appears, seller can already start scrolling.
-    // Phase 2: Uzum sync runs WITH the button spinner visible — the
-    //          spinner means "fresh data is being fetched". The
-    //          seller can still interact with the already-rendered
-    //          list/chips; only the Yangilash button itself is
-    //          disabled to prevent re-pressing during the sync.
-    //          When sync finishes: chip counts update, new orders
-    //          flash green, toast "Yangilangan".
-    try {
-      await Promise.all([
-        loadCounts(false, { silent: true }),
-        loadOrders(false),
-      ]);
-    } catch (e) {
-      showListToast(LIST_LBL.toast_refresh_error, "error");
-    }
-
-    // Phase 2 — Uzum revalidate WITH spinner so the seller sees
-    // "fresh data is on the way." The data they see during the spin
-    // is from the Phase 1 DB read (already on screen); when Phase 2
-    // returns the UI silently swaps to the live values.
-    setReloadBusy(true);
-    try {
-      await Promise.all([
-        loadCounts(true, { silent: true }),
-        loadOrders(true),
-      ]);
-      showListToast(LIST_LBL.toast_refreshed, "success");
-    } catch (e) {
-      showListToast(LIST_LBL.toast_refresh_error, "error");
-    } finally {
-      setReloadBusy(false);
-    }
-  });
   schemeSel.addEventListener("change", () => {
-    loadOrders(false);
+    // Scheme (FBS/DBS) filter change re-fetches the current chip — live if
+    // it's an active-work chip, DB otherwise.
+    loadOrders(FBS_LIVE_CHIPS.has(currentStatus));
     loadCounts();
   });
 
@@ -3304,10 +4279,19 @@
   const _urlView = new URLSearchParams(location.search).get("view");
   if (_urlView === "postavka") {
     showPostavkaView();
-    if (shopSel.value && HAS_TOKEN) loadCounts();
+    // Even on the Поставка view, refresh the 2 entry-live chip badges
+    // (Yangi + Yig'ilmoqda) live so the seller sees current numbers.
+    if (shopSel.value && HAS_TOKEN) loadCounts(true, { statuses: FBS_ENTRY_LIVE, silent: true });
   } else if (shopSel.value && HAS_TOKEN) {
-    loadOrders(false);
-    loadCounts();
+    // Page entry fetches ONLY Yangi (CREATED) + Yig'ilmoqda (PACKING) LIVE —
+    // the 2 chips the seller watches (Abdulaziz 2026-06-16). The list is live
+    // ONLY when landing on one of those two; landing on any other chip
+    // (Yo'lda, terminal) reads the DB the bg worker keeps fresh, so entry is
+    // never more than ~2 Uzum calls and never waits on a heavier status.
+    // Re-clicking a live chip (FBS_LIVE_CHIPS) still re-syncs it on demand.
+    loadOrders(FBS_ENTRY_LIVE.includes(currentStatus));
+    const entryCounts = FBS_ENTRY_LIVE.filter(s => s !== currentStatus);
+    loadCounts(true, { statuses: entryCounts, silent: true });
   }
   // Background-warm the drop-off points cache after a delay so the
   // first time the seller opens the 📍 modal it feels instant. We
@@ -3434,7 +4418,9 @@
 
     // Popup'ni ochadigan elementlar: buyurtma raqami (barcha rasm to'ri)
     // hamda har tovarning «N dona» belgisi (faqat o'sha tovar rasmi).
-    const IMG_HOVER_SEL = ".fbs-id[data-image], .fbs-products .qty-pill[data-image]";
+    // Faqat MAHSULOT RASMI (thumbnail) ustida popup ochiladi — № yoki SKU
+    // matni ustida emas (Abdulaziz 2026-06-10).
+    const IMG_HOVER_SEL = ".fbs-products img.fbs-prod-thumb[data-image]";
     document.addEventListener("mouseover", (e) => {
       const cell = e.target.closest(IMG_HOVER_SEL);
       if (!cell) return;
@@ -3461,4 +4447,9 @@
   })();
 })();
 </script>
+{# «Soft» filter-panel augmentatsiyasi — asosiy script'dan KEYIN yuklanadi #}
+<script src="/static/fbs_aurora_orders.js"></script>
+<script src="/static/fbs_aurora_pager.js"></script>
+<script src="/static/fbs_select.js"></script>
+<script src="/static/fbs_section_tabs.js"></script>
 {% endblock %}

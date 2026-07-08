@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>«Поставка» akt bulk-bar — 5 variant</title>
+<style>
+  :root{
+    --brand:#4169E1; --brand-2:#6384ff; --brand-dk:#3556c9;
+    --purple:#7c3aed; --purple-dk:#6d28d9;
+    --bar:#1e293b; --bar-2:#0f1117;
+    --ink:#f8fafc; --muted:#cbd5e1;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+    color:#101828; min-height:100vh; padding:32px 20px 80px;
+    background:
+      radial-gradient(640px 300px at 6% -40px, rgba(65,105,225,.13), transparent 70%),
+      radial-gradient(560px 280px at 94% -30px, rgba(124,58,237,.12), transparent 70%),
+      #eef1f7;
+  }
+  h1{font-size:1.4rem; font-weight:800; letter-spacing:-.01em; margin:0 0 6px; text-align:center;}
+  .sub{text-align:center; color:#667085; font-size:.9rem; margin:0 auto 36px; max-width:560px;}
+  .grid{display:grid; gap:30px; max-width:1100px; margin:0 auto;}
+  .card{
+    background:#fff; border:1px solid #eaecf0; border-radius:20px;
+    padding:26px 26px 34px; box-shadow:0 14px 40px -18px rgba(16,24,40,.18);
+    position:relative; overflow:hidden;
+  }
+  .card-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .vnum{
+    width:30px; height:30px; flex:none; border-radius:9px; display:grid; place-items:center;
+    font-weight:800; font-size:.9rem; color:#fff;
+    background:linear-gradient(135deg,var(--brand),var(--brand-2));
+    box-shadow:0 4px 10px rgba(65,105,225,.3);
+  }
+  .vname{font-size:1.05rem; font-weight:750;}
+  .vdesc{color:#98a2b3; font-size:.84rem; margin:2px 0 22px 40px;}
+  .stage{
+    display:flex; justify-content:center; padding:30px 10px 14px;
+    background:
+      linear-gradient(#f6f8fc,#f6f8fc) padding-box,
+      repeating-linear-gradient(45deg,#eef1f7,#eef1f7 10px,#e9edf5 10px,#e9edf5 20px);
+    border-radius:14px;
+  }
+
+  /* ===== Umumiy bar asosi ===== */
+  .bar{
+    display:inline-flex; align-items:center; gap:.75rem;
+    padding:.6rem .9rem; color:var(--ink);
+    box-shadow:0 18px 40px rgba(0,0,0,.28);
+    animation:rise .4s cubic-bezier(.2,.7,.2,1);
+  }
+  @keyframes rise{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+  .count{font-weight:700; padding-right:.7rem; border-right:1px solid rgba(255,255,255,.18);}
+  .count b{color:#fff;}
+  .btn{
+    display:inline-flex; align-items:center; gap:.5rem; cursor:pointer;
+    font-size:.92rem; font-weight:650; color:#fff; border:1px solid transparent;
+    transition:background .15s, transform .14s ease, box-shadow .2s ease, border-color .15s;
+  }
+  .btn svg{width:17px; height:17px; flex:none;}
+  .btn:active{transform:translateY(1px) scale(.99);}
+
+  /* ============ V1 — Brendlangan ko'k (tekis) ============ */
+  .v1 .bar{background:var(--bar); border-radius:14px;}
+  .v1 .btn{padding:.58rem 1.15rem; border-radius:12px;}
+  .v1 .btn.ghost{background:transparent; border-color:rgba(255,255,255,.16); color:var(--muted);}
+  .v1 .btn.ghost:hover{background:rgba(255,255,255,.09); color:#fff;}
+  .v1 .btn.go{background:var(--brand); border-color:var(--brand);}
+  .v1 .btn.go:hover{background:var(--brand-dk); transform:translateY(-2px); box-shadow:0 9px 22px rgba(65,105,225,.5);}
+
+  /* ============ V2 — Ko'k gradient + shu'la ============ */
+  .v2 .bar{background:var(--bar); border-radius:16px;}
+  .v2 .btn{padding:.58rem 1.2rem; border-radius:12px;}
+  .v2 .btn.ghost{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.18); color:#e8edf5;}
+  .v2 .btn.ghost:hover{background:rgba(255,255,255,.14);}
+  .v2 .btn.go{
+    position:relative; overflow:hidden;
+    background:linear-gradient(135deg,var(--brand) 0%,var(--brand-2) 100%);
+    box-shadow:0 6px 18px rgba(65,105,225,.4);
+  }
+  .v2 .btn.go:hover{transform:translateY(-2px); box-shadow:0 10px 26px rgba(65,105,225,.6);}
+  .v2 .btn.go::after{
+    content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);
+    transform:skewX(-18deg); animation:sheen 2.6s ease-in-out infinite;
+  }
+  @keyframes sheen{0%,60%{left:-60%} 100%{left:130%}}
+
+  /* ============ V3 — To'liq pill + binafsha aksent ============ */
+  .v3 .bar{background:var(--bar); border-radius:999px; padding:.55rem .7rem .55rem 1.1rem;}
+  .v3 .count{border:none; padding-right:.2rem;}
+  .v3 .count .chip{
+    display:inline-flex; align-items:center; gap:.4rem; background:rgba(99,132,255,.18);
+    color:#cdd9ff; padding:.3rem .7rem; border-radius:999px; font-size:.82rem; font-weight:700;
+  }
+  .v3 .btn{padding:.55rem 1.2rem; border-radius:999px;}
+  .v3 .btn.ghost{background:transparent; color:var(--muted);}
+  .v3 .btn.ghost:hover{background:rgba(255,255,255,.1); color:#fff;}
+  .v3 .btn.go{background:var(--purple); border-color:var(--purple);}
+  .v3 .btn.go:hover{background:var(--purple-dk); transform:translateY(-2px); box-shadow:0 9px 22px rgba(124,58,237,.55);}
+
+  /* ============ V4 — Minimal mono (bitta aksent) ============ */
+  .v4 .bar{background:rgba(15,17,23,.92); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.08); border-radius:15px;}
+  .v4 .btn{padding:.55rem 1.15rem; border-radius:11px; background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.1); color:#e8edf5; font-weight:600;}
+  .v4 .btn:hover{background:rgba(255,255,255,.13);}
+  .v4 .btn .ic{
+    width:24px; height:24px; border-radius:7px; display:grid; place-items:center; flex:none;
+    background:rgba(255,255,255,.1);
+  }
+  .v4 .btn.go .ic{background:linear-gradient(135deg,var(--brand),var(--brand-2)); box-shadow:0 3px 8px rgba(65,105,225,.4);}
+  .v4 .btn.go{color:#fff; border-color:rgba(99,132,255,.4); background:rgba(65,105,225,.14);}
+  .v4 .btn.go:hover{background:rgba(65,105,225,.24);}
+  .v4 .btn .ic svg{width:14px; height:14px;}
+
+  /* ============ V5 — Segmented premium (indigo gradient) ============ */
+  .v5 .bar{
+    background:linear-gradient(180deg,#222b3d,#161c29); border:1px solid rgba(255,255,255,.07);
+    border-radius:16px; padding:.5rem .55rem .5rem 1rem; gap:.5rem;
+    box-shadow:0 20px 46px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .v5 .count{border:none; padding-right:.55rem;}
+  .v5 .count b{font-size:1.05rem;}
+  .v5 .sep{width:1px; height:26px; background:rgba(255,255,255,.12);}
+  .v5 .btn{padding:.55rem 1rem; border-radius:11px;}
+  .v5 .btn.ghost{background:transparent; color:#aeb7c7;}
+  .v5 .btn.ghost:hover{background:rgba(255,255,255,.08); color:#fff;}
+  .v5 .btn.go{
+    position:relative; overflow:hidden; padding:.58rem 1.3rem;
+    background:linear-gradient(135deg,#4f6bff,#7c3aed); border:none;
+    box-shadow:0 8px 22px rgba(99,80,237,.45), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .v5 .btn.go:hover{transform:translateY(-2px); box-shadow:0 12px 30px rgba(99,80,237,.62), inset 0 1px 0 rgba(255,255,255,.3);}
+
+  .legend{margin:38px auto 0; max-width:1100px; color:#667085; font-size:.82rem; text-align:center; line-height:1.6;}
+  .legend b{color:#344054;}
+</style>
+</head>
+<body>
+  <h1>«Поставка» akt bulk-bar — 5 variant</h1>
+  <p class="sub">Hammasi sizning dizayn-tilingizda: qora pill, brend-ko'k <b>#4169E1</b> / binafsha <b>#7c3aed</b>, toza SVG ikonkalar (emoji yo'q). Ustiga bosib hover'ni ko'ring. Qaysi raqamni xohlasangiz ayting.</p>
+
+  <div class="grid">
+
+    <!-- V1 -->
+    <div class="card v1">
+      <div class="card-head"><span class="vnum">1</span><span class="vname">Brendlangan ko'k — tekis</span></div>
+      <div class="vdesc">Eng sodda & toza. «Akt» — to'liq brend-ko'k (Yorliq/QR bilan bir xil), «Yuklab olish» — nozik kontur. Hover'da ko'k shu'la.</div>
+      <div class="stage">
+        <div class="bar">
+          <span class="count"><b>2</b> ta tanlandi</span>
+          <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Yuklab olish</button>
+          <button class="btn go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Akt отправки (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- V2 -->
+    <div class="card v2">
+      <div class="card-head"><span class="vnum">2</span><span class="vname">Ko'k gradient + shu'la</span></div>
+      <div class="vdesc">«Akt» — galochkalardagi ko'k gradient (#4169E1→#6384ff) + yengil animatsion yorug'lik. Premium, jonli.</div>
+      <div class="stage">
+        <div class="bar">
+          <span class="count"><b>2</b> ta tanlandi</span>
+          <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Yuklab olish</button>
+          <button class="btn go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Akt отправки (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- V3 -->
+    <div class="card v3">
+      <div class="card-head"><span class="vnum">3</span><span class="vname">To'liq pill + binafsha</span></div>
+      <div class="vdesc">Yumaloq pill shakl, son — ko'k chip ichida. «Akt» binafsha (postavka/qabul-punkt oilasi bilan bir xil).</div>
+      <div class="stage">
+        <div class="bar">
+          <span class="count"><span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>2 ta tanlandi</span></span>
+          <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Yuklab olish</button>
+          <button class="btn go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Akt отправки (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- V4 -->
+    <div class="card v4">
+      <div class="card-head"><span class="vnum">4</span><span class="vname">Minimal mono — bitta aksent</span></div>
+      <div class="vdesc">Tinch, blur-fonli. Ikkala tugma bir xil teksturada; «Akt» faqat ko'k ikonka-kvadrat bilan ajralib turadi. Kamtar, professional.</div>
+      <div class="stage">
+        <div class="bar">
+          <span class="count"><b>2</b> ta tanlandi</span>
+          <button class="btn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>Yuklab olish</button>
+          <button class="btn go"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>Akt отправки (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- V5 -->
+    <div class="card v5">
+      <div class="card-head"><span class="vnum">5</span><span class="vname">Segmented premium — indigo</span></div>
+      <div class="vdesc">Eng «boy» variant: ajratuvchi chiziq, ko'k→binafsha gradient «Akt», ichki yorug'lik + chuqur soya. Zamonaviy, e'tiborni tortadi.</div>
+      <div class="stage">
+        <div class="bar">
+          <span class="count"><b>2</b> ta tanlandi</span>
+          <span class="sep"></span>
+          <button class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Yuklab olish</button>
+          <button class="btn go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Akt отправки (PDF)</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="legend">
+    Ikonkalar: <b>Yuklab olish</b> = pastga o'q (download), <b>Akt</b> = printer (chop etish).<br>
+    Qaysi variant yoqsa — raqamini ayting, men uni «Поставка» bar'iga qo'llab, prodga chiqaraman. Aralash xohlasangiz (mas. «2-ning gradienti + 5-ning ajratuvchisi») ham mumkin.
+  </p>
+</body>
+</html>

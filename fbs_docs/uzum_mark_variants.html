@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>«В пункте выдачи» — Uzum belgisi variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}
+.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1000px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}
+.note b{color:#dcdce4}
+.wrap{padding:30px 22px 120px}
+.stage{max-width:1000px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:26px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:16px;flex-wrap:wrap}
+.st{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;white-space:nowrap}
+.st .n{min-width:20px;padding:0 7px;border-radius:999px;background:#fff;color:#7A7684;font:700 .72rem/20px 'Inter';text-align:center}
+.st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.st.on .n{background:#1A1A22;color:#fff}
+.st.nav{color:#7C3AED}.st.nav svg{width:16px;height:16px}
+.dd{position:relative}
+.dd-trigger{display:inline-flex;align-items:center;gap:10px;padding:11px 16px 11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#1A1A22;cursor:pointer;border:0;background:#fff;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.dd-trigger .cv{width:15px;height:15px;color:#9B98A5}
+.menu{position:absolute;top:calc(100% + 9px);left:0;z-index:40;min-width:280px}
+.menu-card{background:#fff;border:1px solid #ECECF0;border-radius:16px;box-shadow:0 22px 50px -12px rgba(20,16,40,.28),0 4px 10px rgba(20,16,40,.06);padding:7px}
+.mi{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;cursor:pointer;transition:.13s;font:600 .88rem 'Inter';color:#3A3A44}
+.mi:hover{background:#F4F5F8}
+.mi .lbl{flex:1 1 auto}
+.mi .ct{padding:2px 9px;border-radius:999px;background:#EFEFF3;color:#6A6676;font:700 .72rem 'Inter'}
+.mi .ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center}
+.mi .ic svg{width:16px;height:16px}
+.mi .ck{margin-left:auto;width:18px;height:18px;color:#7C3AED;opacity:0}
+.mi.sel{background:#F6F3FF}.mi.sel .ck{opacity:1}.mi.sel .lbl{color:#5b2bc9}
+.c-green{background:#E9FBF2;color:#0A7A52}
+.c-blue{background:#EEF4FF;color:#2B54C9}
+.c-slate{background:#F1F3F7;color:#5A6477}
+.c-red{background:#FEECEB;color:#C0362B}
+.c-rose{background:#FFF1F4;color:#BE123C}
+/* Uzum badge (rangli kvadrat) */
+.uz{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;background:linear-gradient(135deg,#8E64FF,#6A2BD9);box-shadow:0 4px 10px -3px rgba(106,43,217,.5)}
+.uz svg{width:18px;height:18px}
+/* Uzum line (boshqa ikonkalar uslubida, binafsha) */
+.c-uzum{background:#F1EAFF;color:#6A2BD9}
+.rowshint{margin-top:16px;padding:22px;border:1px dashed #E2E2E8;border-radius:14px;text-align:center;color:#A6A2AE;font-size:.85rem}
+.swatch{display:inline-flex;align-items:center;gap:10px;margin-left:6px}
+.swatch .uz,.swatch .ic{width:34px;height:34px}.swatch .uz svg,.swatch .ic svg{width:20px;height:20px}
+</style>
+</head>
+<body>
+
+<div class="pvbar">
+  <h1>Uzum belgisi — «В пункте выдачи»</h1>
+  <span class="sub">4 variant · belgini almashtiring</span>
+  <div class="seg" id="seg">
+    <button data-v="u1" class="on">1 · Uzum (uzum mevasi)</button>
+    <button data-v="u2">2 · Uzum «u» belgi</button>
+    <button data-v="u3">3 · Uzum nuqta-logo</button>
+    <button data-v="u4">4 · Uzum line (binafsha)</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel" id="panel"></div></div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const CK='<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const I_done='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+const I_in='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>';
+const I_x='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+const I_ret='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+
+// ── Uzum belgisi variantlari ──
+// 1: uzum mevasi (grape cluster, oq, binafsha kvadratda)
+const UZ_GRAPE='<svg viewBox="0 0 24 24" fill="#fff"><path d="M13 4.2c0-.9.7-1.7 1.6-1.9.3-.06.5-.34.4-.64-.06-.3-.34-.48-.64-.42C12.9 1.6 11.8 2.8 11.7 4.2c-.9-.5-2-.4-2.8.3.3.5.8.9 1.4 1 .4.07.6-.1.9-.3.3.25.7.4 1.1.4s.8-.15 1.1-.4c.3.2.5.37.9.3.6-.1 1.1-.5 1.4-1-.4-.36-.9-.5-1.4-.5-.4 0-.8.13-1.1.35a1.9 1.9 0 0 0-.5-.05z"/><circle cx="12" cy="8.4" r="1.85"/><circle cx="8.7" cy="10.6" r="1.85"/><circle cx="15.3" cy="10.6" r="1.85"/><circle cx="12" cy="12.6" r="1.85"/><circle cx="8.7" cy="14.8" r="1.85"/><circle cx="15.3" cy="14.8" r="1.85"/><circle cx="12" cy="17" r="1.85"/></svg>';
+// 2: "u" lettermark (oq, binafsha kvadratda)
+const UZ_U='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6v7a5 5 0 0 0 10 0V6"/></svg>';
+// 3: nuqta-logo (loop/halqa, Uzum app belgisiga yaqin)
+const UZ_LOOP='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M8 8a4 4 0 1 0 4 4 4 4 0 1 1 4-4"/></svg>';
+// 4: grape LINE (boshqa ikonkalar uslubida — binafsha kontur)
+const UZ_GRAPE_LINE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c0-1 .8-1.8 1.8-1.9"/><circle cx="12" cy="8" r="2"/><circle cx="8.5" cy="10.5" r="2"/><circle cx="15.5" cy="10.5" r="2"/><circle cx="12" cy="13" r="2"/><circle cx="9" cy="15.5" r="2"/><circle cx="15" cy="15.5" r="2"/></svg>';
+
+function vyborka(uzumHtml){
+  return `
+  <div class="filters">
+    <div class="segtrack">
+      <span class="st">Новый <span class="n">0</span></span>
+      <span class="st on">Сборка <span class="n">2</span></span>
+      <span class="st nav">${TRUCK}Поставка</span>
+      <span class="st">В пути <span class="n">0</span></span>
+      <div class="dd">
+        <button class="dd-trigger">Boshqa holatlar… ${CV}</button>
+        <div class="menu"><div class="menu-card">
+          <div class="mi"><span class="ic c-green">${I_done}</span><span class="lbl">Доставлен</span><span class="ct">5</span></div>
+          <div class="mi"><span class="ic c-blue">${I_in}</span><span class="lbl">В пункте приёма</span><span class="ct">0</span></div>
+          <div class="mi sel">${uzumHtml}<span class="lbl">В пункте выдачи</span><span class="ct">0</span>${CK}</div>
+          <div class="mi"><span class="ic c-slate">${I_done}</span><span class="lbl">Завершён</span><span class="ct">235</span></div>
+          <div class="mi"><span class="ic c-red">${I_x}</span><span class="lbl">Отменён</span><span class="ct">268</span></div>
+          <div class="mi"><span class="ic c-rose">${I_ret}</span><span class="lbl">Возврат</span><span class="ct">183</span></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  <div class="rowshint">— buyurtmalar jadvali shu yerda · <b style="color:#6A2BD9">«В пункте выдачи» = Uzum punkti</b> —</div>`;
+}
+
+const MARKS={
+ u1:`<span class="uz">${UZ_GRAPE}</span>`,
+ u2:`<span class="uz">${UZ_U}</span>`,
+ u3:`<span class="uz">${UZ_LOOP}</span>`,
+ u4:`<span class="ic c-uzum">${UZ_GRAPE_LINE}</span>`,
+};
+const NOTES={
+ u1:'<b>1 · Uzum mevasi</b> — binafsha kvadratda oq <b>uzum boshi</b> (grape). «Uzum» = uzum mevasi bo\'lgani uchun eng mazmunli va brendga mos.',
+ u2:'<b>2 · «u» lettermark</b> — binafsha kvadratda oq <b>«u»</b> harfi. Sodda, Uzum nomidan kelib chiqqan, toza.',
+ u3:'<b>3 · Nuqta-logo</b> — binafsha kvadratda halqa/loop belgi (Uzum app ikonkasiga yaqin abstrakt). Zamonaviy.',
+ u4:'<b>4 · Uzum line</b> — boshqa ikonkalar bilan bir uslubda (kontur), binafsha rangli uzum boshi. Eng "tinch", qatorga singib ketadi.'
+};
+const panel=document.getElementById('panel');
+function render(v){
+  panel.innerHTML=vyborka(MARKS[v]);
+  document.querySelector('.dd-trigger').addEventListener('click',e=>{e.stopPropagation();e.currentTarget.closest('.dd').classList.toggle('open')});
+  document.querySelector('.dd').classList.add('open');
+}
+render('u1');
+const note=document.getElementById('note');note.innerHTML=NOTES.u1;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ render(b.dataset.v);note.innerHTML=NOTES[b.dataset.v];});
+</script>
+</body>
+</html>

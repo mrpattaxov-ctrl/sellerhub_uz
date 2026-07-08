@@ -19,15 +19,60 @@ import base64
 import json
 import os
 import threading
+import time
 
 import requests
 from urllib3.util.retry import Retry
 
 from config import HTTP_POOL_MAXSIZE
 from core.http_client import _get_http_session, get_bucket_for_token
-from core.fbs_locks import pace_uzum_call
 
 OPENAPI_BASE = "https://api-seller.uzum.uz/api/seller-openapi"
+
+# ── Rate-limit header diagnostics (Bosqich 0) ──────────────────────────
+# Uzum's FBS OpenAPI IS a token bucket and (per the official swagger,
+# 2026-06-15) advertises its exact budget in response headers on EVERY
+# call — not only on 429. We log them so the REAL ceiling can be read off
+# prod logs instead of guessed, before raising the bucket from its
+# conservative 1/s default (bulk-confirm speedup, [[reference-uzum-
+# ratelimit-headers]]). Tail with:  docker compose logs -f app | grep RATELIMIT
+# Turn off once the numbers are known:  UZUM_LOG_RATELIMIT=0
+_LOG_RATELIMIT = os.getenv("UZUM_LOG_RATELIMIT", "1").strip().lower() not in (
+    "0", "false", "no", "off", "")
+
+# Documented family (swagger) + the generic fallbacks already seen on 429.
+_RATELIMIT_HEADER_KEYS = (
+    "x-ratelimit-replenish-rate",     # refill tokens/sec   ← bucket refill
+    "x-ratelimit-burst-capacity",     # max req in 1 second ← bucket capacity
+    "x-ratelimit-requested-tokens",   # cost of THIS call (not always 1!)
+    "x-ratelimit-remaining",          # tokens left for the nearest second
+    "x-ratelimit-limit-per-day",      # daily request quota
+    "x-ratelimit-remaining-per-day",  # daily quota left    ← second ceiling
+    # Generic fallbacks (older / edge responses):
+    "retry-after", "ratelimit-limit", "ratelimit-remaining", "ratelimit-reset",
+    "x-ratelimit-limit", "x-ratelimit-reset",
+    "x-rate-limit-limit", "x-rate-limit-remaining",
+)
+
+
+def _extract_ratelimit_headers(resp_headers) -> dict:
+    """Pull Uzum's rate-limit header family (case-insensitive) into a dict.
+
+    Returns only the keys Uzum actually sent, so an empty dict means this
+    response carried no rate-limit info.
+    """
+    want = set(_RATELIMIT_HEADER_KEYS)
+    return {k: v for k, v in resp_headers.items() if k.lower() in want}
+
+# Bosqich A.11 — interactive read 429 retry. The shared per-token bucket
+# (acquired in _fbs_orders_request_with_auth) prevents most bursts, but it
+# can't perfectly mirror Uzum's real per-token budget, so a residual 429 on
+# an INTERACTIVE READ is retried a few times with a short wait — the seller
+# gets data after "azgina kutib" instead of an instant "Uzum band" error.
+# Reads only (GET is idempotent); writes (POST) NEVER auto-retry (penalty
+# risk), and the patient worker path retries at the adapter level already.
+_FBS_READ_RETRY_ATTEMPTS = 3
+_FBS_READ_RETRY_SLEEP_SEC = 1.5
 
 
 # ── Bosqich A.9 (#5) — FBS-scoped fail-fast HTTP session ──────────────
@@ -562,85 +607,126 @@ def _fbs_orders_request_with_auth(
     unchanged.
     """
     sess = _get_fbs_fastfail_session() if fail_fast else _get_http_session()
-    last_status = 0
-    last_text = ""
-    last_label = ""
-    last_parsed: dict | list | None = None
-    for auth_label, builder in _AUTH_VARIANTS:
-        try:
-            headers = builder(token)
-        except Exception as e:
-            print(f"[UzumOpenAPI] header-builder error on {auth_label}: {e}")
-            continue
-        if accept_language:
-            headers = {**headers, "Accept-Language": accept_language}
+    # Bosqich A.11 — cross-process pacing. EVERY FBS Uzum call (read AND
+    # write, fail-fast AND patient) reserves a slot in the shared per-token
+    # bucket BEFORE firing, exactly like the GET path in _try_request. This
+    # replaces the old in-process fbs_locks.pace_uzum_call gate: the bucket
+    # coordinates ALL callers across gunicorn workers + the bg worker +
+    # finance/products on one Uzum token, so a burst (e.g. invoice-create
+    # then an immediate list refresh) serialises instead of tripping Uzum's
+    # per-token 429. If Redis is down the bucket degrades to an in-process
+    # token bucket (same strength as the old gate), so FBS is never left
+    # unpaced.
+    bucket = get_bucket_for_token(token)
 
-        # Same minimal lean header set as _try_request — anti-403-on-UA.
-        base = {
-            "Accept": "application/json",
-            "User-Agent": "uzum-warehouse-app/1.0 (+openapi-client)",
-        }
-        base.update(headers)
-        if json_body is not None:
-            base["Content-Type"] = "application/json"
+    def _one_pass() -> tuple[dict | list | None, int, str, str]:
+        last_status = 0
+        last_text = ""
+        last_label = ""
+        last_parsed: dict | list | None = None
+        for auth_label, builder in _AUTH_VARIANTS:
+            try:
+                headers = builder(token)
+            except Exception as e:
+                print(f"[UzumOpenAPI] header-builder error on {auth_label}: {e}")
+                continue
+            if accept_language:
+                headers = {**headers, "Accept-Language": accept_language}
 
-        try:
-            resp = sess.request(
-                method=method, url=url, headers=base,
-                json=json_body if json_body is not None else None,
-                timeout=30,
-            )
-        except requests.RequestException as e:
-            print(f"[UzumOpenAPI] network error on {debug_label}/{auth_label}: {e}")
-            last_status, last_text, last_label = 0, str(e), auth_label
-            # Network error is typically transient/host-level — no point
-            # rotating auth variants for it.
-            break
-
-        text = resp.text or ""
-        parsed: dict | list | None = None
-        try:
-            parsed = json.loads(text) if text else None
-        except json.JSONDecodeError:
-            parsed = None
-
-        if resp.status_code == 429:
-            # Bosqich A.8 — explicit, greppable burst marker. Uzum returns
-            # 429 when too many calls land on one token too fast (the
-            # per-token burst penalty). On the fail-fast (interactive) path
-            # this fires on the FIRST 429 (no retry); on the patient worker
-            # path the shared session already retried 60/120/180s first.
-            # Tail it with:  docker compose logs -f app | grep BURST
-            #
-            # Bosqich A.9 (#5 diagnostics) — dump the rate-limit headers so
-            # we can finally tell a sub-second BURST from a rolling-WINDOW
-            # quota. Retry-After (seconds or HTTP-date) is the key: if Uzum
-            # sends it, that IS the throttle window; the X-RateLimit-*/
-            # RateLimit-* family (if present) reveals quota size + reset.
-            _h = resp.headers
-            _rate_hdrs = {
-                k: v for k, v in _h.items()
-                if k.lower() in (
-                    "retry-after", "ratelimit-limit", "ratelimit-remaining",
-                    "ratelimit-reset", "x-ratelimit-limit",
-                    "x-ratelimit-remaining", "x-ratelimit-reset",
-                    "x-rate-limit-limit", "x-rate-limit-remaining",
-                )
+            # Same minimal lean header set as _try_request — anti-403-on-UA.
+            base = {
+                "Accept": "application/json",
+                "User-Agent": "uzum-warehouse-app/1.0 (+openapi-client)",
             }
-            print(f"[UzumOpenAPI] ⚠️ BURST/429 on {debug_label}/{auth_label} — "
-                  f"Uzum per-token rate-limit hit. retry_after={_h.get('Retry-After')!r} "
-                  f"rate_headers={_rate_hdrs!r} body[:200]={text[:200]!r}")
-        elif not (200 <= resp.status_code < 300):
-            print(f"[UzumOpenAPI] {debug_label}/{auth_label} -> HTTP {resp.status_code}  body[:200]={text[:200]!r}")
+            base.update(headers)
+            if json_body is not None:
+                base["Content-Type"] = "application/json"
 
-        if 200 <= resp.status_code < 300:
-            return (parsed, resp.status_code, text, auth_label)
-        last_status, last_text, last_label = resp.status_code, text, auth_label
-        last_parsed = parsed
-        # Only retry with next auth variant on auth-shaped failures.
-        if not _is_token_not_found(resp.status_code, parsed):
-            break
-    return (last_parsed, last_status, last_text, last_label)
+            # Cooperative rate limiting: reserve a per-token slot BEFORE every
+            # HTTP attempt (mirrors _try_request). Blocks until a token frees.
+            bucket.acquire()
+
+            try:
+                resp = sess.request(
+                    method=method, url=url, headers=base,
+                    json=json_body if json_body is not None else None,
+                    timeout=30,
+                )
+            except requests.RequestException as e:
+                print(f"[UzumOpenAPI] network error on {debug_label}/{auth_label}: {e}")
+                last_status, last_text, last_label = 0, str(e), auth_label
+                # Network error is typically transient/host-level — no point
+                # rotating auth variants for it.
+                break
+
+            text = resp.text or ""
+            parsed: dict | list | None = None
+            try:
+                parsed = json.loads(text) if text else None
+            except json.JSONDecodeError:
+                parsed = None
+
+            # Bosqich 0 — learn Uzum's TRUE token-bucket budget from its own
+            # headers (present on success too), on every call. Greppable tag
+            # so prod logs reveal replenish-rate / burst-capacity /
+            # requested-tokens / remaining-per-day without guessing.
+            if _LOG_RATELIMIT:
+                try:
+                    _rl = _extract_ratelimit_headers(resp.headers)
+                    if _rl:
+                        print(f"[UzumOpenAPI] RATELIMIT {method} {debug_label}/{auth_label} "
+                              f"HTTP {resp.status_code} {_rl!r}")
+                except Exception:
+                    pass  # diagnostics must never break a real Uzum call
+
+            if resp.status_code == 429:
+                # Bosqich A.8 — explicit, greppable burst marker. Uzum returns
+                # 429 when too many calls land on one token too fast (the
+                # per-token burst penalty). The shared per-token bucket
+                # (Bosqich A.11) now prevents most of these; a residual 429 on
+                # an interactive read is retried by the wrapper below.
+                # Tail it with:  docker compose logs -f app | grep BURST
+                #
+                # Bosqich A.9 (#5 diagnostics) — dump the rate-limit headers so
+                # we can finally tell a sub-second BURST from a rolling-WINDOW
+                # quota. Retry-After (seconds or HTTP-date) is the key: if Uzum
+                # sends it, that IS the throttle window; the X-RateLimit-*/
+                # RateLimit-* family (if present) reveals quota size + reset.
+                _h = resp.headers
+                _rate_hdrs = _extract_ratelimit_headers(_h)
+                print(f"[UzumOpenAPI] ⚠️ BURST/429 on {debug_label}/{auth_label} — "
+                      f"Uzum per-token rate-limit hit. retry_after={_h.get('Retry-After')!r} "
+                      f"rate_headers={_rate_hdrs!r} body[:200]={text[:200]!r}")
+            elif not (200 <= resp.status_code < 300):
+                print(f"[UzumOpenAPI] {debug_label}/{auth_label} -> HTTP {resp.status_code}  body[:200]={text[:200]!r}")
+
+            if 200 <= resp.status_code < 300:
+                return (parsed, resp.status_code, text, auth_label)
+            last_status, last_text, last_label = resp.status_code, text, auth_label
+            last_parsed = parsed
+            # Only retry with next auth variant on auth-shaped failures.
+            if not _is_token_not_found(resp.status_code, parsed):
+                break
+        return (last_parsed, last_status, last_text, last_label)
+
+    # Bounded retry for INTERACTIVE READS only (see _FBS_READ_RETRY_*). A
+    # residual 429 becomes a short wait-then-retry instead of an instant
+    # error — the "azgina kutib davom etsin" behaviour. Writes (POST) and
+    # the patient worker path fall through with max_attempts=1 (the worker's
+    # shared session already retries 429 at the adapter level, so we never
+    # double up; writes never auto-retry to avoid penalty risk).
+    max_attempts = (
+        _FBS_READ_RETRY_ATTEMPTS if (fail_fast and method == "GET") else 1
+    )
+    result = _one_pass()
+    attempt = 1
+    while result[1] == 429 and attempt < max_attempts:
+        print(f"[UzumOpenAPI] 429 on {debug_label} — interactive read-retry "
+              f"{attempt}/{max_attempts - 1} after {_FBS_READ_RETRY_SLEEP_SEC}s")
+        time.sleep(_FBS_READ_RETRY_SLEEP_SEC)
+        result = _one_pass()
+        attempt += 1
+    return result
 
 
 def fetch_fbs_orders_page(
@@ -879,12 +965,6 @@ def fetch_fbs_orders_count(
         qs_parts.append(f"dateTo={int(date_to_ms)}")
     url = f"{OPENAPI_BASE}/v2/fbs/orders/count?{'&'.join(qs_parts)}"
 
-    # Bosqich A.8 — pace /count through the shared per-token gate too.
-    # Uzum's burst penalty triggers on >1 call/sec on a token regardless of
-    # endpoint; the old code fired 3 concurrent /count calls per Yangilash
-    # press on the unverified assumption that /count is burst-exempt — a
-    # prime 429 source. Now every /count is paced like every /orders call.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token,
         accept_language=accept_language,
@@ -971,11 +1051,6 @@ def confirm_fbs_order(token: str, order_id: str | int, *, fail_fast: bool = Fals
         raise RuntimeError(f"confirm_fbs_order: orderId must be int-like, got {order_id!r}")
 
     url = f"{OPENAPI_BASE}/v1/fbs/order/{oid}/confirm"
-    # Bosqich A.8 (#4) — pace action endpoints too. Bulk confirm fans out
-    # up to 5 concurrent confirm_fbs_order calls on ONE token; without the
-    # per-token gate they burst Uzum (429 → 60-180s throttle). The gate
-    # reserves distinct 1s-spaced slots so the fan-out interleaves safely.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="POST",
         accept_language=None,
@@ -1025,10 +1100,6 @@ def cancel_fbs_order(
         body["comment"] = str(comment).strip()
 
     url = f"{OPENAPI_BASE}/v1/fbs/order/{oid}/cancel"
-    # Bosqich A.8 (#4) — pace cancel through the per-token gate (a cancel
-    # can land in the same second as a worker tick / another action on the
-    # same token and burst Uzum). See confirm_fbs_order for the rationale.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="POST", json_body=body,
         accept_language=None,
@@ -1106,9 +1177,6 @@ def attach_fbs_identifiers(
 
     body = {"items": normalized}
     url = f"{OPENAPI_BASE}/v1/fbs/order/{oid}/identifier"
-    # Bosqich A.8 (#4) — pace identifier attach through the per-token gate
-    # for consistency with the other action endpoints (burst-safety).
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="POST", json_body=body,
         accept_language=None,
@@ -1441,11 +1509,6 @@ def fetch_fbs_invoices_list(
     page = max(0, int(page or 0))
     base_qs = "&".join(f"statuses={s}" for s in statuses)
     url = f"{OPENAPI_BASE}/v1/fbs/invoice?{base_qs}&page={page}"
-    # Bosqich A.8 — this call MUST go through the shared per-token gate like
-    # every other FBS call, or a list load fired next to a worker/count call
-    # on the same token trips Uzum's per-token burst penalty (429). Reserving
-    # a 1s slot interleaves it safely.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="GET",
         accept_language=accept_language,
@@ -1488,10 +1551,6 @@ def fetch_fbs_invoice_detail(
         raise RuntimeError(f"fetch_fbs_invoice_detail: invoiceId must be int-like, got {invoice_id!r}")
 
     url = f"{OPENAPI_BASE}/v1/fbs/invoice/{iid}"
-    # Bosqich A.8 — pace through the shared per-token gate (see
-    # fetch_fbs_invoices_list). Expanding an invoice card fires this right
-    # after the list load, so without pacing the two collide on the token.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="GET",
         accept_language=accept_language,
@@ -1550,10 +1609,6 @@ def fetch_fbs_invoice_orders(
         )
 
     url = f"{OPENAPI_BASE}/v1/fbs/invoice/{iid}/orders"
-    # Bosqich A.8 — pace through the shared per-token gate. The detail route
-    # fires this right after fetch_fbs_invoice_detail on the same token; the
-    # gate serialises the two ~1s apart so the pair never bursts Uzum (429).
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="GET",
         accept_language=accept_language,
@@ -1580,6 +1635,7 @@ def change_invoice_pickup(
     time_slot_uuid: str,
     accept_language: str | None = None,
     fail_fast: bool = False,
+    order_ids: list | None = None,
 ) -> tuple[dict, str]:
     """Move an existing invoice to a new drop-off point + time slot.
 
@@ -1590,17 +1646,23 @@ def change_invoice_pickup(
     ``invoice_number LIKE '%suffix'`` DB guess, which could collide on the
     suffix and was empty before the sync worker had populated the column.
 
+    ``order_ids`` — pass the invoice's order ids when the caller already
+    fetched them (the route's ownership guard does) to skip the duplicate
+    ``/invoice/{id}/orders`` round-trip; ``None`` keeps the self-fetching
+    behaviour.
+
     Returns ``(invoice_payload, used_url)``. Raises :class:`ValueError`
     when Uzum reports no orders on the invoice — there is nothing to move,
     and firing the mutation with an empty ``orderIds`` would 400 anyway.
     """
-    orders, _ = fetch_fbs_invoice_orders(
-        token, invoice_id, accept_language=accept_language, fail_fast=fail_fast
-    )
-    order_ids = [
-        o.get("orderId") for o in orders
-        if isinstance(o, dict) and o.get("orderId") is not None
-    ]
+    if order_ids is None:
+        orders, _ = fetch_fbs_invoice_orders(
+            token, invoice_id, accept_language=accept_language, fail_fast=fail_fast
+        )
+        order_ids = [
+            o.get("orderId") for o in orders
+            if isinstance(o, dict) and o.get("orderId") is not None
+        ]
     if not order_ids:
         raise ValueError(
             f"change_invoice_pickup: invoice {invoice_id} has no linked orders"
@@ -1672,45 +1734,101 @@ def fetch_fbs_invoice_akt_pdf(
 # Official swagger (2026-06-02): GET/POST /v2/fbs/sku/stocks. Both are
 # interactive-only (the «Ombor» page) → callers pass fail_fast=True.
 # ─────────────────────────────────────────────────────────────────────────
+# v3 read is paginated; ask for the max page size so we drain in the
+# fewest round-trips. Uzum caps size at 100.
+_SKU_STOCKS_PAGE_SIZE = 100
+# Backstop against a runaway loop if Uzum ever returns a full page forever:
+# 200 pages * 100 = 20k SKUs, far above any real seller catalogue.
+_SKU_STOCKS_MAX_PAGES = 200
+
+
+def fetch_fbs_sku_stocks_page(
+    token: str,
+    *,
+    page: int = 0,
+    size: int = _SKU_STOCKS_PAGE_SIZE,
+    accept_language: str | None = None,
+    fail_fast: bool = False,
+) -> tuple[list[dict], str]:
+    """GET /v3/fbs/sku/stocks?page=&size= — ONE page of SKU stocks.
+
+    The interactive «Ombor» grid pages through Uzum live (100 rows/request)
+    for a fast first paint, so it needs a single page — not the whole
+    catalogue. ``size`` is clamped to Uzum's hard ceiling of 100 (anything
+    larger returns HTTP 400 illegal-argument — confirmed live 2026-07).
+
+    Returns ``(rows, page_url)`` — ``rows`` is the raw ``skuAmountList`` for
+    this page (unenriched). A short page (< ``size``) means it's the last one.
+    """
+    token = _clean(token)
+    page = max(0, int(page))
+    size = max(1, min(int(size), _SKU_STOCKS_PAGE_SIZE))
+    page_url = f"{OPENAPI_BASE}/v3/fbs/sku/stocks?page={page}&size={size}"
+    parsed, status_code, text, _ = _fbs_orders_request_with_auth(
+        page_url, token, method="GET",
+        accept_language=accept_language,
+        debug_label=f"fbs.sku.stocks.list[page={page}]",
+        fail_fast=fail_fast,
+    )
+    if not (200 <= status_code < 300):
+        _raise_uzum_error(parsed, status_code, text, page_url)
+    rows: list[dict] = []
+    if isinstance(parsed, dict):
+        payload = parsed.get("payload")
+        if isinstance(payload, dict):
+            lst = payload.get("skuAmountList")
+            if isinstance(lst, list):
+                rows = [s for s in lst if isinstance(s, dict)]
+    return (rows, page_url)
+
+
 def fetch_fbs_sku_stocks(
     token: str,
     *,
     accept_language: str | None = None,
     fail_fast: bool = False,
 ) -> tuple[list[dict], str]:
-    """GET /v2/fbs/sku/stocks — SKU stocks available for FBS/DBS update.
+    """GET /v3/fbs/sku/stocks — ALL SKU stocks, draining every page.
 
-    Swagger (2026-06-02): NO parameters. Returns every SKU the token's
-    seller may update (FBS + DBS eligible), one row each::
+    Uzum DEPRECATED the parameterless ``GET /v2/fbs/sku/stocks`` — since
+    ~2026-07 it returns HTTP 404 (confirmed live). The replacement is the
+    PAGINATED ``GET /v3/fbs/sku/stocks?page=&size=`` (page from 0, size
+    1–100). The response shape is IDENTICAL — ``payload.skuAmountList[]``,
+    one row each::
 
         {"skuId", "skuTitle", "productTitle", "barcode", "amount",
          "fbsAllowed", "dbsAllowed", "fbsLinked", "dbsLinked",
          "sellerSkuCode"}
 
+    We drain every page at ``size=100`` and concatenate. Used by the Excel
+    export / import-preview, which genuinely need the whole catalogue; the
+    interactive grid pages live via :func:`fetch_fbs_sku_stocks_page`. The
+    POST update stays on v2 (no v3 POST exists).
+
     Needs the ``SKU_READ`` permission on the token (else 403
     fbs-2-seller-access-denied). No image is returned — the route enriches
     each row from our local ``Variant`` table by skuId.
 
-    Returns ``(sku_list, used_url)``.
+    Returns ``(sku_list, base_url)``.
     """
-    token = _clean(token)
-    url = f"{OPENAPI_BASE}/v2/fbs/sku/stocks"
-    parsed, status_code, text, _ = _fbs_orders_request_with_auth(
-        url, token, method="GET",
-        accept_language=accept_language,
-        debug_label="fbs.sku.stocks.list",
-        fail_fast=fail_fast,
-    )
-    if not (200 <= status_code < 300):
-        _raise_uzum_error(parsed, status_code, text, url)
+    base_url = f"{OPENAPI_BASE}/v3/fbs/sku/stocks"
     skus: list[dict] = []
-    if isinstance(parsed, dict):
-        payload = parsed.get("payload")
-        if isinstance(payload, dict):
-            lst = payload.get("skuAmountList")
-            if isinstance(lst, list):
-                skus = [s for s in lst if isinstance(s, dict)]
-    return (skus, url)
+    page = 0
+    while True:
+        batch, _ = fetch_fbs_sku_stocks_page(
+            token, page=page, size=_SKU_STOCKS_PAGE_SIZE,
+            accept_language=accept_language, fail_fast=fail_fast,
+        )
+        skus.extend(batch)
+        # A short (or empty) page means we've reached the end.
+        if len(batch) < _SKU_STOCKS_PAGE_SIZE:
+            break
+        page += 1
+        if page >= _SKU_STOCKS_MAX_PAGES:
+            print(f"[fbs.sku.stocks] hit page cap ({_SKU_STOCKS_MAX_PAGES}) "
+                  f"at {len(skus)} SKUs — list may be truncated", flush=True)
+            break
+    return (skus, base_url)
 
 
 def update_fbs_sku_stocks(
@@ -1818,11 +1936,6 @@ def download_fbs_label(
         size_norm = "LARGE"
 
     url = f"{OPENAPI_BASE}/v1/fbs/order/{oid}/labels/print?size={size_norm}"
-    # Bosqich A.8 (#4) — pace label download. Bulk print fans out up to 5
-    # concurrent download_fbs_label calls on ONE token; the 5-min label
-    # cache absorbs repeat clicks, but a first-time bulk print of N fresh
-    # orders still bursts without this gate. See confirm_fbs_order.
-    pace_uzum_call(token)
     parsed, status_code, text, _ = _fbs_orders_request_with_auth(
         url, token, method="GET",
         accept_language=None,

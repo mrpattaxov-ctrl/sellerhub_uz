@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBS Buyurtmalar — YAKUNIY dizayn</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:30px 20px 120px}
+svg{display:block}
+.stage{max-width:1080px;margin:0 auto}
+.tip{max-width:1080px;margin:0 auto 16px;color:#6A6676;font-size:13px}
+.tip b{color:#1A1A22}
+.shell{background:#F3F4F8;border-radius:24px;padding:26px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+
+/* toolbar */
+.bar{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld label{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.07em;color:#9B98A5}
+.sel{position:relative}
+.sel select{appearance:none;-webkit-appearance:none;border:1px solid #E6E6EC;background:#FBFBFD;color:#1A1A22;border-radius:12px;padding:11px 38px 11px 14px;font:600 .86rem 'Inter';min-width:160px;cursor:pointer;transition:.15s}
+.sel select:hover{border-color:#CFCFE0;background:#fff}
+.sel .cv{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#9B98A5;pointer-events:none}
+.btn-refresh{border:0;border-radius:12px;padding:12px 22px;font:700 .88rem 'Inter';cursor:pointer;color:#fff;background:linear-gradient(135deg,#4169E1,#7C3AED);box-shadow:0 8px 20px -6px rgba(96,60,200,.55);display:inline-flex;align-items:center;gap:8px;transition:.16s}
+.btn-refresh:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(96,60,200,.6)}
+.btn-refresh svg{width:16px;height:16px}
+.btn-pin{border:1px solid #E6E6EC;background:#fff;color:#7C3AED;border-radius:12px;padding:12px 18px;font:600 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.16s}
+.btn-pin:hover{border-color:#D6C9FB;background:#FAF7FF}
+.btn-pin svg{width:16px;height:16px}
+
+/* segment track */
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid #F0F0F4}
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:16px;flex-wrap:wrap}
+.st{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;white-space:nowrap;transition:.15s}
+.st:hover{color:#1A1A22}
+.st .n{min-width:20px;padding:0 7px;border-radius:999px;background:#fff;color:#7A7684;font:700 .72rem/20px 'Inter';text-align:center}
+.st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.st.on .n{background:#1A1A22;color:#fff}
+.st svg{width:16px;height:16px}
+/* Поставка — endi boshqalardek (neytral + son) */
+
+/* dropdown */
+.dd{position:relative}
+.dd-trigger{display:inline-flex;align-items:center;gap:10px;padding:11px 16px 11px 18px;border-radius:11px;font:700 .9rem 'Inter';color:#5A5762;cursor:pointer;border:0;background:transparent;transition:.15s}
+.dd-trigger:hover{color:#1A1A22;background:rgba(255,255,255,.6)}
+.dd-trigger.active{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1),0 0 0 1px rgba(20,16,40,.04)}
+.dd-trigger .cv{width:15px;height:15px;color:#9B98A5;transition:transform .2s}
+.dd.open .dd-trigger .cv{transform:rotate(180deg)}
+.menu{position:absolute;top:calc(100% + 9px);left:0;z-index:40;min-width:284px;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:opacity .17s ease,transform .17s cubic-bezier(.16,1,.3,1)}
+.dd.open .menu{opacity:1;transform:none;pointer-events:auto}
+.menu-card{background:#fff;border:1px solid #ECECF0;border-radius:16px;box-shadow:0 22px 50px -12px rgba(20,16,40,.28),0 4px 10px rgba(20,16,40,.06);padding:7px}
+.mi{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;cursor:pointer;transition:.13s;font:600 .88rem 'Inter';color:#3A3A44}
+.mi:hover{background:#F4F5F8}.mi .lbl{flex:1 1 auto}
+.mi .ct{padding:2px 9px;border-radius:999px;background:#EFEFF3;color:#6A6676;font:700 .72rem 'Inter'}
+.mi .ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center}.mi .ic svg{width:16px;height:16px}
+.mi .ck{margin-left:auto;width:18px;height:18px;color:#7C3AED;opacity:0}
+.mi.sel{background:#F6F3FF}.mi.sel .ck{opacity:1}.mi.sel .lbl{color:#5b2bc9}
+.c-green{background:#E9FBF2;color:#0A7A52}.c-blue{background:#EEF4FF;color:#2B54C9}
+.c-slate{background:#F1F3F7;color:#5A6477}.c-red{background:#FEECEB;color:#C0362B}.c-rose{background:#FFF1F4;color:#BE123C}
+.uz{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;background:linear-gradient(150deg,#7A2BFF,#6500E6);box-shadow:0 4px 10px -3px rgba(106,43,217,.5)}
+.uz svg{width:30px;height:30px}
+
+/* table */
+table{width:100%;border-collapse:separate;border-spacing:0 9px;margin-top:18px}
+thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:#A6A2AE;text-align:left;padding:0 16px 4px;white-space:nowrap}
+thead th.r{text-align:right}
+tbody td{background:#FBFBFD;padding:15px 16px;font-size:.85rem;vertical-align:middle;border-top:1px solid #EFEFF3;border-bottom:1px solid #EFEFF3}
+tbody td:first-child{border-left:1px solid #EFEFF3;border-radius:16px 0 0 16px;width:42px}
+tbody td:last-child{border-right:1px solid #EFEFF3;border-radius:0 16px 16px 0;text-align:right}
+tbody tr{transition:.16s}tbody tr:hover td{background:#fff;border-color:transparent}
+tbody tr:hover{transform:translateY(-2px);filter:drop-shadow(0 14px 26px rgba(20,16,40,.1))}
+.ck{width:16px;height:16px;accent-color:#4169E1}
+.onum{font:700 .9rem 'Inter';color:#1A1A22}
+.prod{display:flex;align-items:center;gap:10px;min-width:0}
+.qty{flex:none;display:inline-block;padding:2px 9px;border-radius:999px;background:#EEF1FF;color:#3D5CCB;font:700 .67rem 'Inter'}
+.sku{font:600 .82rem 'Inter';color:#1A1A22;line-height:1.3}.bc{font:.73rem 'JetBrains Mono';color:#9B98A5;margin-top:2px}
+.tag{display:inline-block;padding:3px 10px;border-radius:7px;font:700 .67rem 'Inter'}
+.tag.fbs{background:#EEF1FF;color:#3D5CCB}.tag.dbs{background:#FFF4D6;color:#9A6207}
+.dt{font:.82rem 'Inter';color:#56535F}.money{font:800 .9rem 'Inter';color:#1A1A22;font-variant-numeric:tabular-nums}
+.dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11px/1.3 'Inter';border:1px solid transparent;white-space:nowrap;margin-top:5px}
+.dl svg{width:11px;height:11px}
+.dl.urgent{background:#FEECEB;color:#C0362B;border-color:#F8C4BF;animation:pulse 2s infinite}
+.dl.ok{background:#E9FBF2;color:#0A7A52;border-color:#BDEED7}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:.78rem;color:#9B98A5}
+.foot code{font-family:'JetBrains Mono';background:#F3F4F8;color:#5A5762;padding:2px 7px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="tip">✅ <b>Yakuniy filter-panel dizayni</b> — «Boshqa holatlar»ni bosib menyuni oching. «Поставка» endi boshqa tugmalardek (neytral + son <b>5</b>).</div>
+<div class="stage"><div class="shell"><div class="panel" id="panel"></div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const CK='<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const REF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const I_done='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+const I_in='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>';
+const I_x='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+const I_ret='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+const UZ='<span class="uz"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" fill="none" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span>';
+
+const ROWS=[
+ {id:'110388551',qty:'1 dona',sku:'KROSSFT-SHALVAR5-СЕРЫЙ-L',bc:'1000101649008',sc:'fbs',cr:'06.06.2026, 17:49',md:'10.06.2026, 16:00',shop:'KrossFit',sum:'59 900',left:'1 soat qoldi',lc:'urgent'},
+ {id:'110373473',qty:'1 dona',sku:'BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ',bc:'1000103129447',sc:'dbs',cr:'06.06.2026, 16:23',md:'02.07.2026, 23:59',shop:'BLUMMY',sum:'7 950',left:'537 soat qoldi',lc:'ok'},
+];
+const rows=ROWS.map(r=>`<tr>
+  <td><input type="checkbox" class="ck"></td>
+  <td><div class="onum">№${r.id}</div><span class="dl ${r.lc}">${ICLK}${r.left}</span></td>
+  <td><div class="prod"><span class="qty">${r.qty}</span><div style="min-width:0"><div class="sku">SKU: ${r.sku}</div><div class="bc">Shtrix: ${r.bc}</div></div></div></td>
+  <td><span class="tag ${r.sc}">${r.sc.toUpperCase()}</span></td>
+  <td class="dt">${r.cr}</td><td class="dt">${r.md}</td><td class="dt">${r.shop}</td>
+  <td><span class="money">${r.sum} UZS</span></td>
+</tr>`).join('');
+
+document.getElementById('panel').innerHTML=`
+<div class="bar">
+  <div class="fld"><label>Do'kon</label><div class="sel"><select><option>Hammasi</option></select>${CV}</div></div>
+  <div class="fld"><label>Sxema</label><div class="sel"><select><option>FBS + DBS (hammasi)</option></select>${CV}</div></div>
+  <div class="fld"><label>Sahifada</label><div class="sel"><select><option>20</option></select>${CV}</div></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn-refresh">${REF}Обновить</button></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn-pin">${PIN}Пункт приёма</button></div>
+</div>
+<div class="filters">
+  <div class="segtrack">
+    <span class="st">Новый <span class="n">0</span></span>
+    <span class="st on">Сборка <span class="n">2</span></span>
+    <span class="st">${TRUCK}Поставка <span class="n">5</span></span>
+    <span class="st">В пути <span class="n">0</span></span>
+    <div class="dd" id="dd">
+      <button class="dd-trigger" id="ddt">Boshqa holatlar… ${CV}</button>
+      <div class="menu"><div class="menu-card">
+        <div class="mi"><span class="ic c-green">${I_done}</span><span class="lbl">Доставлен</span><span class="ct">5</span></div>
+        <div class="mi"><span class="ic c-blue">${I_in}</span><span class="lbl">В пункте приёма</span><span class="ct">0</span></div>
+        <div class="mi sel">${UZ}<span class="lbl">В пункте выдачи</span><span class="ct">0</span>${CK}</div>
+        <div class="mi"><span class="ic c-slate">${I_done}</span><span class="lbl">Завершён</span><span class="ct">235</span></div>
+        <div class="mi"><span class="ic c-red">${I_x}</span><span class="lbl">Отменён</span><span class="ct">268</span></div>
+        <div class="mi"><span class="ic c-rose">${I_ret}</span><span class="lbl">Возврат</span><span class="ct">183</span></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+<table>
+  <thead><tr><th><input type="checkbox" class="ck"></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="r">Summa</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="foot">
+  <span>Topildi: <b>2</b> · Sahifa: <b>0</b> · Status: <b>PACKING</b> · Endpoint: <code>db://fbs_orders</code></span>
+  <span style="font-style:italic">Последнее обновление: 18 ч назад · Автоматически каждые 10 минут</span>
+</div>`;
+
+const dd=document.getElementById('dd'),ddt=document.getElementById('ddt');
+ddt.onclick=e=>{e.stopPropagation();dd.classList.toggle('open');ddt.classList.toggle('active');};
+document.addEventListener('click',()=>{dd.classList.remove('open');ddt.classList.remove('active');});
+</script>
+</body>
+</html>

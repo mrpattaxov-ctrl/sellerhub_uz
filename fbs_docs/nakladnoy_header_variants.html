@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Накладная header — 5 variant (brand palette)</title>
+<style>
+  :root{
+    --blue:#4169E1; --blue2:#6384ff; --indigo:#6938ef;
+    --slate:#1e293b; --slate2:#0f172a; --ink:#101828;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:40px 22px 80px;
+    background:#0b0e16; color:#e7ebf3;
+    font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+  }
+  h1{font-size:1.15rem;font-weight:800;letter-spacing:.01em;margin:0 0 4px}
+  .sub{color:#8a93a8;font-size:.86rem;margin:0 0 34px}
+  .wrap{max-width:920px;margin:0 auto}
+  .variant{margin-bottom:34px}
+  .vlabel{
+    display:flex;align-items:center;gap:10px;margin:0 0 10px;
+    font-size:.8rem;font-weight:700;color:#aab3c7;text-transform:uppercase;letter-spacing:.08em;
+  }
+  .vlabel b{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:7px;background:var(--blue);color:#fff;
+    font-size:.78rem;font-weight:800;
+  }
+  .vlabel .note{color:#6f7892;font-weight:600;text-transform:none;letter-spacing:0;font-size:.78rem}
+
+  /* modal frame */
+  .modal{
+    border-radius:16px; overflow:hidden;
+    background:#141925; box-shadow:0 24px 60px -20px rgba(0,0,0,.7);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .body-hint{
+    padding:16px 20px 18px; display:grid; grid-template-columns:repeat(4,1fr); gap:12px;
+  }
+  .body-hint .cell{height:34px;border-radius:9px;background:rgba(255,255,255,.04);}
+
+  /* shared header bits */
+  .hd{position:relative; display:flex; align-items:center; justify-content:space-between; gap:14px;
+      padding:16px 18px;}
+  .hd-left{display:flex;align-items:center;gap:14px;min-width:0}
+  .ic{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .ic svg{width:22px;height:22px}
+  .txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .kick{font-size:.66rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+  .num{font-size:1.22rem;font-weight:800;line-height:1.1;color:#fff;white-space:nowrap}
+  .btn{flex:none;display:inline-flex;align-items:center;gap:.45rem;
+       padding:.6rem 1rem;border-radius:11px;font-size:.85rem;font-weight:700;
+       text-decoration:none;cursor:pointer;border:1px solid transparent;transition:.15s}
+  .btn svg{width:17px;height:17px}
+  .x{flex:none;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+     border:none;cursor:pointer;font-size:1.1rem;line-height:1}
+
+  /* ============ V1 — Blue accent line (slate band, brand-blue bottom) ============ */
+  .v1 .hd{background:var(--slate)}
+  .v1 .hd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,var(--blue),var(--blue2))}
+  .v1 .ic{background:#fff;color:var(--slate);box-shadow:0 3px 10px rgba(0,0,0,.3)}
+  .v1 .kick{color:#8ea2c4}
+  .v1 .btn{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+    box-shadow:0 6px 16px -6px rgba(65,105,225,.7)}
+  .v1 .x{background:rgba(255,255,255,.1);color:#cbd5e1}
+
+  /* ============ V2 — Indigo glow + ghost button ============ */
+  .v2 .hd{background:radial-gradient(120% 160% at 12% 0%,rgba(99,132,255,.28),transparent 55%),var(--slate)}
+  .v2 .ic{background:rgba(99,132,255,.18);color:#9db4ff;border:1px solid rgba(99,132,255,.4)}
+  .v2 .kick{color:#9db4ff}
+  .v2 .btn{background:rgba(255,255,255,.07);border-color:rgba(157,180,255,.45);color:#dbe4ff}
+  .v2 .btn:hover{background:rgba(255,255,255,.13)}
+  .v2 .x{background:rgba(255,255,255,.08);color:#cbd5e1}
+
+  /* ============ V3 — Blue left rail ============ */
+  .v3 .hd{background:var(--slate);padding-left:22px}
+  .v3 .hd::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+    background:linear-gradient(180deg,var(--blue),var(--blue2))}
+  .v3 .ic{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+    box-shadow:0 4px 12px -3px rgba(65,105,225,.7)}
+  .v3 .kick{color:#7e8aa6}
+  .v3 .btn{background:#fff;color:var(--slate)}
+  .v3 .btn:hover{background:#eef1f6}
+  .v3 .x{background:rgba(255,255,255,.1);color:#cbd5e1}
+
+  /* ============ V4 — Light / clean (oq band, brand-blue urg'u) ============ */
+  .v4 .modal{background:#fff;border-color:#e6e9ef}
+  .v4 .hd{background:#fff}
+  .v4 .hd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:#eceff5}
+  .v4 .ic{background:rgba(65,105,225,.1);color:var(--blue)}
+  .v4 .kick{color:#8a93a8}
+  .v4 .num{color:var(--ink)}
+  .v4 .btn{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+    box-shadow:0 6px 16px -6px rgba(65,105,225,.6)}
+  .v4 .x{background:#f1f3f7;color:#667085}
+  .v4 .body-hint .cell{background:#f4f6fa}
+
+  /* ============ V5 — Brand gradient band ============ */
+  .v5 .hd{background:linear-gradient(120deg,var(--blue) 0%,#5570e8 45%,var(--indigo) 100%)}
+  .v5 .ic{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);
+    backdrop-filter:blur(4px)}
+  .v5 .kick{color:rgba(255,255,255,.78)}
+  .v5 .btn{background:#fff;color:var(--blue)}
+  .v5 .btn:hover{background:#eef1ff}
+  .v5 .x{background:rgba(255,255,255,.18);color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>«Накладная» modal header — 5 variant</h1>
+  <p class="sub">Hammasi brand palitrasida: royal-blue #4169E1 → #6384ff + slate #1e293b. Kamalak yo'q.
+     Yoqqanini ayting (raqami bilan), o'shani modalga qo'yaman.</p>
+
+  <!-- V1 -->
+  <div class="variant v1">
+    <div class="vlabel"><b>1</b> Blue accent line <span class="note">— slate band + pastda nozik ko'k chiziq, to'liq ko'k tugma</span></div>
+    <div class="modal">
+      <div class="hd">
+        <div class="hd-left">
+          <div class="ic">{{IC}}</div>
+          <div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div>
+        </div>
+        <a class="btn">{{PR}}<span>Akt отправки</span></a>
+        <button class="x">✕</button>
+      </div>
+      <div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    </div>
+  </div>
+
+  <!-- V2 -->
+  <div class="variant v2">
+    <div class="vlabel"><b>2</b> Indigo glow <span class="note">— burchakdan ko'k yog'du, shaffof (ghost) ramkali tugma</span></div>
+    <div class="modal">
+      <div class="hd">
+        <div class="hd-left">
+          <div class="ic">{{IC}}</div>
+          <div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div>
+        </div>
+        <a class="btn">{{PR}}<span>Akt отправки</span></a>
+        <button class="x">✕</button>
+      </div>
+      <div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    </div>
+  </div>
+
+  <!-- V3 -->
+  <div class="variant v3">
+    <div class="vlabel"><b>3</b> Blue left rail <span class="note">— chap chetda ko'k vertikal chiziq, gradient ikonka</span></div>
+    <div class="modal">
+      <div class="hd">
+        <div class="hd-left">
+          <div class="ic">{{IC}}</div>
+          <div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div>
+        </div>
+        <a class="btn">{{PR}}<span>Akt отправки</span></a>
+        <button class="x">✕</button>
+      </div>
+      <div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    </div>
+  </div>
+
+  <!-- V4 -->
+  <div class="variant v4">
+    <div class="vlabel"><b>4</b> Light / clean <span class="note">— oq band, ko'k ikonka + ko'k tugma (yorug' sahifalarga mos)</span></div>
+    <div class="modal">
+      <div class="hd">
+        <div class="hd-left">
+          <div class="ic">{{IC}}</div>
+          <div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div>
+        </div>
+        <a class="btn">{{PR}}<span>Akt отправки</span></a>
+        <button class="x">✕</button>
+      </div>
+      <div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    </div>
+  </div>
+
+  <!-- V5 -->
+  <div class="variant v5">
+    <div class="vlabel"><b>5</b> Brand gradient band <span class="note">— butun band ko'k→indigo gradient, oq tugma</span></div>
+    <div class="modal">
+      <div class="hd">
+        <div class="hd-left">
+          <div class="ic">{{IC}}</div>
+          <div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div>
+        </div>
+        <a class="btn">{{PR}}<span>Akt отправки</span></a>
+        <button class="x">✕</button>
+      </div>
+      <div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // SVG'larni bir joydan in'ektsiya qilamiz (takror yozmaslik uchun)
+  var IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  var PR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  document.body.innerHTML = document.body.innerHTML.split('{{IC}}').join(IC).split('{{PR}}').join(PR);
+</script>
+</body>
+</html>

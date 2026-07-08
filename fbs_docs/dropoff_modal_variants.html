@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qabul punktlari — modal variantlari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#4169E1; --brand2:#6384ff;
+  --ink:#101828; --muted:#667085;
+  --line:#E6E6EC; --soft:#FBFBFD;
+  --amber:#f59e0b; --green:#10b981;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:var(--ink);padding:34px 18px 120px}
+.page-title{max-width:880px;margin:0 auto 6px;font-size:1.5rem;font-weight:800}
+.page-sub{max-width:880px;margin:0 auto 38px;color:var(--muted);font-size:.92rem}
+.variant{max-width:880px;margin:0 auto 64px}
+.vlabel{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.vlabel .num{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-weight:800;font-size:.95rem}
+.vlabel h2{margin:0;font-size:1.08rem;font-weight:800}
+.vlabel p{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
+.stage{border-radius:26px;padding:34px 22px;display:flex;justify-content:center;
+  background:radial-gradient(1200px 500px at 50% -10%, rgba(65,105,225,.25), rgba(16,24,40,.55) 70%),#3a4257}
+
+/* ============ shared modal bones ============ */
+.modal{width:min(720px,100%);max-height:760px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.scroll{overflow-y:auto}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(102,112,133,.35);border-radius:99px}
+button{font-family:inherit;cursor:pointer}
+
+/* =====================================================
+   V1 — SOFT CLASSIC (joriy buyurtmalar dizayniga eng yaqin)
+===================================================== */
+.v1 .modal{background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(16,24,40,.45)}
+.v1 .head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.v1 .head .ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:1.05rem;
+  background:#eef2ff;color:var(--brand)}
+.v1 .head h3{margin:0;font-size:1.05rem;font-weight:800;flex:1}
+.v1 .head .sub{display:block;font-size:.76rem;font-weight:500;color:var(--muted);margin-top:2px}
+.v1 .x{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:#fff;
+  font-size:1.05rem;color:var(--muted);transition:.15s}
+.v1 .x:hover{background:#f4f5f9;color:var(--ink)}
+.v1 .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line)}
+.v1 .seg{display:inline-flex;background:#f1f2f6;border-radius:12px;padding:4px;gap:4px}
+.v1 .seg button{border:0;background:transparent;padding:7px 16px;border-radius:9px;
+  font-size:.85rem;font-weight:700;color:var(--muted);transition:.15s}
+.v1 .seg button.on{background:#fff;color:var(--brand);box-shadow:0 2px 8px rgba(16,24,40,.10)}
+.v1 .geo{margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:12px;
+  border:1px solid #dbe3ff;background:#eef2ff;color:var(--brand);font-size:.85rem;font-weight:700;transition:.15s}
+.v1 .geo:hover{background:#e2e9ff}
+.v1 .filters{display:flex;gap:12px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--line)}
+.v1 .sw{display:inline-flex;align-items:center;gap:9px;font-size:.85rem;font-weight:600}
+.v1 .tr{width:38px;height:22px;border-radius:99px;background:linear-gradient(135deg,var(--brand),var(--brand2));position:relative}
+.v1 .tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.v1 .hint{width:18px;height:18px;border-radius:50%;background:#f1f2f6;color:var(--muted);
+  font-size:.72rem;font-weight:700;display:grid;place-items:center;cursor:help}
+.v1 .geo-ok{margin-left:auto;font-size:.78rem;font-weight:600;color:#047857;background:#ecfdf5;
+  border:1px solid #a7f3d0;padding:4px 11px;border-radius:99px}
+.v1 .search{display:flex;align-items:center;gap:9px;margin:12px 20px 4px;padding:9px 14px;
+  border:1px solid var(--line);border-radius:14px;background:var(--soft);color:var(--muted);font-size:.88rem}
+.v1 .body{padding:12px 20px 18px}
+.v1 .card{border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px;
+  background:#fff;transition:.15s}
+.v1 .card:hover{border-color:#c9d4ff;box-shadow:0 6px 18px rgba(65,105,225,.10);transform:translateY(-1px)}
+.v1 .card.fav{border-color:#fcd34d;background:#fffdf5}
+.v1 .row1{display:flex;align-items:flex-start;gap:10px}
+.v1 .star{border:0;background:transparent;font-size:1.15rem;color:#d0d3dd;padding:0;line-height:1.3}
+.v1 .star.on{color:var(--amber)}
+.v1 .addr{flex:1;font-weight:700;font-size:.93rem;line-height:1.35}
+.v1 .addr small{display:block;font-weight:500;color:var(--muted);font-size:.79rem;margin-top:3px}
+.v1 .row2{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
+.v1 .pill{padding:4px 11px;border-radius:99px;font-size:.79rem;font-weight:700}
+.v1 .p-dist{background:#eef2ff;color:var(--brand)}
+.v1 .p-near{background:linear-gradient(135deg,#10b981,#34d399);color:#fff}
+.v1 .p-act{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.v1 .p-tot{background:#f1f2f6;color:var(--muted);font-weight:600}
+.v1 .acts{margin-left:auto;display:flex;gap:7px}
+.v1 .b-slot{border:1px solid #dbe3ff;background:#fff;color:var(--brand);padding:5px 13px;
+  border-radius:10px;font-size:.8rem;font-weight:700;transition:.15s}
+.v1 .b-slot:hover{background:#eef2ff}
+.v1 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:5px 13px;
+  border-radius:10px;font-size:.8rem;font-weight:600;transition:.15s}
+.v1 .b-copy:hover{background:#f4f5f9;color:var(--ink)}
+.v1 .slots{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);display:flex;gap:7px;flex-wrap:wrap}
+.v1 .slot{background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;padding:5px 12px;border-radius:9px;
+  font-size:.79rem;font-weight:700}
+
+/* =====================================================
+   V2 — FLOATING GLASS (shisha sarlavha, gradient nur)
+===================================================== */
+.v2 .modal{border-radius:22px;background:linear-gradient(180deg,#f7f8fc, #fff 30%);
+  box-shadow:0 30px 80px rgba(16,24,40,.55), 0 0 0 1px rgba(255,255,255,.55) inset}
+.v2 .glass{position:sticky;top:0;z-index:3;backdrop-filter:blur(16px);background:rgba(255,255,255,.72);
+  border-bottom:1px solid rgba(230,230,236,.9);padding:16px 22px 14px}
+.v2 .hrow{display:flex;align-items:center;gap:12px}
+.v2 .orb{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;color:#fff;font-size:1.05rem;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 6px 16px rgba(65,105,225,.45)}
+.v2 h3{margin:0;flex:1;font-size:1.08rem;font-weight:800}
+.v2 h3 small{display:block;font-size:.76rem;font-weight:500;color:var(--muted);margin-top:1px}
+.v2 .x{width:34px;height:34px;border-radius:50%;border:0;background:rgba(16,24,40,.06);color:var(--muted);
+  font-size:1.1rem;transition:.15s}
+.v2 .x:hover{background:rgba(16,24,40,.12);color:var(--ink)}
+.v2 .toolrow{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.v2 .seg{display:inline-flex;background:rgba(16,24,40,.06);border-radius:99px;padding:4px;gap:2px}
+.v2 .seg button{border:0;background:transparent;padding:7px 17px;border-radius:99px;
+  font-size:.84rem;font-weight:700;color:var(--muted);transition:.15s}
+.v2 .seg button.on{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;
+  box-shadow:0 4px 12px rgba(65,105,225,.4)}
+.v2 .geo{margin-left:auto;display:inline-flex;align-items:center;gap:7px;border:0;padding:8px 16px;border-radius:99px;
+  background:rgba(65,105,225,.1);color:var(--brand);font-weight:700;font-size:.84rem;transition:.15s}
+.v2 .geo:hover{background:rgba(65,105,225,.18)}
+.v2 .search{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 16px;border-radius:99px;
+  background:#fff;border:1px solid var(--line);box-shadow:0 2px 10px rgba(16,24,40,.05);
+  color:var(--muted);font-size:.88rem}
+.v2 .chips{display:flex;gap:8px;align-items:center;margin-top:11px}
+.v2 .chip-t{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+  padding:6px 13px;border-radius:99px;font-size:.8rem;font-weight:700;color:var(--ink)}
+.v2 .dot{width:26px;height:15px;border-radius:99px;background:linear-gradient(135deg,var(--brand),var(--brand2));position:relative}
+.v2 .dot i{position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:#fff}
+.v2 .chip-geo{font-size:.78rem;color:#047857;font-weight:600}
+.v2 .body{padding:14px 22px 20px}
+.v2 .card{position:relative;border-radius:18px;padding:15px 17px;margin-bottom:11px;background:#fff;
+  border:1px solid var(--line);overflow:hidden;transition:.18s}
+.v2 .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,var(--brand),var(--brand2));opacity:0;transition:.18s}
+.v2 .card:hover{border-color:#c9d4ff;box-shadow:0 10px 26px rgba(65,105,225,.13);transform:translateY(-1px)}
+.v2 .card:hover::before{opacity:1}
+.v2 .card.fav::before{opacity:1;background:linear-gradient(180deg,#f59e0b,#fbbf24)}
+.v2 .top{display:flex;gap:11px;align-items:flex-start}
+.v2 .star{border:0;background:transparent;font-size:1.2rem;color:#d0d3dd;padding:0}
+.v2 .star.on{color:var(--amber)}
+.v2 .addr{flex:1;font-weight:700;font-size:.93rem;line-height:1.35}
+.v2 .shops{margin-top:5px;display:flex;gap:5px}
+.v2 .shop{font-size:.72rem;font-weight:800;letter-spacing:.4px;padding:2px 9px;border-radius:7px;
+  background:#eef2ff;color:var(--brand)}
+.v2 .dist{flex:0 0 auto;text-align:right}
+.v2 .dist b{display:block;font-size:1.02rem;font-weight:800;color:var(--brand)}
+.v2 .dist span{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.v2 .near{display:inline-block;margin-top:4px;background:linear-gradient(135deg,#10b981,#34d399);color:#fff;
+  font-size:.69rem;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.3px}
+.v2 .bottom{display:flex;align-items:center;gap:8px;margin-top:12px}
+.v2 .pill{padding:4px 11px;border-radius:99px;font-size:.78rem;font-weight:700}
+.v2 .p-act{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.v2 .p-tot{background:#f1f2f6;color:var(--muted)}
+.v2 .acts{margin-left:auto;display:flex;gap:7px}
+.v2 .b-slot{border:0;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;
+  padding:6px 15px;border-radius:99px;font-size:.79rem;font-weight:700;box-shadow:0 4px 10px rgba(65,105,225,.3);transition:.15s}
+.v2 .b-slot:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(65,105,225,.4)}
+.v2 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:6px 14px;
+  border-radius:99px;font-size:.79rem;font-weight:600}
+.v2 .b-copy:hover{background:#f4f5f9}
+.v2 .slots{margin-top:12px;padding:11px;border-radius:13px;background:#f7f9ff;display:flex;gap:7px;flex-wrap:wrap}
+.v2 .slot{background:#fff;border:1px solid #c9d4ff;color:var(--brand);padding:5px 12px;border-radius:99px;
+  font-size:.78rem;font-weight:700}
+
+/* =====================================================
+   V3 — AURORA BANNER (gradientli sarlavha-banner)
+===================================================== */
+.v3 .modal{background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(16,24,40,.55)}
+.v3 .banner{position:relative;padding:20px 24px 56px;color:#fff;overflow:hidden;
+  background:linear-gradient(120deg,#3b5bdb 0%,#4169E1 40%,#7c5cff 100%)}
+.v3 .banner::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(420px 180px at 85% -20%, rgba(255,255,255,.35), transparent 60%)}
+.v3 .brow{position:relative;z-index:1;display:flex;align-items:center;gap:13px}
+.v3 .bico{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:1.15rem;
+  background:rgba(255,255,255,.18);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3)}
+.v3 h3{margin:0;flex:1;font-size:1.12rem;font-weight:800}
+.v3 h3 small{display:block;font-size:.78rem;font-weight:500;opacity:.85;margin-top:2px}
+.v3 .x{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.14);color:#fff;font-size:1.05rem;transition:.15s}
+.v3 .x:hover{background:rgba(255,255,255,.28)}
+.v3 .btools{position:relative;z-index:1;display:flex;gap:9px;align-items:center;margin-top:15px;flex-wrap:wrap}
+.v3 .seg{display:inline-flex;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+  border-radius:12px;padding:3px;gap:3px;backdrop-filter:blur(4px)}
+.v3 .seg button{border:0;background:transparent;padding:7px 15px;border-radius:9px;
+  font-size:.83rem;font-weight:700;color:rgba(255,255,255,.85);transition:.15s}
+.v3 .seg button.on{background:#fff;color:var(--brand)}
+.v3 .geo{margin-left:auto;display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.14);color:#fff;padding:8px 15px;border-radius:12px;
+  font-size:.83rem;font-weight:700;backdrop-filter:blur(4px);transition:.15s}
+.v3 .geo:hover{background:rgba(255,255,255,.26)}
+.v3 .float{position:relative;z-index:2;margin:-34px 24px 0;background:#fff;border-radius:16px;
+  box-shadow:0 10px 30px rgba(16,24,40,.14);border:1px solid var(--line);padding:6px 14px;
+  display:flex;align-items:center;gap:10px}
+.v3 .float .ic{color:var(--muted)}
+.v3 .float .ph{flex:1;color:var(--muted);font-size:.89rem;padding:9px 0}
+.v3 .float .kbd{font-size:.7rem;font-weight:700;color:var(--muted);background:#f1f2f6;
+  border:1px solid var(--line);padding:3px 7px;border-radius:6px}
+.v3 .matchrow{display:flex;align-items:center;gap:10px;padding:13px 24px 4px}
+.v3 .sw{display:inline-flex;align-items:center;gap:9px;font-size:.85rem;font-weight:600}
+.v3 .tr{width:40px;height:23px;border-radius:99px;background:linear-gradient(135deg,#4169E1,#7c5cff);position:relative}
+.v3 .tr i{position:absolute;top:2px;left:19px;width:19px;height:19px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.v3 .geo-ok{margin-left:auto;font-size:.78rem;color:#047857;font-weight:600}
+.v3 .body{padding:10px 24px 20px}
+.v3 .card{display:flex;gap:14px;border:1px solid var(--line);border-radius:18px;padding:15px 17px;
+  margin-bottom:11px;transition:.18s;background:#fff}
+.v3 .card:hover{border-color:#cbb8ff;box-shadow:0 10px 28px rgba(124,92,255,.13);transform:translateY(-1px)}
+.v3 .card.fav{background:linear-gradient(135deg,#fffbeb,#fff);border-color:#fcd34d}
+.v3 .medal{flex:0 0 auto;width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+  background:linear-gradient(135deg,#eef2ff,#f3efff);color:var(--brand);font-weight:800;font-size:.82rem;
+  flex-direction:column;line-height:1.1;text-align:center}
+.v3 .medal b{font-size:.95rem}
+.v3 .medal span{font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase}
+.v3 .mid{flex:1;min-width:0}
+.v3 .addr{font-weight:700;font-size:.93rem;line-height:1.35}
+.v3 .meta{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.v3 .shop{font-size:.72rem;font-weight:800;letter-spacing:.4px;padding:2px 9px;border-radius:7px;
+  background:#f3efff;color:#7c5cff}
+.v3 .pill{padding:3px 10px;border-radius:99px;font-size:.76rem;font-weight:700}
+.v3 .p-act{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.v3 .p-tot{background:#f1f2f6;color:var(--muted)}
+.v3 .p-near{background:linear-gradient(135deg,#10b981,#34d399);color:#fff}
+.v3 .right{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.v3 .star{border:0;background:transparent;font-size:1.15rem;color:#d0d3dd;padding:0}
+.v3 .star.on{color:var(--amber)}
+.v3 .btns{display:flex;gap:7px}
+.v3 .b-slot{border:0;background:linear-gradient(135deg,#4169E1,#7c5cff);color:#fff;padding:6px 14px;
+  border-radius:11px;font-size:.78rem;font-weight:700;box-shadow:0 4px 10px rgba(92,82,255,.3)}
+.v3 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:6px 12px;
+  border-radius:11px;font-size:.78rem;font-weight:600}
+.v3 .slots{width:100%;margin-top:11px;display:flex;gap:7px;flex-wrap:wrap}
+.v3 .slot{background:#f3efff;border:1px solid #ddd0ff;color:#6d28d9;padding:5px 12px;border-radius:9px;
+  font-size:.78rem;font-weight:700}
+
+/* =====================================================
+   V4 — RAIL (chap panel + ro'yxat, keng)
+===================================================== */
+.v4 .modal{width:min(820px,100%);background:#fff;border-radius:20px;flex-direction:row;
+  box-shadow:0 30px 80px rgba(16,24,40,.55)}
+.v4 .rail{flex:0 0 228px;background:var(--soft);border-right:1px solid var(--line);
+  padding:20px 18px;display:flex;flex-direction:column;gap:18px}
+.v4 .rico{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:1.1rem;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 6px 14px rgba(65,105,225,.4)}
+.v4 .rtitle{font-weight:800;font-size:1rem;line-height:1.3;margin-top:-6px}
+.v4 .rtitle small{display:block;font-weight:500;font-size:.76rem;color:var(--muted);margin-top:3px}
+.v4 .group label{display:block;font-size:.68rem;font-weight:800;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.v4 .vseg{display:flex;flex-direction:column;gap:6px}
+.v4 .vseg button{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fff;
+  padding:9px 12px;border-radius:11px;font-size:.84rem;font-weight:700;color:var(--muted);text-align:left;transition:.15s}
+.v4 .vseg button.on{border-color:var(--brand);background:#eef2ff;color:var(--brand)}
+.v4 .vseg button:hover:not(.on){background:#f4f5f9}
+.v4 .geo{display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed #b9c6f5;
+  background:#fff;color:var(--brand);padding:9px 10px;border-radius:11px;font-size:.82rem;font-weight:700;transition:.15s}
+.v4 .geo:hover{background:#eef2ff}
+.v4 .geo-ok{font-size:.74rem;color:#047857;font-weight:600;text-align:center;margin-top:6px}
+.v4 .sw{display:flex;align-items:center;gap:9px;font-size:.8rem;font-weight:600;line-height:1.3}
+.v4 .tr{flex:0 0 auto;width:36px;height:21px;border-radius:99px;background:linear-gradient(135deg,var(--brand),var(--brand2));position:relative}
+.v4 .tr i{position:absolute;top:2px;left:17px;width:17px;height:17px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.v4 .main{flex:1;display:flex;flex-direction:column;min-width:0}
+.v4 .mhead{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.v4 .search{flex:1;display:flex;align-items:center;gap:9px;padding:9px 14px;border:1px solid var(--line);
+  border-radius:12px;background:var(--soft);color:var(--muted);font-size:.87rem}
+.v4 .count{font-size:.78rem;font-weight:700;color:var(--brand);background:#eef2ff;
+  padding:5px 11px;border-radius:99px}
+.v4 .x{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:#fff;
+  color:var(--muted);font-size:1.05rem;transition:.15s}
+.v4 .x:hover{background:#f4f5f9}
+.v4 .body{padding:13px 20px 18px}
+.v4 .card{border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px;transition:.15s}
+.v4 .card:hover{border-color:#c9d4ff;box-shadow:0 6px 16px rgba(65,105,225,.1)}
+.v4 .card.fav{border-color:#fcd34d;background:#fffdf5}
+.v4 .r1{display:flex;gap:9px;align-items:flex-start}
+.v4 .star{border:0;background:transparent;font-size:1.1rem;color:#d0d3dd;padding:0}
+.v4 .star.on{color:var(--amber)}
+.v4 .addr{flex:1;font-weight:700;font-size:.9rem;line-height:1.35}
+.v4 .addr small{display:block;font-weight:500;font-size:.77rem;color:var(--muted);margin-top:2px}
+.v4 .dist{font-weight:800;color:var(--brand);font-size:.92rem;white-space:nowrap}
+.v4 .r2{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap}
+.v4 .pill{padding:3px 10px;border-radius:99px;font-size:.76rem;font-weight:700}
+.v4 .p-act{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.v4 .p-tot{background:#f1f2f6;color:var(--muted)}
+.v4 .p-near{background:#10b981;color:#fff}
+.v4 .acts{margin-left:auto;display:flex;gap:6px}
+.v4 .b-slot{border:1px solid #dbe3ff;background:#eef2ff;color:var(--brand);padding:4px 12px;
+  border-radius:9px;font-size:.78rem;font-weight:700}
+.v4 .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);padding:4px 11px;
+  border-radius:9px;font-size:.78rem;font-weight:600}
+.v4 .slots{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;gap:6px;flex-wrap:wrap}
+.v4 .slot{background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;padding:4px 11px;border-radius:8px;
+  font-size:.76rem;font-weight:700}
+
+/* =====================================================
+   V5 — COMPACT PRO (zich ro'yxat, divider'lar)
+===================================================== */
+.v5 .modal{background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(16,24,40,.5)}
+.v5 .head{padding:15px 20px 0}
+.v5 .hrow{display:flex;align-items:center;gap:11px}
+.v5 .hico{font-size:1.15rem}
+.v5 h3{margin:0;flex:1;font-size:1.02rem;font-weight:800}
+.v5 .x{width:30px;height:30px;border-radius:9px;border:0;background:#f1f2f6;color:var(--muted);
+  font-size:1rem;transition:.15s}
+.v5 .x:hover{background:#e6e7ee;color:var(--ink)}
+.v5 .ctrl{display:flex;gap:8px;align-items:center;margin-top:13px;flex-wrap:wrap}
+.v5 .tab{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:99px;
+  font-size:.81rem;font-weight:700;color:var(--muted);transition:.15s}
+.v5 .tab.on{border-color:var(--brand);background:var(--brand);color:#fff}
+.v5 .tab:hover:not(.on){border-color:#c9d4ff;color:var(--brand)}
+.v5 .sep{width:1px;height:20px;background:var(--line)}
+.v5 .tgl{display:inline-flex;align-items:center;gap:7px;border:1px solid #a7f3d0;background:#ecfdf5;
+  padding:6px 13px;border-radius:99px;font-size:.79rem;font-weight:700;color:#047857}
+.v5 .geo{margin-left:auto;border:0;background:transparent;color:var(--brand);font-size:.81rem;
+  font-weight:700;display:inline-flex;gap:6px;align-items:center}
+.v5 .geo:hover{text-decoration:underline}
+.v5 .search{display:flex;align-items:center;gap:9px;margin:12px 0 0;padding:9px 14px;
+  border-bottom:2px solid var(--brand);background:linear-gradient(180deg,transparent,#f7f9ff);
+  color:var(--muted);font-size:.88rem}
+.v5 .body{padding:0 0 10px}
+.v5 .row{display:flex;align-items:center;gap:12px;padding:13px 20px;border-bottom:1px solid #f0f1f5;transition:.12s}
+.v5 .row:hover{background:#f8faff}
+.v5 .row.fav{background:#fffcf2}
+.v5 .row.fav:hover{background:#fff8e6}
+.v5 .star{border:0;background:transparent;font-size:1.1rem;color:#d0d3dd;padding:0;flex:0 0 auto}
+.v5 .star.on{color:var(--amber)}
+.v5 .info{flex:1;min-width:0}
+.v5 .addr{font-weight:700;font-size:.89rem;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v5 .sub{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:.76rem;color:var(--muted)}
+.v5 .shop{font-weight:800;font-size:.69rem;letter-spacing:.4px;background:#eef2ff;color:var(--brand);
+  padding:1px 8px;border-radius:6px}
+.v5 .stats{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+.v5 .pill{padding:3px 9px;border-radius:99px;font-size:.74rem;font-weight:700}
+.v5 .p-dist{background:#eef2ff;color:var(--brand)}
+.v5 .p-act{background:var(--amber);color:#1a1300}
+.v5 .p-tot{background:#f1f2f6;color:var(--muted)}
+.v5 .p-near{background:#10b981;color:#fff}
+.v5 .mini{display:flex;gap:5px;flex:0 0 auto}
+.v5 .mbtn{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:#fff;
+  color:var(--muted);font-size:.85rem;display:grid;place-items:center;transition:.15s}
+.v5 .mbtn:hover{border-color:var(--brand);color:var(--brand);background:#eef2ff}
+.v5 .expand{padding:11px 20px 13px;background:#f8faff;border-bottom:1px solid #f0f1f5;
+  display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.v5 .expand .lbl{font-size:.74rem;font-weight:700;color:var(--muted);margin-right:3px}
+.v5 .slot{background:#fff;border:1px solid #c9d4ff;color:var(--brand);padding:4px 11px;border-radius:8px;
+  font-size:.76rem;font-weight:700}
+.v5 .foot{padding:11px 20px 14px;display:flex;justify-content:space-between;align-items:center;
+  font-size:.77rem;color:var(--muted)}
+.v5 .foot b{color:var(--brand)}
+</style>
+</head>
+<body>
+
+<div class="page-title">📍 Qabul punktlari — 5 ta dizayn varianti</div>
+<div class="page-sub">FBS/DBS «Soft» dizayn tiliga mos: brend ko'k #4169E1, yumshoq radiuslar, Inter. Har bir variantda: manba tab'lari, geolokatsiya, «Faqat mos keladigan» toggle, qidiruv, punkt kartalari va slotlar.</div>
+
+<!-- ================= VARIANT 1 ================= -->
+<div class="variant v1">
+  <div class="vlabel">
+    <div class="num">1</div>
+    <div><h2>Soft Classic</h2><p>Joriy buyurtmalar sahifasiga eng yaqin: oq karta, segment-tab, yumshoq pill'lar</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <div class="ico">📍</div>
+      <h3>Qabul punktlari<span class="sub">2 ta buyurtma uchun punkt tanlang</span></h3>
+      <button class="x">✕</button>
+    </div>
+    <div class="tools">
+      <div class="seg">
+        <button class="on">Mening punktlarim</button>
+        <button>Uzum'dan to'liq</button>
+      </div>
+      <button class="geo">🧭 Joylashuvni yangilash</button>
+    </div>
+    <div class="filters">
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <span class="hint">?</span>
+      <span class="geo-ok">✓ Joylashuv aniqlandi — yaqinlar tepada</span>
+    </div>
+    <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)</div>
+    <div class="body scroll">
+      <div class="card">
+        <div class="row1">
+          <button class="star">★</button>
+          <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy
+            <small>Do'konlar: LUXUZ</small></div>
+        </div>
+        <div class="row2">
+          <span class="pill p-dist">5.6 km</span>
+          <span class="pill p-near">ENG YAQIN</span>
+          <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+        <div class="slots">
+          <span class="slot">Bugun 14:00–16:00</span>
+          <span class="slot">Bugun 16:00–18:00</span>
+          <span class="slot">Ertaga 10:00–12:00</span>
+        </div>
+      </div>
+      <div class="card fav">
+        <div class="row1">
+          <button class="star on">★</button>
+          <div class="addr">Toshkent sh., Yunusobod tumani, Kashgar dahasi, 1 uy
+            <small>Do'konlar: BLUMMY</small></div>
+        </div>
+        <div class="row2">
+          <span class="pill p-dist">5.6 km</span>
+          <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row1">
+          <button class="star">★</button>
+          <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy
+            <small>Do'konlar: BLUMMY</small></div>
+        </div>
+        <div class="row2">
+          <span class="pill p-dist">6.3 km</span>
+          <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 2 ================= -->
+<div class="variant v2">
+  <div class="vlabel">
+    <div class="num">2</div>
+    <div><h2>Floating Glass</h2><p>Shisha (blur) yopishqoq sarlavha, gradient tab va tugmalar — header dizayni bilan hamohang</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="glass">
+      <div class="hrow">
+        <div class="orb">📍</div>
+        <h3>Qabul punktlari<small>Tanlangan: 2 ta buyurtma · LUXUZ, BLUMMY</small></h3>
+        <button class="x">✕</button>
+      </div>
+      <div class="toolrow">
+        <div class="seg">
+          <button class="on">Mening punktlarim</button>
+          <button>Uzum'dan to'liq</button>
+        </div>
+        <button class="geo">🧭 Joylashuvni yangilash</button>
+      </div>
+      <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+      <div class="chips">
+        <span class="chip-t"><span class="dot"><i></i></span>Faqat mos keladigan</span>
+        <span class="chip-geo">✓ Joylashuv aniqlandi — yaqin punktlar tepada</span>
+      </div>
+    </div>
+    <div class="body scroll">
+      <div class="card">
+        <div class="top">
+          <button class="star">★</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+            <div class="shops"><span class="shop">LUXUZ</span></div>
+          </div>
+          <div class="dist"><b>5.6 km</b><span>masofa</span><br><span class="near">ENG YAQIN</span></div>
+        </div>
+        <div class="bottom">
+                    <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+        <div class="slots">
+          <span class="slot">Bugun 14:00–16:00</span>
+          <span class="slot">Bugun 16:00–18:00</span>
+          <span class="slot">Ertaga 10:00–12:00</span>
+        </div>
+      </div>
+      <div class="card fav">
+        <div class="top">
+          <button class="star on">★</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Yunusobod tumani, Kashgar dahasi, 1 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span></div>
+          </div>
+          <div class="dist"><b>5.6 km</b><span>masofa</span></div>
+        </div>
+        <div class="bottom">
+                    <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="top">
+          <button class="star">★</button>
+          <div style="flex:1">
+            <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+            <div class="shops"><span class="shop">BLUMMY</span></div>
+          </div>
+          <div class="dist"><b>6.3 km</b><span>masofa</span></div>
+        </div>
+        <div class="bottom">
+                              <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 3 ================= -->
+<div class="variant v3">
+  <div class="vlabel">
+    <div class="num">3</div>
+    <div><h2>Aurora Banner</h2><p>Gradientli banner-sarlavha (ko'k→binafsha), «suzuvchi» qidiruv paneli, masofa-medal</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="banner">
+      <div class="brow">
+        <div class="bico">📍</div>
+        <h3>Qabul punktlari<small>2 ta buyurtma · punktni tanlang yoki manzilni nusxalang</small></h3>
+        <button class="x">✕</button>
+      </div>
+      <div class="btools">
+        <div class="seg">
+          <button class="on">Mening punktlarim</button>
+          <button>Uzum'dan to'liq</button>
+        </div>
+        <button class="geo">🧭 Joylashuvni yangilash</button>
+      </div>
+    </div>
+    <div class="float">
+      <span class="ic">🔎</span>
+      <span class="ph">Manzil yoki do'kon bo'yicha qidirish…</span>
+      <span class="kbd">Ctrl K</span>
+    </div>
+    <div class="matchrow">
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <span class="geo-ok">✓ Joylashuv aniqlandi</span>
+    </div>
+    <div class="body scroll">
+      <div class="card">
+        <div class="medal"><b>5.6</b><span>km</span></div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+          <div class="meta">
+            <span class="shop">LUXUZ</span>
+            <span class="pill p-near">ENG YAQIN</span>
+                      </div>
+        </div>
+        <div class="right">
+          <button class="star">★</button>
+          <div class="btns"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+        </div>
+        <div class="slots">
+          <span class="slot">Bugun 14:00–16:00</span>
+          <span class="slot">Bugun 16:00–18:00</span>
+          <span class="slot">Ertaga 10:00–12:00</span>
+        </div>
+      </div>
+      <div class="card fav">
+        <div class="medal"><b>5.6</b><span>km</span></div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Yunusobod tumani, Kashgar dahasi, 1 uy</div>
+          <div class="meta"><span class="shop">BLUMMY</span><span class="pill p-tot">Σ 1</span></div>
+        </div>
+        <div class="right">
+          <button class="star on">★</button>
+          <div class="btns"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="medal"><b>6.3</b><span>km</span></div>
+        <div class="mid">
+          <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div class="meta">
+            <span class="shop">BLUMMY</span>
+                                  </div>
+        </div>
+        <div class="right">
+          <button class="star">★</button>
+          <div class="btns"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 4 ================= -->
+<div class="variant v4">
+  <div class="vlabel">
+    <div class="num">4</div>
+    <div><h2>Rail — ikki ustunli</h2><p>Chap panelda barcha filtrlar, o'ngda toza ro'yxat; kengroq (820px) modal</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="rail">
+      <div class="rico">📍</div>
+      <div class="rtitle">Qabul punktlari<small>2 ta buyurtma uchun</small></div>
+      <div class="group">
+        <label>Manba</label>
+        <div class="vseg">
+          <button class="on">🏪 Mening punktlarim</button>
+          <button>🌐 Uzum'dan to'liq</button>
+        </div>
+      </div>
+      <div class="group">
+        <label>Joylashuv</label>
+        <button class="geo">🧭 Yangilash</button>
+        <div class="geo-ok">✓ Aniqlandi — yaqinlar tepada</div>
+      </div>
+      <div class="group">
+        <label>Filtr</label>
+        <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      </div>
+    </div>
+    <div class="main">
+      <div class="mhead">
+        <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+        <span class="count">4 ta punkt</span>
+        <button class="x">✕</button>
+      </div>
+      <div class="body scroll">
+        <div class="card">
+          <div class="r1">
+            <button class="star">★</button>
+            <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy
+              <small>Do'konlar: LUXUZ</small></div>
+            <span class="dist">5.6 km</span>
+          </div>
+          <div class="r2">
+            <span class="pill p-near">ENG YAQIN</span>
+                        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+          </div>
+          <div class="slots">
+            <span class="slot">Bugun 14:00–16:00</span>
+            <span class="slot">Bugun 16:00–18:00</span>
+            <span class="slot">Ertaga 10:00–12:00</span>
+          </div>
+        </div>
+        <div class="card fav">
+          <div class="r1">
+            <button class="star on">★</button>
+            <div class="addr">Toshkent sh., Yunusobod tumani, Kashgar dahasi, 1 uy
+              <small>Do'konlar: BLUMMY</small></div>
+            <span class="dist">5.6 km</span>
+          </div>
+          <div class="r2">
+                        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="r1">
+            <button class="star">★</button>
+            <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy
+              <small>Do'konlar: BLUMMY</small></div>
+            <span class="dist">6.3 km</span>
+          </div>
+          <div class="r2">
+                                    <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="r1">
+            <button class="star">★</button>
+            <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a
+              <small>Do'konlar: BLUMMY, LUXUZ</small></div>
+            <span class="dist">7.1 km</span>
+          </div>
+          <div class="r2">
+                        <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">Nusxalash</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 5 ================= -->
+<div class="variant v5">
+  <div class="vlabel">
+    <div class="num">5</div>
+    <div><h2>Compact Pro</h2><p>Zich qatorli ro'yxat — ko'p punktda ham tez ko'z yuguradi; ikonka-tugmalar, inline slotlar</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <div class="hrow">
+        <span class="hico">📍</span>
+        <h3>Qabul punktlari</h3>
+        <button class="x">✕</button>
+      </div>
+      <div class="ctrl">
+        <button class="tab on">Mening punktlarim</button>
+        <button class="tab">Uzum'dan to'liq</button>
+        <span class="sep"></span>
+        <span class="tgl">✓ Faqat mos keladigan</span>
+        <button class="geo">🧭 Joylashuvni yangilash</button>
+      </div>
+      <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)</div>
+    </div>
+    <div class="body scroll">
+      <div class="row">
+        <button class="star">★</button>
+        <div class="info">
+          <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+          <div class="sub"><span class="shop">LUXUZ</span></div>
+        </div>
+        <div class="stats">
+          <span class="pill p-near">ENG YAQIN</span>
+          <span class="pill p-dist">5.6 km</span>
+                  </div>
+        <div class="mini"><button class="mbtn" title="Slotlar">🕐</button><button class="mbtn" title="Nusxalash">📋</button></div>
+      </div>
+      <div class="expand">
+        <span class="lbl">SLOTLAR:</span>
+        <span class="slot">Bugun 14:00–16:00</span>
+        <span class="slot">Bugun 16:00–18:00</span>
+        <span class="slot">Ertaga 10:00–12:00</span>
+      </div>
+      <div class="row fav">
+        <button class="star on">★</button>
+        <div class="info">
+          <div class="addr">Toshkent sh., Yunusobod tumani, Kashgar dahasi, 1 uy</div>
+          <div class="sub"><span class="shop">BLUMMY</span></div>
+        </div>
+        <div class="stats">
+          <span class="pill p-dist">5.6 km</span>
+                  </div>
+        <div class="mini"><button class="mbtn">🕐</button><button class="mbtn">📋</button></div>
+      </div>
+      <div class="row">
+        <button class="star">★</button>
+        <div class="info">
+          <div class="addr">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div class="sub"><span class="shop">BLUMMY</span></div>
+        </div>
+        <div class="stats">
+          <span class="pill p-dist">6.3 km</span>
+                            </div>
+        <div class="mini"><button class="mbtn">🕐</button><button class="mbtn">📋</button></div>
+      </div>
+      <div class="row">
+        <button class="star">★</button>
+        <div class="info">
+          <div class="addr">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          <div class="sub"><span class="shop">BLUMMY</span><span class="shop">LUXUZ</span></div>
+        </div>
+        <div class="stats">
+          <span class="pill p-dist">7.1 km</span>
+                  </div>
+        <div class="mini"><button class="mbtn">🕐</button><button class="mbtn">📋</button></div>
+      </div>
+      <div class="foot"><span>✓ Joylashuv aniqlandi — yaqin punktlar tepada</span><span><b>4</b> ta punkt topildi</span></div>
+    </div>
+  </div></div>
+</div>
+
+</body>
+</html>

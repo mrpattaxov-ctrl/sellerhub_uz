@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import base64
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, Response, render_template, request, session
 from flask_login import current_user, login_required
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from extensions import SessionLocal
 from models import FbsOrder, Shop, User, Variant, ProductGroup
@@ -52,45 +53,401 @@ from core.fbs_data import (
     FBS_ORDER_STATUSES,
     FBS_ORDER_SCHEMES,
 )
+# Bosqich 5f — DB label cache (instant bulk print, fed by the sync worker's
+# background warm). See core/fbs_label_cache.py + models.py::FbsOrderLabel.
+from core.fbs_label_cache import get_cached_label, store_label, fetch_label_live
+# Bosqich 2 (async bulk-confirm) — Redis-backed per-job progress so the
+# browser polls instead of holding a ~60s request open. See core/fbs_bulk_jobs.py.
+from core.fbs_bulk_jobs import new_job, get_job, record_result, finish_job
 
 
-# ── Uzum error code → UZ user-facing message ─────────────────────────
+def _warm_labels_async(token, user_id, order_ids):
+    """Fire-and-forget: warm the label cache for orders we JUST confirmed.
+
+    The moment an order is confirmed (CREATED→PACKING) its label becomes
+    available and immutable (verified 2026-06-12), so we fetch it RIGHT AWAY on
+    a background thread — the seller's later "Yorliq" print is then instant
+    without waiting up to 10 min for the sync-worker warm. Paced (1s/token gate)
+    and best-effort: any miss just falls back to the periodic sync warm. Runs off
+    the request thread so it never delays the confirm response.
+    """
+    ids = [str(i) for i in (order_ids or [])]
+    if not token or not user_id or not ids:
+        return
+
+    def _run():
+        for oid in ids:
+            try:
+                if get_cached_label(user_id, oid, size="LARGE") is not None:
+                    continue
+                pdf = fetch_label_live(token, oid, size="LARGE")
+                if pdf:
+                    store_label(user_id, oid, "LARGE", pdf)
+            except Exception as e:
+                print(f"[label-warm-onconfirm] order {oid}: {e!r}")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+# ── Uzum error code → bilingual user-facing message ──────────────────
 # Keys mirror the ``seller-order-NN`` codes Uzum returns in errors[].
-# When Uzum returns an unknown code we fall back to the raw Russian
-# message Uzum sent; if that's also empty, a generic "HTTP {n}" string.
-FBS_ERROR_MESSAGES_UZ: dict[str, str] = {
-    "seller-order-01": "Buyurtma topilmadi",
-    "seller-order-02": "Bu harakatga buyurtma statusi mos kelmaydi",
-    "seller-order-03": "Tasdiqlash muddati o'tib ketgan",
-    "seller-order-05": "Mahsulot uchun identifikator turi belgilanmagan",
-    "seller-order-06": "Juda ko'p identifikator yuborildi",
-    "seller-order-07": "Identifikator qiymati noto'g'ri",
-    "seller-order-08": "Identifikator boshqa SKU'ga tegishli",
-    "seller-order-09": "Identifikator turi ko'rsatilmagan",
-    "seller-order-10": "Ombor (WMS) tomondan kutilmagan xato",
-    "seller-order-11": "Identifikator xizmati vaqtincha ishlamayapti, keyinroq urinib ko'ring",
-    "seller-order-12": "Bekor qilish sababi noto'g'ri",
-    "seller-order-13": "Buyurtma allaqachon bekor qilingan",
-    "seller-order-14": "Etiketka xizmati vaqtincha ishlamayapti, keyinroq urinib ko'ring",
-    "seller-order-15": "Buyurtma uchun identifikatorlar yetishmaydi",
-    "seller-order-36": "Buyurtma pozitsiyasi topilmadi",
-    # ── Stage 3 DBS-specific error codes ───────────────────────────
-    "seller-order-37": "Tasdiqlash kodi topilmadi — mijoz oldidagi kodni kiriting",
-    "seller-order-38": "Tasdiqlash kodi noto'g'ri",
-    "seller-order-39": "Tasdiqlash kodi noto'g'ri — birozdan keyin qayta urinib ko'ring",
-    "fbs-18-invalid-order-type": "Bu amal faqat DBS buyurtmalar uchun",
-    # ── Bosqich 7 (накладная) error codes ─────────────────────────────
-    "seller-order-19": "Накладная topilmadi (avval yaratilmagan)",
-    "seller-order-23": "Tanlangan vaqt slot mavjud emas — boshqa slot tanlang",
-    "seller-order-04": "Накладная pozitsiyasi topilmadi",
-    "fbs-2-seller-access-denied": "Sotuvchida bu amal uchun ruxsat yo'q",
-    "fbs-19-time-is-up": "Yetkazib berish muddati o'tib ketgan",
-    "fbs-20-incompatible-dimensional-groups": "Buyurtmalar gabarit guruhi mos kelmaydi",
-    "fbs-24-invoice-wrong-order-status": (
-        "Ba'zi buyurtmalar holati o'zgargan (allaqachon boshqa накладная ichiga tushgan?) — "
-        "«Yangilash» tugmasini bosing va qayta urinib ko'ring"
-    ),
+# Sub-dicts are keyed by session language ("uz"/"ru"). When Uzum returns
+# an unknown code we fall back to the raw Russian message Uzum sent; if
+# that's also empty, a generic "HTTP {n}" string (also localized).
+FBS_ERROR_MESSAGES: dict[str, dict[str, str]] = {
+    "uz": {
+        "seller-order-01": "Buyurtma topilmadi",
+        "seller-order-02": "Bu harakatga buyurtma statusi mos kelmaydi",
+        "seller-order-03": "Tasdiqlash muddati o'tib ketgan",
+        "seller-order-05": "Mahsulot uchun identifikator turi belgilanmagan",
+        "seller-order-06": "Juda ko'p identifikator yuborildi",
+        "seller-order-07": "Identifikator qiymati noto'g'ri",
+        "seller-order-08": "Identifikator boshqa SKU'ga tegishli",
+        "seller-order-09": "Identifikator turi ko'rsatilmagan",
+        "seller-order-10": "Ombor (WMS) tomondan kutilmagan xato",
+        "seller-order-11": "Identifikator xizmati vaqtincha ishlamayapti, keyinroq urinib ko'ring",
+        "seller-order-12": "Bekor qilish sababi noto'g'ri",
+        "seller-order-13": "Buyurtma allaqachon bekor qilingan",
+        "seller-order-14": "Yorliq xizmati vaqtincha ishlamayapti, keyinroq urinib ko'ring",
+        "seller-order-15": "Buyurtma uchun identifikatorlar yetishmaydi",
+        "seller-order-36": "Buyurtma pozitsiyasi topilmadi",
+        # ── Stage 3 DBS-specific error codes ───────────────────────────
+        "seller-order-37": "Tasdiqlash kodi topilmadi — mijoz oldidagi kodni kiriting",
+        "seller-order-38": "Tasdiqlash kodi noto'g'ri",
+        "seller-order-39": "Tasdiqlash kodi noto'g'ri — birozdan keyin qayta urinib ko'ring",
+        "fbs-18-invalid-order-type": "Bu amal faqat DBS buyurtmalar uchun",
+        # ── Bosqich 7 (накладная) error codes ─────────────────────────────
+        "seller-order-19": "Yuk xati topilmadi (avval yaratilmagan)",
+        "seller-order-23": "Tanlangan vaqt slot mavjud emas — boshqa slot tanlang",
+        "seller-order-04": "Yuk xati pozitsiyasi topilmadi",
+        "fbs-2-seller-access-denied": "Sotuvchida bu amal uchun ruxsat yo'q",
+        "fbs-19-time-is-up": "Yetkazib berish muddati o'tib ketgan",
+        "fbs-20-incompatible-dimensional-groups": "Buyurtmalar gabarit guruhi mos kelmaydi",
+        "fbs-24-invoice-wrong-order-status": (
+            "Ba'zi buyurtmalar holati o'zgargan (allaqachon boshqa yuk xati ichiga tushgan?) — "
+            "«Yangilash» tugmasini bosing va qayta urinib ko'ring"
+        ),
+    },
+    "ru": {
+        "seller-order-01": "Заказ не найден",
+        "seller-order-02": "Статус заказа не подходит для этого действия",
+        "seller-order-03": "Срок подтверждения истёк",
+        "seller-order-05": "Для товара не задан тип идентификатора",
+        "seller-order-06": "Отправлено слишком много идентификаторов",
+        "seller-order-07": "Неверное значение идентификатора",
+        "seller-order-08": "Идентификатор принадлежит другому SKU",
+        "seller-order-09": "Тип идентификатора не указан",
+        "seller-order-10": "Непредвиденная ошибка со стороны склада (WMS)",
+        "seller-order-11": "Сервис идентификаторов временно недоступен, повторите позже",
+        "seller-order-12": "Неверная причина отмены",
+        "seller-order-13": "Заказ уже отменён",
+        "seller-order-14": "Сервис этикеток временно недоступен, повторите позже",
+        "seller-order-15": "Для заказа не хватает идентификаторов",
+        "seller-order-36": "Позиция заказа не найдена",
+        # ── Stage 3 DBS-specific error codes ───────────────────────────
+        "seller-order-37": "Код подтверждения не найден — введите код, который у клиента",
+        "seller-order-38": "Неверный код подтверждения",
+        "seller-order-39": "Неверный код подтверждения — повторите чуть позже",
+        "fbs-18-invalid-order-type": "Это действие доступно только для заказов DBS",
+        # ── Bosqich 7 (накладная) error codes ─────────────────────────────
+        "seller-order-19": "Накладная не найдена (ещё не создана)",
+        "seller-order-23": "Выбранный временной слот недоступен — выберите другой слот",
+        "seller-order-04": "Позиция накладной не найдена",
+        "fbs-2-seller-access-denied": "У продавца нет прав на это действие",
+        "fbs-19-time-is-up": "Срок доставки истёк",
+        "fbs-20-incompatible-dimensional-groups": "Габаритные группы заказов несовместимы",
+        "fbs-24-invoice-wrong-order-status": (
+            "Статус некоторых заказов изменился (возможно, уже попали в другую накладную) — "
+            "нажмите «Обновить» и повторите попытку"
+        ),
+    },
 }
+
+
+# ── Recurring inline action error strings → bilingual ────────────────
+# Every full-Uzbek ``{"error": "..."}`` a seller can hit on the FBS/DBS
+# action endpoints, keyed by a short snake_case key. ``{}`` placeholders
+# are filled via ``_err(key, **fmt)`` (str.format). Russian translations
+# match the page-level localization already shipped.
+ACTION_ERRORS: dict[str, dict[str, str]] = {
+    "uz": {
+        "token_not_set": "Uzum OpenAPI token o'rnatilmagan",
+        "token_not_set_long": "Uzum OpenAPI token o'rnatilmagan. «Mening do'konlarim» (/fetch) sahifasidan tokenni kiriting.",
+        "seller_id_missing": "Uzum seller ID hali aniqlanmagan — moliya sinxroni bir marta ishlashi kerak",
+        "order_not_found_or_denied": "Buyurtma topilmadi yoki ruxsat yo'q",
+        "pick_cancel_reason": "Bekor qilish sababini tanlang",
+        "id_list_empty": "Identifikator ro'yxati bo'sh",
+        "order_ids_empty": "order_ids ro'yxati bo'sh yoki noto'g'ri",
+        "order_ids_no_valid": "order_ids ro'yxatida yaroqli ID yo'q",
+        "bulk_limit": "Bir martada {n} tadan ko'p buyurtma tanlash mumkin emas",
+        "orders_not_found_synced": "Buyurtmalar topilmadi yoki sinxronlanmagan: {sample}",
+        "order_no_access": "Buyurtmaga ruxsat yo'q: №{oid}",
+        "no_item": "tovar yo'q",
+        "no_labels": "Birorta yorliq olinmadi: {first_err}",
+        "pdf_merge_error": "PDF birlashtirishda xato (pypdf merge)",
+        "only_created_confirm": "Faqat CREATED holatdagi buyurtmalarni tasdiqlash mumkin",
+        "bulk_job_unknown": "Jarayon topilmadi (muddati o'tgan yoki mavjud emas)",
+        "field_required": "{field} majburiy",
+        "no_shop": "Sizda biron do'kon topilmadi",
+        "some_orders_not_yours": "Ba'zi buyurtmalar topilmadi yoki sizga tegishli emas",
+        "mixed_shops_invoice": "Bitta yuk xati ichiga turli do'konlardan buyurtmalarni qo'shib bo'lmaydi",
+        "only_packing_invoice": "Faqat «Yig'ilmoqda» (PACKING) buyurtmalar yuk xati ichiga qo'shiladi. Xato: {n} ta",
+        "seller_id_undetected": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q yoki Uzum vaqtincha javob bermadi). Birozdan keyin qayta urinib ko'ring yoki «Mening do'konlarim» sahifasida ?sId=<N> ni kiriting.",
+        "seller_id_undetected_short": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q). «Mening do'konlarim» sahifasida Uzum kabinet URL'idagi ?sId=<N> qiymatini kiriting.",
+        "invoice_fetch_error": "Yuk xati ma'lumotini olishda xatolik — birozdan keyin qayta urinib ko'ring",
+        "invoice_not_yours": "Bu yuk xati sizning do'konlaringizga tegishli emas",
+        "invoice_no_orders": "Bu yuk xati uchun buyurtmalar topilmadi (yoki sizga tegishli emas)",
+        "no_invoice_selected": "Yuk xati tanlanmadi",
+        "bulk_akt_limit": "Bir vaqtda {n} tagacha akt birlashtiriladi. Kamroq tanlang.",
+        "no_akt_loaded": "Hech bir akt yuklanmadi. Birozdan keyin urinib ko'ring.",
+        "no_sku_to_update": "Yangilash uchun SKU yuborilmadi",
+        "ownership_check_failed": "Egalik tekshiruvi vaqtincha ishlamadi, qayta urinib ko'ring",
+        "no_valid_sku": "Yangilash uchun yaroqli SKU topilmadi",
+        "foreign_sku_update": "{n} ta SKU sizning do'konlaringizga tegishli emas — yangilash rad etildi",
+        "foreign_sku_save": "{n} ta SKU sizning do'konlaringizga tegishli emas — saqlash rad etildi",
+        "no_file": "Fayl yuborilmadi",
+        "only_xlsx": "Faqat .xlsx fayl qabul qilinadi",
+        "file_unreadable": "Faylni o'qib bo'lmadi — format noto'g'ri",
+        "no_valid_rows": "Faylda yaroqli qator topilmadi",
+        "no_changes_to_save": "Saqlash uchun o'zgarish yo'q",
+        "issue_code_numeric": "Tasdiqlash kodi raqam bo'lishi kerak",
+    },
+    "ru": {
+        "token_not_set": "Токен Uzum OpenAPI не задан",
+        "token_not_set_long": "Токен Uzum OpenAPI не задан. Введите токен на странице «Мои магазины» (/fetch).",
+        "seller_id_missing": "Uzum seller ID ещё не определён — должна один раз отработать синхронизация финансов",
+        "order_not_found_or_denied": "Заказ не найден или нет доступа",
+        "pick_cancel_reason": "Выберите причину отмены",
+        "id_list_empty": "Список идентификаторов пуст",
+        "order_ids_empty": "Список order_ids пуст или некорректен",
+        "order_ids_no_valid": "В списке order_ids нет ни одного корректного ID",
+        "bulk_limit": "За один раз нельзя выбрать более {n} заказов",
+        "orders_not_found_synced": "Заказы не найдены или не синхронизированы: {sample}",
+        "order_no_access": "Нет доступа к заказу: №{oid}",
+        "no_item": "нет товара",
+        "no_labels": "Не удалось получить ни одной этикетки: {first_err}",
+        "pdf_merge_error": "Ошибка объединения PDF (pypdf merge)",
+        "only_created_confirm": "Подтверждать можно только заказы в статусе CREATED",
+        "bulk_job_unknown": "Процесс не найден (истёк или не существует)",
+        "field_required": "{field} обязателен",
+        "no_shop": "У вас не найдено ни одного магазина",
+        "some_orders_not_yours": "Некоторые заказы не найдены или не принадлежат вам",
+        "mixed_shops_invoice": "Нельзя добавлять в одну накладную заказы из разных магазинов",
+        "only_packing_invoice": "В накладную можно добавить только заказы в статусе «Сборка» (PACKING). Ошибка: {n} шт.",
+        "seller_id_undetected": "ID продавца не определился автоматически (данных finance пока нет или Uzum временно не ответил). Повторите чуть позже или укажите ?sId=<N> на странице «Мои магазины».",
+        "seller_id_undetected_short": "ID продавца не определился автоматически (данных finance пока нет). Укажите значение ?sId=<N> из URL кабинета Uzum на странице «Мои магазины».",
+        "invoice_fetch_error": "Ошибка при получении данных накладной — повторите чуть позже",
+        "invoice_not_yours": "Эта накладная не принадлежит вашим магазинам",
+        "invoice_no_orders": "Для этой накладной заказы не найдены (или не принадлежат вам)",
+        "no_invoice_selected": "Накладная не выбрана",
+        "bulk_akt_limit": "За один раз объединяется до {n} актов. Выберите меньше.",
+        "no_akt_loaded": "Не удалось загрузить ни один акт. Повторите чуть позже.",
+        "no_sku_to_update": "Не отправлено ни одного SKU для обновления",
+        "ownership_check_failed": "Проверка принадлежности временно не сработала, повторите попытку",
+        "no_valid_sku": "Не найдено ни одного корректного SKU для обновления",
+        "foreign_sku_update": "{n} SKU не принадлежат вашим магазинам — обновление отклонено",
+        "foreign_sku_save": "{n} SKU не принадлежат вашим магазинам — сохранение отклонено",
+        "no_file": "Файл не отправлен",
+        "only_xlsx": "Принимается только файл .xlsx",
+        "file_unreadable": "Не удалось прочитать файл — неверный формат",
+        "no_valid_rows": "В файле не найдено ни одной корректной строки",
+        "no_changes_to_save": "Нет изменений для сохранения",
+        "issue_code_numeric": "Код подтверждения должен быть числом",
+    },
+}
+
+
+def _session_lang() -> str:
+    """Seller's session language, safe outside a request context (→ "uz")."""
+    try:
+        return session.get("lang", "uz")
+    except Exception:
+        return "uz"
+
+
+def _err(key: str, lang: str | None = None, **fmt) -> str:
+    """Resolve an ACTION_ERRORS key to the seller's language, formatted."""
+    lang = lang or _session_lang()
+    table = ACTION_ERRORS.get(lang, ACTION_ERRORS["uz"])
+    s = table.get(key) or ACTION_ERRORS["uz"].get(key, key)
+    return s.format(**fmt) if fmt else s
+
+
+def _variant_titles(db, allowed_shop_db_ids, *, barcodes=None, sku_ids=None,
+                    lang: str = "uz") -> tuple[dict, dict]:
+    """Localized product titles from our own catalog (``variants``), so the
+    FBS views can show the товар nomi in the seller's chosen language.
+
+    The FBS API only carries a single-language title (and often only the SKU
+    code), but the product sync stores both ``product_title_uz`` and
+    ``product_title_ru`` per variant (Uzum exposes both via Accept-Language).
+    We look those up by barcode and/or ``uzum_sku_id``, restricted at the SQL
+    level to the user's OWN shops (a foreign seller's title can never leak in).
+
+    Returns ``(by_barcode, by_sku_id)`` — both str-keyed, each value a tuple
+    ``(title, ru_color)``. ``title`` is the RU one when ``lang == "ru"`` else
+    UZ (UZ fallback when blank). ``ru_color`` is ``variants.color`` — Uzum's
+    own RU attribute string (e.g. "Черный, 16" / "42, Манго"), used to render
+    the colour value WITHOUT a hand-maintained dictionary. Either filter list
+    may be empty; an empty result means "no local match — keep the caller's".
+    """
+    by_bc: dict[str, tuple] = {}
+    by_sku: dict[str, tuple] = {}
+    if not allowed_shop_db_ids:
+        return by_bc, by_sku
+    bcs = [str(b) for b in (barcodes or []) if b]
+    sids = [str(s) for s in (sku_ids or []) if s]
+    if not (bcs or sids):
+        return by_bc, by_sku
+    key_conds = []
+    if bcs:
+        key_conds.append(Variant.barcode.in_(bcs))
+    if sids:
+        key_conds.append(Variant.uzum_sku_id.in_(sids))
+    rows = db.execute(
+        select(
+            Variant.barcode, Variant.uzum_sku_id,
+            Variant.product_title_uz, Variant.product_title_ru,
+            Variant.color,
+        )
+        .join(ProductGroup, Variant.group_id == ProductGroup.id)
+        .where(ProductGroup.shop_id.in_(allowed_shop_db_ids))
+        .where(or_(*key_conds))
+    ).all()
+    for bc, sku, t_uz, t_ru, color in rows:
+        title = (t_ru if lang == "ru" else t_uz) or t_uz or t_ru
+        if not title:
+            continue
+        val = (title, (color or "").strip())
+        if bc and str(bc) not in by_bc:
+            by_bc[str(bc)] = val
+        if sku and str(sku) not in by_sku:
+            by_sku[str(sku)] = val
+    return by_bc, by_sku
+
+
+import re as _re
+
+# Variant-attribute LABELS Uzum bakes into the SKU title, e.g.
+# "… (O'lcham: 2.5sm)" / "… (Rang: Qora, O'lcham: 17)". When we swap the base
+# name to its RU catalog title we keep this suffix (it's what tells two
+# variants apart) and translate the labels + known colour VALUES. Keys are
+# normalized: apostrophes folded to ASCII «'», lower-cased.
+# Exact-match labels for the non-size / non-colour cases. Size («… o'lcham(i/lari)»,
+# razmer, size) and colour («rang(i)», tsvet, color) are matched by SUBSTRING in
+# _tr_attr_label so EVERY variant works — "Kiyim o'lchami", "Uzuk o'lchamlari",
+# "Poyabzal o'lchami" all → «Размер» without enumerating them.
+_ATTR_LABEL_RU = {
+    "material": "Материал", "materiali": "Материал",
+    "model": "Модель", "modeli": "Модель",
+    "hajm": "Объём", "hajmi": "Объём", "vazn": "Вес", "vazni": "Вес",
+}
+
+
+def _tr_attr_label(label: str) -> str:
+    """Translate a variant-attribute label to RU. Size/colour are matched by
+    substring (handles any "<noun> o'lchami" / "<noun> rangi" form); the rest
+    fall back to an exact map, else verbatim."""
+    ln = _norm_apos(label).strip().lower()
+    # "cham" covers o'lcham / o'lchami / o'lchamlari / kiyim o'lchami AND the
+    # seller's real typo "o'lacham" — all → Размер without enumerating them.
+    if "cham" in ln or "razmer" in ln or ln == "size":
+        return "Размер"
+    if "rang" in ln or "tsvet" in ln or ln in ("color", "cvet"):
+        return "Цвет"
+    return _ATTR_LABEL_RU.get(ln, label.strip())
+# Common Uzbek colour/attribute VALUES → RU (cross-checked against the
+# seller's own RU SKU-code segments: ЧЕРН/ЗОЛОТ/РЫЖИЙ/АЛЫЙ/БЕЖЕВ/ГОЛУБ…).
+# Unknown values are left verbatim — never guessed.
+_ATTR_VALUE_RU = {
+    "qora": "Чёрный", "oq": "Белый", "qizil": "Красный", "ko'k": "Синий",
+    "moviy": "Синий", "havorang": "Голубой", "havo rang": "Голубой",
+    "yashil": "Зелёный", "sariq": "Жёлтый", "to'q sariq": "Оранжевый",
+    "pushti": "Розовый", "binafsha": "Фиолетовый", "jigarrang": "Коричневый",
+    "kulrang": "Серый", "tilla": "Золотой", "tillarang": "Золотой",
+    "oltin": "Золотой", "kumush": "Серебристый", "kumushrang": "Серебристый",
+    "bej": "Бежевый", "bordo": "Бордовый", "alvon": "Алый", "malla": "Рыжий",
+    "indigo": "Индиго", "firuza": "Бирюзовый", "feruza": "Бирюзовый",
+    "gilos": "Вишнёвый", "shaffof": "Прозрачный",
+}
+_APOS_RE = _re.compile("[ʻʼ‘’`´]")
+
+
+def _norm_apos(s: str) -> str:
+    """Fold every apostrophe variant (ʻ ʼ ‘ ’ ` ´) to ASCII «'»."""
+    return _APOS_RE.sub("'", s or "")
+
+
+def _tr_attr_value(v: str) -> str:
+    """Translate a known Uzbek colour value to RU; normalize size units
+    («2.5sm»/«40cm»→«… см», «10mm»→«10 мм»). Unknown values pass through."""
+    key = _norm_apos(v).strip().lower()
+    if key in _ATTR_VALUE_RU:
+        return _ATTR_VALUE_RU[key]
+    out = _re.sub(r"(\d[\d.,]*)\s*(?:sm|cm)\b", r"\1 см", v.strip(), flags=_re.IGNORECASE)
+    out = _re.sub(r"(\d[\d.,]*)\s*mm\b", r"\1 мм", out, flags=_re.IGNORECASE)
+    return out
+
+
+# A size-like token inside variants.color: a pure number, a number+unit
+# (2.5sm / 10мм / 3.5см / 40cm), or a clothing size (S/M/L/XL/2XL/XXXL…).
+# These are dropped so only the colour word(s) remain — independent of how the
+# size is formatted in the FBS suffix (sm vs см mismatch no longer matters).
+_SIZE_TOKEN_RE = _re.compile(
+    r"^(?:\d+(?:[.,]\d+)?\s*(?:sm|cm|см|mm|мм)?|xs|s|m|l|xl|xxl|xxxl|\d+xl)$",
+    _re.IGNORECASE,
+)
+
+
+def _ru_color_value(uz_value: str, ru_color: str) -> str:
+    """RU colour value, preferring Uzum's own ``variants.color`` string.
+
+    ``ru_color`` (e.g. "Черный, 16" / "42, Манго" / "Золотой, 10мм") bundles
+    colour + size in any order/format. We drop every size-like token and keep
+    the rest → the pure RU colour, for ANY colour Uzum knows (no hand list).
+    Falls back to the small ``_ATTR_VALUE_RU`` map, then the verbatim value.
+    """
+    if ru_color:
+        kept = [t.strip() for t in ru_color.split(",")
+                if t.strip() and not _SIZE_TOKEN_RE.match(t.strip())]
+        if kept:
+            return ", ".join(kept)
+    key = _norm_apos(uz_value).strip().lower()
+    return _ATTR_VALUE_RU.get(key, _tr_attr_value(uz_value))
+
+
+def _localize_product_title(orig: str, ru_base: str | None,
+                            ru_color: str = "", lang: str = "uz") -> str:
+    """Localized product title for an item.
+
+    UZ (or no RU match) → the ORIGINAL FBS title verbatim (never a regression;
+    the FBS title already carries the per-variant suffix). RU → the RU catalog
+    base name + the trailing "(Label: value, …)" attribute suffix, kept so
+    size/colour variants stay distinguishable. Labels are translated by
+    substring; the COLOUR value comes from Uzum's own ``variants.color``
+    (``ru_color``) with the size tokens stripped; sizes stay verbatim
+    («Nsm»→«N см»). Handles multiple comma-separated attrs + any apostrophe.
+    """
+    orig = orig or ""
+    if lang != "ru" or not ru_base:
+        return orig
+    # Last parenthetical (no nested parens) at the very end = the attr suffix.
+    m = _re.search(r"\s*\(([^()]*)\)\s*$", orig)
+    if not m or ":" not in m.group(1):
+        return ru_base
+    out = []
+    for chunk in m.group(1).split(","):
+        if ":" not in chunk:
+            out.append(_tr_attr_value(chunk.strip()))
+            continue
+        label, _, value = chunk.partition(":")
+        label, value = label.strip(), value.strip()
+        ln = _norm_apos(label).lower()
+        if "rang" in ln or "tsvet" in ln or ln in ("color", "cvet"):
+            out.append(f"{_tr_attr_label(label)}: {_ru_color_value(value, ru_color)}")
+        else:
+            out.append(f"{_tr_attr_label(label)}: {_tr_attr_value(value)}")
+    return f"{ru_base} ({', '.join(out)})"
 
 
 # ── List-page i18n bundle (Stage 4d) ─────────────────────────────────
@@ -126,8 +483,8 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "bulk_btn_print_qr":         "QR chop etish",
         "bulk_btn_print_with_qr":    "Yorliq + tovar QR",
         "bulk_btn_print_qr_with_label": "QR + Yorliq",
-        "bulk_btn_postavka":         "Postavka yaratish",
-        "bulk_postavka_hint":        "Tanlangan buyurtmalar uchun postavka (накладная) yaratish — qabul punkti va vaqt tanlanadi",
+        "bulk_btn_postavka":         "Yuk xati yaratish",
+        "bulk_postavka_hint":        "Tanlangan buyurtmalar uchun yuk xati yaratish — qabul punkti va vaqt tanlanadi",
         # Drop-off points modal
         "dropoff_btn":               "Qabul punktlari",
         "dropoff_btn_hint":          "Buyurtmalarni qaysi Uzum punktiga olib borish kerakligini ko'rish",
@@ -159,24 +516,30 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "dropoff_slots_empty":       "Bu punktda hozir bo'sh slot yo'q",
         "dropoff_slots_no_orders":   "Slot olish uchun avval CREATED buyurtmani tasdiqlang",
         "dropoff_slots_fail":        "Slotlarni olishda xato",
-        "dropoff_search_ph":         "Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)",
+        "dropoff_search_ph":         "Manzil bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)",
         "dropoff_search_empty":      "Bu qidiruv bo'yicha hech qaysi punkt topilmadi:",
-        "dropoff_slot_click_hint":   "Накладная yaratish uchun bosing",
+        "dropoff_slot_click_hint":   "Yuk xati yaratish uchun bosing",
         "dropoff_match_only":        "Faqat mos keladigan",
         "dropoff_match_hint":        "Tanlangan buyurtmalar uchun mos vaqtlarnigina ko'rsatamiz. Hammasini ko'rish uchun — filtrni o'chiring",
         "invoice_no_dop":            "Punkt tanlanmagan",
         "invoice_no_packing":        "Yig'ilmoqda holatidagi buyurtma yo'q. Avval CREATED ni tasdiqlang.",
         "invoice_confirm_prompt":    "{n} ta buyurtmani {point} punktiga {slot} vaqtga jo'natamiz. Tasdiqlaysizmi?",
-        "invoice_mode_created":      "Накладная yaratildi",
-        "invoice_mode_updated":      "Накладная yangilandi",
-        "invoice_create_fail":       "Накладная yaratishda xato",
-        "invoice_multi_shop_warn":   "Faqat {n} ta buyurtma yuborilmoqda (do'kon bo'yicha eng katta guruh). Boshqa {other} ta buyurtma alohida накладная ichiga ketadi.",
+        "invoice_mode_created":      "Yuk xati yaratildi",
+        "invoice_mode_updated":      "Yuk xati yangilandi",
+        "invoice_create_fail":       "Yuk xati yaratishda xato",
+        "invoice_multi_shop_warn":   "Faqat {n} ta buyurtma yuborilmoqda (do'kon bo'yicha eng katta guruh). Boshqa {other} ta buyurtma alohida yuk xati ichiga ketadi.",
         "dropoff_geo_unavailable":   "Joylashuv ma'lumoti mavjud emas (GPS/internet?)",
         "dropoff_geo_timeout":       "Joylashuvni aniqlash juda uzoq cho'zildi",
         "dropoff_dist_hint":         "Sizdan to'g'ri masofa (havoda)",
         "dropoff_nearest":           "EN YAQIN",
         "dropoff_fav_add":           "Sevimli sifatida belgilash",
         "dropoff_fav_remove":        "Sevimlidan olib tashlash",
+        "dropoff_panel_hint":        "Slotlarni ko'rish uchun chapdan punkt tanlang",
+        "dropoff_selected_point":    "Tanlangan punkt",
+        "dropoff_pick_slot":         "Slotni tanlang",
+        "dropoff_confirm_btn":       "Tasdiqlash",
+        "dropoff_cap_hint":          "Bo'sh joy / jami sig'im",
+        "_lang":                     "uz",
         "bulk_qr_size_label":        "QR o'lchami",
         "bulk_qr_size_uzum":         "Yorliq hajmi",
         "bulk_qr_size_hint":         "Tanlangan o'lcham «QR chop etish» va «Yorliq + tovar QR» da bir xil tovar QR yasaydi",
@@ -187,7 +550,7 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "bulk_label_only_packing":   "Yorliq hali tayyor emas — avval buyurtmani tasdiqlang",
         "bulk_confirm_prompt":       "{n} ta buyurtmani ishga olasizmi?",
         "bulk_confirm_title":        "Ishga olish",
-        "invoice_confirm_title":     "Postavka yaratish",
+        "invoice_confirm_title":     "Yuk xati yaratish",
         "confirm_cancel":            "Bekor qilish",
         "bulk_toast_labels_ok":      "ta yorliq tayyorlandi",
         "bulk_toast_labels_partial": "ta yorliq tayyorlandi, {n} tasi xato",
@@ -195,7 +558,161 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "bulk_toast_confirm_ok":     "ta buyurtma tasdiqlandi",
         "bulk_toast_confirm_partial":"ta tasdiqlandi, {n} tasi xato",
         "bulk_toast_confirm_fail":   "Tasdiqlashda xato",
+        # Bosqich 2 — fon (async) bulk-confirm + progress poll
+        "bulk_async_started":        "{n} ta qabulga olindi, bajarilmoqda…",
+        "bulk_async_progress":       "Qabul qilinmoqda… {done}/{total}",
+        "bulk_async_done_ok":        "{n} ta buyurtma qabul qilindi",
+        "bulk_async_done_partial":   "{ok} ta qabul qilindi, {fail} ta xato",
+        "bulk_async_skipped":        "{n} tasi o'tkazib yuborildi (CREATED emas)",
         "bulk_select_all_aria":      "Hammasini tanlash",
+        # ── Orders-page chrome (full RU coverage) ──
+        "page_title_orders":         "Buyurtmalar",
+        "aria_section_fbs":          "FBS bo'limi",
+        "tab_orders":                "Buyurtmalar",
+        "tab_stock":                 "Ombor",
+        "label_shop":                "Do'kon",
+        "opt_no_shop":               "— do'kon yo'q —",
+        "opt_all_shops":             "Hammasi",
+        "label_scheme":              "Sxema",
+        "opt_scheme_all":            "FBS + DBS (hammasi)",
+        "label_page_size":           "Sahifada",
+        "warn_token_pre":            "Uzum Seller OpenAPI tokeni o'rnatilmagan. Buyurtmalarni ko'rish uchun avval",
+        "link_my_shops":             "«Mening do'konlarim»",
+        "warn_token_post":           " sahifasida token kiriting.",
+        "delivery_nav_title":        "Yetkazib berish — yuk xatlari",
+        "delivery_nav":              "Yetkazib berish",
+        "tip_pick_order_first":      "Avval buyurtmani tanlang",
+        "empty_pick_status":         "Buyurtmalarni ko'rish uchun status tanlang.",
+        "more_statuses":             "Boshqa holatlar…",
+        "meta_found":                "Topildi:",
+        "meta_page":                 "Sahifa:",
+        "meta_status":               "Status:",
+        "qr_size_title":             "QR stiker o'lchami (mm)",
+        "qr_size_aria":              "QR stiker o'lchami",
+        "qr_size_uzum_full":         "Uzum (to'liq)",
+        "bulk_yorliq_title":         "Tanlangan buyurtmalar yorlig'ini chop etish",
+        "bulk_yorliq_btn":           "Yorliq",
+        "bulk_qr_title":             "Tanlangan buyurtmalar QR kodini chop etish",
+        "bulk_both_title":           "Yorliq va QR'ni bitta PDF'da chop etish",
+        "bulk_both_btn":             "Yorliq + QR",
+        "akt_download_title":        "Tanlangan aktlarni PDF qilib yuklab olish",
+        "akt_download_btn":          "Yuklab olish",
+        "akt_print_title":           "Tanlangan aktlarni birlashtirib chop etish",
+        "akt_print_btn":             "Jo'natma akti (PDF)",
+        "iframe_order_title":        "Buyurtma",
+        "iframe_invoice_title":      "Yuk xati",
+        "cd_overdue":                "Muddat o'tdi",
+        "cd_hours_left":             "{n} soat qoldi",
+        "cd_minutes_left":           "{n} daq qoldi",
+        "empty_no_orders":           "Buyurtmalar topilmadi.",
+        "empty_no_orders_hint":      "Boshqa status tanlang yoki sxemani o'zgartiring.",
+        "row_sku_prefix":            "SKU: ",
+        "row_barcode_prefix":        "Shtrix: ",
+        "unit_pcs":                  "dona",
+        "deadline_tip":              "Qabul punktiga topshirish muddati",
+        "aria_order_no":             "Buyurtma №",
+        "th_product":                "Mahsulot",
+        "th_scheme":                 "Sxema",
+        "th_created":                "Yaratildi",
+        "th_deadline":               "Muddat",
+        "th_shop":                   "Do'kon",
+        "th_sum":                    "Summa",
+        "prod_collapse":             "Yashirish",
+        "loading":                   "Yuklanmoqda…",
+        "err_prefix":                "Xatolik:",
+        "net_err_prefix":            "Tarmoq xatosi:",
+        "net_err":                   "Tarmoq xatosi.",
+        "uzum_busy":                 "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.",
+        "uzum_busy_short":           "Uzum hozir band. Birozdan keyin urinib ko'ring.",
+        "inv_empty":                 "Yuk xati yo'q.",
+        "inv_empty_hint":            "Jo'natishga tayyor yuk xati topilmadi.",
+        "inv_err_prefix":            "Xato:",
+        "inv_count_tip":             "Qabul qilingan / Jami",
+        "pick_order_first":          "Avval buyurtma belgilang",
+        "no_label_dbs":              "DBS buyurtmaga jo'natma yorlig'i yo'q — QR'dan foydalaning",
+        "dbs_skipped":               "{n} ta DBS o'tkazib yuborildi (yorliq faqat FBS uchun)",
+        "labels_preparing":          "{n} ta yorliq tayyorlanmoqda…",
+        "labels_fetch_err":          "Yorliqlarni olishda xato:",
+        "labels_ready_some_err":     "Yorliqlar tayyor ({n} tasi xato) — chop oynasi ochilmoqda",
+        "print_window_opening":      "Chop oynasi ochilmoqda…",
+        "qr_print_opening":          "QR chop oynasi ochilmoqda…",
+        "shop_not_selected":         "Do'kon tanlanmagan.",
+        "shoppick_count_suffix":     "ta",
+        "no_packing_among_sel":      "Belgilangan buyurtmalar orasida «Yig'ilmoqda» holatidagisi yo'q",
+        "dropoff_match_empty":       "Hozircha mos keladigan punkt yo'q — «Faqat mos keladigan»ni o'chirib barchasini ko'ring.",
+        "slot_overdue":              "⏰ Tanlangan buyurtma(lar)dan birining yetkazish muddati o'tgan — Uzum bunga slot bermaydi. Ro'yxatdan muddati o'tmagan (qizil taymersiz) buyurtmalarni tanlab qayta urinib ko'ring.",
+        # ── Invoices-page chrome (full RU coverage) ──
+        "inv_page_title":            "Yuk xatlari",
+        "inv_intro":                 "Sizning FBS «Yuk xatlari» ro'yxatingiz. Yaratish, qabul holati, bekor qilish va detallarni shu yerdan ko'rasiz. Ma'lumotlar Uzum Seller OpenAPI orqali to'g'ridan-to'g'ri olinadi.",
+        "warn_token_pre_inv":        "Uzum Seller OpenAPI tokeni o'rnatilmagan. Yuk xatlari ro'yxatini ko'rish uchun",
+        "inv_filter_status_aria":    "Status bo'yicha filtr",
+        "inv_status_all":            "Hamma statuslar",
+        "inv_status_created":        "Yaratilgan",
+        "inv_status_acceptance":     "Qabul jarayonida",
+        "inv_status_accepted":       "Qabul qilindi",
+        "inv_status_cancelled":      "Bekor qilindi",
+        "inv_check_all_aria":        "Hammasini belgilash",
+        "th_num":                    "№",
+        "th_date":                   "Sana",
+        "th_stock":                  "Ombor",
+        "th_orders":                 "Buyurtmalar",
+        "th_price":                  "Narx",
+        "th_address":                "Manzil",
+        "th_slot":                   "Slot",
+        "th_status":                 "Status",
+        "pager_prev":                "Oldingi",
+        "pager_next":                "Keyingi",
+        "inv_both_title_full":       "Yorliq va QR'ni bitta PDF'da chop etish (avval jo'natma yorlig'i, keyin har tovar QR)",
+        "row_select_aria":           "Belgilash",
+        "row_unselectable_aria":     "Belgilab bo'lmaydi",
+        "row_unselectable_title":    "Faqat «Yaratilgan» yuk xatlarini belgilab, ko'p akt chop etish mumkin",
+        "uzum_retrying":             "Uzum band — qayta urinilmoqda…",
+        "inv_no_response_strong":    "Uzum javob bermadi.",
+        "inv_try_later":             "Birozdan keyin qayta urinib ko'ring.",
+        "inv_empty_status":          "Bu statusda yuk xatlari yo'q",
+        "inv_no_more":               "Boshqa yuk xatlari yo'q",
+        "inv_refreshing":            "Yangilanmoqda…",
+        "inv_no_items":              "Mahsulot ma'lumotlari topilmadi",
+        "inv_barcode_label":         "Shtrix",
+        "inv_rail_total":            "Jami",
+        "inv_th_dona":               "Dona",
+        "inv_fact_slot":             "Vaqt slot",
+        "inv_fact_created":          "Yaratilgan",
+        "inv_fact_fullsum":          "To'liq summa",
+        "inv_fact_accept_start":     "Qabul boshlandi",
+        "inv_fact_accept_done":      "Qabul tugadi",
+        "inv_akt_short":             "Jo'natma akti",
+        "inv_pickup":                "Qabul punkti",
+        "inv_pickup_edit_title":     "Qabul punkti va vaqt slotini o'zgartirish",
+        "inv_ord_selectall_title":   "Barchasini tanlash",
+        "inv_orders_empty":          "Bu yuk xati uchun buyurtmalar topilmadi (eski yoki sinxron qilinmagan bo'lishi mumkin)",
+        "inv_busy_no_response":      "Uzum javob bermadi (band). Birozdan keyin qayta urinib ko'ring.",
+        "akt_unavailable":           "Akt mavjud emas yoki olishda xato:",
+        "akt_fetch_err":             "Akt olishda xato:",
+        "akt_some_skipped":          "Diqqat: ba'zi aktlar olinmadi (id: {ids}). Qolganlari PDFda. Birozdan keyin qayta urinib ko'ring.",
+        "akt_bulk_cap":              "Bir vaqtda {n} tagacha akt birlashtiriladi. Kamroq tanlang.",
+        "inv_preparing":             "Tayyorlanmoqda…",
+        "inv_overdue_no_slot":       "⏰ Bu buyurtma muddati o'tgan — unga mos slot yo'q.",
+        "inv_show_all_times":        "Hamma vaqtni ko'rsatish",
+        "inv_overdue_short":         "⏰ Buyurtma muddati o'tgan.",
+        "inv_no_active_orders":      "Aktiv buyurtma yo'q",
+        "inv_no_invoice_selected":   "Yuk xati tanlanmagan",
+        "inv_point_not_picked":      "Punkt tanlanmadi",
+        "inv_slot_invalid":          "Bu slot yaroqsiz (uuid yo'q) — boshqa slot tanlang",
+        "inv_change_confirm":        "Yuk xati №{num} qabul punktini «{point}»{slot} ga o'zgartirasizmi?",
+        "dropoff_change_title":      "Qabul punktini o'zgartirish",
+        "dropoff_change_title_pre":  "Qabul punktini ",
+        "dropoff_change_title_grad": "o'zgartirish",
+        "dropoff_change_btn":        "O'zgartirish",
+        "inv_change_err":            "O'zgartirishda xato",
+        "inv_slot_too_late":         "Tanlangan slot juda kech — bu yuk xati uchun ERTAROQ slot tanlang. ",
+        "inv_uzum_busy_retry":       "Uzum hozir band — bir-ikki soniyadan keyin qayta urinib ko'ring.",
+        "inv_pickup_changed":        "✅ Qabul punkti o'zgartirildi",
+        # ── Shop-pick modal (_fbs_shoppick_modal.html) ──
+        "shoppick_title":            "Turli do'kondan buyurtma belgilandi",
+        "shoppick_msg":              "Bitta yuk xati — bitta do'kon uchun. Qaysi do'kon uchun yaratamiz?",
+        "shoppick_cancel":           "Bekor",
+        "shoppick_ok":               "Davom etish",
     },
     "ru": {
         "btn_refresh":        "Обновить",
@@ -258,9 +775,9 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "dropoff_slots_empty":       "Нет свободных слотов",
         "dropoff_slots_no_orders":   "Сначала подтвердите CREATED заказ",
         "dropoff_slots_fail":        "Ошибка загрузки слотов",
-        "dropoff_search_ph":         "Поиск по адресу или магазину… (напр.: Чилонзор, Юнусобод)",
+        "dropoff_search_ph":         "Поиск по адресу… (напр.: Чилонзор, Юнусобод)",
         "dropoff_search_empty":      "По этому запросу ничего не найдено:",
-        "dropoff_slot_click_hint":   "Нажмите чтобы создать накладную",
+        "dropoff_slot_click_hint":   "Нажмите, чтобы создать накладную",
         "dropoff_match_only":        "Только подходящее",
         "dropoff_match_hint":        "Показываем только подходящее время для выбранных заказов. Чтобы увидеть все — отключите фильтр",
         "invoice_no_dop":            "Пункт не выбран",
@@ -276,6 +793,12 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "dropoff_nearest":           "БЛИЖАЙШИЙ",
         "dropoff_fav_add":           "В избранное",
         "dropoff_fav_remove":        "Убрать из избранного",
+        "dropoff_panel_hint":        "Выберите пункт слева, чтобы увидеть слоты",
+        "dropoff_selected_point":    "Выбранный пункт",
+        "dropoff_pick_slot":         "Выберите слот",
+        "dropoff_confirm_btn":       "Подтвердить",
+        "dropoff_cap_hint":          "Свободно / всего мест",
+        "_lang":                     "ru",
         "bulk_qr_size_label":        "Размер QR",
         "bulk_qr_size_uzum":         "Как у этикетки",
         "bulk_qr_size_hint":         "Выбранный размер даёт одинаковый QR товара в «Печать QR» и «Этикетка + QR»",
@@ -294,7 +817,329 @@ LIST_LABELS: dict[str, dict[str, str]] = {
         "bulk_toast_confirm_ok":     "заказов подтверждено",
         "bulk_toast_confirm_partial":"подтверждено, {n} с ошибкой",
         "bulk_toast_confirm_fail":   "Ошибка подтверждения",
+        # Bosqich 2 — фоновое (async) подтверждение + опрос прогресса
+        "bulk_async_started":        "{n} заказ(ов) принято, выполняется…",
+        "bulk_async_progress":       "Подтверждается… {done}/{total}",
+        "bulk_async_done_ok":        "{n} заказ(ов) подтверждено",
+        "bulk_async_done_partial":   "{ok} подтверждено, {fail} с ошибкой",
+        "bulk_async_skipped":        "{n} пропущено (не CREATED)",
         "bulk_select_all_aria":      "Выбрать все",
+        # ── Orders-page chrome (full RU coverage) ──
+        "page_title_orders":         "Заказы",
+        "aria_section_fbs":          "Раздел FBS",
+        "tab_orders":                "Заказы",
+        "tab_stock":                 "Склад",
+        "label_shop":                "Магазин",
+        "opt_no_shop":               "— нет магазинов —",
+        "opt_all_shops":             "Все",
+        "label_scheme":              "Схема",
+        "opt_scheme_all":            "FBS + DBS (все)",
+        "label_page_size":           "На странице",
+        "warn_token_pre":            "Токен Uzum Seller OpenAPI не задан. Чтобы видеть заказы, введите токен на странице",
+        "link_my_shops":             "«Мои магазины»",
+        "warn_token_post":           ".",
+        "delivery_nav_title":        "Поставки — накладные",
+        "delivery_nav":              "Поставки",
+        "tip_pick_order_first":      "Сначала выберите заказ",
+        "empty_pick_status":         "Выберите статус, чтобы увидеть заказы.",
+        "more_statuses":             "Другие статусы…",
+        "meta_found":                "Найдено:",
+        "meta_page":                 "Страница:",
+        "meta_status":               "Статус:",
+        "qr_size_title":             "Размер QR-стикера (мм)",
+        "qr_size_aria":              "Размер QR-стикера",
+        "qr_size_uzum_full":         "Uzum (полностью)",
+        "bulk_yorliq_title":         "Печать этикеток выбранных заказов",
+        "bulk_yorliq_btn":           "Этикетка",
+        "bulk_qr_title":             "Печать QR-кода выбранных заказов",
+        "bulk_both_title":           "Печать этикетки и QR одним PDF",
+        "bulk_both_btn":             "Этикетка + QR",
+        "akt_download_title":        "Скачать выбранные акты в PDF",
+        "akt_download_btn":          "Скачать",
+        "akt_print_title":           "Печать выбранных актов одним документом",
+        "akt_print_btn":             "Акт отправки (PDF)",
+        "iframe_order_title":        "Заказ",
+        "iframe_invoice_title":      "Накладная",
+        "cd_overdue":                "Срок истёк",
+        "cd_hours_left":             "осталось {n} ч",
+        "cd_minutes_left":           "осталось {n} мин",
+        "empty_no_orders":           "Заказы не найдены.",
+        "empty_no_orders_hint":      "Выберите другой статус или измените схему.",
+        "row_sku_prefix":            "SKU: ",
+        "row_barcode_prefix":        "ШК: ",
+        "unit_pcs":                  "шт",
+        "deadline_tip":              "Срок сдачи в пункт приёма",
+        "aria_order_no":             "Заказ №",
+        "th_product":                "Товар",
+        "th_scheme":                 "Схема",
+        "th_created":                "Создан",
+        "th_deadline":               "Срок",
+        "th_shop":                   "Магазин",
+        "th_sum":                    "Сумма",
+        "prod_collapse":             "Скрыть",
+        "loading":                   "Загрузка…",
+        "err_prefix":                "Ошибка:",
+        "net_err_prefix":            "Сетевая ошибка:",
+        "net_err":                   "Сетевая ошибка.",
+        "uzum_busy":                 "Uzum сейчас занят. Повторите через пару секунд.",
+        "uzum_busy_short":           "Uzum сейчас занят. Повторите чуть позже.",
+        "inv_empty":                 "Накладных нет.",
+        "inv_empty_hint":            "Накладные, готовые к отправке, не найдены.",
+        "inv_err_prefix":            "Ошибка:",
+        "inv_count_tip":             "Принято / Всего",
+        "pick_order_first":          "Сначала отметьте заказ",
+        "no_label_dbs":              "У DBS-заказа нет этикетки отправки — используйте QR",
+        "dbs_skipped":               "{n} DBS пропущено (этикетка только для FBS)",
+        "labels_preparing":          "Готовится {n} этикеток…",
+        "labels_fetch_err":          "Ошибка при получении этикеток:",
+        "labels_ready_some_err":     "Этикетки готовы ({n} с ошибкой) — открывается окно печати",
+        "print_window_opening":      "Открывается окно печати…",
+        "qr_print_opening":          "Открывается окно печати QR…",
+        "shop_not_selected":         "Магазин не выбран.",
+        "shoppick_count_suffix":     "шт",
+        "no_packing_among_sel":      "Среди отмеченных заказов нет в статусе «Сборка»",
+        "dropoff_match_empty":       "Подходящих пунктов пока нет — отключите «Только подходящее», чтобы увидеть все.",
+        "slot_overdue":              "⏰ У одного из выбранных заказов истёк срок доставки — Uzum не выдаёт на него слот. Выберите заказы без истёкшего срока (без красного таймера) и повторите.",
+        # ── Invoices-page chrome (full RU coverage) ──
+        "inv_page_title":            "Накладные",
+        "inv_intro":                 "Ваш список FBS «Накладные». Создание, статус приёмки, отмену и детали вы видите здесь. Данные берутся напрямую через Uzum Seller OpenAPI.",
+        "warn_token_pre_inv":        "Токен Uzum Seller OpenAPI не задан. Чтобы видеть список накладных, введите токен на странице",
+        "inv_filter_status_aria":    "Фильтр по статусу",
+        "inv_status_all":            "Все статусы",
+        "inv_status_created":        "Создана",
+        "inv_status_acceptance":     "На приёмке",
+        "inv_status_accepted":       "Принята",
+        "inv_status_cancelled":      "Отменена",
+        "inv_check_all_aria":        "Выбрать все",
+        "th_num":                    "№",
+        "th_date":                   "Дата",
+        "th_stock":                  "Склад",
+        "th_orders":                 "Заказы",
+        "th_price":                  "Цена",
+        "th_address":                "Адрес",
+        "th_slot":                   "Слот",
+        "th_status":                 "Статус",
+        "pager_prev":                "Назад",
+        "pager_next":                "Вперёд",
+        "inv_both_title_full":       "Печать этикетки и QR одним PDF (сначала этикетка отправки, затем QR каждого товара)",
+        "row_select_aria":           "Отметить",
+        "row_unselectable_aria":     "Нельзя отметить",
+        "row_unselectable_title":    "Отмечать и печатать несколько актов можно только у накладных в статусе «Создана»",
+        "uzum_retrying":             "Uzum занят — повторная попытка…",
+        "inv_no_response_strong":    "Uzum не ответил.",
+        "inv_try_later":             "Повторите чуть позже.",
+        "inv_empty_status":          "Накладных в этом статусе нет",
+        "inv_no_more":               "Больше накладных нет",
+        "inv_refreshing":            "Обновление…",
+        "inv_no_items":              "Данные о товаре не найдены",
+        "inv_barcode_label":         "ШК",
+        "inv_rail_total":            "Итого",
+        "inv_th_dona":               "шт",
+        "inv_fact_slot":             "Слот",
+        "inv_fact_created":          "Создана",
+        "inv_fact_fullsum":          "Полная сумма",
+        "inv_fact_accept_start":     "Приёмка началась",
+        "inv_fact_accept_done":      "Приёмка завершена",
+        "inv_akt_short":             "Акт отправки",
+        "inv_pickup":                "Пункт приёма",
+        "inv_pickup_edit_title":     "Изменить пункт приёма и временной слот",
+        "inv_ord_selectall_title":   "Выбрать все",
+        "inv_orders_empty":          "Для этой накладной заказы не найдены (возможно, старые или не синхронизированы)",
+        "inv_busy_no_response":      "Uzum не ответил (занят). Повторите чуть позже.",
+        "akt_unavailable":           "Акт недоступен или ошибка при получении:",
+        "akt_fetch_err":             "Ошибка при получении акта:",
+        "akt_some_skipped":          "Внимание: часть актов не получена (id: {ids}). Остальные в PDF. Повторите чуть позже.",
+        "akt_bulk_cap":              "За один раз объединяется до {n} актов. Выберите меньше.",
+        "inv_preparing":             "Подготовка…",
+        "inv_overdue_no_slot":       "⏰ У этого заказа истёк срок — подходящего слота нет.",
+        "inv_show_all_times":        "Показать все слоты",
+        "inv_overdue_short":         "⏰ Срок заказа истёк.",
+        "inv_no_active_orders":      "Нет активных заказов",
+        "inv_no_invoice_selected":   "Накладная не выбрана",
+        "inv_point_not_picked":      "Пункт не выбран",
+        "inv_slot_invalid":          "Слот недействителен (нет uuid) — выберите другой слот",
+        "inv_change_confirm":        "Изменить пункт приёма накладной №{num} на «{point}»{slot}?",
+        "dropoff_change_title":      "Изменить пункт приёма",
+        "dropoff_change_title_pre":  "Изменить ",
+        "dropoff_change_title_grad": "пункт приёма",
+        "dropoff_change_btn":        "Изменить",
+        "inv_change_err":            "Ошибка при изменении",
+        "inv_slot_too_late":         "Выбранный слот слишком поздний — выберите для этой накладной слот ПОРАНЬШЕ. ",
+        "inv_uzum_busy_retry":       "Uzum сейчас занят — повторите через пару секунд.",
+        "inv_pickup_changed":        "✅ Пункт приёма изменён",
+        # ── Shop-pick modal (_fbs_shoppick_modal.html) ──
+        "shoppick_title":            "Отмечены заказы из разных магазинов",
+        "shoppick_msg":              "Одна накладная — для одного магазина. Для какого магазина создать?",
+        "shoppick_cancel":           "Отмена",
+        "shoppick_ok":               "Продолжить",
+    },
+}
+
+
+# ── Ombor (stock) page i18n bundle ──
+STOCK_LABELS: dict[str, dict[str, str]] = {
+    "uz": {
+        "_lang":                     "uz",
+        # Glass header
+        "page_title":                "Ombor",
+        "aria_section_fbs":          "FBS bo'limi",
+        "tab_orders":                "Buyurtmalar",
+        "tab_stock":                 "Ombor",
+        "label_shop":                "Do'kon",
+        "opt_all_shops":             "Barcha do'konlar",
+        "export_title":              "Hozirgi qoldiqni Excel'ga yuklab olish",
+        "export_btn":                "Excel",
+        "import_title":              "Excel fayldan ommaviy yangilash",
+        "import_btn":                "Yuklash",
+        # Token warning (3-part)
+        "warn_token_pre":            "Uzum Seller OpenAPI tokeni o'rnatilmagan. Qoldiqlarni ko'rish uchun",
+        "link_my_shops":             "«Mening do'konlarim»",
+        "warn_token_post":           " sahifasida token kiriting.",
+        # Availability segment
+        "seg_all":                   "Hammasi",
+        "seg_in":                    "Mavjud",
+        "seg_out":                   "Tugagan",
+        "ph_search":                 "Nomi, SKU yoki shtrix-kod bo'yicha qidirish…",
+        # Table headers
+        "th_product":                "Mahsulot / SKU",
+        "th_barcode":                "Shtrix-kod",
+        "th_scheme":                 "Sxema",
+        "th_amount":                 "Qoldiq, dona",
+        "loading":                   "Yuklanmoqda…",
+        "loading_live":              "Uzum'dan jonli yuklanmoqda…",
+        # Save bar
+        "savebar_text":              "ta o'zgartirildi",
+        "btn_cancel":                "Bekor",
+        "btn_save":                  "Saqlash",
+        # Import modal
+        "imp_title":                 "Excel'dan yangilash",
+        "aria_close":                "Yopish",
+        "imp_th_barcode":            "Shtrix-kod",
+        "imp_th_amount":             "Qoldiq",
+        "imp_note":                  "Faqat o'zgargan qatorlar Uzum'ga yoziladi.",
+        "imp_btn_cancel":            "Bekor",
+        "imp_btn_confirm":           "Tasdiqlash",
+        # JS — scheme toggles
+        "scheme_unavailable":        "Bu sxema bu SKU uchun mavjud emas",
+        "scheme_toggle":             "Yoqish / o'chirish",
+        "aria_amount":               "Qoldiq",
+        "step_up":                   "Ko'paytirish",
+        "step_down":                 "Kamaytirish",
+        # JS — empty states
+        "empty_nothing":             "Hech narsa topilmadi",
+        "empty_no_sku":              "Bu yerda SKU yo'q",
+        "sum_out":                   "tugagan",
+        # JS — save flow
+        "saving":                    "Saqlanmoqda…",
+        "err_http":                  "Xato (HTTP {n})",
+        "saved_ok":                  "{n} ta qoldiq saqlandi ✓",
+        "net_err_prefix":            "Tarmoq xatosi:",
+        # JS — fetch flow
+        "uzum_no_response":          "Uzum javob bermadi.",
+        "err_prefix":                "Xato:",
+        "try_later":                 " Birozdan keyin qayta urinib ko'ring.",
+        "btn_retry":                 "Qayta urinish",
+        # JS — import flow
+        "checking":                  "Tekshirilmoqda…",
+        "err_paren":                 "Xato ({n})",
+        "imp_summary":               "{n} ta o'zgaradi · {u} o'zgarmaydi",
+        "imp_unknown_sku":           "{n} noma'lum SKU",
+        "imp_skipped":               "{n} o'tkazib yuborildi",
+        "imp_no_changes":            "O'zgarish topilmadi",
+        "imp_confirm_n":             "Tasdiqlash ({n})",
+        "imp_no_changes_btn":        "O'zgarish yo'q",
+        "imp_applied":               "{n} ta SKU yangilandi",
+    },
+    "ru": {
+        "_lang":                     "ru",
+        # Glass header
+        "page_title":                "Склад",
+        "aria_section_fbs":          "Раздел FBS",
+        "tab_orders":                "Заказы",
+        "tab_stock":                 "Склад",
+        "label_shop":                "Магазин",
+        "opt_all_shops":             "Все магазины",
+        "export_title":              "Скачать текущие остатки в Excel",
+        "export_btn":                "Excel",
+        "import_title":              "Массовое обновление из файла Excel",
+        "import_btn":                "Загрузить",
+        # Token warning (3-part)
+        "warn_token_pre":            "Токен Uzum Seller OpenAPI не задан. Чтобы видеть остатки, введите токен на странице",
+        "link_my_shops":             "«Мои магазины»",
+        "warn_token_post":           ".",
+        # Availability segment
+        "seg_all":                   "Все",
+        "seg_in":                    "В наличии",
+        "seg_out":                   "Закончились",
+        "ph_search":                 "Поиск по названию, SKU или штрих-коду…",
+        # Table headers
+        "th_product":                "Товар / SKU",
+        "th_barcode":                "Штрих-код",
+        "th_scheme":                 "Схема",
+        "th_amount":                 "Остаток, шт",
+        "loading":                   "Загрузка…",
+        "loading_live":              "Загрузка напрямую из Uzum…",
+        # Save bar
+        "savebar_text":              "изменено",
+        "btn_cancel":                "Отмена",
+        "btn_save":                  "Сохранить",
+        # Import modal
+        "imp_title":                 "Обновление из Excel",
+        "aria_close":                "Закрыть",
+        "imp_th_barcode":            "Штрих-код",
+        "imp_th_amount":             "Остаток",
+        "imp_note":                  "В Uzum записываются только изменённые строки.",
+        "imp_btn_cancel":            "Отмена",
+        "imp_btn_confirm":           "Подтвердить",
+        # JS — scheme toggles
+        "scheme_unavailable":        "Эта схема недоступна для данного SKU",
+        "scheme_toggle":             "Включить / выключить",
+        "aria_amount":               "Остаток",
+        "step_up":                   "Увеличить",
+        "step_down":                 "Уменьшить",
+        # JS — empty states
+        "empty_nothing":             "Ничего не найдено",
+        "empty_no_sku":              "Здесь нет SKU",
+        "sum_out":                   "закончились",
+        # JS — save flow
+        "saving":                    "Сохранение…",
+        "err_http":                  "Ошибка (HTTP {n})",
+        "saved_ok":                  "Сохранено остатков: {n} ✓",
+        "net_err_prefix":            "Сетевая ошибка:",
+        # JS — fetch flow
+        "uzum_no_response":          "Uzum не ответил.",
+        "err_prefix":                "Ошибка:",
+        "try_later":                 " Повторите попытку чуть позже.",
+        "btn_retry":                 "Повторить",
+        # JS — import flow
+        "checking":                  "Проверка…",
+        "err_paren":                 "Ошибка ({n})",
+        "imp_summary":               "Изменится: {n} · без изменений: {u}",
+        "imp_unknown_sku":           "{n} неизвестных SKU",
+        "imp_skipped":               "{n} пропущено",
+        "imp_no_changes":            "Изменений не найдено",
+        "imp_confirm_n":             "Подтвердить ({n})",
+        "imp_no_changes_btn":        "Нет изменений",
+        "imp_applied":               "Обновлено SKU: {n}",
+    },
+}
+
+
+# ── QR-print page i18n bundle (templates/fbs_qr_print.html) ──────────
+QR_PRINT_LABELS: dict[str, dict[str, str]] = {
+    "uz": {
+        "title":        "FBS QR chop",
+        "count_prefix": "Yorliqlar:",
+        "reprint":      "Qayta chop etish",
+        "err_no_order": "Buyurtma tanlanmagan",
+        "err_no_goods": "Tovar topilmadi",
+    },
+    "ru": {
+        "title":        "Печать QR — FBS",
+        "count_prefix": "Этикеток:",
+        "reprint":      "Повторить печать",
+        "err_no_order": "Заказ не выбран",
+        "err_no_goods": "Товар не найден",
     },
 }
 
@@ -361,6 +1206,7 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "f_order_id": "Buyurtma ID",
         "f_shop": "Do'kon",
         "f_composition": "Tarkib va summa",
+        "sec_items": "Tarkib",
         "f_pickup": "Qabul punkti",
         "f_unit_price": "Sotuv narxi / dona",
         "f_marking": "Markirovka",
@@ -382,10 +1228,14 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "item_weight": "Og'irlik",
         "items_subtotal": "Mahsulotlar jami:",
         "order_total": "Jami summa",
+        # Rail panel (Rail dizayni — buyurtma kartasi o'ng paneli)
+        "rail_status": "Status",
+        "rail_qty": "Jami",
+        "rail_sum": "Summa",
         # Actions
         "act_confirm": "Tasdiqlash",
         "act_cancel": "Bekor qilish",
-        "act_print": "Etiketka chop etish",
+        "act_print": "Yorliq chop etish",
         "act_print_enlarged": "Yorliq (katta matn)",
         "act_print_qr": "QR chop etish",
         "act_imei": "IMEI biriktirish",
@@ -420,7 +1270,7 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "toast_confirmed": "Buyurtma tasdiqlandi",
         "toast_cancelled": "Buyurtma bekor qilindi",
         "toast_imei_attached": "Identifikatorlar biriktirildi",
-        "toast_label_opened_suffix": "ta etiketka ochildi",
+        "toast_label_opened_suffix": "ta yorliq ochildi",
         "toast_no_pdf": "Uzum hech qanday PDF qaytarmadi",
         "toast_http_error_prefix": "Xato: HTTP ",
         "toast_network_error_prefix": "Tarmoq xatosi: ",
@@ -493,6 +1343,7 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "f_order_id": "ID заказа",
         "f_shop": "Магазин",
         "f_composition": "Состав и сумма",
+        "sec_items": "Состав",
         "f_pickup": "Место приёма",
         "f_unit_price": "Цена продажи за шт",
         "f_marking": "Маркировка",
@@ -513,6 +1364,10 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "item_weight": "Вес",
         "items_subtotal": "Сумма товаров:",
         "order_total": "Итого",
+        # Rail panel
+        "rail_status": "Статус",
+        "rail_qty": "Итого",
+        "rail_sum": "Сумма",
         # Actions
         "act_confirm": "Подтвердить",
         "act_cancel": "Отменить",
@@ -595,8 +1450,8 @@ def _format_iso_to_tashkent(value: str) -> str | None:
     return dt.astimezone(tashkent).strftime("%d.%m.%Y %H:%M")
 
 
-def _format_uzum_payload_detail(payload) -> str | None:
-    """Distil Uzum's structured ``errors[].payload`` into a short UZ
+def _format_uzum_payload_detail(payload, lang: str | None = None) -> str | None:
+    """Distil Uzum's structured ``errors[].payload`` into a short localized
     suffix to append to the user-facing message.
 
     The payload shape is per-error-code and not fully documented, so this
@@ -619,12 +1474,13 @@ def _format_uzum_payload_detail(payload) -> str | None:
             continue
         formatted = _format_iso_to_tashkent(val)
         if formatted:
-            return f"muddat: {formatted}"
+            prefix = "срок" if (lang or _session_lang()) == "ru" else "muddat"
+            return f"{prefix}: {formatted}"
     return None
 
 
-def _uzum_error_response(err: UzumAPIError):
-    """Convert ``UzumAPIError`` into a JSON response with UZ message.
+def _uzum_error_response(err: UzumAPIError, lang: str | None = None):
+    """Convert ``UzumAPIError`` into a JSON response with a localized message.
 
     Status mapping:
       * Uzum 429 → 429 ("Uzum band, bir-ikki soniyadan keyin urinib ko'ring")
@@ -632,6 +1488,7 @@ def _uzum_error_response(err: UzumAPIError):
       * Uzum 4xx → 400 (user-facing reason, e.g. wrong status / bad input)
       * Anything else → 502 (defensive default; network/timeout layer)
     """
+    lang = lang or _session_lang()
     code = err.code or ""
     # Bosqich A.9 (#5) — 429 (Uzum per-token throttle) means "wait", not a
     # per-order problem. Branch on it FIRST, before the code/message lookups,
@@ -651,9 +1508,14 @@ def _uzum_error_response(err: UzumAPIError):
     payload = err.error_payload if err.error_payload not in (None, {}, [], "") else None
 
     if err.http_status == 429:
+        _wait_msg = (
+            "Uzum сейчас занят. Повторите через пару секунд."
+            if lang == "ru"
+            else "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring."
+        )
         return _json_response(
             {
-                "error": "Uzum hozir band. Bir-ikki soniyadan keyin qayta urinib ko'ring.",
+                "error": _wait_msg,
                 "uzum_code": code or None,
                 "uzum_message": err.message or None,
                 "uzum_http": 429,
@@ -665,22 +1527,31 @@ def _uzum_error_response(err: UzumAPIError):
             429,
         )
 
-    if code in FBS_ERROR_MESSAGES_UZ:
-        msg = FBS_ERROR_MESSAGES_UZ[code]
+    _msgs = FBS_ERROR_MESSAGES.get(lang, FBS_ERROR_MESSAGES["uz"])
+    if code in _msgs or code in FBS_ERROR_MESSAGES["uz"]:
+        msg = _msgs.get(code) or FBS_ERROR_MESSAGES["uz"][code]
     elif err.message:
         # Uzum has its own Russian message — show it as-is rather than
         # invent a translation we don't actually know.
         msg = err.message
     elif err.http_status >= 500:
-        msg = "Uzum xizmati vaqtincha ishlamayapti. Bir-ikki daqiqadan keyin urinib ko'ring."
+        msg = (
+            "Сервис Uzum временно недоступен. Повторите через пару минут."
+            if lang == "ru"
+            else "Uzum xizmati vaqtincha ishlamayapti. Bir-ikki daqiqadan keyin urinib ko'ring."
+        )
     else:
-        msg = f"Uzum xatosi (HTTP {err.http_status})"
+        msg = (
+            f"Ошибка Uzum (HTTP {err.http_status})"
+            if lang == "ru"
+            else f"Uzum xatosi (HTTP {err.http_status})"
+        )
 
     # Enrich the message with a clean detail distilled from Uzum's
     # structured payload (e.g. the exact deadline for a "muddat o'tgan"
     # error). Only appended when we can confidently format it — otherwise
     # the message stays as-is and the raw payload rides in ``uzum_payload``.
-    detail_suffix = _format_uzum_payload_detail(payload)
+    detail_suffix = _format_uzum_payload_detail(payload, lang)
     if detail_suffix and detail_suffix not in msg:
         msg = f"{msg} ({detail_suffix})"
 
@@ -799,6 +1670,29 @@ _FBS_REFRESH_ON_PRESS_SYNC: tuple[str, ...] = (
     "DELIVERING",
 )
 
+
+def _parse_live_count_statuses(raw: str | None) -> tuple[str, ...]:
+    """Parse the counts-all ``?statuses=`` param into the set of chips to
+    LIVE-refresh from Uzum (Bosqich A.12).
+
+    Rules:
+      * empty / ``None`` → ALL active-work statuses (the default: refresh
+        every active chip, preserving the pre-A.12 behaviour);
+      * a comma list → only the named statuses that are active-work
+        (``_FBS_REFRESH_ON_PRESS_SYNC``); terminal/unknown values are
+        dropped, so a caller can never force a live /count on a terminal
+        chip (those always come from the bg worker's DB write);
+      * a list with NO valid active status → empty tuple → caller does no
+        live refresh at all (every chip falls back to the DB read).
+
+    Order always follows ``_FBS_REFRESH_ON_PRESS_SYNC`` so the result is
+    stable regardless of how the caller ordered the input.
+    """
+    if not raw or not raw.strip():
+        return _FBS_REFRESH_ON_PRESS_SYNC
+    wanted = {s.strip().upper() for s in raw.split(",") if s.strip()}
+    return tuple(s for s in _FBS_REFRESH_ON_PRESS_SYNC if s in wanted)
+
 # Total seconds the route will spend on synchronous shop×status
 # refreshes before falling back to whatever's in the DB. Per-token
 # mutex serializes all Uzum calls anyway, so this is roughly:
@@ -853,7 +1747,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "COMPLETED":                            "Завершён",
         "CANCELED":                             "Отменён",
         "PENDING_CANCELLATION":                 "Отменяется",
-        "RETURNED":                             "Возврат",
+        "RETURNED":                             "Возвращён",
     },
 }
 
@@ -930,9 +1824,9 @@ def _resolve_user_token_for_shop(shop_uzum_id: str) -> tuple[str | None, str | N
 @login_required
 def fbs_page():
     token, shops = _current_user_token_and_shops()
-    lang = session.get("lang", "ru")
-    labels = STATUS_LABELS.get(lang, STATUS_LABELS["ru"])
-    list_labels = LIST_LABELS.get(lang, LIST_LABELS["ru"])
+    lang = session.get("lang", "uz")
+    labels = STATUS_LABELS.get(lang, STATUS_LABELS["uz"])
+    list_labels = LIST_LABELS.get(lang, LIST_LABELS["uz"])
     return render_template(
         "fbs_orders.html",
         title="FBS / DBS — buyurtmalar",
@@ -958,11 +1852,11 @@ def fbs_invoices_page():
     """
     from core.uzum_openapi import FBS_INVOICE_STATUSES
     token, _ = _current_user_token_and_shops()
-    lang = session.get("lang", "ru")
+    lang = session.get("lang", "uz")
     # Same label dict the orders page uses — the "Изменить" pickup modal
     # reuses the rich drop-off picker UI (dropoff_* labels) ported from
     # fbs_orders.html, so it needs the localized strings.
-    list_labels = LIST_LABELS.get(lang, LIST_LABELS["ru"])
+    list_labels = LIST_LABELS.get(lang, LIST_LABELS["uz"])
     # ?embed=1 → render inside a bare layout (no sidebar/navbar/hero) so the
     # orders page can show this exact Накладные page INSIDE its content area
     # via <iframe> when the «Поставка» chip is clicked — no navigation away,
@@ -977,7 +1871,7 @@ def fbs_invoices_page():
     detail_id = request.args.get("detail") or None
     return render_template(
         "fbs_invoices.html",
-        title="FBS — Накладные",
+        title="FBS — Yuk xatlari",
         has_token=bool(token),
         invoice_statuses=list(FBS_INVOICE_STATUSES),
         list_labels=list_labels,
@@ -993,9 +1887,9 @@ def fbs_order_detail_page(order_id: int):
     # Detail data is fetched client-side via /fbs/api/order/<id> so the
     # page renders fast even when Uzum is slow. Stage 4 will switch the
     # data source to DB; this template doesn't care.
-    lang = session.get("lang", "ru")
-    labels = DETAIL_LABELS.get(lang, DETAIL_LABELS["ru"])
-    status_labels = STATUS_LABELS.get(lang, STATUS_LABELS["ru"])
+    lang = session.get("lang", "uz")
+    labels = DETAIL_LABELS.get(lang, DETAIL_LABELS["uz"])
+    status_labels = STATUS_LABELS.get(lang, STATUS_LABELS["uz"])
     # ?embed=1 → render inside a bare layout (no sidebar/navbar) so the
     # orders list can show this exact page inside a modal via <iframe>.
     # Same data + same action handlers; only the surrounding chrome differs.
@@ -1262,24 +2156,33 @@ def fbs_counts_all_api():
                 user = db.get(User, uid)
                 token = (user.uzum_openapi_token or "").strip() if user else ""
             if token:
-                # Fast path: hit Uzum's ``/count`` endpoint for the 3
-                # active-work chips (CREATED/PACKING/PENDING_DELIVERY).
-                # /count returns a single integer per call (~200-500ms
-                # multi-shop), vs draining /orders pages which was ~1-2s
-                # per status. For the 8 non-active chips we just read
-                # whatever the bg worker last wrote — sellers don't
-                # watch them in real time.
+                # Fast path: hit Uzum's ``/count`` endpoint for the active-
+                # work chips. /count returns a single integer per call
+                # (~200-500ms multi-shop), vs draining /orders pages. For
+                # the non-active (terminal) chips we just read whatever the
+                # bg worker last wrote — sellers don't watch them live.
                 #
-                # Multi-shop optimization preserved: one /count call
-                # carries every shopId for the user's token, so an N-
-                # shop admin still pays 3 Uzum calls (not 3N).
-                from core.fbs_data import _refresh_shops_counts
-                try:
-                    fresh_counts = _refresh_shops_counts(
-                        token, list(user_shops), _FBS_REFRESH_ON_PRESS_SYNC,
-                    )
-                except Exception as e:
-                    print(f"[counts-all/sync-refresh] shops={list(user_shops)}: {e!r}")
+                # ``?statuses=CREATED,PACKING`` narrows which chips get a
+                # LIVE /count (Bosqich A.12). The page-entry load uses it to
+                # refresh ONLY the 2 chips it shows live (Yangi +
+                # Yig'ilmoqda) instead of firing all 4 /count calls at once —
+                # this kills the per-press burst. Only active-work statuses
+                # are ever live-refreshed; anything else (terminal chips, or
+                # an unknown value) is dropped and stays on the DB read.
+                # Without the param we fall back to all active chips.
+                #
+                # Multi-shop optimization preserved: one /count call carries
+                # every shopId for the user's token (N-shop admin pays one
+                # call per status, not N).
+                sync_statuses = _parse_live_count_statuses(request.args.get("statuses"))
+                if sync_statuses:
+                    from core.fbs_data import _refresh_shops_counts
+                    try:
+                        fresh_counts = _refresh_shops_counts(
+                            token, list(user_shops), sync_statuses,
+                        )
+                    except Exception as e:
+                        print(f"[counts-all/sync-refresh] shops={list(user_shops)}: {e!r}")
         counts = get_fbs_counts_for_shops(user_shops)
         # Merge: fresh /count values for active 3 override the DB read.
         # Non-active chips stay as the bg worker's last write.
@@ -1370,6 +2273,26 @@ def fbs_order_detail_api(order_id: int):
         if not shop or shop.id not in allowed_shop_db_ids:
             return _json_response({"error": "Order not accessible"}, 404)
 
+    # Localize each item's product title to the seller's language from our
+    # own catalog (the FBS payload carries only a single-language title).
+    lang = session.get("lang", "uz")
+    items = order.get("orderItems") or []
+    bcs = [it.get("barcode") for it in items if isinstance(it, dict)]
+    if lang == "ru" and bcs:
+        with SessionLocal() as db:
+            by_bc, _ = _variant_titles(db, allowed_shop_db_ids, barcodes=bcs, lang=lang)
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            tup = by_bc.get(str(it.get("barcode") or ""))
+            if not tup:
+                continue
+            ru_base, ru_color = tup
+            new = _localize_product_title(
+                it.get("title") or it.get("productTitle") or "", ru_base, ru_color, lang)
+            it["title"] = new
+            it["productTitle"] = new
+
     return _json_response({
         "order_id": order_id,
         "used_url": used_url,
@@ -1402,7 +2325,7 @@ def _resolve_token_and_check_order(order_id: int):
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
         return (None, None, None, _json_response({
-            "error": "Uzum OpenAPI token o'rnatilmagan. «Mening do'konlarim» (/fetch) sahifasidan tokenni kiriting."
+            "error": _err("token_not_set_long")
         }, 400))
 
     try:
@@ -1415,7 +2338,7 @@ def _resolve_token_and_check_order(order_id: int):
     shop_uzum_id = str(order.get("shopId") or "").strip()
     if not shop_uzum_id:
         return (None, None, None, _json_response(
-            {"error": "Buyurtma topilmadi yoki ruxsat yo'q"}, 404
+            {"error": _err("order_not_found_or_denied")}, 404
         ))
     with SessionLocal() as db:
         shop = db.execute(
@@ -1423,7 +2346,7 @@ def _resolve_token_and_check_order(order_id: int):
         ).scalar_one_or_none()
         if not shop or shop.id not in allowed_shop_db_ids:
             return (None, None, None, _json_response(
-                {"error": "Buyurtma topilmadi yoki ruxsat yo'q"}, 404
+                {"error": _err("order_not_found_or_denied")}, 404
             ))
 
     return (token, shop_uzum_id, order, None)
@@ -1448,6 +2371,10 @@ def fbs_confirm_api(order_id: int):
         return _uzum_error_response(e)
     except Exception as e:
         return _json_response({"error": str(e)}, 502)
+
+    # Darhol-warm: confirmed → PACKING → label available + immutable. Fetch it in
+    # the background so the seller's next "Yorliq" print is instant.
+    _warm_labels_async(token, int(current_user.get_id()), [order_id])
 
     return _json_response({
         "ok": True,
@@ -1477,7 +2404,7 @@ def fbs_cancel_api(order_id: int):
           f"comment={(comment or '')[:60]!r} user_id={current_user.get_id()}", flush=True)
     if not reason:
         print(f"[fbs.cancel] REJECT order_id={order_id} — empty reason", flush=True)
-        return _json_response({"error": "Bekor qilish sababini tanlang"}, 400)
+        return _json_response({"error": _err("pick_cancel_reason")}, 400)
 
     t_resolve = time.perf_counter()
     token, shop_id, _order, err_resp = _resolve_token_and_check_order(order_id)
@@ -1571,7 +2498,7 @@ def fbs_identifiers_api(order_id: int):
     items = payload.get("items")
     if not isinstance(items, list) or not items:
         return _json_response(
-            {"error": "Identifikator ro'yxati bo'sh"}, 400
+            {"error": _err("id_list_empty")}, 400
         )
 
     token, shop_id, _order, err_resp = _resolve_token_and_check_order(order_id)
@@ -1661,15 +2588,11 @@ def fbs_label_api(order_id: int):
             enlarged.append(e_pdf if e_pdf else raw)
         pdfs = enlarged
     elif mode == "qr":
-        # Replace shipping label PDFs with product QR sticker(s) — one
-        # per orderItem. Use the order detail's orderItems (already
-        # fetched during _resolve_token_and_check_order).
+        # Replace shipping label PDFs with product QR sticker(s) — one per
+        # UNIT (amount), not per orderItem line. Use the order detail's
+        # orderItems (already fetched during _resolve_token_and_check_order).
         items = order.get("orderItems") if isinstance(order, dict) else []
-        product_pdfs: list[bytes] = []
-        for item in (items or []):
-            qr_pdf = render_product_qr_pdf(item)
-            if qr_pdf:
-                product_pdfs.append(qr_pdf)
+        product_pdfs = _item_qr_pdfs(items)
         if product_pdfs:
             pdfs = product_pdfs
 
@@ -1716,7 +2639,7 @@ def _parse_bulk_order_ids() -> tuple[list[int] | None, object | None]:
     raw = payload.get("order_ids")
     if not isinstance(raw, list) or not raw:
         return (None, _json_response(
-            {"error": "order_ids ro'yxati bo'sh yoki noto'g'ri"}, 400
+            {"error": _err("order_ids_empty")}, 400
         ))
 
     ids: list[int] = []
@@ -1733,11 +2656,11 @@ def _parse_bulk_order_ids() -> tuple[list[int] | None, object | None]:
 
     if not ids:
         return (None, _json_response(
-            {"error": "order_ids ro'yxatida yaroqli ID yo'q"}, 400
+            {"error": _err("order_ids_no_valid")}, 400
         ))
     if len(ids) > _BULK_LIMIT:
         return (None, _json_response(
-            {"error": f"Bir martada {_BULK_LIMIT} tadan ko'p buyurtma tanlash mumkin emas"}, 400
+            {"error": _err("bulk_limit", n=_BULK_LIMIT)}, 400
         ))
     return (ids, None)
 
@@ -1762,7 +2685,7 @@ def _resolve_bulk_orders(order_ids: list[int]) -> tuple[list[dict] | None, objec
         token = (user.uzum_openapi_token or "").strip() if user else ""
         if not token:
             return (None, _json_response({
-                "error": "Uzum OpenAPI token o'rnatilmagan. «Mening do'konlarim» (/fetch) sahifasidan tokenni kiriting."
+                "error": _err("token_not_set_long")
             }, 400))
 
         # Map user shop ids → Uzum ids for the ownership check.
@@ -1787,7 +2710,7 @@ def _resolve_bulk_orders(order_ids: list[int]) -> tuple[list[dict] | None, objec
     if missing:
         sample = ", ".join(str(m) for m in missing[:3])
         return (None, _json_response({
-            "error": f"Buyurtmalar topilmadi yoki sinxronlanmagan: {sample}"
+            "error": _err("orders_not_found_synced", sample=sample)
             + ("…" if len(missing) > 3 else "")
         }, 404))
 
@@ -1796,7 +2719,7 @@ def _resolve_bulk_orders(order_ids: list[int]) -> tuple[list[dict] | None, objec
         r = found[str(oid)]
         if r.shop_id not in owned_uzum_ids:
             return (None, _json_response({
-                "error": f"Buyurtmaga ruxsat yo'q: №{oid}"
+                "error": _err("order_no_access", oid=oid)
             }, 404))
         rows.append({
             "order_id": oid,
@@ -1808,6 +2731,123 @@ def _resolve_bulk_orders(order_ids: list[int]) -> tuple[list[dict] | None, objec
     # Stash the token on the request so callers don't have to re-resolve.
     request.environ["_fbs_bulk_token"] = token
     return (rows, None)
+
+
+def _item_qr_pdfs(items, product_qr_size=None, *, match_uzum_label=False) -> list[bytes]:
+    """Render the product-QR sticker for each order item, repeated PER UNIT.
+
+    Uzum's ``orderItems[].amount`` is the piece count: an item with amount=3 is
+    three physical pieces, each needing its OWN sticker. One sticker per SKU
+    line was a bug (Abdulaziz 2026-06-12: 9 dona tovarga 4 ta QR chiqdi). The
+    sticker is identical for every unit of the same SKU, so render once and
+    repeat the bytes ``amount`` times.
+    """
+    out: list[bytes] = []
+    for item in (items or []):
+        qr_pdf = (
+            render_product_qr_pdf(item, size=product_qr_size,
+                                  match_uzum_label=match_uzum_label)
+            if product_qr_size
+            else render_product_qr_pdf(item, match_uzum_label=match_uzum_label)
+        )
+        if not qr_pdf:
+            continue
+        try:
+            qty = int(item.get("amount") or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        out.extend([qr_pdf] * max(1, qty))
+    return out
+
+
+def _get_label_pdfs_429_retry(token, order_id, *, size="LARGE", attempts=3, wait=4.0):
+    """``get_label_pdfs`` with a SHORT 429-aware retry — same shape as
+    ``core.fbs_akt_cache.fetch_akt_live``.
+
+    The bulk fan-out fires several label calls per click; Uzum's per-token
+    print bucket 429s after a few rapid hits and refills in ~3-4s (see the
+    akt-print rate-limit reference). On a 429 we wait ``wait`` s and retry up
+    to ``attempts`` times instead of counting the order as a hard error — the
+    per-token pacing gate inside ``download_fbs_label`` re-spaces the retries
+    ~1s apart so they don't re-burst. ``fail_fast=True`` keeps us off the
+    shared session's 60/120/180s storm.
+    """
+    last_exc = None
+    for attempt in range(attempts):
+        try:
+            return get_label_pdfs(token, order_id, size=size, fail_fast=True)
+        except UzumAPIError as e:
+            if getattr(e, "http_status", None) == 429 and attempt < attempts - 1:
+                time.sleep(wait)
+                last_exc = e
+                continue
+            raise
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("_get_label_pdfs_429_retry: no result")
+
+
+@fbs_bp.get("/fbs/print/qr")
+@login_required
+def fbs_print_qr_page():
+    """HTML page of product-QR stickers for the selected orders, printed by the
+    BROWSER — the EXACT mechanism the POS «QR Chop etish» page
+    (templates/print_labels.html) uses. The QR is an <img> from api.qrserver.com
+    scaled with image-rendering:pixelated, so it prints razor-sharp with no PDF
+    rasteriser blur (Abdulaziz 2026-06-16: server-PDF QR read as "past sifat";
+    seller pointed to the FBO page as the reference — we now match it exactly).
+    One sticker per UNIT (orderItems[].amount). Ownership-guarded via
+    ``_resolve_bulk_orders``.
+    """
+    lang = session.get("lang", "uz")
+    _qr_i18n = QR_PRINT_LABELS.get(lang, QR_PRINT_LABELS["uz"])
+    ids_str = request.args.get("order_ids") or ""
+    ids = [int(x) for x in ids_str.split(",") if x.strip().isdigit()]
+    if not ids:
+        return _qr_i18n["err_no_order"], 400
+
+    # Dimensions MIRROR the FBO «QR Chop etish» page EXACTLY
+    # (products/routes.py LABEL_SIZES) so the FBS QR sticker prints at the same
+    # physical size on the same thermal roll. `_PRODUCT_LABEL_SIZES` (PDF path)
+    # used a slightly larger qr/tcol for 30×20 and 40×30 which overflowed the
+    # label (Abdulaziz 2026-06-16: "qog'ozga sig'may qolmoqda"). Kept local so
+    # FBS stays self-contained.
+    _QR_PRINT_SIZES = {
+        "30x20": {"w": 30, "h": 20, "tcol": 7,  "qr": 14, "sku_fs": 5.4, "num_fs": 6, "num_last4_fs": 8},
+        "43x25": {"w": 43, "h": 25, "tcol": 8,  "qr": 20, "sku_fs": 6,   "num_fs": 7, "num_last4_fs": 9},
+        "40x30": {"w": 40, "h": 30, "tcol": 9,  "qr": 20, "sku_fs": 6.5, "num_fs": 7, "num_last4_fs": 9},
+        "60x60": {"w": 60, "h": 60, "tcol": 12, "qr": 34, "sku_fs": 8,   "num_fs": 8, "num_last4_fs": 11},
+        "70x37": {"w": 70, "h": 37, "tcol": 12, "qr": 40, "sku_fs": 8,   "num_fs": 8, "num_last4_fs": 11},
+    }
+    size = (request.args.get("size") or "40x30").strip().lower()
+    # "uzum" (242×166mm) is the full-page merge size — meaningless for a
+    # standalone QR sticker, so fall back to a sane thermal preset.
+    if size not in _QR_PRINT_SIZES:
+        size = "40x30"
+    lbl = _QR_PRINT_SIZES[size]
+
+    rows, err = _resolve_bulk_orders(ids)
+    if err is not None:
+        return err
+
+    labels: list[dict] = []
+    for r in rows:
+        for item in (r.get("items") or []):
+            sku = str(item.get("skuTitle") or "").strip()
+            barcode = str(item.get("barcode") or "").strip()
+            content = barcode or sku
+            if not content:
+                continue
+            try:
+                qty = int(item.get("amount") or 1)
+            except (TypeError, ValueError):
+                qty = 1
+            for _ in range(max(1, qty)):
+                labels.append({"sku": sku or content, "barcode": content})
+
+    if not labels:
+        return _qr_i18n["err_no_goods"], 400
+    return render_template("fbs_qr_print.html", labels=labels, lbl=lbl, i18n=_qr_i18n)
 
 
 @fbs_bp.post("/fbs/api/orders/bulk-labels")
@@ -1851,17 +2891,15 @@ def fbs_bulk_labels_api():
     mode = (payload.get("mode") or "full").strip().lower()
     if mode not in ("full", "qr", "label_with_qr", "qr_with_label", "shipping_qr"):
         mode = "full"
-    # product_qr_size — picks the physical size of the product QR
-    # sticker pages. In mode="qr" (standalone print) the seller's
-    # choice rules — they're printing on a thermal-label roll of that
-    # exact size. In modes that mix label+QR we OVERRIDE to "uzum" so
-    # the merged PDF has consistent page sizes (otherwise the QR sticker
-    # appears as a tiny 40×30mm island between two giant 242×166mm
-    # shipping labels — visually wrong on screen and awkward to print
-    # on A4 paper).
+    # product_qr_size — physical size of the product-QR sticker pages. The
+    # seller's dropdown choice ALWAYS rules now, in EVERY mode (Abdulaziz
+    # 2026-06-17): «Yorliq + QR» must render the QR at the SAME size as the
+    # standalone «QR» button (both read this exact value). We used to OVERRIDE
+    # to "uzum" here for the mixed modes — that made the merged QR a different
+    # (bigger) proportion than the «QR» print. The QR page is rotated to the
+    # label's portrait+/Rotate-90 geometry (match_uzum_label) so it still prints
+    # consistently with the shipping label regardless of the sticker size.
     product_qr_size = (payload.get("product_qr_size") or "").strip().lower() or None
-    if mode in ("label_with_qr", "qr_with_label"):
-        product_qr_size = "uzum"
 
     rows, err = _resolve_bulk_orders(ids)
     if err is not None:
@@ -1870,94 +2908,114 @@ def fbs_bulk_labels_api():
 
     pdfs: list[bytes] = []
     errors: list[dict] = []
-    # Fan-out is parallel but burst-safe: each download_fbs_label call
-    # reserves a per-token slot via the shared gate
-    # (core.fbs_locks.pace_uzum_call, Bosqich A.8/#4), so N concurrent
-    # labels interleave ~1s apart instead of bursting Uzum's 429 penalty.
-    # The pool lets all threads reserve their slots up front (O(1) under a
-    # brief lock) and then sleep to their slot — wall-clock ≈ (N-1)×1s,
-    # safe not fast. The 5-min label cache short-circuits repeat clicks.
-    with ThreadPoolExecutor(max_workers=min(5, len(rows))) as pool:
-        future_to_row = {
-            pool.submit(get_label_pdfs, token, r["order_id"], size=size, fail_fast=True): r
-            for r in rows
-        }
-        for fut in as_completed(future_to_row):
-            r = future_to_row[fut]
-            try:
-                order_pdfs, _ = fut.result()
-                if order_pdfs:
-                    if mode == "qr":
-                        # Product QR per item — no shipping label. The
-                        # API call above fetched the shipping PDF only
-                        # to validate the order's printability (PACKING+
-                        # status had a label), but we don't include it
-                        # in the output for this mode.
-                        for item in (r.get("items") or []):
-                            qr_pdf = (
-                                render_product_qr_pdf(item, size=product_qr_size)
-                                if product_qr_size
-                                else render_product_qr_pdf(item)
-                            )
-                            if qr_pdf:
-                                pdfs.append(qr_pdf)
-                    elif mode == "shipping_qr":
-                        # Legacy: crop shipping label to QR column.
-                        for raw in order_pdfs:
-                            cropped = crop_label_to_qr(raw)
-                            pdfs.append(cropped if cropped else raw)
-                    elif mode == "label_with_qr":
-                        # Shipping label first, then a product QR sticker
-                        # per orderItem. The whole order's items come from
-                        # the DB row we resolved earlier — no extra Uzum
-                        # call, the items_json column already has them.
-                        pdfs.extend(order_pdfs)
-                        for item in (r.get("items") or []):
-                            qr_pdf = (
-                                render_product_qr_pdf(item, size=product_qr_size)
-                                if product_qr_size
-                                else render_product_qr_pdf(item)
-                            )
-                            if qr_pdf:
-                                pdfs.append(qr_pdf)
-                    elif mode == "qr_with_label":
-                        # Reverse order: product QR stickers FIRST, then
-                        # the shipping label. Some warehouses pick by QR
-                        # before printing the shipping label, others do
-                        # the opposite — we support both flows.
-                        for item in (r.get("items") or []):
-                            qr_pdf = (
-                                render_product_qr_pdf(item, size=product_qr_size)
-                                if product_qr_size
-                                else render_product_qr_pdf(item)
-                            )
-                            if qr_pdf:
-                                pdfs.append(qr_pdf)
-                        pdfs.extend(order_pdfs)
+    if mode == "qr":
+        # Pure product-QR print: stickers are rendered LOCALLY from each
+        # order's items (barcode/SKU) — we NEVER call Uzum's label endpoint.
+        # Two wins:
+        #   • DBS buyurtmalar uchun ham ishlaydi — Uzum DBS'ga FBS jo'natma
+        #     yorlig'i bermaydi («fbs-18-invalid-order-type»), lekin tovar QR
+        #     bizniki: uni har qanday buyurtma uchun chizamiz.
+        #   • Uzum'ning per-token 429 print-bucket'iga umuman tegmaydi.
+        for r in rows:
+            items = r.get("items") or []
+            if not items:
+                errors.append({"order_id": r["order_id"], "error": _err("no_item")})
+                continue
+            # Bir DONAga bitta stiker (amount hisobida) — _item_qr_pdfs.
+            pdfs.extend(_item_qr_pdfs(items, product_qr_size))
+    else:
+        # Bosqich 5f — DB label cache first. The background sync worker pre-warms
+        # each active order's label into ``fbs_order_labels`` (paced, never 429),
+        # so in steady state EVERY order here is a DB hit → the whole bulk print
+        # is instant, zero Uzum calls. A cache MISS (order not warmed yet — e.g.
+        # a накладна just created) falls back to the live paced fetch + stores the
+        # result, so the next print is instant too. The label is immutable once
+        # confirmed (verified 2026-06-12), so a cached row is never stale.
+        #
+        # Cache only the LARGE size the warm path stores, and skip it for the
+        # legacy ``shipping_qr`` crop (which needs the raw per-package list).
+        uid = int(current_user.get_id())
+        use_label_cache = (size == "LARGE" and mode != "shipping_qr")
+
+        def _fetch_order_label_pdfs(order_id):
+            """Return this order's label PDF(s) as a list — DB-cached when
+            possible, else a live paced fetch (which we then store)."""
+            if use_label_cache:
+                cached = get_cached_label(uid, order_id, size=size)
+                if cached:
+                    return [cached]
+            raw, _ = _get_label_pdfs_429_retry(token, order_id, size=size)
+            if use_label_cache and raw:
+                try:
+                    store_label(uid, order_id, size,
+                                merge_label_pdfs(raw) if len(raw) > 1 else raw[0])
+                except Exception as e:
+                    print(f"[bulk-labels] cache store failed for {order_id}: {e!r}")
+            return raw
+
+        # Fan-out is parallel but burst-safe: each LIVE download_fbs_label call
+        # reserves a per-token slot via the shared gate (core.fbs_locks
+        # .pace_uzum_call), so concurrent MISSES interleave ~1s apart instead of
+        # bursting Uzum's 429. DB hits skip Uzum entirely. Wall-clock ≈ (misses−1)×1s.
+        with ThreadPoolExecutor(max_workers=min(5, len(rows))) as pool:
+            future_to_row = {
+                pool.submit(_fetch_order_label_pdfs, r["order_id"]): r
+                for r in rows
+            }
+            for fut in as_completed(future_to_row):
+                r = future_to_row[fut]
+                try:
+                    order_pdfs = fut.result()
+                    if order_pdfs:
+                        if mode == "shipping_qr":
+                            # Legacy: crop shipping label to QR column.
+                            for raw in order_pdfs:
+                                cropped = crop_label_to_qr(raw)
+                                pdfs.append(cropped if cropped else raw)
+                        elif mode == "label_with_qr":
+                            # Shipping label first, then a product QR sticker
+                            # per orderItem. The whole order's items come from
+                            # the DB row we resolved earlier — no extra Uzum
+                            # call, the items_json column already has them.
+                            pdfs.extend(order_pdfs)
+                            # Har DONAga bitta QR (amount hisobida). QR sahifasi
+                            # Uzum yorlig'i bilan bir xil orientatsiyada bo'lishi
+                            # uchun match_uzum_label=True (aks holda QR siqilib
+                            # kichrayadi — Abdulaziz 2026-06-17).
+                            pdfs.extend(_item_qr_pdfs(r.get("items"), product_qr_size,
+                                                      match_uzum_label=True))
+                        elif mode == "qr_with_label":
+                            # Reverse order: product QR stickers FIRST, then
+                            # the shipping label. Some warehouses pick by QR
+                            # before printing the shipping label, others do
+                            # the opposite — we support both flows.
+                            pdfs.extend(_item_qr_pdfs(r.get("items"), product_qr_size,
+                                                      match_uzum_label=True))
+                            pdfs.extend(order_pdfs)
+                        else:
+                            pdfs.extend(order_pdfs)
                     else:
-                        pdfs.extend(order_pdfs)
-                else:
-                    errors.append({"order_id": r["order_id"], "error": "no PDF"})
-            except UzumAPIError as e:
-                errors.append({"order_id": r["order_id"],
-                               "error": e.message or e.code or "Uzum error",
-                               "uzum_trace": e.trace or None})
-            except Exception as e:
-                errors.append({"order_id": r["order_id"], "error": str(e)[:120]})
+                        errors.append({"order_id": r["order_id"], "error": "no PDF"})
+                except UzumAPIError as e:
+                    errors.append({"order_id": r["order_id"],
+                                   "error": e.message or e.code or "Uzum error",
+                                   "uzum_trace": e.trace or None})
+                except Exception as e:
+                    errors.append({"order_id": r["order_id"], "error": str(e)[:120]})
 
     if not pdfs:
         # Everyone failed — return the first error verbatim so the seller
         # has a clue. Still 502 because nothing usable came back.
         first_err = errors[0]["error"] if errors else "labels unavailable"
         return _json_response({
-            "error": f"Birorta yorliq olinmadi: {first_err}",
+            "error": _err("no_labels", first_err=first_err),
             "errors": errors,
         }, 502)
 
     merged = merge_label_pdfs(pdfs)
     if not merged:
         return _json_response({
-            "error": "PDF birlashtirishda xato (pypdf merge)",
+            "error": _err("pdf_merge_error"),
             "errors": errors,
         }, 502)
 
@@ -2019,7 +3077,7 @@ def fbs_bulk_confirm_api():
         if (r["status"] or "").upper() != "CREATED":
             results.append({
                 "order_id": r["order_id"], "ok": False,
-                "error": "Faqat CREATED holatdagi buyurtmalarni tasdiqlash mumkin",
+                "error": _err("only_created_confirm"),
                 "status": r["status"],
             })
         else:
@@ -2048,7 +3106,14 @@ def fbs_bulk_confirm_api():
                     })
                 except UzumAPIError as e:
                     code = e.code or ""
-                    msg = FBS_ERROR_MESSAGES_UZ.get(code) or e.message or f"Uzum xatosi (HTTP {e.http_status})"
+                    _lang = _session_lang()
+                    _msgs = FBS_ERROR_MESSAGES.get(_lang, FBS_ERROR_MESSAGES["uz"])
+                    msg = (
+                        _msgs.get(code) or FBS_ERROR_MESSAGES["uz"].get(code)
+                        or e.message
+                        or (f"Ошибка Uzum (HTTP {e.http_status})" if _lang == "ru"
+                            else f"Uzum xatosi (HTTP {e.http_status})")
+                    )
                     _detail = _format_uzum_payload_detail(e.error_payload)
                     if _detail and _detail not in msg:
                         msg = f"{msg} ({_detail})"
@@ -2071,11 +3136,192 @@ def fbs_bulk_confirm_api():
 
     success_count = sum(1 for r in ordered if r["ok"])
     error_count = len(ordered) - success_count
+
+    # Darhol-warm: just-confirmed orders are now PACKING with an available,
+    # immutable label — fetch them in the background so the seller's next
+    # "Yorliq" print is instant (no 10-min sync-warm wait).
+    _warm_labels_async(token, int(current_user.get_id()),
+                       [r["order_id"] for r in ordered if r.get("ok")])
+
     return _json_response({
         "ok": error_count == 0,
         "results": ordered,
         "success_count": success_count,
         "error_count": error_count,
+    })
+
+
+def _partition_confirmable(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split resolved order rows into ``(confirmable, skipped)``.
+
+    Only CREATED orders can be confirmed. Anything else is reported as a
+    skip WITHOUT an Uzum call — Uzum would just return seller-order-02 and
+    we'd burn a rate-limit slot (and risk a penalty) for nothing. Extracted
+    to a module-level helper so it's unit-testable without a request context.
+    """
+    confirmable: list[dict] = []
+    skipped: list[dict] = []
+    for r in rows:
+        if (r["status"] or "").upper() != "CREATED":
+            skipped.append({
+                "order_id": r["order_id"],
+                "error": _err("only_created_confirm"),
+                "status": r["status"],
+            })
+        else:
+            confirmable.append({
+                "order_id": r["order_id"],
+                "shop_uzum_id": r["shop_uzum_id"],
+            })
+    return confirmable, skipped
+
+
+# Async bulk-confirm is a BACKGROUND job with no user waiting, so a 429
+# ("you nudged just past the per-token bucket at the boundary") is SAFE to
+# wait out and retry — unlike the synchronous/interactive path, which fails
+# fast (Bosqich A.9) to avoid pinning a request thread. We retry ONLY on 429:
+# a 429 means Uzum REJECTED the call (it was never processed), so re-confirming
+# has no double-action risk; any OTHER error re-raises immediately (penalty
+# risk). The short wait lets the shared 2/s bucket — and Uzum's own bucket —
+# refill. Observed cause (2026-06-17): a confirm landed when Uzum's `remaining`
+# was momentarily 0 because the live list-poll + bg worker were drawing from
+# the same token in the same second.
+_BULK_CONFIRM_429_RETRIES = 3
+_BULK_CONFIRM_429_WAIT_SEC = 1.5
+
+
+def _confirm_with_429_retry(token, order_id, shop_uzum_id):
+    """``confirm_order``, but patiently retry a transient 429 (background only)."""
+    last_err = None
+    for attempt in range(_BULK_CONFIRM_429_RETRIES):
+        try:
+            return confirm_order(token, order_id, shop_uzum_id, fail_fast=True)
+        except UzumAPIError as e:
+            if e.http_status == 429 and attempt < _BULK_CONFIRM_429_RETRIES - 1:
+                print(f"[bulk-confirm-async] 429 on order {order_id} — wait "
+                      f"{_BULK_CONFIRM_429_WAIT_SEC}s + retry "
+                      f"({attempt + 1}/{_BULK_CONFIRM_429_RETRIES})", flush=True)
+                last_err = e
+                time.sleep(_BULK_CONFIRM_429_WAIT_SEC)
+                continue
+            raise
+    raise last_err  # defensive: loop always returns or raises above
+
+
+def _run_bulk_confirm_job(job_id: str, token: str, confirmable: list[dict],
+                          lang: str, user_id: int) -> None:
+    """Background worker for the async bulk-confirm (runs on a daemon thread).
+
+    Confirms each order one-by-one — ``confirm_order`` writes PACKING to the
+    DB row + invalidates the per-shop cache the instant it lands, so the
+    poller sees the flip immediately. Pacing is automatic: every confirm
+    reserves a slot in the shared 2/s token bucket inside the chokepoint, so
+    this never bursts Uzum's 429. Each outcome (success or per-order error)
+    is recorded; an error NEVER aborts the loop. Module-level (not a route
+    closure) so it can be unit-tested with mocked confirm_order — no Flask
+    request context, no real threads.
+    """
+    for c in confirmable:
+        oid = c["order_id"]
+        try:
+            _confirm_with_429_retry(token, oid, c["shop_uzum_id"])
+            record_result(job_id, oid, ok=True)
+        except UzumAPIError as e:
+            code = e.code or ""
+            _msgs = FBS_ERROR_MESSAGES.get(lang, FBS_ERROR_MESSAGES["uz"])
+            msg = (
+                _msgs.get(code) or FBS_ERROR_MESSAGES["uz"].get(code)
+                or e.message
+                or (f"Ошибка Uzum (HTTP {e.http_status})" if lang == "ru"
+                    else f"Uzum xatosi (HTTP {e.http_status})")
+            )
+            _detail = _format_uzum_payload_detail(e.error_payload, lang)
+            if _detail and _detail not in msg:
+                msg = f"{msg} ({_detail})"
+            record_result(job_id, oid, ok=False, error=msg, code=code or None)
+        except Exception as e:
+            record_result(job_id, oid, ok=False, error=str(e)[:160])
+    finish_job(job_id)
+    # Just-confirmed orders are now PACKING with an available, immutable label
+    # — warm the cache so the seller's next "Yorliq" print is instant. Best-
+    # effort, off the confirm loop.
+    try:
+        _warm_labels_async(token, user_id, [c["order_id"] for c in confirmable])
+    except Exception as e:
+        print(f"[bulk-confirm-async] label warm failed: {e!r}")
+
+
+@fbs_bp.post("/fbs/api/orders/bulk-confirm-async")
+@login_required
+def fbs_bulk_confirm_async_api():
+    """POST: confirm many CREATED orders in the BACKGROUND.
+
+    The synchronous ``/bulk-confirm`` holds the request open until every
+    order is processed (~0.5s/order via the shared 2/s token bucket → ~60s
+    for 120 orders), so the seller stares at a spinner. This variant returns
+    IMMEDIATELY with a ``job_id`` and runs the confirms on a daemon thread.
+
+    Each confirm writes PACKING to the DB row the instant it lands (see
+    ``core.fbs_data.confirm_order``), so the orders flip CREATED→PACKING
+    one-by-one. The front-end polls ``/bulk-confirm-status/<job_id>`` for
+    progress + per-order failures and refreshes the list to show the live
+    transition — no fake "done", only real outcomes.
+
+    Body: ``{"order_ids": [int, ...]}``
+    Returns: ``{"job_id", "queued", "skipped": [{order_id, error, status}]}``
+    """
+    ids, err = _parse_bulk_order_ids()
+    if err is not None:
+        return err
+    rows, err = _resolve_bulk_orders(ids)
+    if err is not None:
+        return err
+    token = request.environ.get("_fbs_bulk_token") or ""
+
+    confirmable, skipped = _partition_confirmable(rows)
+
+    uid = int(current_user.get_id())
+    # Capture the seller's language NOW — the daemon thread has no request
+    # context, so _session_lang() inside it would always degrade to "uz".
+    lang = _session_lang()
+    job_id = new_job(uid, total=len(confirmable))
+
+    if confirmable:
+        threading.Thread(
+            target=_run_bulk_confirm_job,
+            args=(job_id, token, confirmable, lang, uid),
+            daemon=True,
+        ).start()
+    else:
+        # Nothing confirmable — mark the (empty) job done so the poller stops.
+        finish_job(job_id)
+
+    return _json_response({
+        "job_id": job_id,
+        "queued": len(confirmable),
+        "skipped": skipped,
+    })
+
+
+@fbs_bp.get("/fbs/api/orders/bulk-confirm-status/<job_id>")
+@login_required
+def fbs_bulk_confirm_status_api(job_id):
+    """GET: progress of an async bulk-confirm job.
+
+    Returns ``{total, done, ok, failed:[{order_id, error, code}], status,
+    finished}``. 404 (``bulk_job_unknown``) if the job never existed, has
+    expired, or belongs to another user — we never leak another seller's job.
+    """
+    job = get_job(job_id)
+    if job is None or int(job.get("user_id", -1)) != int(current_user.get_id()):
+        return _json_response({"error": _err("bulk_job_unknown")}, 404)
+    return _json_response({
+        "total": job.get("total", 0),
+        "done": job.get("done", 0),
+        "ok": job.get("ok", 0),
+        "failed": job.get("failed", []),
+        "status": job.get("status", "running"),
+        "finished": job.get("status") == "done",
     })
 
 
@@ -2103,6 +3349,40 @@ def _dropoff_cache_put(uid: int, source: str, payload: dict):
         if len(_dropoff_cache) > 200:
             oldest = min(_dropoff_cache, key=lambda k: _dropoff_cache[k][0])
             _dropoff_cache.pop(oldest, None)
+
+
+def _matching_dropoff_uuids(uid: int, user_shops: list, match_ids) -> set[str]:
+    """Uzum invoice-points'dan shu order'larga MOS punkt UUID'lari to'plami.
+
+    «Faqat mos keladigan» ON'da db («Mening punktlarim») punktlarini ham shu
+    накладна'ga moslash uchun ishlatiladi. Egalik-guard: order_id'lar
+    user_shops bilan filtrlanadi. Xato/overdue/token-yo'q bo'lsa — bo'sh
+    to'plam (chaqiruvchi bunda hamma punktni ko'rsatadi, bo'shab qolmaydi).
+    """
+    from models import FbsOrder, User
+    try:
+        with SessionLocal() as db:
+            user = db.get(User, uid)
+            token = (user.uzum_openapi_token or "").strip() if user else ""
+            want = db.execute(
+                select(FbsOrder.order_id)
+                .where(FbsOrder.shop_id.in_(user_shops))
+                .where(FbsOrder.order_id.in_(list(match_ids)))
+            ).scalars().all()
+        if not token or not want:
+            return set()
+        from core.uzum_openapi import fetch_fbs_dropoff_points
+        uzum_points, _used = fetch_fbs_dropoff_points(
+            token, [int(o) for o in want], fail_fast=True,
+        )
+        return {
+            str(p.get("uuid"))
+            for p in (uzum_points or [])
+            if isinstance(p, dict) and p.get("uuid")
+        }
+    except Exception as e:  # noqa: BLE001 — best-effort; bo'sh to'plam fallback
+        print(f"[dropoff-points] matching uuids fetch failed: {e!r}")
+        return set()
 
 
 @fbs_bp.get("/fbs/api/dropoff-points")
@@ -2160,11 +3440,21 @@ def fbs_dropoff_points_api():
     if source not in ("db", "uzum"):
         source = "db"
 
+    # «Faqat mos keladigan» — agar KONKRET накладна order ID'lari berilsa
+    # (`order_ids=`), punktlarni aynan shu order'larga moslab Uzum'dan olamiz
+    # (Uzum portalining /drop-off/invoice-points?customerOrderIds=… kabi);
+    # berilmasa — butun aktiv pool (kengroq, "kelajakda qayerga?" ko'rinishi).
+    _match_ids = _parse_order_ids_param(request.args.get("order_ids"))
+
     # 2-min in-memory cache — modal open + tab switches hit this without
     # re-running the DB GROUP BY or re-calling Uzum. Per-user keyed so
-    # multi-tenant isolation is preserved.
+    # multi-tenant isolation is preserved. Mos-rejimda order'lar to'plamini
+    # ham kalitga qo'shamiz (har накладна alohida keshlansin).
     uid = int(current_user.get_id())
-    cached = _dropoff_cache_get(uid, source)
+    _cache_key = source
+    if _match_ids and source in ("uzum", "db"):
+        _cache_key = f"{source}:m:" + ",".join(sorted(_match_ids))
+    cached = _dropoff_cache_get(uid, _cache_key)
     if cached is not None:
         return _json_response(cached)
 
@@ -2174,18 +3464,29 @@ def fbs_dropoff_points_api():
         with SessionLocal() as db:
             user = db.get(User, uid)
             token = (user.uzum_openapi_token or "").strip() if user else ""
-            # Find PACKING-state orders so we can pass their IDs to Uzum.
-            # Uzum's dropoff endpoint uses the orders' dimensional groups
-            # + earliest deliver-by date to filter suitable points.
-            active_orders = db.execute(
-                select(FbsOrder.order_id)
-                .where(FbsOrder.shop_id.in_(user_shops))
-                .where(FbsOrder.status.in_(_ACTIVE_STATUSES))
-                .limit(50)  # don't spam Uzum with hundreds of IDs
-            ).scalars().all()
+            if _match_ids:
+                # «Faqat mos keladigan» — aynan shu накладна order'lari bilan
+                # so'raymiz → Uzum faqat shu order'larga mos punktlarni qaytaradi.
+                # EGALIK GUARD: faqat user o'z do'konlari order'lari (boshqa
+                # sellernikini so'rab bo'lmaydi).
+                active_orders = db.execute(
+                    select(FbsOrder.order_id)
+                    .where(FbsOrder.shop_id.in_(user_shops))
+                    .where(FbsOrder.order_id.in_(list(_match_ids)))
+                ).scalars().all()
+            else:
+                # Find PACKING-state orders so we can pass their IDs to Uzum.
+                # Uzum's dropoff endpoint uses the orders' dimensional groups
+                # + earliest deliver-by date to filter suitable points.
+                active_orders = db.execute(
+                    select(FbsOrder.order_id)
+                    .where(FbsOrder.shop_id.in_(user_shops))
+                    .where(FbsOrder.status.in_(_ACTIVE_STATUSES))
+                    .limit(50)  # don't spam Uzum with hundreds of IDs
+                ).scalars().all()
         if not token:
             return _json_response(
-                {"error": "Uzum OpenAPI token o'rnatilmagan"}, 400
+                {"error": _err("token_not_set")}, 400
             )
         if not active_orders:
             # No active orders → fall back to DB-aggregated, with a hint.
@@ -2373,7 +3674,7 @@ def fbs_dropoff_points_api():
                     "used_url": used_url,
                     "points": points,
                 }
-                _dropoff_cache_put(uid, "uzum", payload)
+                _dropoff_cache_put(uid, _cache_key, payload)
                 return _json_response(payload)
             except UzumAPIError as e:
                 print(f"[dropoff-points] Uzum error: {e!r}; falling back to db")
@@ -2435,8 +3736,16 @@ def fbs_dropoff_points_api():
     # Sort: points with active orders first (descending), then by total.
     points.sort(key=lambda p: (-p["active"], -p["total"], p["address"]))
 
+    # «Faqat mos keladigan» — db («Mening punktlarim») uchun ham: bu накладна'ga
+    # mos punkt UUID'larini Uzum'dan olib, o'z punktlarimizga `suitable` qo'yamiz
+    # → frontend ON'da faqat shu накладна'ga mos o'z punktlarimni ko'rsatadi.
+    if _match_ids:
+        match_uuids = _matching_dropoff_uuids(uid, user_shops, _match_ids)
+        for p in points:
+            p["suitable"] = bool(p.get("uuid") and str(p["uuid"]) in match_uuids)
+
     payload = {"ok": True, "source": "db", "points": points}
-    _dropoff_cache_put(uid, "db", payload)
+    _dropoff_cache_put(uid, _cache_key, payload)
     return _json_response(payload)
 
 
@@ -2526,7 +3835,7 @@ def fbs_dropoff_time_slots_api(dop_id: str):
                 oid for (oid, du) in _rows if du is None or du > _now
             ][:50]
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
     if not active_orders:
         return _json_response({"ok": True, "slots": [], "reason": "no_active_orders"})
 
@@ -2641,18 +3950,18 @@ def fbs_invoice_create_api():
     shop_uzum_id = (payload.get("shop_uzum_id") or "").strip()
 
     if not isinstance(order_ids, list) or not order_ids:
-        return _json_response({"error": "order_ids majburiy"}, 400)
+        return _json_response({"error": _err("field_required", field="order_ids")}, 400)
     if not dop_uuid:
-        return _json_response({"error": "drop_off_point_uuid majburiy"}, 400)
+        return _json_response({"error": _err("field_required", field="drop_off_point_uuid")}, 400)
     if not slot_uuid:
-        return _json_response({"error": "time_slot_uuid majburiy"}, 400)
+        return _json_response({"error": _err("field_required", field="time_slot_uuid")}, 400)
 
     # Scope check: all orders must belong to the user's shops, and they
     # must all share the SAME shop (Uzum invoice is per-shop — sellerId
     # is a single integer).
     user_shops = _current_user_shop_uzum_ids()
     if not user_shops:
-        return _json_response({"error": "Sizda biron do'kon topilmadi"}, 403)
+        return _json_response({"error": _err("no_shop")}, 403)
 
     from models import FbsOrder, User
     str_ids = [str(i) for i in order_ids]
@@ -2663,18 +3972,18 @@ def fbs_invoice_create_api():
             .where(FbsOrder.shop_id.in_(user_shops))
         ).all()
     if len(rows) != len(set(str_ids)):
-        return _json_response({"error": "Ba'zi buyurtmalar topilmadi yoki sizga tegishli emas"}, 403)
+        return _json_response({"error": _err("some_orders_not_yours")}, 403)
 
     shop_ids = {r.shop_id for r in rows}
     if len(shop_ids) > 1:
         return _json_response({
-            "error": "Bitta накладная ichiga turli do'konlardan buyurtmalarni qo'shib bo'lmaydi"
+            "error": _err("mixed_shops_invoice")
         }, 400)
     # Verify orders are in a state that can be put on an invoice (PACKING).
     bad = [r.order_id for r in rows if r.status != "PACKING"]
     if bad:
         return _json_response({
-            "error": f"Faqat «Yig'ilmoqda» (PACKING) buyurtmalar накладная ichiga qo'shiladi. Xato: {len(bad)} ta"
+            "error": _err("only_packing_invoice", n=len(bad))
         }, 400)
 
     # Uzum's sellerId is the SELLER account (e.g. 95673 in the cabinet
@@ -2700,10 +4009,10 @@ def fbs_invoice_create_api():
         probe_shops = [order_shop] + [s for s in user_shops if s != order_shop]
         seller_id = _ensure_seller_id(db, user, token, probe_shops)
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
     if seller_id is None:
         return _json_response({
-            "error": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q yoki Uzum vaqtincha javob bermadi). Birozdan keyin qayta urinib ko'ring yoki «Mening do'konlarim» sahifasida ?sId=<N> ni kiriting."
+            "error": _err("seller_id_undetected")
         }, 400)
 
     from core.uzum_openapi import create_fbs_invoice
@@ -2719,7 +4028,7 @@ def fbs_invoice_create_api():
             fail_fast=True,  # interactive: a burst-429 must fail fast, not stall the page
         )
 
-    def _reflect_pending_delivery():
+    def _reflect_pending_delivery(invoice_number=None):
         # The orders just moved PACKING → PENDING_DELIVERY at Uzum. Reflect
         # it in our local cache NOW so the «К отправке» list shows them on
         # the next read — not only after a manual «Обновить». The count
@@ -2727,15 +4036,25 @@ def fbs_invoice_create_api():
         # showed «1» while the DB-backed list was still empty. Mirrors the
         # cancel_order fast-path (optimistic UPDATE + cache invalidation);
         # the periodic sync reconciles later if Uzum's status differs.
+        #
+        # Also stamp ``invoice_number`` from the just-created invoice: the
+        # накладная list is scope-filtered by the set of local
+        # ``fbs_orders.invoice_number`` (see _filter_invoices_to_owned), so
+        # without this the brand-new invoice would be hidden until the next
+        # worker tick (~10 min). Stamping it makes the new накладная appear
+        # on the very next list reload.
         try:
             from sqlalchemy import update as _sql_update
+            values = {"status": "PENDING_DELIVERY"}
+            if invoice_number:
+                values["invoice_number"] = str(invoice_number)
             with SessionLocal() as _db:
                 _db.execute(
                     _sql_update(FbsOrder)
                     .where(FbsOrder.order_id.in_(str_ids))
                     .where(FbsOrder.shop_id.in_(user_shops))
                     .where(FbsOrder.status == "PACKING")
-                    .values(status="PENDING_DELIVERY")
+                    .values(**values)
                 )
                 _db.commit()
             for _sid in shop_ids:
@@ -2745,7 +4064,7 @@ def fbs_invoice_create_api():
 
     try:
         invoice, used_url = _do_call(update_only=False)
-        _reflect_pending_delivery()
+        _reflect_pending_delivery(invoice.get("number") if isinstance(invoice, dict) else None)
         return _json_response({
             "ok": True,
             "mode": "created",
@@ -2760,7 +4079,7 @@ def fbs_invoice_create_api():
         if "seller-order-19" in code or "already" in (e.message or "").lower():
             try:
                 invoice, used_url = _do_call(update_only=True)
-                _reflect_pending_delivery()
+                _reflect_pending_delivery(invoice.get("number") if isinstance(invoice, dict) else None)
                 return _json_response({
                     "ok": True,
                     "mode": "updated",
@@ -2775,6 +4094,149 @@ def fbs_invoice_create_api():
     except Exception as e:
         print(f"[invoice/create] unexpected error: {e!r}")
         return _json_response({"error": str(e)[:200]}, 502)
+
+
+def _filter_invoices_to_owned(invoices: list[dict], owned_numbers) -> list[dict]:
+    """Keep only invoices whose ``number`` belongs to a registered shop.
+
+    ``GET /v1/fbs/invoice`` is TOKEN-scoped: one seller account owns many
+    shops and the token returns invoices for ALL of them — including shops the
+    user never added to SellerHub (e.g. a 5th shop on a "Do'konlar: 4/5"
+    account). Uzum's invoice payload carries NO ``shopId`` (its ``stock``
+    warehouse is shared across shops, so it can't discriminate either).
+
+    The reliable signal: every order carries ``invoiceNumber`` (== the
+    invoice's ``number``), and the order-sync writes ONLY the user's
+    registered shops into ``fbs_orders``. So ``owned_numbers`` — the set of
+    ``fbs_orders.invoice_number`` for those shops — is exactly the invoices
+    the user may see. A number absent from it is a foreign shop's invoice and
+    is dropped.
+
+    Pure (no DB/IO) so the filter is unit-testable in isolation.
+    """
+    owned = {str(n) for n in (owned_numbers or set()) if n is not None and str(n).strip()}
+    return [iv for iv in invoices if str(iv.get("number")) in owned]
+
+
+def _owned_invoice_numbers(user_shops: list[str]) -> set[str]:
+    """Distinct ``fbs_orders.invoice_number`` for the user's registered shops.
+
+    Empty set when the user has no shops. Terminal orders are retained 365
+    days (see app.py ``_FBS_TERMINAL_RETENTION_DAYS``) and the worker syncs
+    every status, so this covers historical ACCEPTED/CANCELLED invoices too —
+    not just the active queue.
+    """
+    from core.fbs_data import get_owned_invoice_numbers
+    return get_owned_invoice_numbers(user_shops)
+
+
+def _decide_invoice_ownership(
+    invoice_number,
+    inv_order_ids,
+    owned_numbers,
+    owned_order_ids,
+) -> bool:
+    """Decide whether an invoice belongs to the current user. Pure — unit-tested.
+
+    The by-id invoice endpoints (detail / akt / change-pickup) are TOKEN-scoped
+    at Uzum: the token covers EVERY shop on the seller account, so Uzum happily
+    serves (and MUTATES) invoices of shops the user never registered here. The
+    local ownership signal is two-fold, either one suffices:
+
+      1. ``invoice_number`` ∈ ``owned_numbers`` (the registered shops'
+         ``fbs_orders.invoice_number`` set) — the fast path for synced data.
+      2. Any of the invoice's order ids (from Uzum's authoritative
+         ``/invoice/{id}/orders``) appears in ``owned_order_ids`` (the subset
+         of those ids found locally under the user's shops) — covers a
+         freshly-created invoice whose number hasn't synced yet.
+
+    Both signals empty/miss → foreign invoice → deny. Blank/None values are
+    never treated as wildcards.
+    """
+    if invoice_number is not None:
+        num = str(invoice_number).strip()
+        owned = {str(n) for n in (owned_numbers or set()) if n is not None and str(n).strip()}
+        if num and num in owned:
+            return True
+    inv_ids = {str(i) for i in (inv_order_ids or []) if i is not None}
+    owned_ids = {str(i) for i in (owned_order_ids or []) if i is not None}
+    return bool(inv_ids & owned_ids)
+
+
+def _user_owns_invoice(
+    token: str,
+    invoice_id: int,
+    user_shops: list[str],
+    *,
+    invoice_number=None,
+    inv_orders: list[dict] | None = None,
+) -> tuple[bool, list[dict] | None]:
+    """Scope guard for the by-id invoice endpoints (detail / akt / pickup).
+
+    Returns ``(owns, inv_orders)`` — ``inv_orders`` is Uzum's authoritative
+    order list for the invoice, passed through so callers that need it anyway
+    (detail render, change-pickup body) never fetch it twice. When the caller
+    already has it, pass it in and NO extra Uzum call is made; otherwise ONE
+    paced ``/invoice/{id}/orders`` call happens only on the owned-numbers
+    cache miss (rare: invoice created in the last ~10 min, or foreign).
+
+    Fail-closed: if the Uzum orders fetch errors out, ``owns`` is False —
+    a transient error must never open a foreign invoice.
+    """
+    if not user_shops:
+        return (False, inv_orders)
+    owned_numbers = _owned_invoice_numbers(user_shops)
+    # Fast local path — number already synced into fbs_orders.
+    if _decide_invoice_ownership(invoice_number, [], owned_numbers, []):
+        return (True, inv_orders)
+
+    if inv_orders is None:
+        try:
+            from core.uzum_openapi import fetch_fbs_invoice_orders
+            inv_orders, _ = fetch_fbs_invoice_orders(token, invoice_id, fail_fast=True)
+        except Exception as e:
+            print(f"[invoice-guard] orders fetch failed for invoice {invoice_id}: {e!r}")
+            return (False, None)
+
+    inv_order_ids = [str(o.get("orderId")) for o in inv_orders if o.get("orderId") is not None]
+    owned_order_ids: set[str] = set()
+    if inv_order_ids:
+        from models import FbsOrder
+        with SessionLocal() as db:
+            rows = db.execute(
+                select(FbsOrder.order_id)
+                .where(FbsOrder.shop_id.in_(user_shops))
+                .where(FbsOrder.order_id.in_(inv_order_ids))
+            ).all()
+        owned_order_ids = {str(r[0]) for r in rows}
+
+    owns = _decide_invoice_ownership(invoice_number, inv_order_ids, owned_numbers, owned_order_ids)
+    if not owns:
+        print(f"[invoice-guard] DENY invoice={invoice_id} "
+              f"(number={invoice_number!r}, {len(inv_order_ids)} order(s), "
+              f"{len(owned_order_ids)} owned) — foreign shop")
+    return (owns, inv_orders)
+
+
+def _foreign_sku_ids(items: list[dict], shop_by_sku: dict, allowed_shop_ids) -> list[str]:
+    """SkuIds in a stock MUTATION that do NOT belong to the user's shops.
+
+    Pure — unit-tested. Same ownership semantics as the read-side
+    ``_filter_stock_skus_to_shops`` (skuId → local Variant → shop), but for
+    writes we REJECT the whole request instead of silently dropping rows: a
+    partial write would leave the seller believing every row saved.
+
+    Returns the offending skuIds (empty list = all owned). A missing/unmapped
+    skuId counts as foreign — fail-closed, same as the read side.
+    """
+    allowed = {int(s) for s in (allowed_shop_ids or [])}
+    bad: list[str] = []
+    for it in items or []:
+        sid = it.get("skuId") if isinstance(it, dict) else None
+        shop_id = shop_by_sku.get(str(sid)) if sid is not None else None
+        if shop_id is None or int(shop_id) not in allowed:
+            bad.append(str(sid))
+    return bad
 
 
 @fbs_bp.get("/fbs/api/invoices")
@@ -2812,7 +4274,7 @@ def fbs_invoices_list_api():
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
     try:
         invoices, used_url = fetch_fbs_invoices_list(
@@ -2825,11 +4287,31 @@ def fbs_invoices_list_api():
         print(f"[invoices/list] unexpected error: {e!r}")
         return _json_response({"error": str(e)[:200]}, 502)
 
+    # SCOPE GUARD: the token returns invoices for EVERY shop on the seller
+    # account; restrict to invoices belonging to the user's registered shops.
+    # Without this, a 5th (un-added) shop's накладные leak into the list.
+    user_shops = _current_user_shop_uzum_ids()
+    owned_numbers = _owned_invoice_numbers(user_shops)
+    before = len(invoices)
+    invoices = _filter_invoices_to_owned(invoices, owned_numbers)
+    dropped = before - len(invoices)
+    if dropped:
+        print(f"[invoices/list] scope-filtered {dropped} foreign-shop "
+              f"invoice(s) of {before} (page={page}, shops={len(user_shops)})")
+
     return _json_response({
         "ok": True,
         "invoices": invoices,
         "page": page,
         "size": size,
+        # Pagination signal MUST use the PRE-filter count. The scope-filter can
+        # drop same-account-but-foreign-shop invoices out of a full Uzum page,
+        # so the post-filter ``len(invoices) < size`` does NOT mean "last page"
+        # — that false signal disabled the "Keyingi" button and stranded the
+        # user on page 0 (Abdulaziz 2026-06-13 bug). Uzum returning a full page
+        # (``before >= size``) means another page may exist.
+        "has_more": before >= size,
+        "raw_count": before,
         "statuses": statuses,
         "used_url": used_url,
     })
@@ -2852,7 +4334,7 @@ def fbs_invoice_detail_api(invoice_id: int):
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
     # ``orders_only=1`` (the inline «К отправке» accordion): the caller
     # already has the invoice header from the list endpoint and only needs
@@ -2883,11 +4365,33 @@ def fbs_invoice_detail_api(invoice_id: int):
     user_shops = _current_user_shop_uzum_ids()
     orders_in_invoice: list[dict] = []
     inv_orders: list[dict] = []
+    inv_orders_failed = False
     try:
         from core.uzum_openapi import fetch_fbs_invoice_orders
         inv_orders, _ = fetch_fbs_invoice_orders(token, invoice_id, fail_fast=True)
     except Exception as e:
+        inv_orders_failed = True
         print(f"[invoices/detail] authoritative orders join failed: {e!r}")
+
+    # SCOPE GUARD: the token serves any invoice on the seller account — also
+    # ones from shops the user never registered here. The list endpoint is
+    # already filtered; enforce the same boundary for direct by-id access.
+    # inv_orders is passed in, so the guard adds NO extra Uzum call.
+    owns, _ = _user_owns_invoice(
+        token, invoice_id, user_shops,
+        invoice_number=(invoice or {}).get("number"),
+        inv_orders=inv_orders,
+    )
+    if not owns:
+        if inv_orders_failed:
+            # Ownership UNDETERMINED (transient Uzum error, no local number
+            # match) — surface a retryable error, not a misleading 403.
+            return _json_response({
+                "error": _err("invoice_fetch_error")
+            }, 502)
+        return _json_response({
+            "error": _err("invoice_not_yours")
+        }, 403)
 
     db_by_id: dict = {}
     # order_id is a VARCHAR column — coerce to str so the IN clause matches
@@ -2906,6 +4410,23 @@ def fbs_invoice_detail_api(invoice_id: int):
                 .where(FbsOrder.order_id.in_(order_ids))
             ).all()
         db_by_id = {str(r.order_id): r for r in rows}
+
+    # Localize товар nomi to the seller's language from our own catalog,
+    # keyed by barcode (the invoice payload's title is single-language).
+    lang = session.get("lang", "uz")
+    allowed_shop_db_ids = _user_shop_ids(uid)
+    all_bcs = [
+        it.get("barcode")
+        for o in inv_orders
+        for it in (o.get("items") or [])
+        if isinstance(it, dict) and it.get("barcode")
+    ]
+    title_by_bc: dict = {}
+    if lang == "ru" and all_bcs and allowed_shop_db_ids:
+        with SessionLocal() as db:
+            title_by_bc, _ = _variant_titles(
+                db, allowed_shop_db_ids, barcodes=all_bcs, lang=lang
+            )
 
     for o in inv_orders:
         oid = o.get("orderId")
@@ -2928,8 +4449,11 @@ def fbs_invoice_detail_api(invoice_id: int):
                     img = bag.get("high") or bag.get("low") or ""
                     if img:
                         break
+            _tup = title_by_bc.get(str(it.get("barcode") or ""))
+            _rb, _rc = _tup if _tup else (None, "")
             items_compact.append({
-                "title": it.get("title") or it.get("productTitle") or "",
+                "title": _localize_product_title(
+                    it.get("title") or it.get("productTitle") or "", _rb, _rc, lang),
                 "sku": it.get("skuTitle") or "",
                 "barcode": it.get("barcode") or "",
                 "price": it.get("price") or 0,
@@ -2954,6 +4478,75 @@ def fbs_invoice_detail_api(invoice_id: int):
         "orders": orders_in_invoice,
         "used_url": used_url,
     })
+
+
+def _pickup_update_values(invoice_payload: dict | None) -> dict:
+    """``fbs_orders`` column values implied by a successful change-pickup.
+
+    Reads the MUTATION RESPONSE (the authority for what the invoice now
+    points at) — Uzum's order payloads may keep echoing the original
+    drop-off point, and the sync worker's ``stop_on_known`` short-circuit
+    never re-reads a row whose status didn't change, so this response is
+    the only reliable moment to learn the new point.
+
+    Only fields actually present in the payload are returned: a partial
+    response must never NULL-out columns we already have.
+    """
+    inv = invoice_payload or {}
+    dop = inv.get("dropOffPoint") or {}
+    values: dict = {}
+    if dop.get("uuid"):
+        values["drop_off_point_uuid"] = str(dop["uuid"])
+    if dop.get("address"):
+        values["drop_off_point_address"] = str(dop["address"])
+    # dop/time-slot has no invoice_id in the request body — Uzum may answer
+    # with a re-issued number. fbs_orders.invoice_number is the ownership
+    # source for the invoice scope-guard, so it MUST follow, or the guard
+    # would hide the moved invoice from its own seller.
+    if inv.get("number"):
+        values["invoice_number"] = str(inv["number"])
+    return values
+
+
+def _reflect_pickup_change_in_db(
+    invoice_payload: dict | None,
+    *,
+    invoice_id: int | str,
+    order_ids: list,
+    user_shops: list[str],
+) -> int:
+    """Mirror a successful change-pickup into ``fbs_orders``. Best-effort:
+    the Uzum-side move already succeeded, so a local write failure is
+    logged, never raised. Returns the number of rows updated."""
+    values = _pickup_update_values(invoice_payload)
+    if not values or not order_ids:
+        return 0
+    new_id = (invoice_payload or {}).get("id")
+    if new_id is not None and str(new_id) != str(invoice_id):
+        print(f"[invoice/change-pickup] Uzum re-issued invoice: "
+              f"id {invoice_id} -> {new_id}, "
+              f"number={values.get('invoice_number')!r}")
+    try:
+        from sqlalchemy import update as sa_update
+        from models import FbsOrder
+        with SessionLocal() as db:
+            res = db.execute(
+                sa_update(FbsOrder)
+                .where(FbsOrder.shop_id.in_([str(s) for s in user_shops]))
+                .where(FbsOrder.order_id.in_([str(o) for o in order_ids]))
+                .values(**values)
+            )
+            db.commit()
+        rowcount = int(getattr(res, "rowcount", 0) or 0)
+        print(f"[invoice/change-pickup] DB reflected: invoice={invoice_id} "
+              f"orders={len(order_ids)} rows={rowcount} "
+              f"dop={values.get('drop_off_point_uuid')!r} "
+              f"addr={str(values.get('drop_off_point_address'))[:60]!r} "
+              f"number={values.get('invoice_number')!r}")
+        return rowcount
+    except Exception as e:
+        print(f"[invoice/change-pickup] DB reflect failed: {e!r}")
+        return 0
 
 
 @fbs_bp.post("/fbs/api/invoices/<int:invoice_id>/change-pickup")
@@ -2984,13 +4577,13 @@ def fbs_invoice_change_pickup_api(invoice_id: int):
     point_uuid = (payload.get("point_uuid") or "").strip()
     slot_uuid = (payload.get("slot_uuid") or "").strip()
     if not point_uuid:
-        return _json_response({"error": "point_uuid majburiy"}, 400)
+        return _json_response({"error": _err("field_required", field="point_uuid")}, 400)
     if not slot_uuid:
-        return _json_response({"error": "slot_uuid majburiy"}, 400)
+        return _json_response({"error": _err("field_required", field="slot_uuid")}, 400)
 
     user_shops = _current_user_shop_uzum_ids()
     if not user_shops:
-        return _json_response({"error": "Sizda biron do'kon topilmadi"}, 403)
+        return _json_response({"error": _err("no_shop")}, 403)
 
     uid = int(current_user.get_id())
     with SessionLocal() as db:
@@ -3000,18 +4593,32 @@ def fbs_invoice_change_pickup_api(invoice_id: int):
         # _ensure_seller_id) — the seller never pastes it manually.
         seller_id = _ensure_seller_id(db, user, token, user_shops)
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
     if seller_id is None:
         return _json_response({
-            "error": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q). «Mening do'konlarim» sahifasida Uzum kabinet URL'idagi ?sId=<N> qiymatini kiriting."
+            "error": _err("seller_id_undetected_short")
         }, 400)
+
+    # SCOPE GUARD before the MUTATION. Uzum only scopes to the token's
+    # SELLER ACCOUNT — which covers EVERY shop on it, registered here or not —
+    # so "Uzum will 403 a foreign invoice" was a wrong assumption: it happily
+    # moves an unregistered shop's invoice. Verify against OUR shops first.
+    # The guard fetches the invoice's authoritative orders (one paced call);
+    # we hand them to change_invoice_pickup so the trip isn't repeated.
+    owns, inv_orders = _user_owns_invoice(token, invoice_id, user_shops)
+    if not owns:
+        return _json_response({
+            "error": _err("invoice_not_yours")
+        }, 403)
+    guard_order_ids = [
+        o.get("orderId") for o in (inv_orders or [])
+        if isinstance(o, dict) and o.get("orderId") is not None
+    ] or None
 
     # The orders attached to this invoice come straight from Uzum — the
     # authoritative membership (GET /v1/fbs/invoice/{id}/orders). The old
     # `invoice_number LIKE '%suffix'` DB-match was fragile (suffix
     # collisions) and empty before the sync worker populated the column.
-    # Uzum scopes the call to the token owner, so a cross-seller invoice
-    # is rejected (403) Uzum-side — no local shop filter needed here.
     from core.uzum_openapi import change_invoice_pickup
     try:
         invoice, used_url = change_invoice_pickup(
@@ -3021,11 +4628,12 @@ def fbs_invoice_change_pickup_api(invoice_id: int):
             drop_off_point_uuid=point_uuid,
             time_slot_uuid=slot_uuid,
             fail_fast=True,  # interactive mutation — fail fast on a burst-429
+            order_ids=guard_order_ids,
         )
     except ValueError:
         # Uzum reports no orders on this invoice — nothing to move.
         return _json_response({
-            "error": "Bu накладная uchun buyurtmalar topilmadi (yoki sizga tegishli emas)"
+            "error": _err("invoice_no_orders")
         }, 404)
     except UzumAPIError as e:
         return _uzum_error_response(e)
@@ -3040,6 +4648,16 @@ def fbs_invoice_change_pickup_api(invoice_id: int):
         delete_akt(invoice_id)
     except Exception as e:
         print(f"[invoice/change-pickup] akt cache invalidation failed: {e!r}")
+
+    # Reflect the move into fbs_orders IMMEDIATELY. The sync worker won't:
+    # a pickup change keeps the order status, so the incremental stop
+    # (`stop_on_known`) never re-reads these rows — without this write the
+    # drop-off columns (and every view fed by them: «Mening punktlarim»,
+    # order cards) keep the OLD point forever.
+    _reflect_pickup_change_in_db(
+        invoice, invoice_id=invoice_id,
+        order_ids=guard_order_ids or [], user_shops=user_shops,
+    )
 
     return _json_response({
         "ok": True,
@@ -3063,20 +4681,24 @@ def fbs_invoice_akt_pdf(invoice_id: int):
     Older revisions of this route built the PDF locally via ReportLab;
     that path was removed once Uzum's print endpoint was discovered.
     """
-    from core.fbs_akt_cache import get_or_fetch_akt
-
     uid = int(current_user.get_id())
     with SessionLocal() as db:
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
-    # Cache-first: the background worker usually has this akt pre-fetched, so
-    # this serves straight from the DB (0 Uzum calls). On a miss it fetches
-    # live (paced + 429-retry) and stores for next time.
+    # Cache-first + SCOPE GUARD: a cache hit serves straight from the DB
+    # (0 Uzum calls); a miss verifies the invoice belongs to one of the
+    # user's registered shops BEFORE hitting Uzum's print endpoint — the
+    # token alone would happily print any shop's akt on the seller account.
+    user_shops = _current_user_shop_uzum_ids()
     try:
-        pdf_bytes = get_or_fetch_akt(token, uid, invoice_id)
+        pdf_bytes = _get_akt_guarded(token, uid, invoice_id, user_shops)
+    except _ForeignInvoiceError:
+        return _json_response({
+            "error": _err("invoice_not_yours")
+        }, 403)
     except UzumAPIError as e:
         return _uzum_error_response(e)
     except Exception as e:
@@ -3089,6 +4711,35 @@ def fbs_invoice_akt_pdf(invoice_id: int):
     # Ctrl+S. Switch to ``attachment`` if you want a forced download.
     resp.headers["Content-Disposition"] = f'inline; filename="{filename}"'
     return resp
+
+
+class _ForeignInvoiceError(Exception):
+    """Raised by _get_akt_guarded when the invoice isn't the user's."""
+
+
+def _get_akt_guarded(token: str, uid: int, invoice_id: int, user_shops: list[str]) -> bytes:
+    """Cache-first akt fetch WITH the ownership boundary enforced.
+
+    Cache hit (keyed by user_id) = ownership proof: rows only enter the cache
+    through this guard or the worker prefetch, both of which are scoped to the
+    user's registered shops — so a hit costs 0 Uzum calls, same as before.
+    On a miss the invoice's ownership is verified first (one paced call via
+    ``_user_owns_invoice``); a foreign invoice raises ``_ForeignInvoiceError``
+    and Uzum's print endpoint is never hit for it.
+    """
+    from core.fbs_akt_cache import get_cached_akt, fetch_akt_live, store_akt
+    cached = get_cached_akt(uid, invoice_id)
+    if cached is not None:
+        return cached
+    owns, _ = _user_owns_invoice(token, invoice_id, user_shops)
+    if not owns:
+        raise _ForeignInvoiceError(str(invoice_id))
+    pdf = fetch_akt_live(token, invoice_id)
+    try:
+        store_akt(uid, invoice_id, None, pdf)
+    except Exception as e:  # caching is best-effort — never fail the request
+        print(f"[akt-guard] store failed for invoice {invoice_id}: {e!r}")
+    return pdf
 
 
 # Cap the bulk-akt fan-out: each id is one paced Uzum print call, so a huge
@@ -3116,7 +4767,6 @@ def fbs_invoices_akt_merged_pdf():
     """
     from io import BytesIO
     from pypdf import PdfReader, PdfWriter
-    from core.fbs_akt_cache import get_or_fetch_akt
 
     raw = request.args.get("ids") or ""
     ids: list[int] = []
@@ -3132,11 +4782,10 @@ def fbs_invoices_akt_merged_pdf():
     seen: set[int] = set()
     ids = [i for i in ids if not (i in seen or seen.add(i))]
     if not ids:
-        return _json_response({"error": "Накладной tanlanmadi"}, 400)
+        return _json_response({"error": _err("no_invoice_selected")}, 400)
     if len(ids) > _BULK_AKT_MAX:
         return _json_response(
-            {"error": f"Bir vaqtda {_BULK_AKT_MAX} tagacha akt birlashtiriladi. "
-                      f"Kamroq tanlang."},
+            {"error": _err("bulk_akt_limit", n=_BULK_AKT_MAX)},
             400,
         )
 
@@ -3145,25 +4794,32 @@ def fbs_invoices_akt_merged_pdf():
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
+    # SCOPE GUARD per id: cache hits (the common case — the worker prefetches
+    # the user's own akts) stay 0-Uzum-call; misses verify ownership before
+    # printing. Foreign ids are skipped and reported like other failures.
+    user_shops = _current_user_shop_uzum_ids()
     writer = PdfWriter()
     merged = 0
     failed: list[int] = []
     for iid in ids:
         try:
-            pdf_bytes = get_or_fetch_akt(token, uid, iid)
+            pdf_bytes = _get_akt_guarded(token, uid, iid, user_shops)
             reader = PdfReader(BytesIO(pdf_bytes))
             for page in reader.pages:
                 writer.add_page(page)
             merged += 1
+        except _ForeignInvoiceError:
+            print(f"[invoices/akt-merged] DENY foreign invoice {iid}")
+            failed.append(iid)
         except Exception as e:
             print(f"[invoices/akt-merged] skip invoice {iid}: {e!r}")
             failed.append(iid)
 
     if merged == 0:
         return _json_response(
-            {"error": "Hech bir akt yuklanmadi. Birozdan keyin urinib ko'ring."},
+            {"error": _err("no_akt_loaded")},
             502,
         )
 
@@ -3191,15 +4847,18 @@ def fbs_stock_page():
     /fbs/api/sku-stocks so the page stays fast even when Uzum is slow.
     """
     token, _ = _current_user_token_and_shops()
+    lang = session.get("lang", "uz")
+    labels = STOCK_LABELS.get(lang, STOCK_LABELS["uz"])
     return render_template(
         "fbs_stock.html",
         title="FBS — ombor",
         has_token=bool(token),
+        labels=labels,
     )
 
 
 # ── Shop-scoping for the SELLER-level stock list ───────────────────────
-# ``GET /v2/fbs/sku/stocks`` takes NO shopId — it returns every SKU under
+# ``GET /v3/fbs/sku/stocks`` takes NO shopId — it returns every SKU under
 # the token's seller ACCOUNT, including Uzum shops the seller never added
 # to SellerHub (a separate cosmetics / clothing shop, etc.). We map each
 # skuId → local shop_id via the Variant table and drop anything that does
@@ -3250,38 +4909,15 @@ def _filter_stock_skus_to_shops(skus, shop_by_sku, allowed_shop_ids):
     return kept, hidden
 
 
-@fbs_bp.get("/fbs/api/sku-stocks")
-@login_required
-def fbs_sku_stocks_list_api():
-    """GET: the seller's updatable FBS/DBS SKU stocks.
+def _enrich_and_filter_stock_skus(uid: int, skus: list[dict]) -> tuple[list[dict], list[dict], int]:
+    """Attach per-SKU image + owning shop, RU-localize titles, and DROP every
+    SKU that isn't one of the user's own registered shops.
 
-    The official ``/v2/fbs/sku/stocks`` carries no product image, so we
-    enrich each row from our local ``Variant`` table by skuId. Needs
-    ``SKU_READ`` on the token (else Uzum 403).
+    The stock API is SELLER-level (no shopId), so it also returns SKUs from
+    Uzum shops the seller never added to SellerHub — those must not appear in
+    the «Ombor» grid (or the «Do'kon» filter). Shared by the cache/all path and
+    the live-paginated path. Returns ``(kept_skus, shops_out, hidden_foreign)``.
     """
-    from core.uzum_openapi import fetch_fbs_sku_stocks
-
-    uid = int(current_user.get_id())
-    with SessionLocal() as db:
-        user = db.get(User, uid)
-        token = (user.uzum_openapi_token or "").strip() if user else ""
-    if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
-
-    try:
-        skus, used_url = fetch_fbs_sku_stocks(token, fail_fast=True)
-    except UzumAPIError as e:
-        return _uzum_error_response(e)
-    except Exception as e:
-        print(f"[sku-stocks/list] unexpected error: {e!r}")
-        return _json_response({"error": str(e)[:200]}, 502)
-
-    # Enrich each SKU with its local product image + owning shop, joined by
-    # skuId (Variant.uzum_sku_id is VARCHAR → coerce the int skuId to str),
-    # then DROP every SKU that isn't one of the user's own registered shops.
-    # The official stock API is SELLER-level (no shopId), so it also returns
-    # SKUs from Uzum shops the seller never added to SellerHub — those must
-    # not appear in the «Ombor» grid (or the «Do'kon» filter).
     shops_out: list[dict] = []
     hidden = 0
     try:
@@ -3301,23 +4937,159 @@ def fbs_sku_stocks_list_api():
             # from finance_orders: its image is a per-ORDER historical snapshot
             # that goes stale and mismatches the current listing.
             shop_by_sku, img_by_sku = _stock_shop_maps(db, user_shop_db_ids, sku_ids)
+            # Localized товар nomi from our own catalog, keyed by skuId.
+            # Only for RU — UZ keeps the live FBS title verbatim (no regression).
+            _stk_lang = session.get("lang", "uz")
+            title_by_sku = {}
+            if _stk_lang == "ru":
+                _, title_by_sku = _variant_titles(
+                    db, user_shop_db_ids, sku_ids=sku_ids, lang=_stk_lang
+                )
 
         # Keep only the user's own shops, then attach image + shop name.
         skus, hidden = _filter_stock_skus_to_shops(skus, shop_by_sku, user_shop_db_ids)
         for s in skus:
             key = str(s.get("skuId"))
             s["image"] = img_by_sku.get(key)
+            tup = title_by_sku.get(key)
+            if tup:
+                ru_base, ru_color = tup
+                s["productTitle"] = _localize_product_title(
+                    s.get("productTitle") or s.get("skuTitle") or "", ru_base, ru_color, _stk_lang)
             shop_id = shop_by_sku.get(key)
             s["shopId"] = shop_id
             s["shopName"] = shop_name_by_id.get(shop_id) if shop_id is not None else None
     except Exception as e:
         print(f"[sku-stocks/list] image/shop enrich failed: {e!r}")
+    return skus, shops_out, hidden
 
-    print(f"[sku-stocks/list] user_id={uid} shown={len(skus)} hidden_foreign={hidden}", flush=True)
-    return _json_response({
-        "ok": True, "skus": skus, "shops": shops_out,
-        "hidden_foreign": hidden, "used_url": used_url,
-    })
+
+@fbs_bp.get("/fbs/api/sku-stocks")
+@login_required
+def fbs_sku_stocks_list_api():
+    """GET: SKU stocks page — HYBRID ikki endpoint (Abdulaziz, 2026-07-03).
+
+    Har bir endpoint bittasini bermaydi (probe bilan tasdiqlangan):
+      * OpenAPI ``/v3/fbs/sku/stocks`` — bitta so'rovda 100 qator (tez!),
+        LEKIN server-qidiruv YO'Q (searchText e'tiborsiz).
+      * Portal ``/v1/seller/stock/sku`` — searchText/shopIds/IN_STOCK
+        SERVERDA, LEKIN qat'iy 20 qator/so'rov (size=30 → 400).
+
+    Marshrutlash (segment «amount» bo'yicha, endpoint tezligiga qarab):
+      * «Hammasi» va «Tugagan» (qidiruvsiz, do'konsiz) → v3, 100/sahifa —
+        asosiy og'ir scroll shular, eng tez. «Tugagan» = v3 sahifadan
+        ``amount==0`` client-side ajratiladi (bulk nol → sahifa ~to'la).
+      * «Mavjud» → portal ``IN_STOCK`` (amount>0, odatda kam natija, 20 kifoya).
+      * QIDIRUV yoki DO'KON tanlansa → portal (server searchText/shopIds);
+        «Tugagan» bo'lsa ``amount==0`` client-side ajratiladi.
+
+    Nega SOLD_OUT emas: portalning ``SOLD_OUT`` enum'i «qo'lda nolga
+    tushirilgan» tor ro'yxat (~15), «amount=0» (1200) EMAS — probe tasdiqladi.
+    Shuning uchun «Tugagan» doim ``amount==0`` client-filtri.
+
+    Params: ``page`` (0+), ``search``, ``shop`` (o'z do'koni DB id'si),
+    ``avail`` (all|in|out). Ikki javob shakli har xil, lekin
+    ``normalize_portal_sku`` / v3-enrich ikkalasini ``{skuId, image, amount,
+    …}`` ga keltiradi — frontend farqni sezmaydi.
+    """
+    from core.fbs_portal_stock import fetch_portal_sku_stocks_page
+    from core.uzum_openapi import fetch_fbs_sku_stocks_page
+
+    uid = int(current_user.get_id())
+    try:
+        page = max(0, min(int(request.args.get("page", 0)), 100_000))
+    except (TypeError, ValueError):
+        page = 0
+    search = (request.args.get("search") or "").strip()
+    shop_f = (request.args.get("shop") or "").strip()
+    avail = (request.args.get("avail") or "all").strip().lower()
+
+    user_shop_db_ids = _user_shop_ids(uid)
+    with SessionLocal() as db:
+        user = db.get(User, uid)
+        seller_id = user.uzum_seller_id if user else None
+        openapi_token = (user.uzum_openapi_token or "").strip() if user else ""
+        shop_rows = db.execute(
+            select(Shop.id, Shop.uzum_id, Shop.name).where(Shop.id.in_(user_shop_db_ids))
+        ).all() if user_shop_db_ids else []
+    shops_out = [{"id": sid, "name": name or f"Do'kon #{sid}"}
+                 for (sid, _uz, name) in shop_rows]
+
+    def _out_only(rows):
+        # «Tugagan» = amount==0 (portal SOLD_OUT yaramaydi).
+        return [s for s in rows if int(s.get("amount") or 0) == 0]
+
+    # ── «Hammasi» / «Tugagan» (qidiruvsiz, do'konsiz) → v3, 100/sahifa ────
+    use_v3 = (not search) and (not shop_f) and (avail in ("all", "out")) and openapi_token
+    if use_v3:
+        try:
+            raw, _ = fetch_fbs_sku_stocks_page(
+                openapi_token, page=page, size=100, fail_fast=True)
+        except UzumAPIError as e:
+            return _uzum_error_response(e)
+        except Exception as e:
+            print(f"[sku-stocks/list] v3 error: {e!r}", flush=True)
+            return _json_response({"error": str(e)[:200]}, 502)
+        # Rasm/do'kon enrich + chet (ro'yxatdan tashqari) do'konni tashlaydi.
+        skus, shops_v3, hidden = _enrich_and_filter_stock_skus(uid, raw)
+        # ── Begona-token himoyasi (Abdulaziz 2026-07-04) ─────────────────
+        # v3 SELLER-darajali: OpenAPI token foydalanuvchining SellerHub
+        # do'konlaridan BOSHQA seller akkauntiga tegishli bo'lsa, butun sahifa
+        # begona bo'lib filtrlanadi (raw>0, sent=0). Bunda ilgari `has_more`
+        # XOM sahifadan (100) hisoblanib `hasMore=True` qaytardi → frontend
+        # bo'sh jadval ustidan butun begona katalogni cheksiz «Загрузка…»
+        # qilardi (user_id=3 real bug). Begona token HAR sahifada begona
+        # bo'lgani uchun bu holatda o'z-o'zini-yetkazuvchi PORTAL yo'liga
+        # tushamiz — hamma sahifa bir xilda portalga o'tadi, aralashuv yo'q.
+        if raw and not skus:
+            print(f"[sku-stocks/list] user_id={uid} v3 page={page} avail={avail} "
+                  f"raw={len(raw)} sent=0 hidden={hidden} → PORTAL fallback "
+                  f"(token boshqa sellerники?)", flush=True)
+        else:
+            if shops_v3:
+                shops_out = shops_v3
+            if avail == "out":
+                skus = _out_only(skus)
+            # hasMore = XOM sahifa to'liq (100) → yana bor (filtr qisqartirsa ham).
+            has_more = len(raw) >= 100
+            print(f"[sku-stocks/list] user_id={uid} v3 page={page} avail={avail} "
+                  f"raw={len(raw)} sent={len(skus)} hidden={hidden} hasMore={has_more}", flush=True)
+            resp = {"ok": True, "skus": skus, "page": page, "hasMore": has_more}
+            if page == 0:
+                resp["shops"] = shops_out
+            return _json_response(resp)
+
+    # ── «Mavjud» / QIDIRUV / DO'KON → portal (server-side, 20/sahifa) ─────
+    if not seller_id:
+        return _json_response({"error": _err("seller_id_missing")}, 400)
+    if shop_f:
+        uzum_ids = [uz for (sid, uz, _n) in shop_rows if str(sid) == shop_f and uz]
+    else:
+        uzum_ids = [uz for (_sid, uz, _n) in shop_rows if uz]
+
+    try:
+        skus, has_more = fetch_portal_sku_stocks_page(
+            seller_id=seller_id, shop_uzum_ids=uzum_ids,
+            page=page, search=search, in_stock_only=(avail == "in"),
+        )
+    except Exception as e:
+        print(f"[sku-stocks/list] portal error: {e!r}", flush=True)
+        return _json_response({"error": str(e)[:200]}, 502)
+
+    # Himoyaviy segment-filtri: IN_STOCK server-side to'g'ri (probe), lekin
+    # SOLD_OUT'dagidek kutilmagan semantikadan saqlanish uchun «amount»ni
+    # o'zimiz ham tekshiramiz — segment doim aniq to'g'ri bo'ladi.
+    if avail == "in":
+        skus = [s for s in skus if int(s.get("amount") or 0) > 0]
+    elif avail == "out":
+        skus = _out_only(skus)
+
+    print(f"[sku-stocks/list] user_id={uid} portal page={page} q={search!r} "
+          f"shop={shop_f!r} avail={avail} sent={len(skus)} hasMore={has_more}", flush=True)
+    resp = {"ok": True, "skus": skus, "page": page, "hasMore": has_more}
+    if page == 0:
+        resp["shops"] = shops_out   # shop dropdown only needs filling once
+    return _json_response(resp)
 
 
 @fbs_bp.post("/fbs/api/sku-stocks")
@@ -3336,19 +5108,41 @@ def fbs_sku_stocks_update_api():
     payload = request.get_json(silent=True) or {}
     items = payload.get("skuAmountList")
     if not isinstance(items, list) or not items:
-        return _json_response({"error": "Yangilash uchun SKU yuborilmadi"}, 400)
+        return _json_response({"error": _err("no_sku_to_update")}, 400)
 
     uid = int(current_user.get_id())
     with SessionLocal() as db:
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
+
+    # SCOPE GUARD: the token writes stock for EVERY shop on the seller
+    # account. The grid the user sees is already shop-filtered, but the API
+    # itself must enforce it too — otherwise a hand-crafted request can zero
+    # a foreign (unregistered) shop's stock. Whole-request reject, no partial
+    # writes. Same Variant-mapping semantics as the read side.
+    try:
+        user_shop_db_ids = _user_shop_ids(uid)
+        sku_ids = [str(it.get("skuId")) for it in items
+                   if isinstance(it, dict) and it.get("skuId") is not None]
+        with SessionLocal() as db:
+            shop_by_sku, _ = _stock_shop_maps(db, user_shop_db_ids, sku_ids)
+        bad = _foreign_sku_ids(items, shop_by_sku, user_shop_db_ids)
+    except Exception as e:
+        print(f"[sku-stocks/update] scope-guard failed: {e!r}")
+        return _json_response({"error": _err("ownership_check_failed")}, 502)
+    if bad:
+        print(f"[sku-stocks/update] DENY user_id={uid}: {len(bad)} foreign/unknown "
+              f"skuId(s): {','.join(bad[:10])}", flush=True)
+        return _json_response({
+            "error": _err("foreign_sku_update", n=len(bad))
+        }, 403)
 
     try:
         result, used_url = update_fbs_sku_stocks(token, sku_amounts=items, fail_fast=True)
     except ValueError:
-        return _json_response({"error": "Yangilash uchun yaroqli SKU topilmadi"}, 400)
+        return _json_response({"error": _err("no_valid_sku")}, 400)
     except UzumAPIError as e:
         return _uzum_error_response(e)
     except Exception as e:
@@ -3383,7 +5177,7 @@ def fbs_sku_stocks_export_api():
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
     try:
         skus, _ = fetch_fbs_sku_stocks(token, fail_fast=True)
@@ -3423,24 +5217,24 @@ def fbs_sku_stocks_import_preview_api():
 
     f = request.files.get("file")
     if f is None or not f.filename:
-        return _json_response({"error": "Fayl yuborilmadi"}, 400)
+        return _json_response({"error": _err("no_file")}, 400)
     if not f.filename.lower().endswith((".xlsx", ".xlsm")):
-        return _json_response({"error": "Faqat .xlsx fayl qabul qilinadi"}, 400)
+        return _json_response({"error": _err("only_xlsx")}, 400)
 
     uid = int(current_user.get_id())
     with SessionLocal() as db:
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
 
     try:
         desired, stats = parse_stock_rows(f.read())
     except Exception as e:
         print(f"[sku-stocks/import-preview] parse error: {e!r}")
-        return _json_response({"error": "Faylni o'qib bo'lmadi — format noto'g'ri"}, 400)
+        return _json_response({"error": _err("file_unreadable")}, 400)
     if not desired:
-        return _json_response({"error": "Faylda yaroqli qator topilmadi", "stats": stats}, 400)
+        return _json_response({"error": _err("no_valid_rows"), "stats": stats}, 400)
 
     try:
         current, _ = fetch_fbs_sku_stocks(token, fail_fast=True)
@@ -3493,14 +5287,33 @@ def fbs_sku_stocks_import_apply_api():
     payload = request.get_json(silent=True) or {}
     changes = payload.get("changes")
     if not isinstance(changes, list) or not changes:
-        return _json_response({"error": "Saqlash uchun o'zgarish yo'q"}, 400)
+        return _json_response({"error": _err("no_changes_to_save")}, 400)
 
     uid = int(current_user.get_id())
     with SessionLocal() as db:
         user = db.get(User, uid)
         token = (user.uzum_openapi_token or "").strip() if user else ""
     if not token:
-        return _json_response({"error": "Uzum OpenAPI token o'rnatilmagan"}, 400)
+        return _json_response({"error": _err("token_not_set")}, 400)
+
+    # SCOPE GUARD — same as the live editor's: the Excel rows come from the
+    # filtered export, but the apply API must verify shop ownership itself.
+    try:
+        user_shop_db_ids = _user_shop_ids(uid)
+        sku_ids = [str(it.get("skuId")) for it in changes
+                   if isinstance(it, dict) and it.get("skuId") is not None]
+        with SessionLocal() as db:
+            shop_by_sku, _ = _stock_shop_maps(db, user_shop_db_ids, sku_ids)
+        bad = _foreign_sku_ids(changes, shop_by_sku, user_shop_db_ids)
+    except Exception as e:
+        print(f"[sku-stocks/import-apply] scope-guard failed: {e!r}")
+        return _json_response({"error": _err("ownership_check_failed")}, 502)
+    if bad:
+        print(f"[sku-stocks/import-apply] DENY user_id={uid}: {len(bad)} foreign/unknown "
+              f"skuId(s): {','.join(bad[:10])}", flush=True)
+        return _json_response({
+            "error": _err("foreign_sku_save", n=len(bad))
+        }, 403)
 
     applied = 0
     last_url = ""
@@ -3510,12 +5323,17 @@ def fbs_sku_stocks_import_apply_api():
             _, last_url = update_fbs_sku_stocks(token, sku_amounts=chunk, fail_fast=True)
             applied += len(chunk)
     except ValueError:
-        return _json_response({"error": "Yangilash uchun yaroqli SKU topilmadi"}, 400)
+        return _json_response({"error": _err("no_valid_sku")}, 400)
     except UzumAPIError as e:
         return _uzum_error_response(e)
     except Exception as e:
         print(f"[sku-stocks/import-apply] unexpected error: {e!r}")
         return _json_response({"error": str(e)[:200], "applied": applied}, 502)
+
+    # Mirror the saved amounts into the «Ombor» SWR cache (same as the
+    # single-save endpoint). Partial-failure paths skip this on purpose —
+    # the next page-open's background revalidate re-syncs the cache anyway.
+    _patch_sku_stock_cache_amounts(uid, changes)
 
     print(f"[sku-stocks/import-apply] user_id={uid} applied={applied}", flush=True)
     return _json_response({"ok": True, "applied": applied, "used_url": last_url})
@@ -3540,7 +5358,7 @@ def fbs_return_reasons_api():
     if not token:
         print(f"[fbs.reasons] REJECT user_id={uid} — no token", flush=True)
         return _json_response(
-            {"error": "Uzum OpenAPI token o'rnatilmagan"}, 400
+            {"error": _err("token_not_set")}, 400
         )
 
     try:
@@ -3618,7 +5436,7 @@ def dbs_completed_api(order_id: int):
             issue_code = int(raw_code)
         except (TypeError, ValueError):
             return _json_response(
-                {"error": "Tasdiqlash kodi raqam bo'lishi kerak"}, 400
+                {"error": _err("issue_code_numeric")}, 400
             )
 
     token, shop_id, _order, err_resp = _resolve_token_and_check_order(order_id)

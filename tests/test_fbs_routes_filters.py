@@ -10,7 +10,51 @@ end-of-day shift, for example, would quietly exclude orders).
 """
 from __future__ import annotations
 
-from fbs.routes import _filter_stock_skus_to_shops, _parse_yyyy_mm_dd_to_ms
+from fbs.routes import (
+    _FBS_REFRESH_ON_PRESS_SYNC,
+    _filter_invoices_to_owned,
+    _filter_stock_skus_to_shops,
+    _parse_live_count_statuses,
+    _parse_yyyy_mm_dd_to_ms,
+)
+
+
+class TestParseLiveCountStatuses:
+    """``/fbs/api/counts-all?statuses=`` chooses which chips get a LIVE
+    /count from Uzum (Bosqich A.12). The page-entry load uses it to refresh
+    ONLY Yangi + Yig'ilmoqda instead of all 4 active chips, killing the
+    per-press burst. Terminal chips must never be live-refreshable through
+    this param.
+    """
+
+    def test_empty_returns_all_active(self):
+        # No param → keep the pre-A.12 "refresh every active chip" default.
+        assert _parse_live_count_statuses(None) == _FBS_REFRESH_ON_PRESS_SYNC
+        assert _parse_live_count_statuses("") == _FBS_REFRESH_ON_PRESS_SYNC
+        assert _parse_live_count_statuses("   ") == _FBS_REFRESH_ON_PRESS_SYNC
+
+    def test_entry_pair_only(self):
+        # The exact call the page entry makes: just the 2 visible-live chips.
+        assert _parse_live_count_statuses("CREATED,PACKING") == ("CREATED", "PACKING")
+
+    def test_single_status(self):
+        assert _parse_live_count_statuses("PACKING") == ("PACKING",)
+
+    def test_order_follows_canonical_not_input(self):
+        # Stable output regardless of input ordering.
+        assert _parse_live_count_statuses("PACKING,CREATED") == ("CREATED", "PACKING")
+
+    def test_terminal_status_dropped(self):
+        # A terminal chip can NEVER be forced live — it stays on the DB read.
+        assert _parse_live_count_statuses("COMPLETED") == ()
+        assert _parse_live_count_statuses("CREATED,COMPLETED") == ("CREATED",)
+
+    def test_unknown_status_dropped(self):
+        assert _parse_live_count_statuses("CREATED,BOGUS") == ("CREATED",)
+        assert _parse_live_count_statuses("BOGUS") == ()
+
+    def test_case_and_whitespace_insensitive(self):
+        assert _parse_live_count_statuses(" created , packing ") == ("CREATED", "PACKING")
 
 
 class TestParseYyyyMmDdToMs:
@@ -67,7 +111,7 @@ class TestParseYyyyMmDdToMs:
 
 
 class TestFilterStockSkusToShops:
-    """``/v2/fbs/sku/stocks`` is SELLER-level — it returns every SKU the
+    """``/v3/fbs/sku/stocks`` is SELLER-level — it returns every SKU the
     token's seller owns, including Uzum shops the seller never added to
     SellerHub. The «Ombor» grid and the Excel export must show ONLY the
     user's registered shops, so each row is kept only when its skuId maps
@@ -126,3 +170,64 @@ class TestFilterStockSkusToShops:
         # _user_shop_ids yields ints, but be defensive about str ids too.
         kept, hidden = _filter_stock_skus_to_shops([{"skuId": 1}], {"1": 6}, ["6"])
         assert len(kept) == 1 and hidden == 0
+
+
+class TestFilterInvoicesToOwned:
+    """``GET /v1/fbs/invoice`` is TOKEN-scoped — it returns накладные for
+    EVERY shop on the seller account, including shops the user never added to
+    SellerHub (the "Do'konlar: 4/5" 5th shop). Uzum's invoice payload has no
+    ``shopId`` and its ``stock`` warehouse is shared, so the only reliable
+    discriminator is the invoice ``number``: an order carries its
+    ``invoiceNumber`` and the order-sync writes ONLY registered shops, so the
+    local ``fbs_orders.invoice_number`` set is exactly the user's invoices.
+    A number outside that set is a foreign shop's накладная → dropped.
+    """
+
+    # Owned numbers come from a DISTINCT query over fbs_orders → strings.
+    OWNED = {"120000997273", "120001005732"}
+
+    def test_keeps_only_owned_numbers(self):
+        invoices = [
+            {"number": "120000997273"},   # registered shop
+            {"number": "999999999999"},   # foreign 5th shop → drop
+            {"number": "120001005732"},   # registered shop
+        ]
+        kept = _filter_invoices_to_owned(invoices, self.OWNED)
+        assert [iv["number"] for iv in kept] == ["120000997273", "120001005732"]
+
+    def test_int_number_matches_str_owned(self):
+        # Be defensive: even if a number arrives as int, str-coercion matches.
+        kept = _filter_invoices_to_owned([{"number": 120000997273}], self.OWNED)
+        assert len(kept) == 1
+
+    def test_owned_with_int_entries_coerced(self):
+        # owned_numbers built defensively — int entries must still match.
+        kept = _filter_invoices_to_owned([{"number": "120000997273"}], {120000997273})
+        assert len(kept) == 1
+
+    def test_empty_owned_hides_everything(self):
+        # User with no synced orders (or no shops) sees an empty list, never
+        # the raw token-level dump of foreign invoices.
+        kept = _filter_invoices_to_owned(
+            [{"number": "120000997273"}, {"number": "120001005732"}], set())
+        assert kept == []
+
+    def test_none_owned_hides_everything(self):
+        kept = _filter_invoices_to_owned([{"number": "120000997273"}], None)
+        assert kept == []
+
+    def test_missing_number_is_dropped(self):
+        kept = _filter_invoices_to_owned([{"status": "CREATED"}], self.OWNED)
+        assert kept == []
+
+    def test_blank_owned_entries_ignored(self):
+        # A NULL/blank invoice_number row must never become a wildcard that
+        # lets a numberless foreign invoice through.
+        kept = _filter_invoices_to_owned(
+            [{"number": ""}, {"number": None}], {"", "  ", None})
+        assert kept == []
+
+    def test_returns_same_invoice_objects(self):
+        iv = {"number": "120000997273", "status": "CREATED"}
+        kept = _filter_invoices_to_owned([iv], self.OWNED)
+        assert kept[0] is iv

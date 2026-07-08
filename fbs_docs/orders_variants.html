@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buyurtmalar — 4 dizayn variant</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0c12;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}
+.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 15px;border-radius:9px;cursor:pointer;transition:.15s}
+.seg button.on{background:#fff;color:#111}
+.spacer{flex:1}
+.note{max-width:1180px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}
+.note b{color:#dcdce4}
+.frame{display:none;padding:24px 22px 70px}
+.frame.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.stage{max-width:1180px;margin:0 auto}
+
+/* ============ shared content primitives via vars ============ */
+.v{--radius:18px}
+.v .hero{position:relative;overflow:hidden;padding:22px 26px;margin-bottom:16px;border-radius:var(--radius)}
+.v .kick{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font:700 11px/1 'Inter';letter-spacing:.06em;text-transform:uppercase}
+.v .hero h1{margin:.55rem 0 .35rem;font-size:1.6rem;font-weight:800;letter-spacing:-.02em}
+.v .hero p{margin:0;font-size:.9rem;line-height:1.5;max-width:560px}
+.v .heroflex{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.v .tabs{position:relative;display:inline-flex;gap:4px;padding:5px;border-radius:13px;height:max-content}
+.v .tabs a{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font:600 .85rem 'Inter';cursor:pointer}
+.v .tabs a svg{width:16px;height:16px}
+.v .panel{padding:18px 20px;border-radius:var(--radius)}
+.v .bar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.v .fld{display:flex;flex-direction:column;gap:5px}
+.v .fld label{font:700 .68rem 'Inter';text-transform:uppercase;letter-spacing:.05em}
+.v .fld select{border-radius:9px;padding:9px 12px;font:500 .84rem 'Inter';min-width:140px}
+.v .btn{border:0;border-radius:10px;padding:10px 18px;font:600 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.v .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px;padding-top:14px}
+.v .chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;font:600 .8rem 'Inter';cursor:pointer;border:1px solid transparent;transition:.15s}
+.v .chip .n{min-width:18px;padding:0 6px;border-radius:999px;font:700 .67rem/18px 'Inter';text-align:center}
+.v .chip.nav svg{width:14px;height:14px}
+.v table{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:12px}
+.v thead th{font:700 .67rem 'Inter';text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:2px 16px 6px;white-space:nowrap}
+.v thead th.r{text-align:right}
+.v tbody td{padding:14px 16px;font-size:.85rem;vertical-align:middle}
+.v tbody td:last-child{text-align:right}
+.v tbody td:first-child{width:40px}
+.v .ck{width:16px;height:16px}
+.v .onum{font:700 .9rem 'Inter'}
+.v .prod{display:flex;align-items:center;gap:10px;min-width:0}
+.v .qty{flex:none;display:inline-block;padding:2px 9px;border-radius:999px;font:700 .67rem 'Inter'}
+.v .sku{font:600 .82rem 'Inter';line-height:1.3}
+.v .bc{font:.73rem 'JetBrains Mono';margin-top:2px}
+.v .tag{display:inline-block;padding:3px 10px;border-radius:7px;font:700 .67rem 'Inter'}
+.v .dt{font:.82rem 'Inter'}
+.v .money{font:800 .9rem 'Inter';font-variant-numeric:tabular-nums}
+.v .dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11px/1.3 'Inter';border:1px solid transparent;white-space:nowrap;margin-top:5px}
+.v .dl svg{width:11px;height:11px}
+.v .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:.78rem}
+.v .foot code{font-family:'JetBrains Mono';padding:2px 7px;border-radius:6px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+
+/* ============ V1 · CLEAN (oq, yumshoq, indigo) ============ */
+.v1{--radius:20px;background:#F4F5F8;padding:26px;border-radius:24px}
+.v1 .hero{background:#fff;border:1px solid #ECECF0;box-shadow:0 1px 2px rgba(20,16,40,.04),0 8px 22px rgba(20,16,40,.05)}
+.v1 .hero::before{content:"";position:absolute;inset:-45% -8% auto auto;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle at 32% 30%,rgba(124,58,237,.14),transparent 60%),radial-gradient(circle at 70% 62%,rgba(65,105,225,.13),transparent 60%);filter:blur(8px)}
+.v1 .kick{background:#F0EAFF;color:#7C3AED}
+.v1 .hero h1{color:#1A1A22}.v1 .hero p{color:#5A5762}
+.v1 .tabs{background:#F4F5F8;border:1px solid #ECECF0}
+.v1 .tabs a{color:#5A5762}.v1 .tabs a.on{background:#fff;color:#1A1A22;box-shadow:0 1px 2px rgba(20,16,40,.08)}
+.v1 .panel{background:#fff;border:1px solid #ECECF0;box-shadow:0 1px 2px rgba(20,16,40,.04),0 8px 22px rgba(20,16,40,.05)}
+.v1 .fld label{color:#8E8B97}.v1 .fld select{border:1px solid #E2E2E8;background:#fff;color:#1A1A22}
+.v1 .btn-d{background:#1A1A22;color:#fff}.v1 .btn-o{background:#fff;color:#4169E1;border:1px solid #E2E2E8}
+.v1 .chips{border-top:1px solid #ECECF0}
+.v1 .chip{background:#F4F5F8;color:#5A5762}.v1 .chip:hover{color:#1A1A22}
+.v1 .chip.on{background:#1A1A22;color:#fff}
+.v1 .chip .n{background:#fff;color:#5A5762}.v1 .chip.on .n{background:rgba(255,255,255,.22);color:#fff}
+.v1 .chip.nav{background:#F0EAFF;color:#7C3AED;font-weight:700}
+.v1 thead th{color:#98959F}
+.v1 tbody tr{transition:box-shadow .16s,transform .12s}
+.v1 tbody td{background:#fff;border-top:1px solid #ECECF0;border-bottom:1px solid #ECECF0}
+.v1 tbody td:first-child{border-left:1px solid #ECECF0;border-radius:14px 0 0 14px}
+.v1 tbody td:last-child{border-right:1px solid #ECECF0;border-radius:0 14px 14px 0}
+.v1 tbody tr:hover{box-shadow:0 12px 30px rgba(20,16,40,.1);transform:translateY(-1px)}
+.v1 tbody tr:hover td{border-color:transparent}
+.v1 .ck{accent-color:#4169E1}.v1 .onum{color:#1A1A22}
+.v1 .qty{background:#eef4ff;color:#2b54c9}.v1 .sku{color:#1A1A22}.v1 .bc{color:#8E8B97}
+.v1 .tag.fbs{background:#eef4ff;color:#2b54c9}.v1 .tag.dbs{background:#fff5d6;color:#9a6207}
+.v1 .dt{color:#5A5762}.v1 .money{color:#1A1A22}
+.v1 .dl.urgent{background:#feeceb;color:#c0362b;border-color:#f8c4bf;animation:pulse 2s infinite}
+.v1 .dl.ok{background:#e9fbf2;color:#0a7a52;border-color:#bdeed7}
+.v1 .foot{color:#8E8B97}.v1 .foot code{background:#F4F5F8;color:#5A5762}
+
+/* ============ V2 · SLATE (toza, chiziqli, kulrang+indigo) ============ */
+.v2{--radius:14px;background:#EEF0F4;padding:26px;border-radius:20px}
+.v2 .hero{background:#fff;border:1px solid #DFE3EA}
+.v2 .kick{background:#EAF0FF;color:#3551B5}
+.v2 .hero h1{color:#1F2533}.v2 .hero p{color:#5B6478}
+.v2 .tabs{background:#F2F4F8;border:1px solid #DFE3EA}
+.v2 .tabs a{color:#5B6478}.v2 .tabs a.on{background:#3551B5;color:#fff}
+.v2 .panel{background:#fff;border:1px solid #DFE3EA}
+.v2 .fld label{color:#8893A6}.v2 .fld select{border:1px solid #D3D9E3;background:#fff;color:#1F2533}
+.v2 .btn-d{background:#3551B5;color:#fff}.v2 .btn-o{background:#fff;color:#3551B5;border:1px solid #C9D2E6}
+.v2 .chips{border-top:1px solid #E6E9F0}
+.v2 .chip{background:#F2F4F8;color:#5B6478;border:1px solid #E2E6EE}
+.v2 .chip.on{background:#3551B5;color:#fff;border-color:#3551B5}
+.v2 .chip .n{background:#fff;color:#5B6478}.v2 .chip.on .n{background:rgba(255,255,255,.25);color:#fff}
+.v2 .chip.nav{background:#EFE9FF;color:#6B3ED6;border-color:#E0D5FB}
+.v2 table{border-spacing:0;margin-top:14px}
+.v2 thead th{color:#8893A6;background:#F7F8FB;padding:11px 16px;border-bottom:1px solid #E6E9F0}
+.v2 thead th:first-child{border-radius:10px 0 0 0}.v2 thead th:last-child{border-radius:0 10px 0 0}
+.v2 tbody td{background:#fff;border-bottom:1px solid #EEF0F4}
+.v2 tbody tr:hover td{background:#F7F8FB}
+.v2 .ck{accent-color:#3551B5}.v2 .onum{color:#1F2533}
+.v2 .qty{background:#EAF0FF;color:#3551B5}.v2 .sku{color:#1F2533}.v2 .bc{color:#8893A6}
+.v2 .tag.fbs{background:#EAF0FF;color:#3551B5}.v2 .tag.dbs{background:#FBEFD6;color:#9A6207}
+.v2 .dt{color:#5B6478}.v2 .money{color:#1F2533}
+.v2 .dl.urgent{background:#FDECEA;color:#C0362B;border-color:#F6C6C0;animation:pulse 2s infinite}
+.v2 .dl.ok{background:#E6F7EF;color:#0A7A52;border-color:#BCE8D5}
+.v2 .foot{color:#8893A6}.v2 .foot code{background:#F2F4F8;color:#5B6478}
+
+/* ============ V3 · MIDNIGHT (qorong'i konsol, neon) ============ */
+.v3{--radius:18px;background:#0A0C11;padding:26px;border-radius:22px;border:1px solid #1c2230}
+.v3 .hero{background:radial-gradient(120% 130% at 0% 0%,#171d2b,#0d1018);border:1px solid #1f2636}
+.v3 .hero::after{content:"";position:absolute;right:-40px;top:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.28),transparent 70%)}
+.v3 .kick{background:rgba(34,211,238,.14);color:#22D3EE}
+.v3 .hero h1{color:#EAF0F7}.v3 .hero p{color:#9AA6B8}
+.v3 .tabs{background:rgba(255,255,255,.05);border:1px solid #232c3d}
+.v3 .tabs a{color:#cdd6e4}.v3 .tabs a.on{background:#22D3EE;color:#04141a}
+.v3 .panel{background:#10131A;border:1px solid #1f2636}
+.v3 .fld label{color:#697587}.v3 .fld select{border:1px solid #283143;background:#0c0f15;color:#EAF0F7}
+.v3 .btn-d{background:#22D3EE;color:#04141a}.v3 .btn-o{background:rgba(167,139,250,.14);color:#C4B5FD;border:1px solid #2f2a4d}
+.v3 .chips{border-top:1px solid #1f2636}
+.v3 .chip{background:#161B25;color:#9AA6B8}.v3 .chip:hover{color:#EAF0F7}
+.v3 .chip.on{background:#60A5FA;color:#04101f}
+.v3 .chip .n{background:rgba(255,255,255,.08);color:#cdd6e4}.v3 .chip.on .n{background:rgba(0,0,0,.2)}
+.v3 .chip.nav{background:rgba(244,114,182,.14);color:#F472B6}
+.v3 thead th{color:#697587}
+.v3 tbody td{background:#161B25;border-top:1px solid #232c3d;border-bottom:1px solid #232c3d}
+.v3 tbody td:first-child{border-left:3px solid #60A5FA;border-radius:12px 0 0 12px}
+.v3 tbody td:last-child{border-radius:0 12px 12px 0}
+.v3 tbody tr:hover td{background:#1b2230}
+.v3 .ck{accent-color:#22D3EE}.v3 .onum{color:#EAF0F7}
+.v3 .qty{background:rgba(96,165,250,.16);color:#93c5fd}.v3 .sku{color:#EAF0F7}.v3 .bc{color:#697587}
+.v3 .tag.fbs{background:rgba(96,165,250,.16);color:#93c5fd}.v3 .tag.dbs{background:rgba(251,191,36,.15);color:#fcd34d}
+.v3 .dt{color:#9AA6B8}.v3 .money{color:#EAF0F7;font-family:'Space Grotesk'}
+.v3 .dl.urgent{background:rgba(232,71,71,.18);color:#fca5a5;border-color:rgba(232,71,71,.4);animation:pulse 2s infinite}
+.v3 .dl.ok{background:rgba(16,183,110,.16);color:#6ee7a8;border-color:rgba(16,183,110,.35)}
+.v3 .foot{color:#697587}.v3 .foot code{background:#0c0f15;color:#9AA6B8}
+
+/* ============ V4 · AURORA-PRO (gradient hero, jonli) ============ */
+.v4{--radius:22px;background:radial-gradient(130% 80% at 100% 0%,#ECE6FF 0%,#F5F3FF 45%);padding:26px;border-radius:24px}
+.v4 .hero{background:linear-gradient(135deg,#4169E1,#7C3AED);color:#fff;box-shadow:0 18px 40px rgba(96,60,200,.28)}
+.v4 .hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 60%)}
+.v4 .kick{background:rgba(255,255,255,.18);color:#fff}
+.v4 .hero h1{color:#fff}.v4 .hero p{color:rgba(255,255,255,.85)}
+.v4 .tabs{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22)}
+.v4 .tabs a{color:#fff}.v4 .tabs a.on{background:#fff;color:#4169E1}
+.v4 .panel{background:#fff;border:1px solid #ECE7FB;box-shadow:0 14px 36px rgba(90,55,170,.1)}
+.v4 .fld label{color:#938BAA}.v4 .fld select{border:1px solid #E6E0F7;background:#fff;color:#1C1530}
+.v4 .btn-d{background:linear-gradient(135deg,#4169E1,#7C3AED);color:#fff}.v4 .btn-o{background:#F6F4FF;color:#7C3AED;border:1px solid #E6E0F7}
+.v4 .chips{border-top:1px solid #EFEAFB}
+.v4 .chip{background:#F6F4FF;color:#5C5378;border:1px solid #EDE7FB}
+.v4 .chip.on{background:linear-gradient(135deg,#4169E1,#7C3AED);color:#fff;border-color:transparent}
+.v4 .chip .n{background:#fff;color:#5C5378}.v4 .chip.on .n{background:rgba(255,255,255,.25);color:#fff}
+.v4 .chip.nav{background:linear-gradient(135deg,#f472b6,#ec4899);color:#fff;border-color:transparent}
+.v4 thead th{color:#A99FC2}
+.v4 tbody td{background:#fff;border-top:1px solid #F0EBFB;border-bottom:1px solid #F0EBFB}
+.v4 tbody td:first-child{border-left:1px solid #F0EBFB;border-radius:16px 0 0 16px}
+.v4 tbody td:last-child{border-right:1px solid #F0EBFB;border-radius:0 16px 16px 0}
+.v4 tbody tr{transition:.16s}.v4 tbody tr:hover{transform:translateY(-2px)}
+.v4 tbody tr:hover td{box-shadow:0 16px 36px rgba(90,55,170,.14);border-color:transparent}
+.v4 .ck{accent-color:#7C3AED}.v4 .onum{color:#1C1530}
+.v4 .qty{background:#EEE9FF;color:#6B3ED6}.v4 .sku{color:#1C1530}.v4 .bc{color:#938BAA}
+.v4 .tag.fbs{background:#EAF0FF;color:#3551B5}.v4 .tag.dbs{background:#FBEFD6;color:#9A6207}
+.v4 .dt{color:#5C5378}.v4 .money{color:#1C1530;font-family:'Space Grotesk'}
+.v4 .dl.urgent{background:#FDECEA;color:#C0362B;border-color:#F6C6C0;animation:pulse 2s infinite}
+.v4 .dl.ok{background:#E6F7EF;color:#0A7A52;border-color:#BCE8D5}
+.v4 .foot{color:#938BAA}.v4 .foot code{background:#F6F4FF;color:#5C5378}
+
+@media(max-width:760px){.v table,.v thead,.v tbody,.v tr,.v td,.v th{display:block}.v thead{display:none}}
+</style>
+</head>
+<body>
+
+<div class="pvbar">
+  <h1>Buyurtmalar — dizayn</h1>
+  <span class="sub">4 variant · aynan shu sahifa</span>
+  <div class="seg" id="seg">
+    <button data-v="v1" class="on">1 · Clean</button>
+    <button data-v="v2">2 · Slate</button>
+    <button data-v="v3">3 · Midnight</button>
+    <button data-v="v4">4 · Aurora-Pro</button>
+  </div>
+  <div class="spacer"></div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="frame on" id="f-v1"><div class="stage"><div class="v v1" id="c-v1"></div></div></div>
+<div class="frame" id="f-v2"><div class="stage"><div class="v v2" id="c-v2"></div></div></div>
+<div class="frame" id="f-v3"><div class="stage"><div class="v v3" id="c-v3"></div></div></div>
+<div class="frame" id="f-v4"><div class="stage"><div class="v v4" id="c-v4"></div></div></div>
+
+<script>
+const IBOX_TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const ICUBE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>';
+const IWARE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>';
+const ICLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+const ROWS=[
+ {id:'110388551',qty:'1 dona',sku:'KROSSFT-SHALVAR5-СЕРЫЙ-L',bc:'1000101649008',sc:'fbs',cr:'06.06.2026, 17:49',md:'10.06.2026, 16:00',shop:'KrossFit',sum:'59 900',left:'1 soat qoldi',lc:'urgent'},
+ {id:'110373473',qty:'1 dona',sku:'BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ',bc:'1000103129447',sc:'dbs',cr:'06.06.2026, 16:23',md:'02.07.2026, 23:59',shop:'BLUMMY',sum:'7 950',left:'537 soat qoldi',lc:'ok'},
+];
+const CHIPS=[['Новый',0],['Сборка',2,'on'],['__nav__'],['В пути',0],['Доставлен',5],['В пункте приёма',0],['В пункте выдачи',0],['Завершён',235],['Отменён',268],['Возврат',183]];
+
+function content(){
+  const chips=CHIPS.map(c=>c[0]==='__nav__'
+    ? `<span class="chip nav">${IBOX_TRUCK}Поставка</span>`
+    : `<span class="chip ${c[2]||''}">${c[0]} <span class="n">${c[1]}</span></span>`).join('');
+  const rows=ROWS.map(r=>`<tr>
+    <td><input type="checkbox" class="ck"></td>
+    <td><div class="onum">№${r.id}</div><span class="dl ${r.lc}">${ICLK}${r.left}</span></td>
+    <td><div class="prod"><span class="qty">${r.qty}</span><div style="min-width:0"><div class="sku">SKU: ${r.sku}</div><div class="bc">Shtrix: ${r.bc}</div></div></div></td>
+    <td><span class="tag ${r.sc}">${r.sc.toUpperCase()}</span></td>
+    <td class="dt">${r.cr}</td><td class="dt">${r.md}</td><td class="dt">${r.shop}</td>
+    <td><span class="money">${r.sum} UZS</span></td>
+  </tr>`).join('');
+  return `
+  <section class="hero"><div class="heroflex">
+    <div style="position:relative;min-width:0;flex:1 1 360px">
+      <span class="kick">● FBS / DBS</span>
+      <h1>Buyurtmalar</h1>
+      <p>Uzum'ning FBS («Fulfillment by Seller») va DBS («Delivery by Seller») buyurtmalari. Ma'lumotlar Seller OpenAPI orqali shaxsiy token bilan olinadi.</p>
+    </div>
+    <nav class="tabs"><a class="on">${ICUBE}Buyurtmalar</a><a>${IWARE}Ombor</a></nav>
+  </div></section>
+  <div class="panel">
+    <div class="bar">
+      <div class="fld"><label>Do'kon</label><select><option>Hammasi</option></select></div>
+      <div class="fld"><label>Sxema</label><select><option>FBS + DBS (hammasi)</option></select></div>
+      <div class="fld"><label>Sahifada</label><select><option>20</option></select></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn btn-d">Обновить</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn btn-o">📍 Пункт приёма</button></div>
+    </div>
+    <div class="chips">${chips}</div>
+    <table>
+      <thead><tr><th><input type="checkbox" class="ck"></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="r">Summa</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="foot">
+      <span>Topildi: <b>2</b> · Sahifa: <b>0</b> · Status: <b>PACKING</b> · Endpoint: <code>db://fbs_orders</code></span>
+      <span style="font-style:italic">Последнее обновление: 18 ч назад</span>
+    </div>
+  </div>`;
+}
+['c-v1','c-v2','c-v3','c-v4'].forEach(id=>document.getElementById(id).innerHTML=content());
+
+const NOTES={
+ v1:'<b>1 · Clean</b> — oq, yumshoq kartalar, indigo→binafsha nur, har qator alohida yumaloq karta (hozirgiga yaqin, ammo tozaroq).',
+ v2:'<b>2 · Slate</b> — kulrang-indigo, chiziqli toza jadval (zebra emas, hairline), professional/ish uslubi. Toza va xotirjam.',
+ v3:'<b>3 · Midnight</b> — to\'liq qorong\'i konsol, neon aksent (cyan/violet/pink), chap rangli rail. Zamonaviy, kontrastli.',
+ v4:'<b>4 · Aurora-Pro</b> — binafsha→ko\'k gradient hero, jonli, yirik radius. Eng dadil va "premium" his.'
+};
+const note=document.getElementById('note');note.innerHTML=NOTES.v1;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.frame').forEach(f=>f.classList.toggle('on',f.id==='f-'+b.dataset.v));
+ note.innerHTML=NOTES[b.dataset.v];window.scrollTo({top:0,behavior:'smooth'});});
+</script>
+</body>
+</html>

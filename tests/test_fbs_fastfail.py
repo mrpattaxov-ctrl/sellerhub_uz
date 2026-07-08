@@ -36,6 +36,25 @@ from core import fbs_sync
 from core import fbs_data
 
 
+@pytest.fixture(autouse=True)
+def _no_real_pacing():
+    """Neutralise the per-token bucket + retry sleep for every test here.
+
+    Bosqich A.11 moved pacing into ``_fbs_orders_request_with_auth`` (it
+    calls ``get_bucket_for_token(token).acquire()`` before each request) and
+    added a short ``time.sleep`` between interactive read retries. The tests
+    in this module either mock the chokepoint out entirely (forwarding
+    tests, so the bucket is never reached) or drive the real chokepoint with
+    a mocked session — in the latter case we must NOT block on a real bucket
+    slot or sleep. Patch both to no-ops so timing never enters the picture.
+    """
+    bucket = MagicMock(name="bucket")
+    bucket.acquire.return_value = None
+    with patch.object(uzum_openapi, "get_bucket_for_token", return_value=bucket), \
+         patch.object(uzum_openapi.time, "sleep"):
+        yield
+
+
 # ── helpers ───────────────────────────────────────────────────────────
 def _fake_response(status=200, text='{"payload": {}}'):
     r = MagicMock(name="response")
@@ -112,14 +131,30 @@ class TestChokepointSelection:
         assert shared.request.called
         assert not fast.request.called
 
-    def test_429_returns_in_one_round_trip(self):
-        """A 429 on the fast-fail path returns the (parsed, 429, text,
-        label) tuple after EXACTLY ONE request — no retry loop in our
-        code. (The adapter-level zero-backoff is pinned separately.)"""
+    def test_interactive_read_429_retries_then_returns(self):
+        """Bosqich A.11 — a residual 429 on an INTERACTIVE READ (GET +
+        fail_fast) is retried a bounded number of times (short wait between,
+        mocked to no-op here) before the 429 tuple is returned. This is the
+        "azgina kutib davom etsin" behaviour: the seller gets a retry, not
+        an instant error. The adapter-level zero-backoff is pinned separately
+        — this loop lives in our own code."""
         fast = _fake_session(status=429, text='{"errors":[{"code":"seller-order-02"}]}')
         with patch.object(uzum_openapi, "_get_fbs_fastfail_session", return_value=fast):
             parsed, status, text, _label = uzum_openapi._fbs_orders_request_with_auth(
-                "https://api-seller.uzum.uz/x", "tok",
+                "https://api-seller.uzum.uz/x", "tok", method="GET",
+                accept_language=None, debug_label="t", fail_fast=True)
+        assert status == 429
+        # One initial pass + (_FBS_READ_RETRY_ATTEMPTS - 1) retries.
+        assert fast.request.call_count == uzum_openapi._FBS_READ_RETRY_ATTEMPTS
+
+    def test_write_429_does_not_retry(self):
+        """A 429 on a WRITE (POST) must NOT auto-retry — penalty risk. It
+        returns after EXACTLY ONE request regardless of fail_fast."""
+        fast = _fake_session(status=429, text='{"errors":[{"code":"seller-order-02"}]}')
+        with patch.object(uzum_openapi, "_get_fbs_fastfail_session", return_value=fast):
+            _parsed, status, _text, _label = uzum_openapi._fbs_orders_request_with_auth(
+                "https://api-seller.uzum.uz/x", "tok", method="POST",
+                json_body={"x": 1},
                 accept_language=None, debug_label="t", fail_fast=True)
         assert status == 429
         assert fast.request.call_count == 1
@@ -156,8 +191,7 @@ class TestForwarding:
             seen["fail_fast"] = kw.get("fail_fast")
             return ({"payload": 0}, 200, "", "raw")
 
-        with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req), \
-             patch.object(uzum_openapi, "pace_uzum_call"):
+        with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req):
             uzum_openapi.fetch_fbs_orders_count("tok", "123", status="CREATED", fail_fast=True)
         assert seen["fail_fast"] is True
 
@@ -168,8 +202,7 @@ class TestForwarding:
             seen["fail_fast"] = kw.get("fail_fast")
             return ({"payload": 0}, 200, "", "raw")
 
-        with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req), \
-             patch.object(uzum_openapi, "pace_uzum_call"):
+        with patch.object(uzum_openapi, "_fbs_orders_request_with_auth", side_effect=fake_req):
             uzum_openapi.fetch_fbs_orders_count("tok", "123", status="CREATED")
         assert seen["fail_fast"] is False
 
@@ -185,8 +218,7 @@ class TestBackgroundStaysPatient:
             seen.append(kw.get("fail_fast"))
             return ({"payload": {"orders": []}}, "url")  # empty → stop after page 0
 
-        with patch.object(fbs_sync, "fetch_fbs_orders_page", side_effect=fake_page), \
-             patch.object(fbs_sync, "pace_uzum_call"):
+        with patch.object(fbs_sync, "fetch_fbs_orders_page", side_effect=fake_page):
             fbs_sync.fetch_all_pages("tok", "123", status="CREATED")
         assert seen == [False], "worker path must stay patient (fail_fast=False)"
 
@@ -197,8 +229,7 @@ class TestBackgroundStaysPatient:
             seen.append(kw.get("fail_fast"))
             return ({"payload": {"orders": []}}, "url")
 
-        with patch.object(fbs_sync, "fetch_fbs_orders_page", side_effect=fake_page), \
-             patch.object(fbs_sync, "pace_uzum_call"):
+        with patch.object(fbs_sync, "fetch_fbs_orders_page", side_effect=fake_page):
             fbs_sync.fetch_all_pages("tok", "123", status="CREATED", fail_fast=True)
         assert seen == [True]
 
@@ -212,8 +243,7 @@ class TestJitRefreshIsFastFail:
             seen["fail_fast"] = kw.get("fail_fast")
             return ({"payload": {"orders": []}}, "url")
 
-        with patch.object(fbs_data, "fetch_fbs_orders_page", side_effect=fake_page), \
-             patch.object(fbs_data, "pace_uzum_call"):
+        with patch.object(fbs_data, "fetch_fbs_orders_page", side_effect=fake_page):
             fbs_data._refresh_shops_status_first_page("tok", ["123"], "CREATED")
         assert seen["fail_fast"] is True
 

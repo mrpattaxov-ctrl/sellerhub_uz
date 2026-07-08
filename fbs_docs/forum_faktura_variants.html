@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FBS ro'yxat — 5 dizayn variant</title>
+<style>
+  :root{
+    --accent:#4169E1; --accent2:#7C3AED;
+    --ink:#101828; --ink2:#475467; --muted:#98a2b3; --muted2:#667085;
+    --bd:#eaecf0; --card:#fff; --page:#f3f4f8;
+    --fbs-bg:#eff6ff; --fbs-bd:#bfdbfe; --fbs-fg:#1d4ed8;
+    --dbs-bg:#fff7ed; --dbs-bd:#fed7aa; --dbs-fg:#c2410c;
+    --ok-bg:#ecfdf5; --ok-bd:#a7f3d0; --ok-fg:#047857;
+    --slate-bg:#eef0f4; --slate-fg:#475569;
+    --red:#dc2626;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:32px 20px 80px; background:var(--page);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    color:var(--ink);
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+  .page-h{margin:0 0 4px; font-size:1.7rem; font-weight:800; letter-spacing:-.02em;}
+  .page-sub{margin:0 0 28px; color:var(--muted2); font-size:.98rem;}
+
+  .variant{margin-bottom:46px;}
+  .variant-head{display:flex; align-items:center; gap:12px; margin:0 0 14px; flex-wrap:wrap;}
+  .vchip{
+    display:inline-grid; place-items:center; width:34px; height:34px; flex:none;
+    border-radius:11px; font-weight:800; color:#fff; font-size:1rem;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 6px 16px -5px rgba(96,60,200,.55);
+  }
+  .vtitle{font-size:1.18rem; font-weight:800; letter-spacing:-.01em;}
+  .vdesc{color:var(--muted2); font-size:.9rem; margin-left:2px;}
+  .vdesc b{color:var(--ink2);}
+
+  /* card surface that wraps each variant's table */
+  .surface{
+    background:var(--card); border:1px solid var(--bd); border-radius:18px;
+    box-shadow:0 2px 8px rgba(0,0,0,.04); padding:14px 16px;
+  }
+
+  /* shared bits */
+  .thumb{
+    flex:none; border-radius:13px; object-fit:cover;
+    background:linear-gradient(135deg,#6E8FE8,#4169E1);
+    display:grid; place-items:center; color:#fff;
+  }
+  .thumb svg{width:46%; height:46%; opacity:.92;}
+  .thumb.g2{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+  .thumb.g3{background:linear-gradient(135deg,#f59e0b,#d97706);}
+
+  .pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem; font-weight:700; white-space:nowrap;}
+  .pill-fbs{background:var(--fbs-bg); border:1px solid var(--fbs-bd); color:var(--fbs-fg);}
+  .pill-dbs{background:var(--dbs-bg); border:1px solid var(--dbs-bd); color:var(--dbs-fg);}
+  .pill-qty{background:#f1f4fa; border:1px solid #e4e9f3; color:#475467;}
+  .pill-more{background:#eef2ff; border:1px solid #dfe6ff; color:#4338ca; cursor:pointer;}
+
+  .badge{display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:.72rem; font-weight:700; white-space:nowrap;}
+  .badge-late{background:var(--slate-bg); color:var(--slate-fg);}
+  .badge-ok{background:var(--ok-bg); border:1px solid var(--ok-bd); color:var(--ok-fg);}
+  .num{font-variant-numeric:tabular-nums;}
+  .late-date{color:var(--red); font-weight:700;}
+  .sku{font-weight:600; color:var(--ink);}
+  .shtrix{color:var(--muted2); font-size:.8rem;}
+  .checkbox{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
+
+  table{width:100%; border-collapse:separate; border-spacing:0;}
+  thead th{
+    text-align:left; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--muted); font-weight:700; font-size:.68rem; padding:.2rem .85rem .5rem; white-space:nowrap;
+  }
+  th.end,td.end{text-align:right;}
+  .prod{display:flex; align-items:center; gap:.8rem;}
+  .prod .info{min-width:0;}
+
+  /* ============ VARIANT 1 — HAVODOR ============ */
+  .v1 thead th{font-size:.74rem; color:var(--muted2);}
+  .v1 table{border-spacing:0 12px;}
+  .v1 tbody td{
+    background:#fff; padding:1.15rem .9rem; vertical-align:middle; font-size:.95rem;
+    border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);
+  }
+  .v1 tbody td:first-child{border-left:1px solid var(--bd); border-radius:14px 0 0 14px;}
+  .v1 tbody td:last-child{border-right:1px solid var(--bd); border-radius:0 14px 14px 0;}
+  .v1 tbody tr:hover td{background:#fafbfe; border-color:#d7deea;}
+  .v1 .ordno{font-size:1.05rem; font-weight:800; color:var(--ink);}
+  .v1 .thumb{width:64px; height:64px;}
+  .v1 .sku{font-size:.95rem;}
+  .v1 .colmuddat,.v1 .colsana{color:var(--ink2);}
+  .v1 .sum{font-size:1rem; font-weight:800;}
+
+  /* ============ VARIANT 2 — ANIQ TIPOGRAFIYA ============ */
+  .v2 table{border-spacing:0 8px;}
+  .v2 tbody td{
+    background:#fff; padding:.95rem .9rem; vertical-align:middle;
+    border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);
+  }
+  .v2 tbody td:first-child{border-left:1px solid var(--bd); border-radius:14px 0 0 14px;}
+  .v2 tbody td:last-child{border-right:1px solid var(--bd); border-radius:0 14px 14px 0;}
+  .v2 tbody tr:hover td{background:#fafbfe;}
+  .v2 .ordno{font-size:1.1rem; font-weight:800; color:#0b1220; letter-spacing:-.01em;}
+  .v2 .sku{font-size:.96rem; font-weight:700; color:#0b1220;}
+  .v2 .shtrix{font-size:.78rem; color:#94a0b4;}
+  .v2 .thumb{width:58px; height:58px;}
+  .v2 .colsana{color:#667085; font-size:.84rem;}
+  .v2 .colmuddat{font-size:.88rem; font-weight:600;}
+  .v2 .sum{font-size:1.05rem; font-weight:800; color:#0b1220;}
+  .v2 .sum small{display:block; font-size:.66rem; font-weight:700; color:var(--muted); letter-spacing:.04em;}
+
+  /* ============ VARIANT 3 — PREMIUM KARTA ============ */
+  .v3 table{border-spacing:0 14px;}
+  .v3 tbody td{
+    background:#fff; padding:1.2rem 1rem; vertical-align:middle; font-size:.93rem;
+    border-top:1px solid #edf0f5; border-bottom:1px solid #edf0f5;
+    box-shadow:0 6px 18px -10px rgba(16,24,40,.25);
+  }
+  .v3 tbody td:first-child{border-left:1px solid #edf0f5; border-radius:16px 0 0 16px;}
+  .v3 tbody td:last-child{border-right:1px solid #edf0f5; border-radius:0 16px 16px 0;}
+  .v3 tbody tr{transition:transform .14s ease;}
+  .v3 tbody tr:hover{transform:translateY(-2px);}
+  .v3 tbody tr:hover td{box-shadow:0 16px 34px -14px rgba(16,24,40,.4);}
+  .v3 .ordno{font-size:1.05rem; font-weight:800;}
+  .v3 .thumb{width:64px; height:64px; border-radius:15px; box-shadow:0 0 0 4px #fff, 0 0 0 5px #eef1f7;}
+  .v3 .sku{font-size:.95rem; font-weight:700;}
+  .v3 .sum{font-size:1.02rem; font-weight:800;}
+
+  /* ============ VARIANT 4 — TOZA GRID (zebra) ============ */
+  .v4 .surface{padding:0; overflow:hidden;}
+  .v4 table{border-spacing:0;}
+  .v4 thead th{
+    background:#f7f9fc; padding:.85rem 1rem; border-bottom:1px solid var(--bd);
+    position:sticky; top:0; font-size:.7rem; color:var(--muted2);
+  }
+  .v4 tbody td{padding:.95rem 1rem; vertical-align:middle; font-size:.95rem; border-bottom:1px solid #f1f3f7;}
+  .v4 tbody tr:nth-child(even) td{background:#fafbfd;}
+  .v4 tbody tr:hover td{background:#eff3fb;}
+  .v4 .ordno{font-size:1rem; font-weight:800;}
+  .v4 .thumb{width:54px; height:54px;}
+  .v4 .sku{font-size:.93rem;}
+  .v4 .sum{font-size:.98rem; font-weight:800;}
+
+  /* ============ VARIANT 5 — RANGLI URG'U ============ */
+  .v5 table{border-spacing:0 10px;}
+  .v5 tbody td{
+    background:#fff; padding:1.05rem .9rem; vertical-align:middle; font-size:.94rem;
+    border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);
+  }
+  .v5 tbody td:first-child{
+    border-left:5px solid var(--accent); border-radius:14px 0 0 14px; position:relative;
+  }
+  .v5 tbody tr.late td:first-child{border-left-color:var(--red);}
+  .v5 tbody tr.warn td:first-child{border-left-color:#f59e0b;}
+  .v5 tbody tr.ok   td:first-child{border-left-color:#10b981;}
+  .v5 tbody td:last-child{border-right:1px solid var(--bd); border-radius:0 14px 14px 0;}
+  .v5 tbody td:not(:first-child){border-top:1px solid var(--bd); border-bottom:1px solid var(--bd);}
+  .v5 tbody tr:hover td{background:#fafbfe;}
+  .v5 .ordno{font-size:1.04rem; font-weight:800;}
+  .v5 .thumb{width:60px; height:60px;}
+  .v5 .sku{font-size:.94rem; font-weight:700;}
+  .v5 .sum{font-size:1rem; font-weight:800;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page-h">FBS ro'yxat — dizayn variantlari</h1>
+  <p class="page-sub">Bir xil 3 qator, 5 xil yengil dizaynda. Hozirgisidan biroz havodorroq va o'qilishi tiniqroq — lekin juda katta emas.</p>
+
+  <!-- =================== VARIANT 1 =================== -->
+  <section class="variant v1">
+    <div class="variant-head">
+      <span class="vchip">1</span>
+      <span class="vtitle">Havodor</span>
+      <span class="vdesc">Ko'proq nafas + biroz kattaroq shrift, <b>64px</b> rasm. Eng minimal o'zgarish.</span>
+    </div>
+    <div class="surface">
+      <table>
+        <thead><tr><th></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="end">Summa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110388551</div><div style="margin-top:.4rem"><span class="badge badge-late">⏱ Muddat o'tdi</span></div></td>
+            <td><div class="prod"><div class="thumb g1">📦</div><div class="info"><div class="sku">SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</div><div class="shtrix">Shtrix: 1000101649008</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">06.06.2026, 17:49</td>
+            <td class="colmuddat num"><span class="late-date">10.06.2026, 16:00</span></td>
+            <td>KrossFit</td>
+            <td class="end"><span class="sum num">59 900 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">111061839</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 69 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g2">📦</div><div class="info"><div class="sku">SKU: BLUMMY-MAGNIT2-25</div><div class="shtrix">Shtrix: 1000007817150</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span> <span class="pill pill-more">+2 ▾</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">10.06.2026, 17:39</td>
+            <td class="colmuddat num">13.06.2026, 16:00</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">37 950 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110373473</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 533 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g3">📦</div><div class="info"><div class="sku">SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div><div class="shtrix">Shtrix: 1000103129447</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-dbs">DBS</span></td>
+            <td class="colsana num">06.06.2026, 16:23</td>
+            <td class="colmuddat num">02.07.2026, 23:59</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">7 950 UZS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================== VARIANT 2 =================== -->
+  <section class="variant v2">
+    <div class="variant-head">
+      <span class="vchip">2</span>
+      <span class="vtitle">Aniq tipografiya</span>
+      <span class="vdesc">Kuchli ierarxiya: № va sarlavha <b>qalin</b>, shtrix xira, Summa tabular + yorliqli.</span>
+    </div>
+    <div class="surface">
+      <table>
+        <thead><tr><th></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="end">Summa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110388551</div><div style="margin-top:.35rem"><span class="badge badge-late">⏱ Muddat o'tdi</span></div></td>
+            <td><div class="prod"><div class="thumb g1">📦</div><div class="info"><div class="sku">KROSSFT-SHALVAR5-СЕРЫЙ-L</div><div class="shtrix">1000101649008 · 1 dona</div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">06.06.2026<br>17:49</td>
+            <td class="colmuddat num"><span class="late-date">10.06.2026<br>16:00</span></td>
+            <td>KrossFit</td>
+            <td class="end"><span class="sum num">59 900<small>UZS</small></span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">111061839</div><div style="margin-top:.35rem"><span class="badge badge-ok">⏱ 69 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g2">📦</div><div class="info"><div class="sku">BLUMMY-MAGNIT2-25</div><div class="shtrix">1000007817150 · 1 dona <span class="pill pill-more">+2 ▾</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">10.06.2026<br>17:39</td>
+            <td class="colmuddat num">13.06.2026<br>16:00</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">37 950<small>UZS</small></span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110373473</div><div style="margin-top:.35rem"><span class="badge badge-ok">⏱ 533 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g3">📦</div><div class="info"><div class="sku">BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div><div class="shtrix">1000103129447 · 1 dona</div></div></div></td>
+            <td><span class="pill pill-dbs">DBS</span></td>
+            <td class="colsana num">06.06.2026<br>16:23</td>
+            <td class="colmuddat num">02.07.2026<br>23:59</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">7 950<small>UZS</small></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================== VARIANT 3 =================== -->
+  <section class="variant v3">
+    <div class="variant-head">
+      <span class="vchip">3</span>
+      <span class="vtitle">Premium karta</span>
+      <span class="vdesc">Doimiy yumshoq soya, <b>16px</b> radius, rasm atrofida halqa, hover'da ko'tariladi.</span>
+    </div>
+    <div class="surface" style="background:#f7f8fb; border-color:#eef0f5;">
+      <table>
+        <thead><tr><th></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="end">Summa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110388551</div><div style="margin-top:.4rem"><span class="badge badge-late">⏱ Muddat o'tdi</span></div></td>
+            <td><div class="prod"><div class="thumb g1">📦</div><div class="info"><div class="sku">SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</div><div class="shtrix">Shtrix: 1000101649008</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">06.06.2026, 17:49</td>
+            <td class="colmuddat num"><span class="late-date">10.06.2026, 16:00</span></td>
+            <td>KrossFit</td>
+            <td class="end"><span class="sum num">59 900 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">111061839</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 69 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g2">📦</div><div class="info"><div class="sku">SKU: BLUMMY-MAGNIT2-25</div><div class="shtrix">Shtrix: 1000007817150</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span> <span class="pill pill-more">+2 ▾</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">10.06.2026, 17:39</td>
+            <td class="colmuddat num">13.06.2026, 16:00</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">37 950 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110373473</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 533 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g3">📦</div><div class="info"><div class="sku">SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div><div class="shtrix">Shtrix: 1000103129447</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-dbs">DBS</span></td>
+            <td class="colsana num">06.06.2026, 16:23</td>
+            <td class="colmuddat num">02.07.2026, 23:59</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">7 950 UZS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================== VARIANT 4 =================== -->
+  <section class="variant v4">
+    <div class="variant-head">
+      <span class="vchip">4</span>
+      <span class="vtitle">Toza grid</span>
+      <span class="vdesc">Kartochka emas — toza chiziqli jadval, <b>zebra</b> qatorlar, yopishqoq sarlavha.</span>
+    </div>
+    <div class="surface">
+      <table>
+        <thead><tr><th></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="end">Summa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110388551</div><div style="margin-top:.35rem"><span class="badge badge-late">⏱ Muddat o'tdi</span></div></td>
+            <td><div class="prod"><div class="thumb g1">📦</div><div class="info"><div class="sku">SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</div><div class="shtrix">Shtrix: 1000101649008 · 1 dona</div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">06.06.2026, 17:49</td>
+            <td class="colmuddat num"><span class="late-date">10.06.2026, 16:00</span></td>
+            <td>KrossFit</td>
+            <td class="end"><span class="sum num">59 900 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">111061839</div><div style="margin-top:.35rem"><span class="badge badge-ok">⏱ 69 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g2">📦</div><div class="info"><div class="sku">SKU: BLUMMY-MAGNIT2-25</div><div class="shtrix">Shtrix: 1000007817150 · 1 dona <span class="pill pill-more">+2 ▾</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">10.06.2026, 17:39</td>
+            <td class="colmuddat num">13.06.2026, 16:00</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">37 950 UZS</span></td>
+          </tr>
+          <tr>
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110373473</div><div style="margin-top:.35rem"><span class="badge badge-ok">⏱ 533 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g3">📦</div><div class="info"><div class="sku">SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div><div class="shtrix">Shtrix: 1000103129447 · 1 dona</div></div></div></td>
+            <td><span class="pill pill-dbs">DBS</span></td>
+            <td class="colsana num">06.06.2026, 16:23</td>
+            <td class="colmuddat num">02.07.2026, 23:59</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">7 950 UZS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- =================== VARIANT 5 =================== -->
+  <section class="variant v5">
+    <div class="variant-head">
+      <span class="vchip">5</span>
+      <span class="vtitle">Rangli urg'u</span>
+      <span class="vdesc">Chap chetda <b>rangli chiziq</b> (muddatga qarab qizil/sariq/yashil) — holat darhol ko'rinadi.</span>
+    </div>
+    <div class="surface">
+      <table>
+        <thead><tr><th></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="end">Summa</th></tr></thead>
+        <tbody>
+          <tr class="late">
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110388551</div><div style="margin-top:.4rem"><span class="badge badge-late">⏱ Muddat o'tdi</span></div></td>
+            <td><div class="prod"><div class="thumb g1">📦</div><div class="info"><div class="sku">SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</div><div class="shtrix">Shtrix: 1000101649008</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">06.06.2026, 17:49</td>
+            <td class="colmuddat num"><span class="late-date">10.06.2026, 16:00</span></td>
+            <td>KrossFit</td>
+            <td class="end"><span class="sum num">59 900 UZS</span></td>
+          </tr>
+          <tr class="ok">
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">111061839</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 69 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g2">📦</div><div class="info"><div class="sku">SKU: BLUMMY-MAGNIT2-25</div><div class="shtrix">Shtrix: 1000007817150</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span> <span class="pill pill-more">+2 ▾</span></div></div></div></td>
+            <td><span class="pill pill-fbs">FBS</span></td>
+            <td class="colsana num">10.06.2026, 17:39</td>
+            <td class="colmuddat num">13.06.2026, 16:00</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">37 950 UZS</span></td>
+          </tr>
+          <tr class="ok">
+            <td><input class="checkbox" type="checkbox"></td>
+            <td><div class="ordno">110373473</div><div style="margin-top:.4rem"><span class="badge badge-ok">⏱ 533 soat qoldi</span></div></td>
+            <td><div class="prod"><div class="thumb g3">📦</div><div class="info"><div class="sku">SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div><div class="shtrix">Shtrix: 1000103129447</div><div style="margin-top:.35rem"><span class="pill pill-qty">1 dona</span></div></div></div></td>
+            <td><span class="pill pill-dbs">DBS</span></td>
+            <td class="colsana num">06.06.2026, 16:23</td>
+            <td class="colmuddat num">02.07.2026, 23:59</td>
+            <td>BLUMMY</td>
+            <td class="end"><span class="sum num">7 950 UZS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

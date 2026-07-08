@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="uz" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBS / DBS — Dizayn yo'nalishlari (preview)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   SHARED TOKENS — ilovaning yangi unified palitrasi (styles.css)
+   ============================================================ */
+:root{
+  --page:#F4F4F7; --surface:#FFFFFF; --surface-2:#FBFBFD; --border:#ECECF0;
+  --text:#1A1A22; --text-2:#5A5762; --muted:#8E8B97;
+  --indigo:#4169E1; --indigo-2:#6E8FE8; --violet:#7C3AED; --violet-soft:#F0EAFF;
+  --green:#0EA271; --green-2:#10b981; --amber:#B54708; --red:#E84747;
+  --r:22px; --r-sm:14px; --r-xs:10px;
+  --sh-1:0 1px 2px rgba(20,16,40,.05), 0 6px 18px rgba(20,16,40,.05);
+  --sh-2:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+}
+[data-bs-theme="dark"]{
+  --page:#0E0E14; --surface:#18181F; --surface-2:#15151B; --border:#25252F;
+  --text:#F0EDF5; --text-2:#B6B4C2; --muted:#8A8896;
+  --indigo:#6E8FE8; --violet:#A78BFA; --violet-soft:rgba(167,139,250,.16);
+  --sh-1:0 1px 2px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.35);
+  --sh-2:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--text);
+  font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+
+/* ---- preview chrome (faqat ko'rsatish uchun, ilovaga kirmaydi) ---- */
+.pv-bar{
+  position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:14px;
+  padding:12px 20px; background:var(--surface); border-bottom:1px solid var(--border);
+  box-shadow:var(--sh-1); flex-wrap:wrap;
+}
+.pv-bar h1{font-size:14px;margin:0;font-weight:700;letter-spacing:-.01em}
+.pv-bar .pv-sub{font-size:12px;color:var(--muted)}
+.pv-seg{display:inline-flex;gap:4px;padding:4px;background:var(--page);border:1px solid var(--border);border-radius:12px}
+.pv-seg button{
+  appearance:none;border:0;background:transparent;color:var(--text-2);
+  font:600 13px/1 'Inter';padding:8px 14px;border-radius:9px;cursor:pointer;transition:.15s;
+}
+.pv-seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-1)}
+.pv-spacer{flex:1}
+.pv-toggle{
+  appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text-2);
+  width:38px;height:38px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+}
+.pv-toggle:hover{color:var(--text)}
+.pv-toggle svg{width:18px;height:18px}
+
+.stage{max-width:1180px;margin:0 auto;padding:26px 20px 80px}
+.pv-note{
+  font-size:12.5px;color:var(--muted);margin:0 auto 18px;max-width:1180px;padding:0 20px;
+}
+.pane{display:none}
+.pane.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* shared bits */
+.kicker{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+  font:700 11px/1 'Inter';letter-spacing:.06em;text-transform:uppercase;
+}
+.thumb{
+  flex:none;border-radius:12px;display:grid;place-items:center;color:#fff;
+  font-weight:700;overflow:hidden;position:relative;
+  background:linear-gradient(135deg,var(--indigo-2),var(--indigo));
+}
+.thumb svg{width:46%;height:46%;opacity:.92}
+.thumb.t2{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.thumb.t3{background:linear-gradient(135deg,#34d399,#059669)}
+.thumb.t4{background:linear-gradient(135deg,#fb923c,#ea580c)}
+.thumb .cnt{position:absolute;right:-4px;bottom:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;
+  background:var(--surface);color:var(--text);font:700 11px/20px 'Inter';display:grid;place-items:center;
+  box-shadow:0 0 0 2px var(--surface)}
+
+/* status pills */
+.spill{display:inline-block;padding:3px 10px;border-radius:999px;font:700 11.5px/1.5 'Inter';border:1px solid transparent;white-space:nowrap}
+.s-created{background:#eef4ff;border-color:#cfddff;color:#2b54c9}
+.s-packing{background:#fff5d6;border-color:#f5d878;color:#9a6207}
+.s-deliver{background:#ffece0;border-color:#ffc9a3;color:#c2410c}
+.s-done{background:#dff7ec;border-color:#a7e8cd;color:#0a7a52}
+[data-bs-theme="dark"] .s-created{background:rgba(96,140,255,.14);border-color:#2c447f;color:#9bb8ff}
+[data-bs-theme="dark"] .s-packing{background:rgba(245,200,60,.13);border-color:#7a5a12;color:#f3cf6b}
+[data-bs-theme="dark"] .s-deliver{background:rgba(251,146,60,.13);border-color:#7a3d18;color:#fdba74}
+[data-bs-theme="dark"] .s-done{background:rgba(52,211,153,.14);border-color:#1c6b4d;color:#5fe0ac}
+
+/* deadline chip */
+.dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11.5px/1.3 'Inter';border:1px solid transparent;white-space:nowrap}
+.dl svg{width:11px;height:11px}
+.dl.ok{background:#e9fbf2;color:#0a7a52;border-color:#bdeed7}
+.dl.warn{background:#fff6e3;color:#9a6207;border-color:#f6dd9b}
+.dl.urgent{background:#feeceb;color:#c0362b;border-color:#f8c4bf;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+[data-bs-theme="dark"] .dl.ok{background:rgba(16,183,110,.16);color:#6ee7a8;border-color:rgba(16,183,110,.35)}
+[data-bs-theme="dark"] .dl.warn{background:rgba(247,160,30,.16);color:#fcd277;border-color:rgba(247,160,30,.35)}
+[data-bs-theme="dark"] .dl.urgent{background:rgba(232,71,71,.18);color:#fca5a5;border-color:rgba(232,71,71,.4)}
+
+.addr{color:var(--text-2);font-size:13px;line-height:1.45}
+.money{font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+
+/* ============================================================
+   DIRECTION A — "Aurora" (refined evolution)
+   ============================================================ */
+.A .hero{
+  position:relative;overflow:hidden;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--surface);box-shadow:var(--sh-1);padding:22px 24px;margin-bottom:18px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;
+}
+.A .hero::before{
+  content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,rgba(124,58,237,.18),transparent 60%),
+             radial-gradient(circle at 70% 60%,rgba(65,105,225,.16),transparent 60%);
+  filter:blur(6px);pointer-events:none;
+}
+.A .hero-main{position:relative;min-width:0;flex:1 1 360px}
+.A .kicker{background:var(--violet-soft);color:var(--violet)}
+.A .hero h2{margin:.55rem 0 .35rem;font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+.A .hero p{margin:0;color:var(--text-2);font-size:.92rem;line-height:1.5;max-width:560px}
+.A .seg-tabs{position:relative;display:inline-flex;gap:4px;padding:5px;background:var(--page);border:1px solid var(--border);border-radius:14px}
+.A .seg-tabs a{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;color:var(--text-2);font-weight:600;font-size:.86rem}
+.A .seg-tabs a svg{width:16px;height:16px}
+.A .seg-tabs a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-1)}
+
+.A .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.A .kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:15px 16px;
+  box-shadow:var(--sh-1);position:relative;overflow:hidden;
+}
+.A .kpi .lbl{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.A .kpi .val{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+.A .kpi .ic{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+.A .kpi .ic svg{width:18px;height:18px}
+.A .kpi.k1 .ic{background:#eef4ff;color:var(--indigo)} .A .kpi.k1 .val{color:var(--indigo)}
+.A .kpi.k2 .ic{background:#fff5d6;color:#9a6207} .A .kpi.k2 .val{color:#9a6207}
+.A .kpi.k3 .ic{background:var(--violet-soft);color:var(--violet)} .A .kpi.k3 .val{color:var(--violet)}
+.A .kpi.k4 .ic{background:#dff7ec;color:var(--green)} .A .kpi.k4 .val{color:var(--green)}
+[data-bs-theme="dark"] .A .kpi.k1 .ic,[data-bs-theme="dark"] .A .kpi.k2 .ic,
+[data-bs-theme="dark"] .A .kpi.k3 .ic,[data-bs-theme="dark"] .A .kpi.k4 .ic{filter:brightness(1.1)}
+
+.A .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-1);padding:16px 18px}
+.A .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.A .fld{display:flex;flex-direction:column;gap:5px}
+.A .fld label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.A .fld select,.A .fld input{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:9px 12px;font:500 .86rem 'Inter';min-width:150px}
+.A .btn{border:0;border-radius:11px;padding:10px 18px;font:600 .88rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.A .btn-dark{background:var(--text);color:var(--surface)}
+.A .btn-ghost{background:var(--page);color:var(--text-2);border:1px solid var(--border)}
+
+.A .chips{display:flex;gap:7px;flex-wrap:wrap;padding:14px 0;margin-bottom:6px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.A .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:10px;font:600 .8rem 'Inter';background:var(--page);color:var(--text-2);border:1px solid transparent;cursor:pointer;transition:.15s}
+.A .chip:hover{color:var(--text)}
+.A .chip.on{background:var(--text);color:var(--surface)}
+.A .chip .n{min-width:18px;padding:0 6px;border-radius:999px;background:var(--surface);color:var(--text-2);font:700 .68rem/18px 'Inter';text-align:center}
+.A .chip.on .n{background:rgba(255,255,255,.22);color:#fff}
+.A .chip.nav{background:var(--violet-soft);color:var(--violet);font-weight:700}
+.A .chip.nav:hover{background:var(--violet);color:#fff}
+
+.A .rows{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+.A .row{
+  display:grid;grid-template-columns:auto 1.4fr 1fr 1.6fr auto;gap:16px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 16px;
+  cursor:pointer;transition:box-shadow .16s,border-color .16s,transform .12s;
+}
+.A .row:hover{box-shadow:var(--sh-2);border-color:transparent;transform:translateY(-1px)}
+.A .row .id{font-weight:700;font-size:.92rem}
+.A .row .sub{font-size:.78rem;color:var(--muted);margin-top:3px}
+.A .cell-prod{display:flex;align-items:center;gap:11px;min-width:0}
+.A .thumb{width:44px;height:44px;font-size:.8rem}
+.A .prog{margin-top:6px;height:5px;border-radius:999px;background:var(--page);overflow:hidden;width:90px}
+.A .prog i{display:block;height:100%;background:linear-gradient(90deg,var(--indigo-2),var(--indigo))}
+.A .row .right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
+
+/* ============================================================
+   DIRECTION B — "Command Center" (dense ops console)
+   ============================================================ */
+.B .topgrid{display:grid;grid-template-columns:1.5fr 2.5fr;gap:14px;margin-bottom:16px}
+.B .hero{background:linear-gradient(150deg,#1a1d2e,#23284a);color:#fff;border-radius:var(--r);padding:22px 24px;position:relative;overflow:hidden}
+.B .hero::after{content:"";position:absolute;right:-30px;bottom:-50px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.4),transparent 70%)}
+.B .hero .kicker{background:rgba(255,255,255,.12);color:#cdbdff}
+.B .hero h2{margin:.5rem 0 .3rem;font-size:1.45rem;font-weight:800;letter-spacing:-.02em}
+.B .hero p{margin:0;color:rgba(255,255,255,.62);font-size:.84rem;line-height:1.45;max-width:330px}
+.B .hero .tabs{position:relative;display:flex;gap:6px;margin-top:16px}
+.B .hero .tabs a{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:10px;font:600 .82rem 'Inter';background:rgba(255,255,255,.08);color:#fff}
+.B .hero .tabs a.on{background:#fff;color:#23284a}
+.B .hero .tabs a svg{width:15px;height:15px}
+
+.B .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.B .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;box-shadow:var(--sh-1)}
+.B .stat .lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:flex;align-items:center;gap:5px}
+.B .stat .dot{width:7px;height:7px;border-radius:50%}
+.B .stat .val{font-size:1.55rem;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.B .stat .delta{font-size:.72rem;font-weight:600;margin-top:1px}
+.B .stat .delta.up{color:var(--green)} .B .stat .delta.dn{color:var(--red)}
+
+.B .console{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-1);overflow:hidden}
+.B .cbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.B .cbar .pill{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;font:600 .8rem 'Inter';background:var(--page);color:var(--text-2);border:1px solid transparent;cursor:pointer}
+.B .cbar .pill.on{background:var(--indigo);color:#fff}
+.B .cbar .pill .n{padding:0 6px;border-radius:999px;background:rgba(0,0,0,.06);font:700 .68rem 'Inter'}
+.B .cbar .pill.on .n{background:rgba(255,255,255,.25)}
+.B .cbar .pill.nav{background:var(--violet-soft);color:var(--violet);margin-left:auto}
+.B .cbar .search{flex:1;min-width:140px;border:1px solid var(--border);background:var(--page);color:var(--text);border-radius:9px;padding:8px 12px;font:500 .82rem 'Inter'}
+
+.B table{width:100%;border-collapse:collapse}
+.B thead th{font:700 .68rem 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:11px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
+.B tbody td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:.85rem;vertical-align:middle}
+.B tbody tr{cursor:pointer;transition:background .12s;position:relative}
+.B tbody tr:hover{background:var(--surface-2)}
+.B tbody tr td:first-child{border-left:3px solid transparent}
+.B tbody tr.c-created td:first-child{border-left-color:var(--indigo)}
+.B tbody tr.c-packing td:first-child{border-left-color:#f5b912}
+.B tbody tr.c-deliver td:first-child{border-left-color:#ea580c}
+.B .cprod{display:flex;align-items:center;gap:10px}
+.B .thumb{width:38px;height:38px;font-size:.72rem;border-radius:10px}
+.B .ck{width:16px;height:16px;accent-color:var(--indigo)}
+
+/* ============================================================
+   DIRECTION C — "Focus Cards" (visual, workflow-forward)
+   ============================================================ */
+.C .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.C .head .kicker{background:var(--violet-soft);color:var(--violet)}
+.C .head h2{margin:.5rem 0 0;font-size:1.9rem;font-weight:800;letter-spacing:-.025em}
+.C .head p{margin:.3rem 0 0;color:var(--text-2);font-size:.9rem;max-width:520px;line-height:1.5}
+.C .switch{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:5px;box-shadow:var(--sh-1)}
+.C .switch a{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:10px;color:var(--text-2);font-weight:600;font-size:.88rem}
+.C .switch a.on{background:var(--indigo);color:#fff}
+.C .switch a svg{width:16px;height:16px}
+
+.C .filterbar{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:18px;scrollbar-width:thin}
+.C .fb{flex:none;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;font:600 .85rem 'Inter';background:var(--surface);color:var(--text-2);border:1px solid var(--border);cursor:pointer;transition:.15s}
+.C .fb:hover{border-color:var(--indigo);color:var(--text)}
+.C .fb.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.C .fb .n{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--page);color:var(--text-2);font:700 .7rem/20px 'Inter';text-align:center}
+.C .fb.on .n{background:rgba(255,255,255,.2);color:#fff}
+.C .fb.nav{background:var(--violet-soft);color:var(--violet);border-color:transparent}
+
+.C .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.C .card{
+  background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;
+  box-shadow:var(--sh-1);cursor:pointer;transition:box-shadow .18s,transform .14s,border-color .18s;
+  display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;
+}
+.C .card:hover{box-shadow:var(--sh-2);transform:translateY(-2px);border-color:transparent}
+.C .card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.C .card .id{font-weight:800;font-size:1.02rem;letter-spacing:-.01em}
+.C .card .date{font-size:.76rem;color:var(--muted);margin-top:2px}
+.C .card .body{display:flex;gap:13px;align-items:center}
+.C .thumb{width:56px;height:56px;border-radius:14px;font-size:.9rem}
+.C .card .pinfo .ptitle{font-weight:600;font-size:.86rem;line-height:1.3}
+.C .card .pinfo .pmeta{font-size:.77rem;color:var(--muted);margin-top:3px}
+.C .ring{--p:0;flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--indigo) calc(var(--p)*1%),var(--page) 0);position:relative}
+.C .ring::before{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--surface)}
+.C .ring span{position:relative;font:700 .72rem 'Inter';color:var(--text)}
+.C .card .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:13px;border-top:1px solid var(--border)}
+.C .card .addr{font-size:.78rem;display:flex;align-items:flex-start;gap:6px}
+.C .card .addr svg{width:14px;height:14px;flex:none;margin-top:2px;color:var(--muted)}
+.C .card .cta{align-self:stretch;display:flex;gap:8px}
+.C .card .btn{flex:1;border:0;border-radius:11px;padding:11px;font:600 .85rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.C .card .btn.primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+.C .card .btn.ghost{background:var(--page);color:var(--text-2);border:1px solid var(--border);flex:0 0 auto;padding:11px 14px}
+.C .card .slot{display:inline-flex;align-items:center;gap:5px;font-size:.77rem;color:var(--text-2);font-weight:600}
+.C .card .slot svg{width:13px;height:13px;color:var(--muted)}
+
+@media(max-width:820px){
+  .A .kpis{grid-template-columns:repeat(2,1fr)}
+  .A .row{grid-template-columns:1fr;gap:8px}
+  .B .topgrid{grid-template-columns:1fr}
+  .B .statgrid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="pv-bar">
+  <h1>FBS / DBS dizayn</h1>
+  <span class="pv-sub">3 yo'nalish — birini tanlang</span>
+  <div class="pv-seg" id="seg">
+    <button data-p="A" class="on">A · Aurora</button>
+    <button data-p="B">B · Command</button>
+    <button data-p="C">C · Focus</button>
+  </div>
+  <div class="pv-spacer"></div>
+  <button class="pv-toggle" id="theme" title="Tema">
+    <svg id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg id="ic-sun" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg>
+  </button>
+</div>
+
+<p class="pv-note">Har uchala yo'nalish ham ilovaning <b>yangi unified palitrasi</b>ni ishlatadi (Inter · royal-blue #4169E1 · binafsha #7C3AED · 22px karta). Ma'lumotlar — screenshot'dagi haqiqiy buyurtmalar. Bu faqat <b>ko'rsatish</b> uchun; haqiqiy template'larga tegilmagan.</p>
+
+<!-- ============ A ============ -->
+<div class="stage pane A on" id="pane-A">
+  <section class="hero">
+    <div class="hero-main">
+      <span class="kicker">● FBS / DBS</span>
+      <h2>Buyurtmalar</h2>
+      <p>Uzum FBS va DBS buyurtmalari. Ma'lumotlar Seller OpenAPI orqali shaxsiy token bilan olinadi.</p>
+    </div>
+    <nav class="seg-tabs">
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22" x2="12" y2="12"/></svg>Buyurtmalar</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+    </nav>
+  </section>
+
+  <div class="kpis">
+    <div class="kpi k1"><div class="lbl">Yangi</div><div class="val">2</div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></div></div>
+    <div class="kpi k2"><div class="lbl">Yig'ilmoqda</div><div class="val">2</div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div></div>
+    <div class="kpi k3"><div class="lbl">Topshirishga</div><div class="val">5</div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>
+    <div class="kpi k4"><div class="lbl">Yakunlandi</div><div class="val">235</div><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div class="fld"><label>Do'kon</label><select><option>Hammasi</option><option>Sergeli</option></select></div>
+      <div class="fld"><label>Sxema</label><select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select></div>
+      <div class="fld"><label>Qidirish</label><input placeholder="№ yoki manzil…" style="min-width:200px"></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn btn-dark">Yangilash</button></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn btn-ghost">📍 Пункт приёма</button></div>
+    </div>
+    <div class="chips" id="chipsA"></div>
+    <div class="rows" id="rowsA"></div>
+  </div>
+</div>
+
+<!-- ============ B ============ -->
+<div class="stage pane B" id="pane-B">
+  <div class="topgrid">
+    <div class="hero">
+      <span class="kicker">● FBS / DBS</span>
+      <h2>Operatsion markaz</h2>
+      <p>Barcha FBS / DBS buyurtmalari bitta konsolda. Tez filtr, bulk amal, накладные.</p>
+      <div class="tabs">
+        <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Buyurtmalar</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+      </div>
+    </div>
+    <div class="statgrid">
+      <div class="stat"><div class="lbl"><span class="dot" style="background:var(--indigo)"></span>Yangi</div><div class="val">2</div><div class="delta up">+2 bugun</div></div>
+      <div class="stat"><div class="lbl"><span class="dot" style="background:#f5b912"></span>Yig'ilmoqda</div><div class="val">2</div><div class="delta">faol</div></div>
+      <div class="stat"><div class="lbl"><span class="dot" style="background:var(--violet)"></span>Topshirishga</div><div class="val">5</div><div class="delta up">tayyor</div></div>
+      <div class="stat"><div class="lbl"><span class="dot" style="background:var(--green)"></span>Bugun summa</div><div class="val" style="font-size:1.25rem">85 850</div><div class="delta">UZS</div></div>
+    </div>
+  </div>
+
+  <div class="console">
+    <div class="cbar">
+      <span class="pill on">Yangi <span class="n">0</span></span>
+      <span class="pill">Yig'ilmoqda <span class="n">2</span></span>
+      <span class="pill">Yo'lda <span class="n">0</span></span>
+      <span class="pill">Yetkazildi <span class="n">5</span></span>
+      <span class="pill">Bekor <span class="n">268</span></span>
+      <input class="search" placeholder="🔍 № yoki manzil bo'yicha qidirish…">
+      <span class="pill nav"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Поставка</span>
+    </div>
+    <table>
+      <thead><tr><th style="width:34px"><input type="checkbox" class="ck"></th><th>Buyurtma</th><th>Mahsulot</th><th>Do'kon</th><th>Summa</th><th>Manzil</th><th>Slot</th><th>Holat</th></tr></thead>
+      <tbody id="tbodyB"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ C ============ -->
+<div class="stage pane C" id="pane-C">
+  <div class="head">
+    <div>
+      <span class="kicker">● FBS / DBS</span>
+      <h2>Buyurtmalar</h2>
+      <p>Har bir buyurtma — alohida karta. Yig'ish jarayoni, manzil va keyingi qadam bir qarashda.</p>
+    </div>
+    <div class="switch">
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Buyurtmalar</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+    </div>
+  </div>
+  <div class="filterbar">
+    <span class="fb on">Yangi <span class="n">0</span></span>
+    <span class="fb">Yig'ilmoqda <span class="n">2</span></span>
+    <span class="fb nav">📦 Поставка</span>
+    <span class="fb">Yo'lda <span class="n">0</span></span>
+    <span class="fb">Yetkazildi <span class="n">5</span></span>
+    <span class="fb">Qabul punktida <span class="n">0</span></span>
+    <span class="fb">Yakunlandi <span class="n">235</span></span>
+    <span class="fb">Bekor <span class="n">268</span></span>
+    <span class="fb">Qaytarish <span class="n">183</span></span>
+  </div>
+  <div class="grid" id="gridC"></div>
+</div>
+
+<script>
+const ICON_BOX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>';
+const ICON_PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICON_CLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+const ORDERS=[
+ {id:'120000995496',date:"09.06.2026, 11:03",left:'25 soat qoldi',lc:'ok',shop:'Sergeli',packed:0,total:2,sum:'30 000',addr:"Toshkent sh., Yunusobod tumani, 13 mavzesi, 53/1 uy",slot:'11.06 10:00–15:30',st:'created',stl:'Yaratilgan',t:'',pt:'Erkak krossovka, 42-razmer',pm:'SKU 884512 · 2 dona'},
+ {id:'120000990153',date:"08.06.2026, 01:37",left:'1 soat qoldi',lc:'urgent',shop:'Sergeli',packed:0,total:1,sum:'15 000',addr:"Toshkent sh., Yunusobod tumani, 13 mavzesi, 53/1 uy",slot:'10.06 10:00–15:30',st:'created',stl:'Yaratilgan',t:'t2',pt:'Termokружka 500ml',pm:'SKU 771203 · 1 dona'},
+ {id:'120000990070',date:"08.06.2026, 00:48",left:'1 soat qoldi',lc:'urgent',shop:'Sergeli',packed:0,total:1,sum:'22 950',addr:"Toshkent sh., Yunusobod tumani, 13 mavzesi, 53/1 uy",slot:'10.06 10:00–15:30',st:'packing',stl:'Yig\'ilmoqda',t:'t3',pt:'Quloqchin TWS Pro',pm:'SKU 553998 · 1 dona'},
+ {id:'120000990055',date:"08.06.2026, 00:37",left:'1 soat qoldi',lc:'urgent',shop:'Sergeli',packed:1,total:1,sum:'17 900',addr:"Qashqadaryo vil., Qarshi sh., Beshkent yo'li, 1/87-uy",slot:'10.06 13:00–15:00',st:'packing',stl:'Yig\'ilmoqda',t:'t4',pt:'Powerbank 20000mAh',pm:'SKU 220741 · 1 dona'},
+];
+const SPILL={created:'s-created',packing:'s-packing',deliver:'s-deliver',done:'s-done'};
+const fmtThumb=(o,extra='')=>`<div class="thumb ${o.t} ${extra}">${ICON_BOX}${o.total>1?`<span class="cnt">${o.total}</span>`:''}</div>`;
+
+// ---- A: chips + rows ----
+const chipsA=[['Yangi',0,'on'],['Yig\'ilmoqda',2],['__nav','Поставка'],['Yo\'lda',0],['Yetkazildi',5],['Qabul punktida',0],['Yakunlandi',235],['Bekor',268],['Qaytarish',183]];
+document.getElementById('chipsA').innerHTML=chipsA.map(c=>c[0]==='__nav'
+  ?`<span class="chip nav">${ICON_PIN.replace('width','w').replace('24','24')} Поставка</span>`
+  :`<span class="chip ${c[2]||''}">${c[0]} <span class="n">${c[1]}</span></span>`).join('');
+document.getElementById('rowsA').innerHTML=ORDERS.map(o=>`
+  <div class="row">
+    <div>${fmtThumb(o)}</div>
+    <div>
+      <div class="id">№${o.id}</div>
+      <div class="sub">${o.date} · ${o.shop}</div>
+      <div class="dl ${o.lc}" style="margin-top:6px">${ICON_CLK}${o.left}</div>
+    </div>
+    <div>
+      <div style="font-size:.84rem;font-weight:600">${o.pt}</div>
+      <div class="prog"><i style="width:${o.packed/o.total*100}%"></i></div>
+      <div class="sub" style="margin-top:4px">${o.packed}/${o.total} yig'ildi</div>
+    </div>
+    <div class="addr">${o.addr}<div class="muted" style="margin-top:5px;font-size:.76rem">🕒 ${o.slot}</div></div>
+    <div class="right">
+      <div class="money" style="font-size:1.02rem">${o.sum} <span class="muted" style="font-weight:500;font-size:.78rem">UZS</span></div>
+      <span class="spill ${SPILL[o.st]}">${o.stl}</span>
+    </div>
+  </div>`).join('');
+
+// ---- B: table ----
+document.getElementById('tbodyB').innerHTML=ORDERS.map(o=>`
+  <tr class="c-${o.st}">
+    <td><input type="checkbox" class="ck"></td>
+    <td><div style="font-weight:700">№${o.id}</div><div class="dl ${o.lc}" style="margin-top:5px">${ICON_CLK}${o.left}</div></td>
+    <td><div class="cprod">${fmtThumb(o)}<div><div style="font-weight:600;font-size:.82rem">${o.pt}</div><div class="muted" style="font-size:.74rem">${o.packed}/${o.total} yig'ildi</div></div></div></td>
+    <td>${o.shop}</td>
+    <td class="money">${o.sum}</td>
+    <td class="addr" style="max-width:220px;font-size:.8rem">${o.addr}</td>
+    <td style="font-size:.8rem;white-space:nowrap">${o.slot}</td>
+    <td><span class="spill ${SPILL[o.st]}">${o.stl}</span></td>
+  </tr>`).join('');
+
+// ---- C: cards ----
+document.getElementById('gridC').innerHTML=ORDERS.map(o=>{
+  const pct=Math.round(o.packed/o.total*100);
+  return `<div class="card">
+    <div class="top">
+      <div><div class="id">№${o.id}</div><div class="date">${o.date} · ${o.shop}</div></div>
+      <span class="spill ${SPILL[o.st]}">${o.stl}</span>
+    </div>
+    <div class="body">
+      ${fmtThumb(o)}
+      <div class="pinfo" style="flex:1;min-width:0"><div class="ptitle">${o.pt}</div><div class="pmeta">${o.pm}</div></div>
+      <div class="ring" style="--p:${pct}"><span>${o.packed}/${o.total}</span></div>
+    </div>
+    <div class="foot">
+      <div class="addr">${ICON_PIN}<span>${o.addr}</span></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span class="slot">${ICON_CLK}${o.slot}</span>
+      <div class="dl ${o.lc}">${ICON_CLK}${o.left}</div>
+    </div>
+    <div class="cta">
+      <button class="btn primary">${o.st==='created'?'✓ Ishga olish':'🖨 Yorliq chop etish'}</button>
+      <button class="btn ghost">${o.sum} so'm</button>
+    </div>
+  </div>`;
+}).join('');
+
+// ---- preview controls ----
+document.querySelectorAll('#seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+b.dataset.p).classList.add('on');
+});
+document.getElementById('theme').onclick=()=>{
+  const h=document.documentElement, d=h.getAttribute('data-bs-theme')==='dark';
+  h.setAttribute('data-bs-theme',d?'light':'dark');
+  document.getElementById('ic-moon').style.display=d?'':'none';
+  document.getElementById('ic-sun').style.display=d?'none':'';
+};
+</script>
+</body>
+</html>

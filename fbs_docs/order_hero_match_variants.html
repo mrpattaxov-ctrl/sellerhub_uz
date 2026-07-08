@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Заказ hero — Накладная'ga o'xshash 5 variant</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:40px 22px 80px;background:#06070a;color:#e7ebf3;
+    font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+  h1.pg{font-size:1.15rem;font-weight:800;margin:0 0 4px}
+  .sub{color:#828aa0;font-size:.86rem;margin:0 0 34px;max-width:680px;line-height:1.5}
+  .wrap{max-width:920px;margin:0 auto}
+  .variant{margin-bottom:36px}
+  .vlabel{display:flex;align-items:center;gap:10px;margin:0 0 10px;
+    font-size:.8rem;font-weight:700;color:#aab3c7;text-transform:uppercase;letter-spacing:.08em}
+  .vlabel b{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+    border-radius:7px;background:#222630;color:#fff;font-size:.78rem;font-weight:800}
+  .vlabel .note{font-weight:600;text-transform:none;letter-spacing:0;font-size:.78rem;color:#6f7892}
+
+  .card{border-radius:18px;overflow:hidden;background:#fff;
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.05)}
+  .body-hint{padding:18px 22px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#fff}
+  .body-hint .cell{height:48px;border-radius:11px;background:#f4f6fa;border:1px solid #eef1f6}
+
+  /* shared hero */
+  .hero{position:relative;display:flex;align-items:center;gap:14px;
+    padding:20px 56px 20px 22px;background:#1e293b;color:#fff}
+  .badge{flex:none;width:50px;height:50px;border-radius:50%;display:grid;place-items:center;
+    background:#fff;color:#1e293b}
+  .badge svg{width:26px;height:26px}
+  .htext{min-width:0;flex:1}
+  .kick{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#94a3b8;line-height:1}
+  .num{margin:4px 0 0;font-size:28px;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1.15}
+  .pills{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-top:9px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;
+    font-size:12px;font-weight:700;line-height:1}
+  .pill.st{background:#dcfce7;color:#15803d}
+  .pill.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .pill.sc{background:rgba(255,255,255,.2);color:#fff}
+
+  /* ===== V1 — Aniq nusxa: to'liq kenglikdagi kamalak gradient (Накладная bilan bir xil) ===== */
+  .v1 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#7b4eff 0%,#b65cff 34%,#ff5c8a 62%,#29d3c2 100%)}
+
+  /* ===== V2 — Kamalak chiziq + yuqori-chapdan rangli yog'du ===== */
+  .v2 .hero{background:radial-gradient(120% 150% at 8% -20%,rgba(123,78,255,.30),transparent 55%),#1e293b}
+  .v2 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#7b4eff 0%,#b65cff 34%,#ff5c8a 62%,#29d3c2 100%)}
+
+  /* ===== V3 — Badge atrofida gradient halqa + pastki gradient ===== */
+  .v3 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#7b4eff 0%,#b65cff 34%,#ff5c8a 62%,#29d3c2 100%)}
+  .v3 .badge{background:#1e293b;padding:3px;
+    background:linear-gradient(135deg,#7b4eff,#ff5c8a 55%,#29d3c2) border-box;
+    border:3px solid transparent}
+  .v3 .badge .inner{width:100%;height:100%;border-radius:50%;background:#fff;color:#1e293b;
+    display:grid;place-items:center}
+  .v3 .badge svg{width:24px;height:24px}
+
+  /* ===== V4 — Inset gradient (chetlardan ichkarida, kamalak rangda) ===== */
+  .v4 .hero::after{content:"";position:absolute;left:22px;right:22px;bottom:0;height:3px;
+    border-radius:3px 3px 0 0;
+    background:linear-gradient(90deg,#7b4eff 0%,#b65cff 38%,#ff5c8a 68%,#29d3c2 100%)}
+
+  /* ===== V5 — To'liq gradient + status pill o'ng chetda ===== */
+  .v5 .hero{padding-right:22px}
+  .v5 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#7b4eff 0%,#b65cff 34%,#ff5c8a 62%,#29d3c2 100%)}
+  .v5 .htext{display:flex;flex-direction:column}
+  .v5 .pills{margin-top:9px}
+  .v5 .right{flex:none;align-self:flex-start}
+  .v5 .right .pill.st{font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="pg">«Заказ» hero — Накладная header'iga o'xshash 5 variant</h1>
+  <p class="sub">Buyurtma detali sahifasining «Заказ №…» sarlavhasi. Hammasi siz yoqtirgan Накладная
+     header uslubida — slate band, oq doira ikonka, kicker + raqam, pastda kamalak gradient chiziq.
+     Buyurtmada «Akt» tugma yo'q → o'rniga status piллар. Yoqqanini raqami bilan ayting.</p>
+
+  <div class="variant v1">
+    <div class="vlabel"><b>1</b> Aniq nusxa <span class="note">— Накладная bilan 1:1, to'liq kenglikdagi kamalak chiziq</span></div>
+    <div class="card"><div class="hero"><div class="badge">{{IC}}</div><div class="htext"><div class="kick">Заказ</div><div class="num">№111061839</div><div class="pills"><span class="pill st">Новый</span><span class="pill sc">FBS</span></div></div></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v2">
+    <div class="vlabel"><b>2</b> Kamalak + yog'du <span class="note">— burchakdan nozik rangli yorug'lik (glow)</span></div>
+    <div class="card"><div class="hero"><div class="badge">{{IC}}</div><div class="htext"><div class="kick">Заказ</div><div class="num">№111061839</div><div class="pills"><span class="pill st">Новый</span><span class="pill sc">FBS</span></div></div></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v3">
+    <div class="vlabel"><b>3</b> Gradient halqa ikonka <span class="note">— doira atrofida kamalak halqa (ring)</span></div>
+    <div class="card"><div class="hero"><div class="badge"><div class="inner">{{IC}}</div></div><div class="htext"><div class="kick">Заказ</div><div class="num">№111061839</div><div class="pills"><span class="pill st">Новый</span><span class="pill sc">FBS</span></div></div></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v4">
+    <div class="vlabel"><b>4</b> Inset gradient <span class="note">— chiziq chetlardan 22px ichkarida (joriy uslub, kamalak rangda)</span></div>
+    <div class="card"><div class="hero"><div class="badge">{{IC}}</div><div class="htext"><div class="kick">Заказ</div><div class="num">№111061839</div><div class="pills"><span class="pill st">Новый</span><span class="pill sc">FBS</span></div></div></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v5">
+    <div class="vlabel"><b>5</b> Status o'ng chetda <span class="note">— raqam chapda, holat pill'i o'ng burchakda</span></div>
+    <div class="card"><div class="hero"><div class="badge">{{IC}}</div><div class="htext"><div class="kick">Заказ</div><div class="num">№111061839</div><div class="pills"><span class="pill sc">FBS</span></div></div><div class="right"><span class="pill st">Новый</span></div></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+</div>
+
+<script>
+  var IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+  document.body.innerHTML=document.body.innerHTML.split('{{IC}}').join(IC);
+</script>
+</body>
+</html>

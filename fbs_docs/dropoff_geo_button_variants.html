@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>«Joylashuv» tugmasi — 5 zamonaviy variant (Slate)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{ --a:#1e293b; --a2:#475569; --muted:#667085; --line:#eaecf0; --soft:#f7f8fb; }
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:#101828;padding:36px 18px 120px}
+.page-title{max-width:820px;margin:0 auto 6px;font-size:1.45rem;font-weight:900;letter-spacing:-.02em}
+.page-sub{max-width:820px;margin:0 auto 30px;color:var(--muted);font-size:.92rem;line-height:1.5}
+.vlabel{max-width:820px;margin:34px auto 12px;display:flex;align-items:center;gap:12px}
+.vlabel .n{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+  font-weight:900;font-size:.85rem;color:#fff;background:#1e293b;box-shadow:0 6px 16px rgba(30,41,59,.3)}
+.vlabel h2{margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
+.vlabel p{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
+button{font-family:inherit;cursor:pointer}
+
+/* boshqaruv qatori (real modaldagidek) */
+.frame{max-width:820px;margin:0 auto;background:#fff;border-radius:18px;border:1px solid var(--line);
+  box-shadow:0 14px 40px rgba(16,24,40,.1);padding:6px}
+.ctl{display:flex;gap:10px;align-items:center;padding:13px 16px;flex-wrap:wrap}
+.search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:var(--soft);
+  border:1.5px solid transparent;border-radius:13px;padding:10px 14px;color:#98a2b3;font-size:.85rem}
+.sw{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600}
+.tr{width:38px;height:22px;border-radius:99px;background:linear-gradient(135deg,var(--a),var(--a2));position:relative;flex:none}
+.tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff}
+svg{display:block}
+@keyframes ping{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(2.4);opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+
+/* ════ V1 · Solid pill — to'ldirilgan slate tugma, pin ikonka ════ */
+.geo1{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:12px;
+  padding:10px 16px;font-size:.82rem;font-weight:700;color:#fff;
+  background:linear-gradient(120deg,var(--a),var(--a2));box-shadow:0 6px 16px rgba(30,41,59,.32);
+  transition:.18s}
+.geo1:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(30,41,59,.4)}
+.geo1 svg{width:15px;height:15px}
+
+/* ════ V2 · Soft chip — yumshoq tinted + jonli "ping" nuqta ════ */
+.geo2{display:inline-flex;align-items:center;gap:9px;border:1.5px solid rgba(30,41,59,.16);
+  border-radius:12px;padding:9px 15px;font-size:.82rem;font-weight:700;color:var(--a);
+  background:rgba(30,41,59,.05);transition:.18s}
+.geo2:hover{background:rgba(30,41,59,.09);border-color:rgba(30,41,59,.3)}
+.geo2 .live{position:relative;width:9px;height:9px;flex:none}
+.geo2 .live::before{content:"";position:absolute;inset:0;border-radius:50%;background:var(--a);animation:ping 1.8s ease-out infinite}
+.geo2 .live::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--a)}
+
+/* ════ V3 · Icon-only — faqat doira ikonka (eng ixcham) ════ */
+.geo3{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;
+  border-radius:12px;border:1.5px solid var(--line);background:#fff;color:var(--a);transition:.18s;flex:none}
+.geo3:hover{background:var(--a);color:#fff;border-color:var(--a);transform:rotate(-15deg)}
+.geo3 svg{width:18px;height:18px}
+
+/* ════ V4 · Gradient border — shisha/outline, gradient ramka ════ */
+.geo4{position:relative;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:13px;
+  padding:10px 16px;font-size:.82rem;font-weight:800;color:var(--a);background:#fff;transition:.18s;
+  background-clip:padding-box}
+.geo4::before{content:"";position:absolute;inset:0;border-radius:13px;padding:1.5px;
+  background:linear-gradient(120deg,var(--a),var(--a2),#94a3b8);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.geo4:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(30,41,59,.18)}
+.geo4 svg{width:15px;height:15px}
+
+/* ════ V5 · Glow CTA — gradient + nozik yorug'lik halqasi, crosshair ════ */
+.geo5{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:99px;
+  padding:10px 18px;font-size:.82rem;font-weight:800;color:#fff;
+  background:linear-gradient(120deg,#0f172a,#334155);
+  box-shadow:0 0 0 4px rgba(30,41,59,.1),0 8px 20px rgba(15,23,42,.35);transition:.2s}
+.geo5:hover{box-shadow:0 0 0 6px rgba(30,41,59,.14),0 12px 26px rgba(15,23,42,.45)}
+.geo5 svg{width:16px;height:16px;animation:float 2.4s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<div class="page-title">🧭 «Joylashuv» tugmasi — 5 zamonaviy variant</div>
+<div class="page-sub">Slate (B) uslubida. Emoji 🧭 o'rniga toza SVG ikonkalar. Har biri real boshqaruv qatori ichida (qidiruv + «Faqat mos» toggle bilan birga) — modalda qanday turishini ko'rasiz.</div>
+
+<!-- V1 -->
+<div class="vlabel"><div class="n">1</div><div><h2>Solid Pill — to'ldirilgan tugma</h2><p>Eng aniq, ko'zga tashlanadi. Slate gradient + pin ikonka. Bosishga «chaqiradi».</p></div></div>
+<div class="frame"><div class="ctl">
+  <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+  <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  <button class="geo1">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+    Joylashuv
+  </button>
+</div></div>
+
+<!-- V2 -->
+<div class="vlabel"><div class="n">2</div><div><h2>Live Chip — jonli «ping» nuqta</h2><p>Yumshoq tinted chip, chap tomonda pulslab turuvchi joylashuv nuqtasi. «Jonli/GPS» hissi.</p></div></div>
+<div class="frame"><div class="ctl">
+  <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+  <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  <button class="geo2"><span class="live"></span>Joylashuv</button>
+</div></div>
+
+<!-- V3 -->
+<div class="vlabel"><div class="n">3</div><div><h2>Icon-only — faqat ikonka</h2><p>Eng ixcham. Joy tejaydi, hover'da aylanadi. Matn yo'q — toza vizual (tooltip bilan).</p></div></div>
+<div class="frame"><div class="ctl">
+  <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+  <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  <button class="geo3" title="Joylashuvni aniqlash" aria-label="Joylashuv">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
+  </button>
+</div></div>
+
+<!-- V4 -->
+<div class="vlabel"><div class="n">4</div><div><h2>Gradient Border — shisha/outline</h2><p>Oq fon, gradient ramka. Yengil, zamonaviy. Boshqa tugmalardan ajralib turadi-yu, og'ir emas.</p></div></div>
+<div class="frame"><div class="ctl">
+  <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+  <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  <button class="geo4">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+    Joylashuv
+  </button>
+</div></div>
+
+<!-- V5 -->
+<div class="vlabel"><div class="n">5</div><div><h2>Glow CTA — yorug'lik halqasi</h2><p>To'liq dumaloq, gradient + nozik yorug'lik halqasi, crosshair ikonka yengil suzadi. Eng «premium».</p></div></div>
+<div class="frame"><div class="ctl">
+  <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+  <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  <button class="geo5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
+    Joylashuv
+  </button>
+</div></div>
+
+</body>
+</html>

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBS header — 5 variant (filtr + status tab)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F9; --card:#fff; --bd:#ECECF2; --track:#F3F4F8;
+    --ink:#1A1A22; --mut:#6A6676; --chip:#5A5762;
+    --blue:#4169E1; --vio:#7C3AED;
+    --input-bg:#FBFBFD; --input-bd:#E6E6EC;
+    --shadow:0 2px 8px rgba(0,0,0,.04);
+  }
+  body.dark{
+    --bg:#0f1117; --card:#1a1d27; --bd:#2b3346; --track:#1c2334;
+    --ink:#e8edf5; --mut:#9aa3b2; --chip:#9aa3b2;
+    --blue:#5b7cf0; --vio:#8b5cf6;
+    --input-bg:#1e2130; --input-bd:#3a3f5c;
+    --shadow:0 2px 12px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Manrope',-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg); color:var(--ink);
+    padding:2.5rem 1.5rem 6rem; transition:background .3s,color .3s;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  h1{font-size:1.5rem;font-weight:800;margin-bottom:.4rem;}
+  .sub{color:var(--mut);font-size:.9rem;margin-bottom:2.2rem;}
+  .vhead{display:flex;align-items:baseline;gap:.8rem;margin:3.2rem 0 1rem;}
+  .vnum{
+    width:34px;height:34px;border-radius:10px;flex:none;
+    display:grid;place-items:center;font-weight:800;color:#fff;font-size:.95rem;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 6px 14px -4px rgba(96,60,200,.5);
+  }
+  .vname{font-size:1.12rem;font-weight:800;}
+  .vdesc{color:var(--mut);font-size:.84rem;font-weight:600;}
+  .demo{
+    background:var(--card);border:1px solid var(--bd);border-radius:20px;
+    padding:1.4rem;box-shadow:var(--shadow);transition:background .3s,border-color .3s;
+  }
+
+  /* theme toggle */
+  .theme-btn{
+    position:fixed;top:1.2rem;right:1.4rem;z-index:50;
+    border:1px solid var(--bd);background:var(--card);color:var(--ink);
+    border-radius:999px;padding:.55rem 1.1rem;font-weight:700;font-size:.82rem;
+    cursor:pointer;font-family:inherit;box-shadow:var(--shadow);
+  }
+
+  /* umumiy: select va yangilash */
+  select{font-family:inherit;cursor:pointer;}
+  button{font-family:inherit;cursor:pointer;}
+
+  /* ════════ V1 — Segment Glide ════════ */
+  .v1-top{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;}
+  .v1-field{
+    display:flex;align-items:center;gap:.55rem;
+    background:var(--input-bg);border:1px solid var(--input-bd);border-radius:13px;
+    padding:.3rem .35rem .3rem .95rem;
+  }
+  .v1-field .k{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);}
+  .v1-field select{
+    appearance:none;border:0;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .6rem center;
+    color:var(--ink);font-weight:700;font-size:.88rem;padding:.42rem 1.7rem .42rem .4rem;border-radius:9px;
+  }
+  .v1-field select:hover{background-color:rgba(127,127,160,.07);}
+  .v1-reload{
+    margin-left:auto;border:0;border-radius:13px;padding:.68rem 1.5rem;
+    background:linear-gradient(135deg,var(--blue),var(--vio));color:#fff;
+    font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:.5rem;
+    box-shadow:0 8px 20px -6px rgba(96,60,200,.55);
+    transition:transform .16s ease,box-shadow .16s ease;
+  }
+  .v1-reload:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(96,60,200,.65);}
+  .v1-reload svg{transition:transform .5s ease;}
+  .v1-reload:hover svg{transform:rotate(180deg);}
+  .v1-track{
+    position:relative;display:inline-flex;gap:4px;margin-top:1.1rem;
+    padding:5px;border-radius:15px;background:var(--track);border:1px solid var(--bd);
+  }
+  .v1-thumb{
+    position:absolute;top:5px;left:0;height:calc(100% - 10px);border-radius:11px;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 7px 18px -5px rgba(96,60,200,.6);
+    transition:left .28s cubic-bezier(.3,1.2,.4,1),width .28s cubic-bezier(.3,1.2,.4,1);
+    z-index:0;
+  }
+  .v1-tab{
+    position:relative;z-index:1;border:0;background:transparent;
+    padding:.6rem 1.1rem;border-radius:11px;font-weight:800;font-size:.88rem;
+    color:var(--chip);display:inline-flex;align-items:center;gap:.45rem;
+    transition:color .2s ease;
+  }
+  .v1-tab:hover{color:var(--ink);}
+  .v1-tab.on{color:#fff;}
+  .v1-tab .ct{
+    min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+    display:inline-grid;place-items:center;font-size:.7rem;font-weight:800;
+    background:var(--card);color:var(--mut);transition:background .2s,color .2s;
+  }
+  .v1-tab.on .ct{background:rgba(255,255,255,.25);color:#fff;}
+  .v1-tab .ct.hot{background:#FFE9E3;color:#D9480F;}
+  .v1-tab.on .ct.hot{background:rgba(255,255,255,.25);color:#fff;}
+
+  /* ════════ V2 — Underline Editorial ════════ */
+  .v2-top{display:flex;align-items:flex-end;gap:1.6rem;flex-wrap:wrap;padding-bottom:1.1rem;}
+  .v2-field{display:flex;flex-direction:column;gap:.15rem;}
+  .v2-field .k{font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);}
+  .v2-field select{
+    appearance:none;border:0;border-bottom:2px solid var(--input-bd);
+    background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .15rem center;
+    color:var(--ink);font-weight:800;font-size:1rem;padding:.3rem 1.5rem .35rem 0;
+    border-radius:0;transition:border-color .2s;
+  }
+  .v2-field select:hover{border-bottom-color:var(--blue);}
+  .v2-reload{
+    margin-left:auto;display:inline-flex;align-items:center;gap:.6rem;
+    border:0;background:transparent;color:var(--ink);font-weight:800;font-size:.95rem;
+  }
+  .v2-reload .orb{
+    width:38px;height:38px;border-radius:999px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 8px 18px -6px rgba(96,60,200,.55);
+    transition:transform .4s cubic-bezier(.3,1.4,.4,1);
+  }
+  .v2-reload:hover .orb{transform:rotate(180deg) scale(1.08);}
+  .v2-tabs{display:flex;gap:1.9rem;border-top:1px solid var(--bd);padding-top:.2rem;flex-wrap:wrap;}
+  .v2-tab{
+    position:relative;border:0;background:transparent;padding:.85rem .1rem .8rem;
+    font-weight:800;font-size:.95rem;color:var(--chip);
+    display:inline-flex;align-items:flex-start;gap:.3rem;transition:color .2s;
+  }
+  .v2-tab:hover{color:var(--ink);}
+  .v2-tab sup{
+    font-size:.68rem;font-weight:800;line-height:1;margin-top:.05rem;
+    color:var(--mut);transition:color .2s;
+  }
+  .v2-tab::after{
+    content:"";position:absolute;left:0;right:100%;top:-1px;height:3px;border-radius:99px;
+    background:linear-gradient(90deg,var(--blue),var(--vio));
+    transition:right .28s cubic-bezier(.4,1,.4,1);
+  }
+  .v2-tab:hover::after{right:55%;}
+  .v2-tab.on{color:var(--ink);}
+  .v2-tab.on::after{right:0;}
+  .v2-tab.on sup{color:var(--vio);}
+  .v2-tab .dot{width:7px;height:7px;border-radius:99px;margin:.45rem .2rem 0 0;}
+
+  /* ════════ V3 — Stat Cards ════════ */
+  .v3-top{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:1.2rem;}
+  .v3-pillbar{
+    display:inline-flex;align-items:center;gap:.15rem;
+    border:1px solid var(--input-bd);background:var(--input-bg);border-radius:999px;padding:.25rem;
+  }
+  .v3-pillbar select{
+    appearance:none;border:0;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .55rem center;
+    color:var(--ink);font-weight:700;font-size:.85rem;padding:.45rem 1.7rem .45rem .9rem;border-radius:999px;
+  }
+  .v3-pillbar select:hover{background-color:rgba(127,127,160,.08);}
+  .v3-pillbar .sep{width:1px;height:18px;background:var(--input-bd);}
+  .v3-reload{
+    margin-left:auto;border:0;border-radius:999px;padding:.65rem 1.45rem;
+    background:linear-gradient(135deg,var(--blue),var(--vio));color:#fff;
+    font-weight:800;font-size:.88rem;display:inline-flex;align-items:center;gap:.45rem;
+    box-shadow:0 8px 20px -6px rgba(96,60,200,.55);transition:transform .16s,box-shadow .16s;
+  }
+  .v3-reload:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(96,60,200,.65);}
+  .v3-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.7rem;}
+  .v3-card{
+    position:relative;border:1px solid var(--bd);background:var(--card);
+    border-radius:16px;padding:.85rem 1rem .8rem;text-align:left;overflow:hidden;
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s;
+  }
+  .v3-card::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:var(--ac,#94a3b8);border-radius:0 4px 4px 0;opacity:.85;
+  }
+  .v3-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px -8px rgba(20,16,40,.18);}
+  body.dark .v3-card:hover{box-shadow:0 12px 26px -8px rgba(0,0,0,.6);}
+  .v3-card .lbl{font-size:.76rem;font-weight:800;letter-spacing:.02em;color:var(--mut);display:flex;align-items:center;gap:.4rem;}
+  .v3-card .num{font-size:1.65rem;font-weight:800;margin-top:.15rem;color:var(--ink);line-height:1.1;}
+  .v3-card.on{
+    border-color:transparent;
+    background:linear-gradient(var(--card),var(--card)) padding-box,
+               linear-gradient(135deg,var(--blue),var(--vio)) border-box;
+    border:2px solid transparent;
+    box-shadow:0 14px 30px -10px rgba(96,60,200,.4);
+  }
+  .v3-card.on .lbl{color:var(--vio);}
+  .v3-card .lbl svg{flex:none;color:var(--ac,#94a3b8);}
+  .v3-card.go{cursor:pointer;}
+  .v3-card.go .num{display:flex;align-items:center;gap:.45rem;}
+  .v3-card.go .num .arrow{
+    width:24px;height:24px;border-radius:99px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#9061f9,#7c3aed);color:#fff;
+    transition:transform .2s ease;
+  }
+  .v3-card.go:hover .num .arrow{transform:translateX(3px);}
+
+  /* ════════ V4 — Command Deck ════════ */
+  .v4-deck{
+    display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+    background:linear-gradient(120deg,#171A2E,#1E1B3C 55%,#241B45);
+    border-radius:18px;padding:1rem 1.1rem;
+    box-shadow:0 16px 36px -14px rgba(20,14,60,.55);
+    position:relative;overflow:hidden;
+  }
+  .v4-deck::before{
+    content:"";position:absolute;inset:-60% -20%;pointer-events:none;
+    background:radial-gradient(40% 55% at 78% 30%,rgba(124,58,237,.35),transparent 70%),
+               radial-gradient(35% 50% at 15% 80%,rgba(65,105,225,.3),transparent 70%);
+  }
+  .v4-field{position:relative;display:flex;flex-direction:column;gap:.2rem;}
+  .v4-field .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8d93b8;}
+  .v4-field select{
+    appearance:none;border:1px solid rgba(255,255,255,.14);border-radius:11px;
+    background:rgba(255,255,255,.07) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23aab' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .65rem center;
+    color:#fff;font-weight:700;font-size:.86rem;padding:.5rem 2rem .5rem .8rem;
+    transition:background-color .15s,border-color .15s;
+  }
+  .v4-field select:hover{background-color:rgba(255,255,255,.13);border-color:rgba(255,255,255,.25);}
+  .v4-field select option{background:#1E1B3C;color:#fff;}
+  .v4-reload{
+    margin-left:auto;position:relative;border:0;border-radius:12px;padding:.7rem 1.6rem;
+    background:linear-gradient(135deg,#5b7cf0,#8b5cf6);color:#fff;font-weight:800;font-size:.9rem;
+    display:inline-flex;align-items:center;gap:.5rem;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.15) inset,0 10px 26px -8px rgba(139,92,246,.7);
+    transition:transform .16s,box-shadow .16s;
+  }
+  .v4-reload:hover{transform:translateY(-1px);box-shadow:0 0 0 1px rgba(255,255,255,.2) inset,0 14px 30px -8px rgba(139,92,246,.85);}
+  .v4-reload::after{
+    content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;
+    background:linear-gradient(115deg,transparent,rgba(255,255,255,.45),transparent);
+    transform:skewX(-20deg);transition:left .55s ease;
+  }
+  .v4-reload:hover::after{left:140%;}
+  .v4-tabs{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:1rem;}
+  .v4-tab{
+    border:1px solid var(--bd);background:var(--card);color:var(--chip);
+    border-radius:999px;padding:.58rem 1.15rem;font-weight:800;font-size:.86rem;
+    display:inline-flex;align-items:center;gap:.5rem;
+    transition:transform .15s,border-color .15s,box-shadow .15s,color .15s;
+    box-shadow:0 1px 4px rgba(20,16,40,.05);
+  }
+  .v4-tab:hover{transform:translateY(-1px);border-color:#c8cce0;color:var(--ink);box-shadow:0 6px 16px -6px rgba(20,16,40,.18);}
+  body.dark .v4-tab:hover{border-color:#4a5378;}
+  .v4-tab .led{width:8px;height:8px;border-radius:99px;background:var(--ac,#94a3b8);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac,#94a3b8) 22%,transparent);}
+  .v4-tab .ct{font-size:.78rem;font-weight:800;color:var(--mut);}
+  .v4-tab.on{
+    border-color:transparent;color:#fff;
+    background:linear-gradient(135deg,#171A2E,#2A2153);
+    box-shadow:0 10px 24px -8px rgba(30,22,70,.5);
+  }
+  .v4-tab.on .ct{color:#cfd4f5;}
+  .v4-tab.on .led{box-shadow:0 0 0 3px color-mix(in srgb,var(--ac,#94a3b8) 35%,transparent),0 0 10px var(--ac);}
+
+  /* ════════ V5 — Aurora Flow ════════ */
+  @property --ang{syntax:"<angle>";initial-value:0deg;inherits:false;}
+  @keyframes v5spin{to{--ang:360deg;}}
+  @keyframes v5flow{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  .v5-top{display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.15rem;}
+  .v5-field{position:relative;}
+  .v5-field .k{
+    position:absolute;top:-7px;left:12px;padding:0 6px;border-radius:6px;
+    background:var(--card);font-size:.64rem;font-weight:800;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--mut);z-index:1;transition:color .2s;
+  }
+  .v5-field select{
+    appearance:none;border:1.5px solid var(--input-bd);border-radius:13px;
+    background:var(--input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .7rem center;
+    color:var(--ink);font-weight:700;font-size:.88rem;padding:.62rem 2rem .58rem .9rem;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .v5-field:hover select{border-color:color-mix(in srgb,var(--vio) 45%,var(--input-bd));}
+  .v5-field:hover .k{color:var(--vio);}
+  .v5-reload{
+    margin-left:auto;border:0;border-radius:13px;padding:.68rem 1.5rem;color:#fff;
+    font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:.5rem;
+    background:linear-gradient(120deg,#4169E1,#7C3AED,#C026D3,#4169E1);
+    background-size:280% 280%;animation:v5flow 7s ease infinite;
+    box-shadow:0 8px 22px -6px rgba(124,58,237,.55);
+    transition:transform .16s,box-shadow .16s;
+  }
+  .v5-reload:hover{transform:translateY(-1px);box-shadow:0 12px 28px -6px rgba(124,58,237,.7);}
+  .v5-track{
+    position:relative;display:inline-flex;gap:4px;padding:6px;border-radius:17px;
+    background:linear-gradient(var(--track),var(--track)) padding-box,
+               conic-gradient(from var(--ang),rgba(65,105,225,.55),rgba(124,58,237,.55),rgba(192,38,211,.45),rgba(65,105,225,.55)) border-box;
+    border:1.5px solid transparent;
+    animation:v5spin 6s linear infinite;
+  }
+  .v5-tab{
+    border:0;background:transparent;color:var(--chip);
+    padding:.6rem 1.05rem;border-radius:12px;font-weight:800;font-size:.88rem;
+    display:inline-flex;align-items:center;gap:.5rem;
+    transition:color .18s,background .18s;
+  }
+  .v5-tab svg{flex:none;opacity:.75;}
+  .v5-tab:hover{color:var(--ink);background:rgba(127,127,170,.09);}
+  .v5-tab .ct{
+    min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+    display:inline-grid;place-items:center;font-size:.7rem;font-weight:800;
+    background:var(--card);color:var(--mut);
+  }
+  .v5-tab.on{
+    color:#fff;
+    background:linear-gradient(120deg,#4169E1,#7C3AED,#9333EA,#4169E1);
+    background-size:260% 260%;animation:v5flow 5s ease infinite;
+    box-shadow:0 8px 20px -6px rgba(124,58,237,.6);
+  }
+  .v5-tab.on svg{opacity:1;}
+  .v5-tab.on .ct{background:rgba(255,255,255,.25);color:#fff;}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="document.body.classList.toggle('dark')">🌓 Light / Dark</button>
+<div class="wrap">
+  <h1>FBS «Buyurtmalar» — yuqori panel: 5 variant</h1>
+  <p class="sub">Filtr (Do'kon / Sxema / Yangilash) + status tab'lar. Tab'larni bosib ko'ring — har biri interaktiv. O'ngdagi tugma bilan dark rejimni tekshiring.</p>
+
+  <!-- ═══════════ V1 ═══════════ -->
+  <div class="vhead"><span class="vnum">1</span><div><div class="vname">Segment Glide</div><div class="vdesc">Hozirgi trek saqlanadi, lekin aktiv pill endi sirpanib (glide) o'tadi — gradient «thumb» tab ostida suzadi. Filtrlar ixcham kapsulada.</div></div></div>
+  <div class="demo">
+    <div class="v1-top">
+      <div class="v1-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>ARVOX</option></select>
+      </div>
+      <div class="v1-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS (hammasi)</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="v1-reload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="v1-track" id="v1track">
+      <div class="v1-thumb" id="v1thumb"></div>
+      <button class="v1-tab on">Yangi <span class="ct hot">3</span></button>
+      <button class="v1-tab">Yig'ilmoqda <span class="ct">3</span></button>
+      <button class="v1-tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Поставка <span class="ct">1</span>
+      </button>
+      <button class="v1-tab">Yo'lda <span class="ct">0</span></button>
+      <button class="v1-tab">Boshqa holatlar
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ V2 ═══════════ -->
+  <div class="vhead"><span class="vnum">2</span><div><div class="vname">Underline Editorial</div><div class="vdesc">Hech qanday quti yo'q — havodor, jurnal uslubi. Tab'lar matn + yuqorida gradient chiziq, sonlar superscript. Filtrlar pastki chiziqli, Yangilash — aylanadigan orb.</div></div></div>
+  <div class="demo">
+    <div class="v2-top">
+      <div class="v2-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>ARVOX</option></select>
+      </div>
+      <div class="v2-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS (hammasi)</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="v2-reload">
+        <span class="orb"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></span>
+        Yangilash
+      </button>
+    </div>
+    <div class="v2-tabs" id="v2tabs">
+      <button class="v2-tab on"><span class="dot" style="background:#4169E1"></span>Yangi<sup>3</sup></button>
+      <button class="v2-tab"><span class="dot" style="background:#F59E0B"></span>Yig'ilmoqda<sup>3</sup></button>
+      <button class="v2-tab"><span class="dot" style="background:#7C3AED"></span>Поставка<sup>1</sup></button>
+      <button class="v2-tab"><span class="dot" style="background:#F97316"></span>Yo'lda<sup>0</sup></button>
+      <button class="v2-tab"><span class="dot" style="background:#94A3B8"></span>Boshqa holatlar<sup>▾</sup></button>
+    </div>
+  </div>
+
+  <!-- ═══════════ V3 ═══════════ -->
+  <div class="vhead"><span class="vnum">3</span><div><div class="vname">Stat Cards</div><div class="vdesc">Har status — mini KPI karta: katta son + rangli aksent. Aktiv karta gradient ramka oladi. Sonlar bir qarashda ko'rinadi; Поставка — o'tish kartasi (strelka bilan).</div></div></div>
+  <div class="demo">
+    <div class="v3-top">
+      <div class="v3-pillbar">
+        <select><option>Hammasi</option><option>ARVOX</option></select>
+        <span class="sep"></span>
+        <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="v3-reload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="v3-grid" id="v3grid">
+      <button class="v3-card on" style="--ac:#4169E1">
+        <span class="lbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Yangi</span>
+        <span class="num">3</span>
+      </button>
+      <button class="v3-card" style="--ac:#F59E0B">
+        <span class="lbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Yig'ilmoqda</span>
+        <span class="num">3</span>
+      </button>
+      <button class="v3-card go" style="--ac:#7C3AED">
+        <span class="lbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Поставка</span>
+        <span class="num">1
+          <span class="arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+        </span>
+      </button>
+      <button class="v3-card" style="--ac:#F97316">
+        <span class="lbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>Yo'lda</span>
+        <span class="num">0</span>
+      </button>
+      <button class="v3-card" style="--ac:#94A3B8">
+        <span class="lbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Boshqa holatlar</span>
+        <span class="num">…</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ V4 ═══════════ -->
+  <div class="vhead"><span class="vnum">4</span><div><div class="vname">Command Deck</div><div class="vdesc">Filtrlar to'q indigo «komanda paneli»da (aurora nur bilan), Yangilash'da shine-sweep. Tab'lar — erkin pill'lar, har birida status rangidagi LED nuqta.</div></div></div>
+  <div class="demo">
+    <div class="v4-deck">
+      <div class="v4-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>ARVOX</option></select>
+      </div>
+      <div class="v4-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS (hammasi)</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="v4-reload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="v4-tabs" id="v4tabs">
+      <button class="v4-tab on" style="--ac:#5b7cf0"><span class="led"></span>Yangi <span class="ct">3</span></button>
+      <button class="v4-tab" style="--ac:#F59E0B"><span class="led"></span>Yig'ilmoqda <span class="ct">3</span></button>
+      <button class="v4-tab" style="--ac:#a78bfa"><span class="led"></span>Поставка <span class="ct">1</span></button>
+      <button class="v4-tab" style="--ac:#F97316"><span class="led"></span>Yo'lda <span class="ct">0</span></button>
+      <button class="v4-tab" style="--ac:#94A3B8"><span class="led"></span>Boshqa holatlar
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ V5 ═══════════ -->
+  <div class="vhead"><span class="vnum">5</span><div><div class="vname">Aurora Flow</div><div class="vdesc">Trek atrofida sekin aylanuvchi gradient ramka, aktiv tab'da oqib turuvchi aurora gradient. Filtrlar floating-label (suzuvchi yorliq) uslubida, Yangilash ham jonli gradient.</div></div></div>
+  <div class="demo">
+    <div class="v5-top">
+      <div class="v5-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>ARVOX</option></select>
+      </div>
+      <div class="v5-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS (hammasi)</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="v5-reload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="v5-track" id="v5track">
+      <button class="v5-tab on">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Yangi <span class="ct">3</span></button>
+      <button class="v5-tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Yig'ilmoqda <span class="ct">3</span></button>
+      <button class="v5-tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Поставка <span class="ct">1</span></button>
+      <button class="v5-tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        Yo'lda <span class="ct">0</span></button>
+      <button class="v5-tab">Boshqa holatlar
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Umumiy: bosilganda .on ko'chirish
+function wireTabs(sel, cls){
+  document.querySelectorAll(sel).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      btn.parentElement.querySelectorAll('.' + cls).forEach(function(b){ b.classList.remove('on'); });
+      btn.classList.add('on');
+      if (cls === 'v1-tab') moveThumb();
+    });
+  });
+}
+wireTabs('#v1track .v1-tab','v1-tab');
+wireTabs('#v2tabs .v2-tab','v2-tab');
+wireTabs('#v3grid .v3-card','v3-card');
+wireTabs('#v4tabs .v4-tab','v4-tab');
+wireTabs('#v5track .v5-tab','v5-tab');
+
+// V1: sirpanuvchi thumb
+function moveThumb(){
+  var track = document.getElementById('v1track');
+  var on = track.querySelector('.v1-tab.on');
+  var th = document.getElementById('v1thumb');
+  if(!on) { th.style.width = '0'; return; }
+  th.style.left = on.offsetLeft + 'px';
+  th.style.width = on.offsetWidth + 'px';
+}
+window.addEventListener('load', moveThumb);
+window.addEventListener('resize', moveThumb);
+</script>
+</body>
+</html>

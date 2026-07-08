@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyurtma modali — Rail (yakuniy)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 20px 80px; background: #eef0f7;
+    font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif; color: #101828;
+  }
+  .page-title { text-align: center; margin: 0 0 6px; font-size: 21px; font-weight: 800; }
+  .page-sub { text-align: center; color: #667085; font-size: 13.5px; margin: 0 0 34px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  .md {
+    background: #fff; border-radius: 22px; overflow: hidden; position: relative;
+    box-shadow: 0 32px 80px -24px rgba(24,30,60,.4), 0 2px 8px rgba(24,30,60,.06);
+  }
+  /* — Header band — */
+  .md-head {
+    position: relative; background: #1e293b; color: #fff; padding: 20px 56px 20px 22px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .md-head::after {
+    content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, #7b4eff 0%, #22d3ee 58%, transparent 100%);
+  }
+  .md-badge {
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    background: #fff; color: #1e293b; display: grid; place-items: center;
+  }
+  .md-badge svg { width: 23px; height: 23px; }
+  .md-htext { min-width: 0; flex: 1; }
+  .md-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; line-height: 1; }
+  .md-title { margin: 3px 0 0; font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .md-head-pills { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 1; }
+  .pill.amber { background: #fef3c7; color: #b45309; }
+  .pill.amber::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.scheme { background: rgba(255,255,255,.18); color: #fff; }
+  .md-x {
+    position: absolute; top: 14px; right: 16px; width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff; border: 0; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .md-x svg { width: 15px; height: 15px; }
+  .md-x:hover { background: rgba(255,255,255,.22); }
+
+  .md-body { padding: 18px 22px 6px; }
+
+  /* — Fact kartalar — */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .fact {
+    display: flex; gap: 11px; align-items: flex-start; background: #fff;
+    border: 1px solid #e6e9ef; border-radius: 14px; padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  .fact-ic { flex: none; width: 30px; height: 30px; border-radius: 9px; background: #eef1f6; color: #334155; display: grid; place-items: center; }
+  .fact-ic svg { width: 16px; height: 16px; }
+  .fact .k { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #667085; }
+  .fact .v { font-size: 14.5px; font-weight: 700; color: #101828; margin-top: 2px; line-height: 1.25; }
+  .fact .sub { font-size: 12px; font-weight: 700; margin-top: 3px; color: #b45309; }
+
+  .sec { display: flex; align-items: center; gap: 9px; margin: 14px 2px 9px; font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #98a2b3; }
+  .sec .cnt { background: #eef1f6; color: #1e293b; border-radius: 999px; padding: 2px 9px; font-size: 11px; }
+
+  /* — Rail order-kartasi — */
+  .v2-card {
+    display: grid; grid-template-columns: minmax(0,1fr) 198px;
+    border: 1px solid #eaecf0; border-radius: 16px; overflow: hidden; background: #fff;
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+  }
+  .v2-left { padding: 6px 16px; }
+  .v2-pl { display: flex; align-items: center; gap: 13px; padding: 11px 0; min-width: 0; }
+  .v2-pl + .v2-pl { border-top: 1px solid #f2f4f7; }
+  .li-thumb {
+    flex: none; width: 50px; height: 50px; border-radius: 13px; background: #eef1f6;
+    border: 1px solid #e6e9ef; display: grid; place-items: center; color: #aab1c2; overflow: hidden;
+  }
+  .li-thumb svg { width: 24px; height: 24px; }
+  .li-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .li-mid { flex: 1; min-width: 0; }
+  .li-title { font-weight: 700; font-size: 14.5px; color: #16182b; line-height: 1.3; }
+  .li-sub { font-size: 11.5px; color: #8b90a3; font-weight: 500; margin-top: 3px; }
+  .v2-dpill { flex: none; min-width: 60px; text-align: center; padding: 5px 10px; border-radius: 999px; background: #eef1f6; color: #334155; font-weight: 800; font-size: 12.5px; }
+  .v2-rail { background: #f8f9fc; box-shadow: inset 1px 0 0 #eaecf0; padding: 18px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+  .v2-rail .rk { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #98a2b3; }
+  .v2-rail .rv { font-size: 15px; font-weight: 800; color: #16182b; margin-top: 2px; }
+  .v2-rail .rv.status { color: #b45309; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .v2-rail .rv.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .v2-rail .rv.sum { font-size: 19px; }
+
+  /* — Amal tugmalari — */
+  .acts { display: flex; gap: 11px; padding: 16px 22px 24px; flex-wrap: wrap; }
+  .btn {
+    flex: 1 1 140px; height: 50px; border: 0; border-radius: 14px; cursor: pointer;
+    font-size: 14.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .14s, background .14s, box-shadow .18s;
+  }
+  .btn svg { width: 17px; height: 17px; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-dark { background: #1e293b; color: #fff; box-shadow: 0 8px 20px -8px rgba(30,41,59,.5); }
+  .btn-dark:hover { background: #0f172a; }
+  .btn-soft { background: #eef1f6; color: #1e293b; }
+  .btn-soft:hover { background: #e2e8f0; }
+  .btn-danger { background: #fdecec; color: #e23b3b; }
+  .btn-danger:hover { background: #fbdcdc; }
+</style>
+</head>
+<body>
+  <h1 class="page-title">Buyurtma detali — «Rail» (yakuniy)</h1>
+  <p class="page-sub">Header «Etiketka» olib tashlandi · barcha ikonkalar SVG (ilovadagi bilan bir xil)</p>
+
+  <!-- SVG defs reused inline below -->
+  <div class="wrap">
+    <div class="md">
+      <div class="md-head">
+        <button class="md-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <div class="md-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="md-htext">
+          <div class="md-eyebrow">Buyurtma · Yaratildi 13.06.2026 17:03</div>
+          <div class="md-title">№111550959</div>
+          <div class="md-head-pills"><span class="pill amber">Yig'ilmoqda</span><span class="pill scheme">FBS</span></div>
+        </div>
+      </div>
+
+      <div class="md-body">
+        <div class="facts">
+          <div class="fact">
+            <div class="fact-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div><div class="k">Tasdiqlash muddati</div><div class="v">14.06 09:03</div></div>
+          </div>
+          <div class="fact">
+            <div class="fact-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+            <div><div class="k">Yetkazib berish</div><div class="v">17.06 16:00</div><div class="sub">1 kun 23 soat</div></div>
+          </div>
+          <div class="fact">
+            <div class="fact-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg></div>
+            <div><div class="k">Buyurtma ID</div><div class="v">856114-0055</div></div>
+          </div>
+        </div>
+
+        <div class="sec">Tarkib <span class="cnt">6 dona</span></div>
+
+        <div class="v2-card">
+          <div class="v2-left">
+            <div class="v2-pl">
+              <div class="li-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></div>
+              <div class="li-mid"><div class="li-title">Stresga qarshi magnit (2.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-25</div></div>
+              <div class="v2-dpill">3 dona</div>
+            </div>
+            <div class="v2-pl">
+              <div class="li-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></div>
+              <div class="li-mid"><div class="li-title">Stresga qarshi magnit (3.5sm)</div><div class="li-sub">BLUMMY-MAGNIT2-35</div></div>
+              <div class="v2-dpill">1 dona</div>
+            </div>
+            <div class="v2-pl">
+              <div class="li-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></div>
+              <div class="li-mid"><div class="li-title">Ayollar zanjiri (Malla)</div><div class="li-sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ</div></div>
+              <div class="v2-dpill">2 dona</div>
+            </div>
+          </div>
+          <div class="v2-rail">
+            <div><div class="rk">Status</div><div class="rv status">Yig'ilmoqda</div></div>
+            <div><div class="rk">Jami</div><div class="rv">6 dona</div></div>
+            <div><div class="rk">Summa</div><div class="rv sum">75 900 UZS</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acts">
+        <button class="btn btn-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Bekor qilish
+        </button>
+        <button class="btn btn-soft">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/><line x1="17" y1="21" x2="14" y2="21"/></svg>
+          QR chop etish
+        </button>
+        <button class="btn btn-dark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Etiketka chop etish
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

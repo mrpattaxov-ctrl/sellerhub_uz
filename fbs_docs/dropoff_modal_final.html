@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qabul punktlari — yakuniy (Royal Blue Spotlight)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --a:#4169E1; --a2:#6384ff;
+  --a-08:rgba(65,105,225,.08); --a-07:rgba(65,105,225,.07); --a2-07:rgba(99,132,255,.07);
+  --a-25:rgba(65,105,225,.25); --a-40:rgba(65,105,225,.4);
+  --ink:#101828; --muted:#667085; --line:#eaecf0;
+  --green:#027a48; --green-bg:#ecfdf3; --green-bd:#abefc6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:var(--ink);padding:34px 18px 120px}
+.page-title{max-width:880px;margin:0 auto 6px;font-size:1.4rem;font-weight:800}
+.page-sub{max-width:880px;margin:0 auto 36px;color:var(--muted);font-size:.9rem}
+.stage{max-width:880px;margin:0 auto;border-radius:26px;padding:36px 22px;display:flex;justify-content:center;
+  background:radial-gradient(1100px 480px at 50% -10%, rgba(65,105,225,.4), rgba(16,24,40,.6) 70%),#2e3550}
+button{font-family:inherit;cursor:pointer}
+.scroll{overflow-y:auto}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(65,105,225,.25);border-radius:99px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(2,122,72,.35)}50%{box-shadow:0 0 0 7px rgba(2,122,72,0)}}
+
+.sp{width:min(740px,100%);max-height:820px;display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border-radius:26px;box-shadow:0 36px 90px rgba(16,24,40,.55)}
+.sp .head{padding:22px 28px 0}
+.sp .hrow{display:flex;align-items:center;gap:12px}
+.sp h3{margin:0;flex:1;font-size:1.35rem;font-weight:900;letter-spacing:-.02em}
+.sp h3 .grad{background:linear-gradient(120deg,var(--a),var(--a2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.sp .x{width:34px;height:34px;border-radius:50%;border:0;background:#f2f4f7;color:var(--muted);
+  font-size:1rem;transition:.2s}
+.sp .x:hover{background:var(--ink);color:#fff;transform:rotate(90deg)}
+.sp .tabs{display:flex;gap:26px;margin-top:18px;border-bottom:1px solid var(--line)}
+.sp .tab{border:0;background:transparent;padding:0 2px 13px;font-size:.9rem;font-weight:700;
+  color:var(--muted);position:relative;transition:.15s}
+.sp .tab.on{color:var(--a)}
+.sp .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;
+  border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--a),var(--a2))}
+.sp .tab:hover:not(.on){color:var(--ink)}
+.sp .ctl{display:flex;gap:10px;align-items:center;padding:15px 28px 0;flex-wrap:wrap}
+.sp .search{flex:1;min-width:230px;display:flex;align-items:center;gap:10px;background:#f7f8fb;
+  border:1.5px solid transparent;border-radius:14px;padding:11px 16px;color:#98a2b3;font-size:.88rem;transition:.2s}
+.sp .search:hover{border-color:var(--a-40);background:#fff}
+.sp .sw{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600}
+.sp .tr{width:38px;height:22px;border-radius:99px;background:linear-gradient(135deg,var(--a),var(--a2));position:relative}
+.sp .tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff}
+.sp .geo{border:0;background:transparent;color:var(--a);font-size:.84rem;font-weight:700;
+  display:inline-flex;gap:6px;align-items:center;padding:8px 10px;border-radius:10px;transition:.15s}
+.sp .geo:hover{background:var(--a-08)}
+.sp .geo-ok{padding:10px 28px 0;font-size:.78rem;font-weight:600;color:var(--green)}
+.sp .body{padding:12px 16px 22px}
+.sp .row{position:relative;display:flex;gap:14px;align-items:center;padding:16px 14px;border-radius:18px;
+  transition:.2s cubic-bezier(.16,.84,.36,1)}
+.sp .row+.row,.sp .slots+.row{margin-top:4px}
+.sp .row::before{content:"";position:absolute;inset:0;border-radius:18px;opacity:0;transition:.2s;
+  background:linear-gradient(120deg,var(--a-07),var(--a2-07));border:1px solid var(--a-25)}
+.sp .row:hover{transform:translateX(4px)}
+.sp .row:hover::before{opacity:1}
+.sp .row>*{position:relative}
+.sp .star{border:0;background:transparent;font-size:1.25rem;color:#d0d3dd;padding:0;transition:.2s;flex:none}
+.sp .star.on{color:#f59e0b}
+.sp .star:hover{transform:scale(1.25);color:#f59e0b}
+.sp .num{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:.82rem;color:var(--a);background:var(--a-08);transition:.2s;
+  text-align:center;line-height:1.05}
+.sp .row:hover .num{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.sp .mid{flex:1;min-width:0}
+.sp .addr{font-weight:700;font-size:.93rem;line-height:1.35;letter-spacing:-.01em}
+.sp .meta{margin-top:4px;font-size:.77rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp .near{font-size:.67rem;font-weight:800;color:var(--green);background:var(--green-bg);
+  border:1px solid var(--green-bd);padding:2px 9px;border-radius:99px;animation:pulse 2.4s infinite}
+.sp .acts{display:flex;gap:7px}
+.sp .b-slot{border:0;background:var(--ink);color:#fff;padding:8px 16px;border-radius:12px;
+  font-size:.8rem;font-weight:700;transition:.2s;white-space:nowrap}
+.sp .row:hover .b-slot{background:linear-gradient(120deg,var(--a),var(--a2));
+  box-shadow:0 6px 16px var(--a-40)}
+.sp .b-copy{border:1px solid var(--line);background:#fff;color:var(--muted);width:35px;height:35px;
+  border-radius:12px;font-size:.85rem;display:grid;place-items:center;transition:.15s}
+.sp .b-copy:hover{color:var(--a);border-color:var(--a)}
+.sp .slots{margin:2px 14px 6px 86px;display:flex;gap:7px;flex-wrap:wrap}
+.sp .slot{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);
+  padding:6px 13px;border-radius:11px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.15s}
+.sp .slot:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(2,122,72,.18)}
+</style>
+</head>
+<body>
+
+<div class="page-title">📍 Qabul punktlari — yakuniy ko'rinish</div>
+<div class="page-sub">Rasmingizdagi tarkib, ortiqcha hech narsasiz: yulduzcha · masofa · manzil · Bugun ish-vaqti · EN YAQIN · Slotlar · nusxalash. Royal Blue Spotlight.</div>
+
+<div class="stage"><div class="sp">
+  <div class="head">
+    <div class="hrow"><h3>Qabul <span class="grad">punktlari</span></h3><button class="x">✕</button></div>
+    <div class="tabs">
+      <button class="tab">Mening punktlarim</button>
+      <button class="tab on">Uzum'dan to'liq</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <div class="search">🔎 Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)</div>
+    <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+    <button class="geo">🧭 Joylashuv</button>
+  </div>
+  <div class="geo-ok">✓ Joylashuv aniqlandi — yaqin punktlar tepada</div>
+  <div class="body scroll">
+
+    <div class="row">
+      <button class="star on">★</button>
+      <div class="num">1.5<br>km</div>
+      <div class="mid">
+        <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+        <div class="meta"><span class="near">● EN YAQIN</span><span>🕒 Bugun: –</span></div>
+      </div>
+      <div class="acts"><button class="b-slot">🕐 Yashirish</button><button class="b-copy">📋</button></div>
+    </div>
+    <div class="slots">
+      <span class="slot">14.06 10:00–15:30</span>
+      <span class="slot">15.06 10:00–15:30</span>
+    </div>
+
+    <div class="row">
+      <button class="star">☆</button>
+      <div class="num">2.0<br>km</div>
+      <div class="mid">
+        <div class="addr">Toshkent sh., Yunusobod tumani, 3-kvartal, 23-uy</div>
+        <div class="meta"><span>🕒 Bugun: –</span></div>
+      </div>
+      <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+    </div>
+
+    <div class="row">
+      <button class="star">☆</button>
+      <div class="num">2.1<br>km</div>
+      <div class="mid">
+        <div class="addr">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 2/2 uy</div>
+        <div class="meta"><span>🕒 Bugun: –</span></div>
+      </div>
+      <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+    </div>
+
+    <div class="row">
+      <button class="star">☆</button>
+      <div class="num">2.4<br>km</div>
+      <div class="mid">
+        <div class="addr">Toshkent sh., Ahmad Donish ko'chasi, 59 uy</div>
+        <div class="meta"><span>🕒 Bugun: –</span></div>
+      </div>
+      <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+    </div>
+
+    <div class="row">
+      <button class="star">☆</button>
+      <div class="num">3.0<br>km</div>
+      <div class="mid">
+        <div class="addr">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+        <div class="meta"><span>🕒 Bugun: –</span></div>
+      </div>
+      <div class="acts"><button class="b-slot">🕐 Slotlar</button><button class="b-copy">📋</button></div>
+    </div>
+
+  </div>
+</div></div>
+
+</body>
+</html>

@@ -134,6 +134,7 @@ def prune_akts_not_in(user_id, keep_ids) -> int:
 def prefetch_akts_for_token(
     token, user_id, *,
     statuses=("CREATED",), max_pages=25, max_akts=40,
+    owned_numbers=None,
 ) -> tuple[int, int]:
     """Background: warm the akt cache for a token's active invoices, and prune
     akts that are no longer active so the table stays BOUNDED.
@@ -143,6 +144,15 @@ def prefetch_akts_for_token(
     and prints) and, for any invoice whose akt is missing or whose
     ``dateUpdated`` changed, fetches + stores it. In steady state most akts are
     already cached & fresh, so a tick only re-fetches NEW or changed invoices.
+
+    ``owned_numbers`` — SCOPE FILTER. The invoice list is TOKEN-scoped (every
+    shop on the seller account, registered here or not); pass the registered
+    shops' invoice-number set (``core.fbs_data.get_owned_invoice_numbers``) so
+    foreign shops' akts are neither downloaded (wasted paced Uzum calls) nor
+    cached (a cache hit doubles as the ownership proof in
+    ``fbs.routes._get_akt_guarded``). Foreign ids are also left OUT of the
+    prune keep-set, so stale foreign rows from before this filter get cleaned
+    up automatically. ``None`` keeps the old unfiltered behaviour.
 
     Then it PRUNES: the cache should mirror exactly the current active set, so
     rows for invoices that left CREATED are deleted — keeping the table sized
@@ -156,7 +166,10 @@ def prefetch_akts_for_token(
     """
     from core.uzum_openapi import fetch_fbs_invoices_list
 
+    owned = (None if owned_numbers is None
+             else {str(n) for n in owned_numbers if n is not None and str(n).strip()})
     fetched = 0
+    skipped_foreign = 0
     seen_ids: set[int] = set()
     complete = True  # full active list enumerated → safe to prune
     for status in statuses:
@@ -177,6 +190,9 @@ def prefetch_akts_for_token(
             for inv in invs:
                 iid = inv.get("id")
                 if iid is None:
+                    continue
+                if owned is not None and str(inv.get("number")) not in owned:
+                    skipped_foreign += 1   # foreign shop — don't fetch, don't keep
                     continue
                 seen_ids.add(int(iid))   # always collect ids (for prune)
                 du = inv.get("dateUpdated")
@@ -206,6 +222,8 @@ def prefetch_akts_for_token(
             pruned = prune_akts_not_in(user_id, seen_ids)
         except Exception as e:
             print(f"[akt-prefetch] prune failed for user {user_id}: {e!r}")
+    if skipped_foreign:
+        print(f"[akt-prefetch] scope-skipped {skipped_foreign} foreign-shop invoice(s)")
     return (fetched, pruned)
 
 

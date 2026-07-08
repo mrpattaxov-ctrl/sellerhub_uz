@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qabul punkti — 5 layout varianti (Split / Master-Detail)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --a:#4169E1; --a2:#6384ff;
+  --a-08:rgba(65,105,225,.08); --a-07:rgba(65,105,225,.07); --a2-07:rgba(99,132,255,.07);
+  --a-12:rgba(65,105,225,.12); --a-25:rgba(65,105,225,.25); --a-40:rgba(65,105,225,.4);
+  --ink:#101828; --muted:#667085; --line:#eaecf0; --soft:#f7f8fb;
+  --green:#027a48; --green-bg:#ecfdf3; --green-bd:#abefc6;
+  --amber:#b54708; --amber-bg:#fffaeb; --amber-bd:#fedf89;
+  --red:#b42318; --red-bg:#fef3f2; --red-bd:#fecdca;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:var(--ink);padding:34px 18px 140px}
+.page-title{max-width:1000px;margin:0 auto 6px;font-size:1.5rem;font-weight:900;letter-spacing:-.02em}
+.page-sub{max-width:1000px;margin:0 auto 30px;color:var(--muted);font-size:.92rem;line-height:1.5}
+.vlabel{max-width:1000px;margin:48px auto 14px;display:flex;align-items:center;gap:12px}
+.vlabel .n{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+  font-weight:900;font-size:.85rem;color:#fff;background:linear-gradient(135deg,var(--a),var(--a2));
+  box-shadow:0 6px 16px var(--a-40)}
+.vlabel h2{margin:0;font-size:1.12rem;font-weight:800;letter-spacing:-.01em}
+.vlabel p{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
+.stage{max-width:1000px;margin:0 auto;border-radius:28px;padding:40px 24px;display:flex;justify-content:center;
+  background:radial-gradient(1200px 520px at 50% -10%, rgba(65,105,225,.42), rgba(16,24,40,.62) 70%),#2e3550}
+button{font-family:inherit;cursor:pointer}
+.scroll{overflow-y:auto}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:var(--a-25);border-radius:99px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(2,122,72,.35)}50%{box-shadow:0 0 0 6px rgba(2,122,72,0)}}
+@keyframes slideup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ───────── SHARED MODAL CHROME ───────── */
+.m{background:#fff;border-radius:26px;box-shadow:0 36px 90px rgba(16,24,40,.55);
+  display:flex;flex-direction:column;overflow:hidden}
+.m-head{display:flex;align-items:flex-start;gap:12px;padding:20px 24px 0}
+.m-head .ttl{flex:1;min-width:0}
+.m-head h3{margin:0;font-size:1.28rem;font-weight:900;letter-spacing:-.02em}
+.m-head h3 .grad{background:linear-gradient(120deg,var(--a),var(--a2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.m-pill{display:inline-flex;align-items:center;gap:5px;margin:8px 0 0;background:var(--a-08);
+  border:1px solid var(--a-25);color:var(--a);padding:4px 12px;border-radius:999px;
+  font-size:.76rem;font-weight:700}
+.m-x{width:34px;height:34px;border-radius:50%;border:0;background:#f2f4f7;color:var(--muted);
+  font-size:1rem;line-height:1;flex:none;transition:.2s}
+.m-x:hover{background:var(--ink);color:#fff;transform:rotate(90deg)}
+.tabs{display:flex;gap:24px;margin:14px 24px 0;border-bottom:1px solid var(--line)}
+.tab{border:0;background:transparent;padding:0 2px 12px;font-size:.88rem;font-weight:700;
+  color:var(--muted);position:relative;transition:.15s}
+.tab.on{color:var(--a)}
+.tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;
+  border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--a),var(--a2))}
+.tab:hover:not(.on){color:var(--ink)}
+.ctl{display:flex;gap:10px;align-items:center;padding:13px 24px;flex-wrap:wrap}
+.search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:var(--soft);
+  border:1.5px solid transparent;border-radius:13px;padding:10px 14px;color:#98a2b3;font-size:.85rem;transition:.2s}
+.search:hover{border-color:var(--a-40);background:#fff}
+.sw{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600}
+.tr{width:38px;height:22px;border-radius:99px;background:linear-gradient(135deg,var(--a),var(--a2));position:relative;flex:none}
+.tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff}
+.geo{border:0;background:transparent;color:var(--a);font-size:.82rem;font-weight:700;
+  display:inline-flex;gap:6px;align-items:center;padding:8px 10px;border-radius:10px;transition:.15s}
+.geo:hover{background:var(--a-08)}
+
+/* capacity badge (1-rasmdan: 78/90) */
+.cap{font-size:.72rem;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap;flex:none}
+.cap.ok{color:var(--green);background:var(--green-bg);border:1px solid var(--green-bd)}
+.cap.mid{color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-bd)}
+.cap.full{color:var(--red);background:var(--red-bg);border:1px solid var(--red-bd)}
+.near{font-size:.64rem;font-weight:800;color:var(--green);background:var(--green-bg);
+  border:1px solid var(--green-bd);padding:2px 8px;border-radius:99px;animation:pulse 2.4s infinite}
+.star{border:0;background:transparent;font-size:1.15rem;color:#d0d3dd;padding:0;transition:.2s;flex:none}
+.star.on{color:#f59e0b}
+.star:hover{transform:scale(1.2);color:#f59e0b}
+
+/* ════════════════════════════════════════════════════════
+   V1 — SPLIT SPOTLIGHT (2 panel master-detail, 1-rasm yo'li)
+   ════════════════════════════════════════════════════════ */
+.v1{width:min(860px,100%);max-height:600px}
+.v1 .split{display:flex;flex:1;min-height:0;border-top:1px solid var(--line)}
+.v1 .left{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.v1 .list{padding:8px;overflow-y:auto}
+.v1 .pt{display:flex;gap:11px;align-items:center;padding:12px;border-radius:15px;cursor:pointer;
+  transition:.18s;border:1.5px solid transparent}
+.v1 .pt:hover{background:var(--a-07)}
+.v1 .pt.sel{background:linear-gradient(120deg,var(--a-08),var(--a2-07));border-color:var(--a-25)}
+.v1 .pt .dist{flex:none;width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  font-weight:900;font-size:.72rem;color:var(--a);background:var(--a-08);text-align:center;line-height:1.05}
+.v1 .pt.sel .dist{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.v1 .pt .nm{flex:1;min-width:0}
+.v1 .pt .ad{font-weight:700;font-size:.86rem;line-height:1.32;letter-spacing:-.01em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v1 .pt .sh{margin-top:3px;font-size:.72rem;font-weight:700;color:var(--a)}
+.v1 .pt .chev{color:#c0c4ce;font-size:1rem;flex:none;transition:.18s}
+.v1 .pt.sel .chev{color:var(--a);transform:translateX(2px)}
+.v1 .right{width:316px;flex:none;display:flex;flex-direction:column;background:var(--soft)}
+.v1 .rhead{padding:16px 18px 12px}
+.v1 .rhead .ra{font-weight:800;font-size:.9rem;line-height:1.35;letter-spacing:-.01em}
+.v1 .rhead .rs{margin-top:5px;font-size:.74rem;color:var(--muted);display:flex;gap:7px;align-items:center}
+.v1 .slotwrap{padding:0 14px 16px;overflow-y:auto}
+.v1 .daygrp{margin-top:12px}
+.v1 .dayhd{font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;margin:0 2px 7px;display:flex;align-items:center;gap:7px}
+.v1 .dayhd::after{content:"";flex:1;height:1px;background:var(--line)}
+.v1 .slot{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;
+  border:1.5px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:7px;
+  cursor:pointer;transition:.16s}
+.v1 .slot:hover{border-color:var(--a);transform:translateX(3px);box-shadow:0 6px 16px var(--a-12)}
+.v1 .slot .tt{font-weight:800;font-size:.84rem}
+.v1 .foot{padding:13px 18px;border-top:1px solid var(--line);background:#fff;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.v1 .foot .hint{font-size:.76rem;color:var(--muted)}
+.cta{border:0;border-radius:13px;padding:11px 22px;font-weight:800;font-size:.86rem;color:#fff;
+  background:linear-gradient(120deg,var(--a),var(--a2));box-shadow:0 8px 20px var(--a-40);transition:.18s}
+.cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px var(--a-40)}
+.cta:disabled{background:#d7dae3;color:#fff;box-shadow:none;cursor:not-allowed;transform:none}
+
+/* ════════════════════════════════════════════════════════
+   V2 — STEPPER (2 qadam: punkt → slot)
+   ════════════════════════════════════════════════════════ */
+.v2{width:min(680px,100%);max-height:610px}
+.steps{display:flex;align-items:center;gap:10px;padding:14px 24px 0}
+.step{display:flex;align-items:center;gap:9px}
+.step .dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:900;
+  font-size:.78rem;background:var(--a-08);color:var(--a);transition:.2s}
+.step.done .dot{background:linear-gradient(135deg,var(--green),#12b76a);color:#fff}
+.step.on .dot{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;box-shadow:0 4px 12px var(--a-40)}
+.step .lb{font-size:.82rem;font-weight:700;color:var(--muted)}
+.step.on .lb,.step.done .lb{color:var(--ink)}
+.step .bar{width:42px;height:2px;border-radius:2px;background:var(--line)}
+.step.done .bar{background:linear-gradient(90deg,var(--green),#12b76a)}
+.v2 .body{padding:6px 14px 14px;overflow-y:auto;flex:1;min-height:0}
+.v2 .pt{display:flex;gap:11px;align-items:center;padding:13px 12px;border-radius:15px;cursor:pointer;
+  transition:.18s;border:1.5px solid transparent}
+.v2 .pt:hover{background:var(--a-07)}
+.v2 .pt .dist{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:.7rem;color:var(--a);background:var(--a-08);text-align:center;line-height:1.05}
+.v2 .pt:hover .dist{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.v2 .pt .nm{flex:1;min-width:0}
+.v2 .pt .ad{font-weight:700;font-size:.88rem;line-height:1.32}
+.v2 .pt .mt{margin-top:4px;font-size:.74rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.v2 .pt .go{border:0;background:var(--ink);color:#fff;padding:8px 15px;border-radius:11px;
+  font-size:.78rem;font-weight:700;flex:none;transition:.18s}
+.v2 .pt:hover .go{background:linear-gradient(120deg,var(--a),var(--a2));box-shadow:0 6px 16px var(--a-40)}
+.v2 .back{display:inline-flex;align-items:center;gap:6px;border:0;background:var(--soft);color:var(--ink);
+  font-weight:700;font-size:.8rem;padding:8px 14px;border-radius:11px;margin:6px 24px 0;transition:.15s}
+.v2 .back:hover{background:var(--a-08);color:var(--a)}
+.v2 .selcard{margin:10px 24px 4px;display:flex;gap:10px;align-items:center;background:linear-gradient(120deg,var(--a-08),var(--a2-07));
+  border:1px solid var(--a-25);border-radius:15px;padding:12px 14px}
+.v2 .selcard .ad{font-weight:800;font-size:.86rem;line-height:1.3}
+.v2 .selcard .ck{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--green),#12b76a);color:#fff;font-weight:900}
+.v2 .slotgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px 24px 20px}
+.v2 .scol .dh{font-size:.74rem;font-weight:800;color:var(--muted);margin:0 0 8px;text-transform:uppercase;letter-spacing:.03em}
+.v2 .slot{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;
+  border:1.5px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:.16s}
+.v2 .slot:hover{border-color:var(--a);box-shadow:0 6px 16px var(--a-12);transform:translateY(-2px)}
+.v2 .slot .tt{font-weight:800;font-size:.84rem}
+
+/* ════════════════════════════════════════════════════════
+   V3 — CARD GRID + SLOT DRAWER (kartalar + pastdan chiquvchi slot)
+   ════════════════════════════════════════════════════════ */
+.v3{width:min(820px,100%);max-height:620px;position:relative}
+.v3 .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:6px 20px 20px;overflow-y:auto;flex:1;min-height:0}
+.v3 .card{position:relative;border:1.5px solid var(--line);border-radius:18px;padding:15px;cursor:pointer;
+  transition:.18s;background:#fff;display:flex;flex-direction:column;gap:9px}
+.v3 .card:hover{border-color:var(--a-40);transform:translateY(-3px);box-shadow:0 14px 30px var(--a-12)}
+.v3 .card.sel{border-color:var(--a);background:linear-gradient(150deg,var(--a-08),#fff 60%)}
+.v3 .ctop{display:flex;align-items:center;gap:9px}
+.v3 .dist{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+  font-weight:900;font-size:.68rem;color:var(--a);background:var(--a-08);text-align:center;line-height:1.05}
+.v3 .card.sel .dist{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.v3 .ad{font-weight:700;font-size:.85rem;line-height:1.3;letter-spacing:-.01em;flex:1;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v3 .crow{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.v3 .sh{font-size:.72rem;font-weight:700;color:var(--a);background:var(--a-08);padding:3px 9px;border-radius:99px}
+.v3 .drawer{border-top:1px solid var(--line);background:var(--soft);padding:14px 22px;
+  animation:slideup .25s ease;display:flex;flex-direction:column;gap:10px}
+.v3 .dwhd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.v3 .dwhd .t{font-weight:800;font-size:.88rem}
+.v3 .dwhd .t span{color:var(--muted);font-weight:600;font-size:.78rem}
+.v3 .chips{display:flex;gap:9px;flex-wrap:wrap}
+.v3 .chip{display:flex;flex-direction:column;gap:3px;background:#fff;border:1.5px solid var(--line);
+  border-radius:13px;padding:9px 14px;cursor:pointer;transition:.16s;min-width:120px}
+.v3 .chip:hover{border-color:var(--a);transform:translateY(-2px);box-shadow:0 6px 16px var(--a-12)}
+.v3 .chip .cd{font-size:.7rem;font-weight:700;color:var(--muted)}
+.v3 .chip .ch{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.v3 .chip .ct{font-weight:800;font-size:.82rem}
+
+/* ════════════════════════════════════════════════════════
+   V4 — ACCORDION CALENDAR (qator ochilib slot-kalendar)
+   ════════════════════════════════════════════════════════ */
+.v4{width:min(720px,100%);max-height:620px}
+.v4 .body{padding:8px 18px 18px;overflow-y:auto;flex:1;min-height:0}
+.v4 .row{border:1.5px solid var(--line);border-radius:16px;margin-bottom:9px;overflow:hidden;transition:.18s}
+.v4 .row.open{border-color:var(--a-40);box-shadow:0 10px 26px var(--a-12)}
+.v4 .rhead{display:flex;gap:11px;align-items:center;padding:13px 14px;cursor:pointer;transition:.16s}
+.v4 .row.open .rhead{background:linear-gradient(120deg,var(--a-08),var(--a2-07))}
+.v4 .dist{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  font-weight:900;font-size:.7rem;color:var(--a);background:var(--a-08);text-align:center;line-height:1.05}
+.v4 .row.open .dist{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.v4 .nm{flex:1;min-width:0}
+.v4 .ad{font-weight:700;font-size:.87rem;line-height:1.3}
+.v4 .mt{margin-top:3px;font-size:.74rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.v4 .chev{flex:none;color:#c0c4ce;font-size:1rem;transition:.25s}
+.v4 .row.open .chev{transform:rotate(180deg);color:var(--a)}
+.v4 .cal{padding:4px 14px 14px;animation:slideup .22s ease}
+.v4 .calrow{display:flex;gap:9px;overflow-x:auto;padding:6px 2px 4px}
+.v4 .day{flex:none;width:128px;border:1.5px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}
+.v4 .day .dhd{padding:8px 11px;background:var(--soft);font-size:.72rem;font-weight:800;
+  display:flex;align-items:center;justify-content:space-between;gap:6px}
+.v4 .day .dhd .dd{color:var(--ink)}
+.v4 .day .dhd .wd{color:var(--muted);font-weight:600}
+.v4 .day .slot{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:9px 11px;cursor:pointer;transition:.15s;border-top:1px solid var(--line)}
+.v4 .day .slot:hover{background:var(--a-07)}
+.v4 .day .slot .tt{font-weight:700;font-size:.78rem}
+
+/* ════════════════════════════════════════════════════════
+   V5 — RAIL + HERO (chap rail + o'ng katta detal + xarita)
+   ════════════════════════════════════════════════════════ */
+.v5{width:min(900px,100%);max-height:600px}
+.v5 .split{display:flex;flex:1;min-height:0;border-top:1px solid var(--line)}
+.v5 .rail{width:300px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.v5 .railsearch{margin:12px 12px 6px;display:flex;align-items:center;gap:8px;background:var(--soft);
+  border-radius:12px;padding:9px 12px;color:#98a2b3;font-size:.82rem}
+.v5 .railscroll{overflow-y:auto;padding:4px 8px 8px}
+.v5 .grp{font-size:.68rem;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;padding:10px 8px 5px}
+.v5 .pt{display:flex;gap:10px;align-items:center;padding:10px;border-radius:13px;cursor:pointer;
+  transition:.16s;border:1.5px solid transparent}
+.v5 .pt:hover{background:var(--a-07)}
+.v5 .pt.sel{background:linear-gradient(120deg,var(--a-08),var(--a2-07));border-color:var(--a-25)}
+.v5 .pt .dist{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:.64rem;color:var(--a);background:var(--a-08);text-align:center;line-height:1}
+.v5 .pt.sel .dist{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.v5 .pt .ad{font-weight:700;font-size:.8rem;line-height:1.28;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v5 .pt .sh{margin-top:2px;font-size:.68rem;font-weight:700;color:var(--a)}
+.v5 .hero{flex:1;min-width:0;display:flex;flex-direction:column}
+.v5 .map{height:120px;flex:none;position:relative;
+  background:linear-gradient(135deg,#dfe6ff,#eef1fb);overflow:hidden;
+  border-bottom:1px solid var(--line)}
+.v5 .map::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(65,105,225,.12) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(65,105,225,.12) 1px,transparent 1px);
+  background-size:26px 26px}
+.v5 .map .pin{position:absolute;top:42px;left:50%;transform:translateX(-50%);
+  width:30px;height:30px;border-radius:50% 50% 50% 0;rotate:-45deg;
+  background:linear-gradient(135deg,var(--a),var(--a2));box-shadow:0 8px 18px var(--a-40)}
+.v5 .map .pin::after{content:"";position:absolute;top:9px;left:9px;width:12px;height:12px;
+  border-radius:50%;background:#fff}
+.v5 .herohd{padding:14px 20px 6px}
+.v5 .herohd .ha{font-weight:800;font-size:.96rem;line-height:1.32;letter-spacing:-.01em}
+.v5 .herohd .hm{margin-top:5px;font-size:.76rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.v5 .heroscroll{padding:4px 20px 14px;overflow-y:auto}
+.v5 .daygrp{margin-top:12px}
+.v5 .dayhd{font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.v5 .dayhd::after{content:"";flex:1;height:1px;background:var(--line)}
+.v5 .slot{display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid var(--line);
+  border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:.16s}
+.v5 .slot:hover{border-color:var(--a);transform:translateX(3px);box-shadow:0 6px 16px var(--a-12)}
+.v5 .slot .tt{font-weight:800;font-size:.85rem;flex:none}
+.v5 .slot .barwrap{flex:1;height:7px;border-radius:99px;background:var(--soft);overflow:hidden}
+.v5 .slot .bar{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),#12b76a)}
+.v5 .slot .bar.mid{background:linear-gradient(90deg,#f79009,#fdb022)}
+.v5 .foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;align-items:center;
+  justify-content:flex-end;gap:10px}
+</style>
+</head>
+<body>
+
+<div class="page-title">📍 Qabul punktini tanlash — 5 ta yangi layout</div>
+<div class="page-sub">
+  Muammo: hozirgi modal hamma punkt + slotni vertikal stack qiladi → chalkash.<br>
+  Yechim (1-rasm yo'li): <strong>punktni tanla → slotlarini alohida ko'r</strong>. Hammasi sizning «Royal Blue
+  Spotlight» uslubida: sig'im rozetkasi (<span style="color:#027a48;font-weight:800">78/90</span>), masofa, yulduzcha, gradient CTA.
+</div>
+
+<!-- ══════════════ V1 ══════════════ -->
+<div class="vlabel">
+  <div class="n">1</div>
+  <div><h2>Split Spotlight — ikki panel (tavsiya)</h2>
+  <p>1-rasmga eng yaqin: chapda punktlar, o'ngda tanlangan punktning slotlari. Bitta ekranda, scroll mustaqil.</p></div>
+</div>
+<div class="stage"><div class="m v1">
+  <div class="m-head">
+    <div class="ttl">
+      <h3>Qabul punktini <span class="grad">o'zgartirish</span></h3>
+      <span class="m-pill">📋 Накладная №120001020060</span>
+    </div>
+    <button class="m-x">✕</button>
+  </div>
+  <div class="tabs"><button class="tab on">Mening punktlarim</button><button class="tab">Uzum'dan to'liq</button></div>
+  <div class="ctl">
+    <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+    <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+    <button class="geo">🧭 Joylashuv</button>
+  </div>
+  <div class="split">
+    <div class="left">
+      <div class="list scroll">
+        <div class="pt sel">
+          <div class="dist">6.4<br>km</div>
+          <div class="nm"><div class="ad">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+            <div class="sh">BLUMMY · <span class="near">● EN YAQIN</span></div></div>
+          <span class="chev">›</span>
+        </div>
+        <div class="pt">
+          <div class="dist">7.8<br>km</div>
+          <div class="nm"><div class="ad">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+            <div class="sh">BLUMMY, LUXUZ</div></div>
+          <span class="chev">›</span>
+        </div>
+        <div class="pt">
+          <div class="dist">16.8<br>km</div>
+          <div class="nm"><div class="ad">Toshkent sh., Sirg'ali tumani, Quruvchi mavzesi, 23 uy</div>
+            <div class="sh">BLUMMY</div></div>
+          <span class="chev">›</span>
+        </div>
+        <div class="pt">
+          <div class="dist">226<br>km</div>
+          <div class="nm"><div class="ad">Farg'ona viloyati, Marg'ilon shahri, Sakkokiy ko'chasi, 6i-uy</div>
+            <div class="sh">LUXUZ</div></div>
+          <span class="chev">›</span>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="rhead">
+        <div class="ra">Zulfiyaxonim ko'chasi, 18 uy</div>
+        <div class="rs">⭐ Tanlangan punkt · 🕒 11:00–16:00</div>
+      </div>
+      <div class="slotwrap scroll">
+        <div class="daygrp">
+          <div class="dayhd">15 iyun, yakshanba</div>
+          <div class="slot"><span class="tt">11:00 – 16:00</span><span class="cap ok">78/90</span></div>
+        </div>
+        <div class="daygrp">
+          <div class="dayhd">16 iyun, dushanba</div>
+          <div class="slot"><span class="tt">11:00 – 16:00</span><span class="cap full">90/90</span></div>
+        </div>
+        <div class="daygrp">
+          <div class="dayhd">17 iyun, seshanba</div>
+          <div class="slot"><span class="tt">11:00 – 16:00</span><span class="cap ok">12/90</span></div>
+          <div class="slot"><span class="tt">16:00 – 20:00</span><span class="cap mid">61/90</span></div>
+        </div>
+      </div>
+      <div class="foot">
+        <span class="hint">Slotni tanlang</span>
+        <button class="cta">Tasdiqlash</button>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════════ V2 ══════════════ -->
+<div class="vlabel">
+  <div class="n">2</div>
+  <div><h2>Stepper — 2 qadam (eng tushunarli)</h2>
+  <p>Avval punkt, keyin slot. Bitta vaqtda bitta qaror → noldan chalkashlik. Mobilga ham juda mos.</p></div>
+</div>
+<div class="stage"><div class="m v2">
+  <div class="m-head">
+    <div class="ttl"><h3>Qabul punktini <span class="grad">o'zgartirish</span></h3>
+      <span class="m-pill">📋 Накладная №120001020060</span></div>
+    <button class="m-x">✕</button>
+  </div>
+  <div class="steps">
+    <div class="step done"><span class="dot">✓</span><span class="lb">Punkt</span></div>
+    <span class="step bar done" style="flex:none"><span class="bar"></span></span>
+    <div class="step on"><span class="dot">2</span><span class="lb">Slot tanlash</span></div>
+  </div>
+  <button class="back">‹ Punktni o'zgartirish</button>
+  <div class="selcard">
+    <span class="ck">✓</span>
+    <div class="nm"><div class="ad">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+      <div class="mt" style="margin-top:4px;color:var(--muted);font-size:.74rem">BLUMMY · 6.4 km</div></div>
+  </div>
+  <div class="slotgrid scroll">
+    <div class="scol">
+      <div class="dh">15 iyun · yakshanba</div>
+      <div class="slot"><span class="tt">11:00 – 16:00</span><span class="cap ok">78/90</span></div>
+      <div class="slot"><span class="tt">16:00 – 20:00</span><span class="cap mid">55/90</span></div>
+    </div>
+    <div class="scol">
+      <div class="dh">16 iyun · dushanba</div>
+      <div class="slot"><span class="tt">11:00 – 16:00</span><span class="cap full">90/90</span></div>
+      <div class="slot"><span class="tt">16:00 – 20:00</span><span class="cap ok">8/90</span></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════════ V3 ══════════════ -->
+<div class="vlabel">
+  <div class="n">3</div>
+  <div><h2>Card Grid + Slot Drawer — kartalar</h2>
+  <p>Punktlar ixcham kartalarda (2 ustun). Kartani bosing — pastdan slot-tortma chiqadi. Vizual, zamonaviy.</p></div>
+</div>
+<div class="stage"><div class="m v3">
+  <div class="m-head">
+    <div class="ttl"><h3>Qabul punktini <span class="grad">o'zgartirish</span></h3>
+      <span class="m-pill">📋 Накладная №120001020060</span></div>
+    <button class="m-x">✕</button>
+  </div>
+  <div class="ctl" style="padding-bottom:0">
+    <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+    <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+  </div>
+  <div class="grid scroll">
+    <div class="card sel">
+      <div class="ctop"><div class="dist">6.4<br>km</div><button class="star on" style="margin-left:auto">★</button></div>
+      <div class="ad">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+      <div class="crow"><span class="sh">BLUMMY</span><span class="near">● EN YAQIN</span></div>
+    </div>
+    <div class="card">
+      <div class="ctop"><div class="dist">7.8<br>km</div><button class="star" style="margin-left:auto">☆</button></div>
+      <div class="ad">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+      <div class="crow"><span class="sh">BLUMMY, LUXUZ</span></div>
+    </div>
+    <div class="card">
+      <div class="ctop"><div class="dist">16.8<br>km</div><button class="star" style="margin-left:auto">☆</button></div>
+      <div class="ad">Toshkent sh., Sirg'ali tumani, Quruvchi mavzesi, 23 uy</div>
+      <div class="crow"><span class="sh">BLUMMY</span></div>
+    </div>
+    <div class="card">
+      <div class="ctop"><div class="dist">226<br>km</div><button class="star" style="margin-left:auto">☆</button></div>
+      <div class="ad">Farg'ona, Marg'ilon shahri, Sakkokiy ko'chasi, 6i-uy</div>
+      <div class="crow"><span class="sh">LUXUZ</span></div>
+    </div>
+  </div>
+  <div class="drawer">
+    <div class="dwhd"><div class="t">Zulfiyaxonim ko'chasi, 18 uy <span>· slot tanlang</span></div>
+      <button class="cta" disabled>Tasdiqlash</button></div>
+    <div class="chips">
+      <div class="chip"><span class="cd">15 iyun · yak</span><div class="ch"><span class="ct">11:00–16:00</span><span class="cap ok">78/90</span></div></div>
+      <div class="chip"><span class="cd">16 iyun · dush</span><div class="ch"><span class="ct">11:00–16:00</span><span class="cap full">90/90</span></div></div>
+      <div class="chip"><span class="cd">17 iyun · sesh</span><div class="ch"><span class="ct">11:00–16:00</span><span class="cap ok">12/90</span></div></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════════ V4 ══════════════ -->
+<div class="vlabel">
+  <div class="n">4</div>
+  <div><h2>Accordion Calendar — qator ichida kalendar</h2>
+  <p>Hozirgi ro'yxatga eng yaqin (minimal o'zgarish), lekin slot ochilganda gorizontal kun-kartalar kalendari.</p></div>
+</div>
+<div class="stage"><div class="m v4">
+  <div class="m-head">
+    <div class="ttl"><h3>Qabul punktini <span class="grad">o'zgartirish</span></h3>
+      <span class="m-pill">📋 Накладная №120001020060</span></div>
+    <button class="m-x">✕</button>
+  </div>
+  <div class="ctl">
+    <div class="search">🔎 Manzil bo'yicha qidirish…</div>
+    <span class="sw"><span class="tr"><i></i></span>Faqat mos</span>
+    <button class="geo">🧭 Joylashuv</button>
+  </div>
+  <div class="body scroll">
+    <div class="row open">
+      <div class="rhead">
+        <div class="dist">6.4<br>km</div>
+        <div class="nm"><div class="ad">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div class="mt">BLUMMY <span class="near">● EN YAQIN</span></div></div>
+        <button class="star on">★</button>
+        <span class="chev">⌄</span>
+      </div>
+      <div class="cal">
+        <div class="calrow scroll">
+          <div class="day"><div class="dhd"><span class="dd">15 iyun</span><span class="wd">yak</span></div>
+            <div class="slot"><span class="tt">11:00–16:00</span><span class="cap ok">78/90</span></div></div>
+          <div class="day"><div class="dhd"><span class="dd">16 iyun</span><span class="wd">dush</span></div>
+            <div class="slot"><span class="tt">11:00–16:00</span><span class="cap full">90/90</span></div></div>
+          <div class="day"><div class="dhd"><span class="dd">17 iyun</span><span class="wd">sesh</span></div>
+            <div class="slot"><span class="tt">11:00–16:00</span><span class="cap ok">12/90</span></div>
+            <div class="slot"><span class="tt">16:00–20:00</span><span class="cap mid">61/90</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rhead">
+        <div class="dist">7.8<br>km</div>
+        <div class="nm"><div class="ad">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          <div class="mt">BLUMMY, LUXUZ · 🕒 11:00–16:00</div></div>
+        <button class="star">☆</button>
+        <span class="chev">⌄</span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rhead">
+        <div class="dist">16.8<br>km</div>
+        <div class="nm"><div class="ad">Toshkent sh., Sirg'ali tumani, Quruvchi mavzesi, 23 uy</div>
+          <div class="mt">BLUMMY · 🕒 11:00–16:00</div></div>
+        <button class="star">☆</button>
+        <span class="chev">⌄</span>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════════ V5 ══════════════ -->
+<div class="vlabel">
+  <div class="n">5</div>
+  <div><h2>Rail + Hero — xarita bilan premium</h2>
+  <p>Chapda ixcham rail (sevimli/yaqin guruhlangan), o'ngda katta detal: xarita + slotlar sig'im-progress bilan.</p></div>
+</div>
+<div class="stage"><div class="m v5">
+  <div class="m-head">
+    <div class="ttl"><h3>Qabul punktini <span class="grad">o'zgartirish</span></h3>
+      <span class="m-pill">📋 Накладная №120001020060</span></div>
+    <button class="m-x">✕</button>
+  </div>
+  <div class="split">
+    <div class="rail">
+      <div class="railsearch">🔎 Qidirish…</div>
+      <div class="railscroll scroll">
+        <div class="grp">⭐ Sevimli · yaqin</div>
+        <div class="pt sel">
+          <div class="dist">6.4<br>km</div>
+          <div class="nm"><div class="ad">Zulfiyaxonim ko'chasi, 18 uy</div><div class="sh">BLUMMY</div></div>
+        </div>
+        <div class="grp">Barcha punktlar</div>
+        <div class="pt">
+          <div class="dist">7.8<br>km</div>
+          <div class="nm"><div class="ad">Sag'bon ko'chasi, 30a</div><div class="sh">BLUMMY, LUXUZ</div></div>
+        </div>
+        <div class="pt">
+          <div class="dist">16.8<br>km</div>
+          <div class="nm"><div class="ad">Sirg'ali, Quruvchi mavzesi, 23 uy</div><div class="sh">BLUMMY</div></div>
+        </div>
+        <div class="pt">
+          <div class="dist">226<br>km</div>
+          <div class="nm"><div class="ad">Marg'ilon, Sakkokiy ko'chasi, 6i-uy</div><div class="sh">LUXUZ</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hero">
+      <div class="map"><div class="pin"></div></div>
+      <div class="herohd">
+        <div class="ha">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+        <div class="hm">BLUMMY · 6.4 km <span class="near">● EN YAQIN</span></div>
+      </div>
+      <div class="heroscroll scroll">
+        <div class="daygrp">
+          <div class="dayhd">15 iyun, yakshanba</div>
+          <div class="slot"><span class="tt">11:00–16:00</span><div class="barwrap"><div class="bar" style="width:87%"></div></div><span class="cap ok">78/90</span></div>
+        </div>
+        <div class="daygrp">
+          <div class="dayhd">16 iyun, dushanba</div>
+          <div class="slot"><span class="tt">11:00–16:00</span><div class="barwrap"><div class="bar" style="width:100%"></div></div><span class="cap full">90/90</span></div>
+        </div>
+        <div class="daygrp">
+          <div class="dayhd">17 iyun, seshanba</div>
+          <div class="slot"><span class="tt">11:00–16:00</span><div class="barwrap"><div class="bar" style="width:13%"></div></div><span class="cap ok">12/90</span></div>
+          <div class="slot"><span class="tt">16:00–20:00</span><div class="barwrap"><div class="bar mid" style="width:68%"></div></div><span class="cap mid">61/90</span></div>
+        </div>
+      </div>
+      <div class="foot"><button class="cta">Tasdiqlash</button></div>
+    </div>
+  </div>
+</div></div>
+
+</body>
+</html>

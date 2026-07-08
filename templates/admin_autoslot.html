@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+{#
+  Admin «Авто-слот» paneli — IZOLYATSIYALANGAN sahifa.
+  Global navbatni ko'rsatadi va prioritetni boshqaradi. Boshqa sahifalarга
+  bog'liqmas — faqat /admin/autoslot/api/* endpointlariga so'rov yuboradi.
+#}
+<style>
+  .as-wrap{max-width:1180px;margin:0 auto}
+  .as-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .as-filters{display:flex;gap:6px;flex-wrap:wrap}
+  .as-fbtn{border:1px solid var(--bs-border-color,#dee2e6);background:transparent;color:inherit;border-radius:9px;padding:6px 12px;font-weight:700;font-size:13px;cursor:pointer}
+  .as-fbtn.on{background:#4338ca;border-color:#4338ca;color:#fff}
+  .as-table{width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px}
+  .as-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8f9c;padding:0 12px;font-weight:800}
+  .as-table td{background:var(--bs-body-bg,#fff);padding:12px;vertical-align:middle;border-top:1px solid var(--bs-border-color,#eef0f4);border-bottom:1px solid var(--bs-border-color,#eef0f4)}
+  .as-table td:first-child{border-left:1px solid var(--bs-border-color,#eef0f4);border-radius:12px 0 0 12px}
+  .as-table td:last-child{border-right:1px solid var(--bs-border-color,#eef0f4);border-radius:0 12px 12px 0}
+  .as-prio{display:flex;align-items:center;gap:8px}
+  .as-prio-num{min-width:34px;text-align:center;font-weight:900;font-size:17px}
+  .as-ib{width:28px;height:28px;border-radius:8px;border:1px solid var(--bs-border-color,#dee2e6);background:transparent;color:inherit;cursor:pointer;font-weight:900;line-height:1;font-size:15px}
+  .as-ib:hover{background:#4338ca;border-color:#4338ca;color:#fff}
+  .as-top{border:1px solid #4338ca;color:#4338ca;background:transparent;border-radius:8px;padding:5px 10px;font-weight:800;font-size:12px;cursor:pointer}
+  .as-top:hover{background:#4338ca;color:#fff}
+  .as-chip{display:inline-block;border-radius:999px;padding:3px 10px;font-weight:800;font-size:11px}
+  .as-w{background:#FFF4D6;color:#9A6B00}
+  .as-b{background:#DBEAFE;color:#1E40AF}
+  .as-ok{background:#D1FAE5;color:#065F46}
+  .as-f{background:#FEE2E2;color:#991B1B}
+  .as-c{background:#E5E7EB;color:#4B5563}
+  .as-num{font-weight:900}
+  .as-muted{color:#8a8f9c;font-size:12px}
+  .as-empty{text-align:center;padding:48px 12px;color:#8a8f9c}
+</style>
+
+<div class="as-wrap">
+  <div class="as-head">
+    <div>
+      <h4 class="mb-0" style="font-weight:900">⚡ Авто-слот · Очередь</h4>
+      <div class="as-muted">Приоритет ставит только оператор. Выше приоритет — раньше в очереди (при равном — кто раньше включил).</div>
+    </div>
+    <button class="as-fbtn" id="asRefresh">↻ Обновить</button>
+  </div>
+
+  {# 4 tab (Abdulaziz 2026-07-06): Ожидают/Бронируются Активные ichida,
+     «Все» olib tashlandi — eski отменён/booked'lar navbatni ifloslamasin. #}
+  <div class="as-filters" id="asFilters">
+    <button class="as-fbtn on" data-status="active">Активные</button>
+    <button class="as-fbtn" data-status="booked">Забронированы</button>
+    <button class="as-fbtn" data-status="failed">Ошибка</button>
+    <button class="as-fbtn" data-status="canceled">Отменены</button>
+  </div>
+
+  <div id="asBody" style="margin-top:12px"></div>
+</div>
+
+<script>
+(function(){
+  var STATUS = 'active';           // 'active' = waiting+booking (klient filtr)
+  var PLANS = [];
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function chip(st){
+    var m={waiting:['as-w','Ожидает'],booking:['as-b','Бронируется'],booked:['as-ok','Забронирован'],failed:['as-f','Ошибка'],canceled:['as-c','Отменён']};
+    var x=m[st]||['as-c',st||'—'];
+    return '<span class="as-chip '+x[0]+'">'+esc(x[1])+'</span>';
+  }
+  function fmtMs(ms){
+    if(!ms) return '';
+    try{ return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tashkent'}).format(new Date(Number(ms))); }
+    catch(e){ return ''; }
+  }
+  function windowStr(p){
+    var a=p.min_date, b=p.max_date;
+    if(a&&b) return esc(a)+' — '+esc(b);
+    if(b) return 'до '+esc(b);
+    return '<span class="as-muted">—</span>';
+  }
+
+  async function api(url, opts){
+    var r=await fetch(url, opts||{});
+    var j=await r.json().catch(function(){return {};});
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    return j;
+  }
+
+  function visible(){
+    if(STATUS==='active') return PLANS.filter(function(p){return p.status==='waiting'||p.status==='booking';});
+    // Terminal tablar (booked/failed/canceled) — yangi yozuv birinchi.
+    return PLANS.slice().sort(function(a,b){ return b.id-a.id; });
+  }
+
+  function maxPriority(){
+    var m=0; PLANS.forEach(function(p){ if((p.status==='waiting'||p.status==='booking')&&(+p.priority>m)) m=+p.priority; });
+    return m;
+  }
+
+  function render(){
+    var rows=visible();
+    var host=document.getElementById('asBody');
+    if(!rows.length){ host.innerHTML='<div class="as-empty">Очередь пуста</div>'; return; }
+    var html='<table class="as-table"><thead><tr>'+
+      '<th>Приоритет</th><th>Магазин</th><th>Владелец</th><th>Накладная</th><th>Объём</th><th>Статус</th><th>Окно</th><th>Слот</th><th>Попытки</th>'+
+      '</tr></thead><tbody>';
+    rows.forEach(function(p){
+      var editable=(p.status==='waiting'||p.status==='booking');
+      var prioCell = editable
+        ? '<div class="as-prio">'+
+            '<button class="as-ib" data-act="dec" data-id="'+p.id+'">−</button>'+
+            '<span class="as-prio-num">'+(+p.priority||0)+'</span>'+
+            '<button class="as-ib" data-act="inc" data-id="'+p.id+'">+</button>'+
+            '<button class="as-top" data-act="top" data-id="'+p.id+'">В начало</button>'+
+          '</div>'
+        : '<span class="as-prio-num">'+(+p.priority||0)+'</span>';
+      html+='<tr>'+
+        '<td>'+prioCell+'</td>'+
+        '<td>'+esc(p.shop_name||p.shop_uzum_id)+'</td>'+
+        '<td>'+(p.owner?esc(p.owner):'<span class="as-muted">—</span>')+'</td>'+
+        '<td class="as-num">№'+esc(p.invoice_number||p.invoice_id)+'</td>'+
+        '<td class="as-num">'+esc(p.volume||0)+'</td>'+
+        '<td>'+chip(p.status)+(p.error?'<div class="as-muted" title="'+esc(p.error)+'">'+esc(String(p.error).slice(0,40))+'</div>':'')+'</td>'+
+        '<td>'+windowStr(p)+'</td>'+
+        '<td>'+(p.status==='booked'?esc(fmtMs(p.booked_slot_ms)):'<span class="as-muted">—</span>')+'</td>'+
+        '<td class="as-num">'+esc(p.attempts||0)+'</td>'+
+      '</tr>';
+    });
+    html+='</tbody></table>';
+    host.innerHTML=html;
+    host.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click', function(){ onAction(b.getAttribute('data-act'), +b.getAttribute('data-id')); });
+    });
+  }
+
+  function planById(id){ for(var i=0;i<PLANS.length;i++) if(PLANS[i].id===id) return PLANS[i]; return null; }
+
+  async function setPriority(id, value){
+    if(value<0) value=0;
+    try{
+      var j=await api('/admin/autoslot/api/priority',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({planId:id,priority:value})});
+      var p=planById(id); if(p) p.priority=j.priority;
+      // Qayta tartiblab render (prioritet o'zgardi).
+      PLANS.sort(function(a,b){ return (b.priority-a.priority) || ((a.enabled_at||'')<(b.enabled_at||'')?-1:1) || (a.id-b.id); });
+      render();
+    }catch(e){ alert('Ошибка: '+e.message); }
+  }
+
+  function onAction(act, id){
+    var p=planById(id); if(!p) return;
+    var cur=+p.priority||0;
+    if(act==='inc') setPriority(id, cur+1);
+    else if(act==='dec') setPriority(id, cur-1);
+    else if(act==='top') setPriority(id, maxPriority()+1);
+  }
+
+  async function load(){
+    document.getElementById('asBody').innerHTML='<div class="as-empty">Загрузка…</div>';
+    // 'active' klient tomonда filtrlanadi → serverdan status bermaymiz.
+    var qs = (STATUS && STATUS!=='active') ? ('?status='+encodeURIComponent(STATUS)) : '';
+    try{
+      var j=await api('/admin/autoslot/api/list'+qs);
+      PLANS=j.plans||[];
+      render();
+    }catch(e){
+      document.getElementById('asBody').innerHTML='<div class="as-empty">Ошибка: '+esc(e.message)+'</div>';
+    }
+  }
+
+  document.getElementById('asFilters').addEventListener('click', function(e){
+    var b=e.target.closest('[data-status]'); if(!b) return;
+    STATUS=b.getAttribute('data-status');
+    document.querySelectorAll('#asFilters .as-fbtn').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    load();
+  });
+  document.getElementById('asRefresh').addEventListener('click', load);
+  load();
+})();
+</script>
+{% endblock %}

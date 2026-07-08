@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FBS — buyurtma «Yangi»dan chiqishi · 5 variant</title>
+<style>
+  :root{
+    --bg:#eef1f6; --card:#ffffff; --ink:#0f1729; --muted:#64748b;
+    --line:#e8ecf3; --blue:#2563eb; --blue-ink:#1d4ed8;
+    --green:#16a34a; --green-soft:#dcfce7; --amber:#b45309; --amber-soft:#fef3c7;
+    --chip:#f1f5f9; --shadow:0 1px 2px rgba(15,23,41,.05),0 8px 24px rgba(15,23,41,.06);
+  }
+  body.dark{
+    --bg:#0b1120; --card:#111a2e; --ink:#e8edf7; --muted:#94a3b8;
+    --line:#1e293b; --blue:#60a5fa; --blue-ink:#93c5fd; --chip:#172033;
+    --green:#22c55e; --green-soft:#0f2a1c; --amber:#fbbf24; --amber-soft:#2a2110;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; transition:background .3s;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:880px;margin:0 auto}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 22px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+  .btn{border:0;cursor:pointer;font:inherit;font-weight:600;border-radius:10px;padding:9px 14px;transition:.18s}
+  .btn-ghost{background:var(--chip);color:var(--ink)}
+  .btn-ghost:hover{filter:brightness(.97)}
+
+  /* variant section */
+  .variant{margin-bottom:30px}
+  .vhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+  .vname{font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px}
+  .vnum{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;
+    background:var(--blue);color:#fff;font-size:12.5px;font-weight:800}
+  .vdesc{color:var(--muted);font-size:12.5px;font-weight:500}
+  .vactions{display:flex;gap:8px}
+  .btn-play{background:var(--green);color:#fff}
+  .btn-play:hover{filter:brightness(1.05)}
+  .btn-reset{background:transparent;color:var(--muted);border:1px solid var(--line)}
+
+  .stage{position:relative;background:transparent}
+
+  /* the order row — modeled on the real Buyurtmalar list card */
+  .row{
+    position:relative; background:var(--card); border:1px solid var(--line);
+    border-radius:16px; box-shadow:var(--shadow); padding:16px 18px;
+    display:grid; grid-template-columns:auto 1fr auto auto auto auto; gap:18px; align-items:center;
+    overflow:hidden; will-change:transform,opacity;
+  }
+  .cell-id{min-width:120px}
+  .oid{color:var(--blue-ink);font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .pill{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;font-weight:600;
+    padding:3px 8px;border-radius:999px;background:var(--amber-soft);color:var(--amber)}
+  .prod{display:flex;align-items:center;gap:12px;min-width:0}
+  .thumb{width:46px;height:46px;border-radius:11px;background:linear-gradient(135deg,#1f2937,#374151);
+    flex:0 0 auto;display:grid;place-items:center;color:#cbd5e1;font-size:18px}
+  .pt{font-weight:600;font-size:13.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+  .px{color:var(--muted);font-size:11.5px;margin-top:3px}
+  .chips{display:flex;gap:6px;flex-direction:column}
+  .chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--muted);text-align:center}
+  .chip.blue{background:rgba(37,99,235,.12);color:var(--blue-ink)}
+  .meta{font-size:12px;color:var(--muted)}
+  .meta b{display:block;color:var(--ink);font-weight:600;font-size:12.5px;margin-top:2px}
+  .price{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}
+  @media(max-width:760px){.row{grid-template-columns:1fr auto;gap:10px}.prod,.chips,.meta{display:none}}
+
+  /* destination chip ("Yig'ilmoqda") for the fly variant */
+  .destbar{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .dest{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+    padding:7px 13px;border-radius:999px;background:var(--chip);color:var(--ink);transition:.2s}
+  .dest .dn{display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:7px;
+    background:var(--green);color:#fff;font-size:12px;font-weight:800}
+  .dest.bump{transform:scale(1.08);box-shadow:0 0 0 4px var(--green-soft)}
+
+  /* shared check badge */
+  .checkfx{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0}
+  .checkfx svg{width:46px;height:46px}
+  .checkfx circle{fill:var(--green)}
+  .checkfx path{stroke:#fff;stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round;
+    stroke-dasharray:30;stroke-dashoffset:30}
+
+  /* ───────── V1: Slide-out + fade + collapse ───────── */
+  .v1.go{animation:v1 .62s cubic-bezier(.5,.0,.2,1) forwards}
+  @keyframes v1{
+    30%{transform:translateX(8px);box-shadow:0 0 0 2px var(--green-soft),var(--shadow)}
+    100%{transform:translateX(120%);opacity:0;margin-bottom:-78px;padding-top:0;padding-bottom:0;height:0;border-width:0}
+  }
+
+  /* ───────── V2: ✓ Stamp + lift up ───────── */
+  .v2.go{animation:v2 .7s cubic-bezier(.34,1.4,.5,1) forwards}
+  @keyframes v2{
+    0%{transform:translateY(0) scale(1)}
+    22%{transform:translateY(2px) scale(.985)}
+    55%{transform:translateY(0) scale(1)}
+    100%{transform:translateY(-46px) scale(.96);opacity:0;margin-bottom:-78px;height:0;border-width:0;padding-top:0;padding-bottom:0}
+  }
+  .v2.go .checkfx{animation:stamp .6s cubic-bezier(.34,1.56,.6,1) forwards}
+  @keyframes stamp{0%{opacity:0;transform:scale(.4) rotate(-12deg)}40%{opacity:1;transform:scale(1.05) rotate(0)}100%{opacity:0;transform:scale(1)}}
+  .v2.go .checkfx path{animation:draw .4s .12s ease forwards}
+
+  /* ───────── V3: shrink + fly to "Yig'ilmoqda" ───────── */
+  .v3.go{animation:v3 .66s cubic-bezier(.55,0,.3,1) forwards}
+  @keyframes v3{
+    0%{transform:translate(0,0) scale(1);opacity:1}
+    25%{transform:translate(0,0) scale(.97);box-shadow:0 0 0 2px var(--green-soft),var(--shadow)}
+    100%{transform:translate(46%,-260px) scale(.04);opacity:.15;margin-bottom:-78px;height:0;border-width:0;padding-top:0;padding-bottom:0}
+  }
+
+  /* ───────── V4: success shimmer sweep → dissolve ───────── */
+  .v4 .sweep{position:absolute;inset:0;border-radius:16px;pointer-events:none;opacity:0;
+    background:linear-gradient(105deg,transparent 30%,rgba(34,197,94,.35) 50%,transparent 70%);
+    background-size:220% 100%;background-position:140% 0}
+  .v4.go .sweep{animation:sweep .55s ease forwards}
+  @keyframes sweep{0%{opacity:1;background-position:140% 0}100%{opacity:.8;background-position:-40% 0}}
+  .v4.go{animation:v4 .8s ease forwards}
+  @keyframes v4{
+    0%,42%{filter:blur(0);transform:scale(1);opacity:1}
+    100%{filter:blur(6px);transform:scale(.94);opacity:0;margin-bottom:-78px;height:0;border-width:0;padding-top:0;padding-bottom:0}
+  }
+
+  /* ───────── V5: green wipe + swipe-left + collapse ───────── */
+  .v5 .wipe{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--green);opacity:.14;border-radius:16px 0 0 16px}
+  .v5.go .wipe{animation:wipe .4s ease forwards}
+  @keyframes wipe{to{width:100%;opacity:.0}}
+  .v5 .lead{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green);transform:scaleY(0);transform-origin:top;border-radius:4px}
+  .v5.go .lead{animation:lead .3s ease forwards}
+  @keyframes lead{to{transform:scaleY(1)}}
+  .v5.go{animation:v5 .66s .18s cubic-bezier(.6,0,.25,1) forwards}
+  @keyframes v5{
+    0%{transform:translateX(0);opacity:1}
+    100%{transform:translateX(-115%);opacity:0;margin-bottom:-78px;height:0;border-width:0;padding-top:0;padding-bottom:0}
+  }
+  .v5.go .checkfx{animation:stamp .5s .05s ease forwards}
+  .v5.go .checkfx path{animation:draw .35s .1s ease forwards}
+
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  .hint{margin-top:34px;padding:14px 16px;border-radius:12px;background:var(--chip);color:var(--muted);font-size:12.5px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Buyurtma «Yangi»dan chiqishi — 5 variant</h1>
+      <p class="sub">Har birida <b>«▶ Qabul qil»</b> bosib jonli ko'ring. Bittasini tanlang — kodga o'shani qo'yaman.</p>
+    </div>
+    <button class="btn btn-ghost" id="themeBtn">🌙 Tungi rejim</button>
+  </div>
+
+  <!-- VARIANT 1 -->
+  <section class="variant" data-v="1">
+    <div class="vhead">
+      <div class="vname"><span class="vnum">1</span> Silliq surilish + yig'ilish
+        <span class="vdesc">— o'ngga suriladi, so'nadi, joy yumshoq yopiladi</span></div>
+      <div class="vactions">
+        <button class="btn btn-play" data-play="1">▶ Qabul qil</button>
+        <button class="btn btn-reset" data-reset="1">↺</button>
+      </div>
+    </div>
+    <div class="stage" id="stage1"></div>
+  </section>
+
+  <!-- VARIANT 2 -->
+  <section class="variant" data-v="2">
+    <div class="vhead">
+      <div class="vname"><span class="vnum">2</span> ✓ Shtamp + ko'tarilish
+        <span class="vdesc">— yashil ✓ bosiladi, qator yuqoriga ko'tarilib ketadi</span></div>
+      <div class="vactions">
+        <button class="btn btn-play" data-play="2">▶ Qabul qil</button>
+        <button class="btn btn-reset" data-reset="2">↺</button>
+      </div>
+    </div>
+    <div class="stage" id="stage2"></div>
+  </section>
+
+  <!-- VARIANT 3 -->
+  <section class="variant" data-v="3">
+    <div class="vhead">
+      <div class="vname"><span class="vnum">3</span> «Yig'ilmoqda»ga uchish
+        <span class="vdesc">— kichrayib chipга uchadi, chip +1 pulslaydi</span></div>
+      <div class="vactions">
+        <button class="btn btn-play" data-play="3">▶ Qabul qil</button>
+        <button class="btn btn-reset" data-reset="3">↺</button>
+      </div>
+    </div>
+    <div class="destbar"><span class="dest" id="dest3">Yig'ilmoqda <span class="dn">41</span></span></div>
+    <div class="stage" id="stage3"></div>
+  </section>
+
+  <!-- VARIANT 4 -->
+  <section class="variant" data-v="4">
+    <div class="vhead">
+      <div class="vname"><span class="vnum">4</span> Yashil to'lqin → erish
+        <span class="vdesc">— ustidan yashil yorug'lik o'tadi, so'ng xiralashib erib ketadi</span></div>
+      <div class="vactions">
+        <button class="btn btn-play" data-play="4">▶ Qabul qil</button>
+        <button class="btn btn-reset" data-reset="4">↺</button>
+      </div>
+    </div>
+    <div class="stage" id="stage4"></div>
+  </section>
+
+  <!-- VARIANT 5 -->
+  <section class="variant" data-v="5">
+    <div class="vhead">
+      <div class="vname"><span class="vnum">5</span> Yashil bo'yoq + chapга supurish
+        <span class="vdesc">— chap chetdан yashil to'ladi, ✓ chiqadi, chapга supurib ketadi</span></div>
+      <div class="vactions">
+        <button class="btn btn-play" data-play="5">▶ Qabul qil</button>
+        <button class="btn btn-reset" data-reset="5">↺</button>
+      </div>
+    </div>
+    <div class="stage" id="stage5"></div>
+  </section>
+
+  <div class="hint">
+    💡 Bularning hammasi <b>chiqish</b> (exit) animatsiyasi — buyurtma tasdiqlangach «Yangi»dan ketishi.
+    Tanlаganингizni real ro'yxatга qo'yaman (bittalab, har confirm tugaganда). Aralash ham mumkin
+    (masalan ✓ shtamp + uchish). Qaysi biri yoqsa — raqamini ayting.
+  </div>
+</div>
+
+<script>
+  // sample order row markup (modeled on the real Buyurtmalar card)
+  function rowHTML(extra){
+    return `<div class="row ${extra||''}">
+      <div class="sweep"></div><div class="wipe"></div><div class="lead"></div>
+      <div class="cell-id">
+        <div class="oid">№112219635</div>
+        <div class="pill">⏱ 15 soat qoldi</div>
+      </div>
+      <div class="prod">
+        <div class="thumb">👟</div>
+        <div>
+          <div class="pt">SKU: BLUMMY-MAGNIT2-25</div>
+          <div class="px">Shtrix: 1000007817150</div>
+        </div>
+      </div>
+      <div class="chips"><span class="chip blue">1 dona</span><span class="chip">FBS</span></div>
+      <div class="meta">Yaratildi<b>17.06, 15:34</b></div>
+      <div class="meta">Muddat<b>18.06, 07:34</b></div>
+      <div class="price">15 000<br><span style="font-weight:600;color:var(--muted);font-size:11px">UZS</span></div>
+      <div class="checkfx">
+        <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22"/><path d="M15 24.5l6 6 12-13"/></svg>
+      </div>
+    </div>`;
+  }
+  function mount(n){
+    const stage=document.getElementById('stage'+n);
+    stage.innerHTML=rowHTML('v'+n);
+    return stage.querySelector('.row');
+  }
+  [1,2,3,4,5].forEach(mount);
+
+  document.querySelectorAll('[data-play]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const n=b.dataset.play;
+      const row=document.querySelector('#stage'+n+' .row');
+      if(!row) return;
+      row.classList.remove('go'); void row.offsetWidth; // restart
+      row.classList.add('go');
+      if(n==='3'){ // bump the destination chip + count
+        const dest=document.getElementById('dest3'), dn=dest.querySelector('.dn');
+        setTimeout(()=>{dest.classList.add('bump'); dn.textContent='42';},340);
+        setTimeout(()=>dest.classList.remove('bump'),900);
+      }
+    });
+  });
+  document.querySelectorAll('[data-reset]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const n=b.dataset.reset; mount(n);
+      if(n==='3'){const d=document.getElementById('dest3');d.classList.remove('bump');d.querySelector('.dn').textContent='41';}
+    });
+  });
+  document.getElementById('themeBtn').addEventListener('click',e=>{
+    document.body.classList.toggle('dark');
+    e.target.textContent=document.body.classList.contains('dark')?'☀️ Kunduzgi':'🌙 Tungi rejim';
+  });
+</script>
+</body>
+</html>

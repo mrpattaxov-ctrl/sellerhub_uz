@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bo'lim tablari — 5 variant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1E2435; --navy-2:#2b3450;
+    --navy-tint:rgba(30,36,53,.07);
+    --brand:#4169E1; --brand-tint:rgba(65,105,225,.1);
+    --ink:#101828; --muted:#475467; --line:#e4e9f3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:"Inter",system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(700px 320px at 10% -40px, rgba(65,105,225,.10), transparent 70%),
+      radial-gradient(620px 300px at 92% -30px, rgba(124,58,237,.09), transparent 70%),
+      #eceff5;
+    color:var(--ink);padding:40px 28px 80px;-webkit-font-smoothing:antialiased;
+  }
+  .page-h{max-width:1040px;margin:0 auto 30px;}
+  .page-h h1{font-size:1.5rem;font-weight:900;margin:0 0 6px;letter-spacing:-.02em;}
+  .page-h p{margin:0;color:var(--muted);font-size:.95rem;}
+
+  .demo{
+    max-width:1040px;margin:0 auto 26px;
+    background:#fff;border:1px solid #edf0f6;border-radius:22px;
+    box-shadow:0 12px 34px -18px rgba(20,16,40,.22);
+    overflow:visible;
+  }
+  .demo-top{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 20px;border-bottom:1px solid #f1f3f8;
+  }
+  .demo-num{
+    width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--navy);color:#fff;font-weight:800;font-size:.9rem;
+  }
+  .demo-name{font-weight:800;font-size:1rem;}
+  .demo-tag{margin-left:auto;color:var(--muted);font-size:.82rem;font-weight:600;}
+  .demo-body{padding:26px 24px;}
+
+  /* ── Shared glass header shell (kontekst) ───────────────────── */
+  .glass{
+    position:relative;display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+    background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.55);border-radius:18px;padding:.85rem 1.05rem;
+    box-shadow:0 10px 30px -12px rgba(20,16,40,.18);
+  }
+  .glass::before{content:"";position:absolute;top:0;left:14px;right:14px;height:1px;border-radius:99px;
+    opacity:.55;background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);}
+  .g-title{font-size:1.3rem;font-weight:800;color:var(--ink);}
+  .brand{display:inline-flex;align-items:center;padding:.36rem .8rem;border-radius:999px;
+    background:var(--brand-tint);color:var(--brand);font-size:.74rem;font-weight:800;
+    letter-spacing:.05em;text-transform:uppercase;flex:none;}
+  .ico{flex:none;}
+
+  /* ============================================================
+     VARIANT 1 — «Navy Solid Pill»
+     Segment; aktiv tab to'liq navy + oq matn/ikonka.
+     ============================================================ */
+  .v1{display:inline-flex;gap:4px;padding:4px;background:#f1f4fa;border:1px solid #e4e9f3;border-radius:14px;}
+  .v1 a{display:inline-flex;align-items:center;gap:.45rem;padding:.55rem 1.05rem;border-radius:10px;
+    color:var(--muted);font-weight:600;font-size:.88rem;text-decoration:none;cursor:pointer;
+    transition:background .18s,color .18s,box-shadow .18s,transform .12s;}
+  .v1 a:hover:not(.active){color:var(--ink);background:rgba(255,255,255,.6);}
+  .v1 a.active{background:var(--navy);color:#fff;
+    box-shadow:0 8px 18px -6px rgba(24,28,48,.5);transform:translateY(-1px);}
+
+  /* ============================================================
+     VARIANT 2 — «Animated Underline»
+     Qutisiz, tekis tablar; aktiv ostida sirpanuvchi navy chiziq.
+     ============================================================ */
+  .v2{position:relative;display:inline-flex;gap:6px;}
+  .v2 a{position:relative;display:inline-flex;align-items:center;gap:.5rem;padding:.6rem .85rem .8rem;
+    color:var(--muted);font-weight:700;font-size:.92rem;text-decoration:none;cursor:pointer;
+    transition:color .18s;}
+  .v2 a:hover:not(.active){color:var(--ink);}
+  .v2 a.active{color:var(--navy);}
+  .v2 .ink{position:absolute;bottom:0;height:3px;border-radius:99px;background:var(--navy);
+    transition:left .3s cubic-bezier(.3,1.2,.4,1),width .3s cubic-bezier(.3,1.2,.4,1);
+    box-shadow:0 4px 10px -2px rgba(24,28,48,.45);}
+
+  /* ============================================================
+     VARIANT 3 — «Glass Slide»
+     Frosted segment + sirpanuvchi navy gradient plita (thumb).
+     ============================================================ */
+  .v3{position:relative;display:inline-flex;gap:4px;padding:5px;border-radius:15px;
+    background:color-mix(in srgb,#eef1f8 82%,transparent);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid #e4e9f3;}
+  .v3 .thumb{position:absolute;z-index:0;top:5px;height:calc(100% - 10px);border-radius:11px;
+    background:linear-gradient(135deg,var(--navy),var(--navy-2));
+    box-shadow:0 8px 18px -6px rgba(24,28,48,.5);
+    transition:left .3s cubic-bezier(.3,1.2,.4,1),width .3s cubic-bezier(.3,1.2,.4,1);}
+  .v3 a{position:relative;z-index:1;display:inline-flex;align-items:center;gap:.45rem;
+    padding:.55rem 1.05rem;border-radius:11px;color:var(--muted);font-weight:600;font-size:.88rem;
+    text-decoration:none;cursor:pointer;transition:color .2s;}
+  .v3 a:hover:not(.active){color:var(--ink);}
+  .v3 a.active{color:#fff;}
+
+  /* ============================================================
+     VARIANT 4 — «Icon Chip Cards»
+     Har tab — yumshoq karta; aktivda ikonka navy chipda, matn navy.
+     ============================================================ */
+  .v4{display:inline-flex;gap:8px;}
+  .v4 a{display:inline-flex;align-items:center;gap:.6rem;padding:.5rem .9rem .5rem .55rem;
+    border-radius:13px;background:#f4f6fb;border:1px solid #e9edf6;
+    color:var(--muted);font-weight:700;font-size:.88rem;text-decoration:none;cursor:pointer;
+    transition:background .18s,color .18s,border-color .18s,box-shadow .18s,transform .12s;}
+  .v4 .chip{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:#e6eaf3;color:var(--muted);transition:background .18s,color .18s;}
+  .v4 a:hover:not(.active){color:var(--ink);border-color:#dde3f0;}
+  .v4 a.active{background:#fff;color:var(--navy);border-color:#dfe4f0;
+    box-shadow:0 10px 22px -12px rgba(24,28,48,.45);transform:translateY(-1px);}
+  .v4 a.active .chip{background:var(--navy);color:#fff;}
+
+  /* ============================================================
+     VARIANT 5 — «Outline Capsule»
+     Oq pill; aktiv — navy ramka + navy matn/ikonka (yengil, nafis).
+     ============================================================ */
+  .v5{display:inline-flex;gap:4px;padding:4px;background:#fff;border:1px solid #e9edf6;border-radius:14px;
+    box-shadow:inset 0 1px 2px rgba(16,24,40,.04);}
+  .v5 a{display:inline-flex;align-items:center;gap:.45rem;padding:.52rem 1.05rem;border-radius:10px;
+    color:var(--muted);font-weight:700;font-size:.88rem;text-decoration:none;cursor:pointer;
+    border:1.5px solid transparent;transition:color .18s,border-color .18s,background .18s;}
+  .v5 a:hover:not(.active){color:var(--ink);background:#f6f8fc;}
+  .v5 a.active{color:var(--navy);border-color:var(--navy);background:var(--navy-tint);}
+
+  .hint{max-width:1040px;margin:34px auto 0;color:var(--muted);font-size:.9rem;text-align:center;}
+  .hint b{color:var(--ink);}
+</style>
+</head>
+<body>
+  <div class="page-h">
+    <h1>Bo'lim tablari — 5 dizayn variant</h1>
+    <p>Har bir variantni bosib ko'ring (Buyurtmalar ↔ Ombor). Dizayn tilimizga mos: navy urg'u, glass header. Yoqqanini ayting — prodga qo'shaman.</p>
+  </div>
+
+  <!-- VARIANT 1 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">1</span><span class="demo-name">Navy Solid Pill</span>
+      <span class="demo-tag">aktiv tab — to'liq navy</span></div>
+    <div class="demo-body">
+      <div class="glass">
+        <span class="g-title">Buyurtmalar</span><span class="brand">FBS / DBS</span>
+        <nav class="v1 js-seg">
+          <a class="active" data-i="0"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Buyurtmalar</a>
+          <a data-i="1"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 2 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">2</span><span class="demo-name">Animated Underline</span>
+      <span class="demo-tag">qutisiz · sirpanuvchi chiziq</span></div>
+    <div class="demo-body">
+      <div class="glass">
+        <span class="g-title">Buyurtmalar</span><span class="brand">FBS / DBS</span>
+        <nav class="v2 js-seg" data-underline="1">
+          <span class="ink"></span>
+          <a class="active" data-i="0"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Buyurtmalar</a>
+          <a data-i="1"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 3 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">3</span><span class="demo-name">Glass Slide</span>
+      <span class="demo-tag">sirpanuvchi navy gradient plita</span></div>
+    <div class="demo-body">
+      <div class="glass">
+        <span class="g-title">Buyurtmalar</span><span class="brand">FBS / DBS</span>
+        <nav class="v3 js-seg" data-thumb="1">
+          <span class="thumb"></span>
+          <a class="active" data-i="0"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Buyurtmalar</a>
+          <a data-i="1"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 4 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">4</span><span class="demo-name">Icon Chip Cards</span>
+      <span class="demo-tag">ikonka navy chipda · ko'tarilgan karta</span></div>
+    <div class="demo-body">
+      <div class="glass">
+        <span class="g-title">Buyurtmalar</span><span class="brand">FBS / DBS</span>
+        <nav class="v4 js-seg">
+          <a class="active" data-i="0"><span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>Buyurtmalar</a>
+          <a data-i="1"><span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>Ombor</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT 5 -->
+  <div class="demo">
+    <div class="demo-top"><span class="demo-num">5</span><span class="demo-name">Outline Capsule</span>
+      <span class="demo-tag">navy ramka · nafis</span></div>
+    <div class="demo-body">
+      <div class="glass">
+        <span class="g-title">Buyurtmalar</span><span class="brand">FBS / DBS</span>
+        <nav class="v5 js-seg">
+          <a class="active" data-i="0"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Buyurtmalar</a>
+          <a data-i="1"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>Ombor</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">Qaysi raqam yoqdi? Ayting — masalan «<b>3-variant</b>» — o'shani Buyurtmalar va Ombor sahifalariga (dark-tema bilan) qo'shaman.</p>
+
+<script>
+  function place(seg){
+    var active = seg.querySelector("a.active");
+    if(!active) return;
+    if(seg.dataset.thumb){
+      var th = seg.querySelector(".thumb");
+      th.style.left = active.offsetLeft + "px";
+      th.style.width = active.offsetWidth + "px";
+    }
+    if(seg.dataset.underline){
+      var ink = seg.querySelector(".ink");
+      ink.style.left = active.offsetLeft + "px";
+      ink.style.width = active.offsetWidth + "px";
+    }
+  }
+  document.querySelectorAll(".js-seg").forEach(function(seg){
+    seg.querySelectorAll("a").forEach(function(a){
+      a.addEventListener("click", function(e){
+        e.preventDefault();
+        seg.querySelectorAll("a").forEach(function(x){x.classList.remove("active");});
+        a.classList.add("active");
+        place(seg);
+      });
+    });
+    place(seg);
+  });
+  window.addEventListener("load", function(){
+    document.querySelectorAll(".js-seg").forEach(place);
+  });
+</script>
+</body>
+</html>

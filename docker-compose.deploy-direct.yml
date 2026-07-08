@@ -1,0 +1,16 @@
+# Local deploy override: ship the merged code WITHOUT cutting over to
+# PgBouncer yet. Keeps the app on the direct db:5432 connection and the
+# pool sizes that have been running fine, so this deploy changes code only.
+# To flip to PgBouncer later: drop this -f override and run a normal
+#   docker compose up -d --build
+services:
+  app:
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://uzum:${POSTGRES_PASSWORD:-uzum_secret_change_me}@db:5432/uzum
+      DB_POOL_SIZE: "80"
+      DB_MAX_OVERFLOW: "150"

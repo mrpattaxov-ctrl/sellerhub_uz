@@ -91,7 +91,7 @@ def _eligibility(fbs_allowed, dbs_allowed) -> str:
 
 # ── export ───────────────────────────────────────────────────────────────
 def build_stock_workbook(skus: list[dict]) -> openpyxl.Workbook:
-    """Build the export workbook from GET /v2/fbs/sku/stocks rows.
+    """Build the export workbook from GET /v3/fbs/sku/stocks rows.
 
     ``skus`` items use the Uzum field names: skuId, skuTitle, productTitle,
     barcode, amount, fbsAllowed, dbsAllowed, fbsLinked, dbsLinked,

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  .row { display:flex; }
+  .col { flex:1; padding:34px 30px; }
+  .col.light { background:#eef1f7; }
+  .col.dark  { background:#0b0f1a; }
+  .col-h { text-align:center; font-weight:800; font-size:1.05rem; margin:0 0 22px; }
+  .col.light .col-h { color:#1d2939; }
+  .col.dark  .col-h { color:#e8edf5; }
+
+  .imodal { position:relative; width:100%; border-radius:20px; overflow:hidden; }
+  .imodal-x { position:absolute; top:14px; right:16px; z-index:3; width:32px; height:32px; border-radius:9px; border:0; cursor:pointer; font-size:1.25rem; line-height:1; display:grid; place-items:center; }
+  .imodal-body { padding:18px 20px 22px; display:flex; flex-direction:column; gap:16px; }
+  .ih { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-right:44px; }
+  .ih-title { margin:0; font-size:1.15rem; font-weight:800; }
+  .akt-btn { display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:11px; border:0; font-size:.86rem; font-weight:700; white-space:nowrap; }
+  .akt-btn svg { width:16px; height:16px; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px 18px; padding:16px 18px; border-radius:15px; }
+  .fact { display:flex; gap:11px; align-items:center; }
+  .fact-ic { flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; }
+  .fact-ic svg { width:17px; height:17px; }
+  .fact-l { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; opacity:.7; }
+  .fact-v { font-size:.9rem; font-weight:700; margin-top:2px; }
+  .fact.primary .fact-v { font-size:1.02rem; }
+  .addr { display:flex; gap:13px; align-items:center; padding:15px 18px; border-radius:15px; }
+  .addr-ic { flex:none; width:40px; height:40px; border-radius:11px; display:grid; place-items:center; }
+  .addr-ic svg { width:19px; height:19px; }
+  .addr-body { flex:1; min-width:0; }
+  .addr-l { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; opacity:.7; margin-bottom:3px; }
+  .addr-v { font-size:.92rem; font-weight:700; }
+  .edit-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:11px; font-size:.82rem; font-weight:700; white-space:nowrap; }
+  .edit-btn svg { width:14px; height:14px; }
+  .ohead { display:grid; grid-template-columns:46px minmax(0,1fr) 190px; align-items:center; border-radius:12px; padding:10px 16px; }
+  .ohead-th { font-size:.62rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+  .ohead-l { display:flex; gap:14px; }
+  .ohead-r { text-align:right; }
+  .ocard { display:grid; grid-template-columns:46px minmax(0,1fr) 190px; align-items:stretch; border-radius:15px; overflow:hidden; margin-top:10px; }
+  .ocard-chk { display:grid; place-items:center; }
+  .chk { width:22px; height:22px; border-radius:7px; }
+  .ocard-left { padding:8px 16px 12px; min-width:0; }
+  .onum { display:inline-flex; align-items:center; gap:4px; font-size:.86rem; padding:10px 0 8px; font-weight:700; }
+  .onum-pre { opacity:.6; }
+  .onum-box { padding:2px 8px; border-radius:7px; font-weight:800; color:#fff; }
+  .pl { display:flex; align-items:center; gap:14px; min-height:64px; padding:8px 0; }
+  .pl + .pl { border-top:1px solid; }
+  .thumb { flex:none; width:54px; height:54px; border-radius:12px; display:grid; place-items:center; font-size:1.3rem; }
+  .pinfo { min-width:0; flex:1; }
+  .ptitle { font-weight:600; font-size:.86rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pmeta { font-size:.7rem; opacity:.7; margin-top:3px; }
+  .dpill { flex:none; min-width:58px; text-align:center; padding:5px 10px; border-radius:999px; font-weight:800; font-size:.74rem; }
+  .rail { padding:14px 16px; display:flex; flex-direction:column; justify-content:center; gap:9px; }
+  .rail-it { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .rail-k { font-size:.58rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; opacity:.6; }
+  .rail-v { font-size:.8rem; font-weight:800; }
+  .rail-sum { font-size:.98rem; font-weight:800; }
+  .badge-ready { display:inline-flex; padding:3px 9px; border-radius:999px; font-size:.66rem; font-weight:800; }
+
+  /* LIGHT — Classic Royal Blue */
+  .light .imodal { background:#fff; border:1px solid #e3e9f7; box-shadow:0 30px 70px -28px rgba(30,50,120,.35); }
+  .light .imodal-x { background:#eef2fb; color:#8aa0bc; }
+  .light .ih-title { color:#101828; }
+  .light .akt-btn { background:#4169E1; color:#fff; }
+  .light .facts { background:#f8faff; border:1px solid rgba(65,105,225,.14); }
+  .light .fact-ic { background:rgba(65,105,225,.10); color:#4169E1; }
+  .light .fact-l { color:#5d7390; } .light .fact-v { color:#101828; }
+  .light .fact.primary .fact-ic { background:rgba(65,105,225,.15); color:#4169E1; }
+  .light .fact.primary .fact-v { color:#2f54c4; }
+  .light .addr { background:#fff; border:1px solid rgba(65,105,225,.16); }
+  .light .addr-ic { background:rgba(65,105,225,.10); color:#4169E1; }
+  .light .addr-l { color:#5d7390; } .light .addr-v { color:#101828; }
+  .light .edit-btn { background:rgba(65,105,225,.08); border:1px solid rgba(65,105,225,.35); color:#2f54c4; }
+  .light .ohead { background:rgba(65,105,225,.07); border:1px solid rgba(65,105,225,.1); }
+  .light .ohead-th { color:#2f54c4; }
+  .light .ocard { background:#fff; border:1px solid #e8edf6; box-shadow:0 1px 3px rgba(65,105,225,.06); }
+  .light .ocard-chk { background:#f8faff; box-shadow:inset -1px 0 0 #e8edf6; }
+  .light .chk { border:2px solid #cdd9ee; background:#fff; }
+  .light .onum-pre { color:#8aa0bc; } .light .onum-box { background:#4169E1; }
+  .light .ptitle { color:#101828; } .light .pmeta { color:#5d7390; }
+  .light .thumb { background:#f3f6fc; border:1px solid #e8edf6; }
+  .light .pl + .pl { border-color:#eef2f8; }
+  .light .dpill { background:rgba(65,105,225,.10); color:#2f54c4; }
+  .light .rail { background:#f7f9ff; box-shadow:inset 1px 0 0 #e8edf6; }
+  .light .rail-k { color:#8aa0bc; } .light .rail-v { color:#475467; } .light .rail-sum { color:#2f54c4; }
+  .light .badge-ready { background:#ecfdf3; color:#027a48; }
+
+  /* DARK — Classic Royal Blue */
+  .dark .imodal { background:#1a1d27; border:1px solid #2b3346; box-shadow:0 40px 90px -30px #000; }
+  .dark .imodal-x { background:rgba(26,29,39,.7); color:#64748b; }
+  .dark .ih-title { color:#e8edf5; }
+  .dark .akt-btn { background:#4169E1; color:#fff; }
+  .dark .facts { background:#141d30; border:1px solid #2b3346; }
+  .dark .fact-ic { background:rgba(99,132,255,.18); color:#8fb4ff; }
+  .dark .fact-l { color:#94a3b8; } .dark .fact-v { color:#e8edf5; }
+  .dark .fact.primary .fact-ic { background:rgba(99,132,255,.26); color:#b9d0ff; }
+  .dark .fact.primary .fact-v { color:#9fc0ff; }
+  .dark .addr { background:#1c2336; border:1px solid #2b3346; }
+  .dark .addr-ic { background:rgba(99,132,255,.2); color:#b9d0ff; }
+  .dark .addr-l { color:#94a3b8; } .dark .addr-v { color:#e8edf5; }
+  .dark .edit-btn { background:rgba(99,132,255,.16); border:1px solid rgba(99,132,255,.42); color:#9fc0ff; }
+  .dark .ohead { background:rgba(99,132,255,.12); border:1px solid rgba(99,132,255,.2); }
+  .dark .ohead-th { color:#8fb4ff; }
+  .dark .ocard { background:#1a1d27; border:1px solid #2d3148; }
+  .dark .ocard-chk { background:#161b27; box-shadow:inset -1px 0 0 #2b3346; }
+  .dark .chk { border:2px solid #3a4058; background:#161b27; }
+  .dark .onum-pre { color:#7a849a; } .dark .onum-box { background:#4169E1; }
+  .dark .ptitle { color:#e8edf5; } .dark .pmeta { color:#94a3b8; }
+  .dark .thumb { background:#161c2b; border:1px solid #2b3346; }
+  .dark .pl + .pl { border-color:#2b3346; }
+  .dark .dpill { background:rgba(99,132,255,.2); color:#b9d0ff; }
+  .dark .rail { background:#161b27; box-shadow:inset 1px 0 0 #2b3346; }
+  .dark .rail-k { color:#7a849a; } .dark .rail-v { color:#aeb6c7; } .dark .rail-sum { color:#9fc0ff; }
+  .dark .badge-ready { background:rgba(16,185,129,.16); color:#6ee7b7; }
+</style></head>
+<body>
+<div class="row">
+  <div class="col light"><div class="col-h">☀️ 1-VARIANT — Kunduzgi (Classic Royal Blue)</div><div id="L"></div></div>
+  <div class="col dark"><div class="col-h">🌙 1-VARIANT — Tungi</div><div id="D"></div></div>
+</div>
+<script>
+  const X="&times;";
+  const P='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  const CL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+  const CA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  const MO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+  const BX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+  const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  const ED='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const products=[
+    {t:"Taqinchoqlar to'plami 4 tasi 1 da, 3 tasi 1 da, zirak, uzuk…",sku:"LUXUZ-KOMPLEKT3-АЛЫЙ",shk:"1000072146391",q:3,ic:"💍"},
+    {t:"Stresga qarshi magnitlar, 2 dona (O'lcham: 2.5sm)",sku:"LUXUZ-MAGNIT2-25",shk:"1000006755699",q:1,ic:"🧲"},
+    {t:"Zanglamaydigan polatdan yasalgan ayollar uzugi (Rang: Qora…",sku:"LUXUZ-RING13-ЧЕРН-17",shk:"1000048644234",q:2,ic:"💍"},
+    {t:"Toshli ayollar uzugi (Uzuk o'lchamlari: 16, Rang: Tilla)",sku:"LUXUZ-RING28-ЗОЛОТ-16",shk:"1000087952857",q:3,ic:"💍"},
+  ];
+  function html(){
+    const rows=products.map(p=>`<div class="pl"><div class="thumb">${p.ic}</div><div class="pinfo"><div class="ptitle">${p.t}</div><div class="pmeta">${p.sku} · ШК ${p.shk}</div></div><span class="dpill">${p.q} dona</span></div>`).join("");
+    const ic={clock:CL,cal:CA,money:MO,box:BX};
+    const facts=[["clock","Vaqt slot","15.06 13:00–15:00",""],["cal","Yaratilgan","12.06.2026, 17:19",""],["money","To'liq summa","315 600 UZS","primary"],["box","Ombor","Sergeli",""]].map(([i,l,v,c])=>`<div class="fact ${c}"><span class="fact-ic">${ic[i]}</span><span><span class="fact-l">${l}</span><div class="fact-v">${v}</div></span></div>`).join("");
+    return `<div class="imodal"><button class="imodal-x">${X}</button><div class="imodal-body">
+      <div class="ih"><h3 class="ih-title">Накладная №120001009487</h3><button class="akt-btn">${P}<span>Акт отправки</span></button></div>
+      <div class="facts">${facts}</div>
+      <div class="addr"><span class="addr-ic">${PIN}</span><div class="addr-body"><div class="addr-l">Qabul punkti</div><div class="addr-v">Farg'ona viloyati, Marg'ilon shahri, Sakkokiy ko'chasi, 6j-uy</div></div><button class="edit-btn">${ED}<span>Изменить</span></button></div>
+      <div><div class="ohead"><span></span><span class="ohead-l"><span class="ohead-th">№</span><span class="ohead-th">Mahsulot</span></span><span class="ohead-th ohead-r">Dona</span></div>
+      <div class="ocard"><div class="ocard-chk"><span class="chk"></span></div><div class="ocard-left"><div class="onum"><span class="onum-pre">№11122</span><span class="onum-box">5064</span></div>${rows}</div>
+      <div class="rail"><div class="rail-it"><span class="rail-k">Status</span><span class="badge-ready">Jo'natishga tayyor</span></div><div class="rail-it"><span class="rail-k">Jami</span><span class="rail-v">9 dona</span></div><div class="rail-it"><span class="rail-k">Summa</span><span class="rail-sum">315 600 UZS</span></div></div></div></div>
+    </div></div>`;
+  }
+  document.getElementById("L").innerHTML=html();
+  document.getElementById("D").innerHTML=html();
+</script>
+</body></html>

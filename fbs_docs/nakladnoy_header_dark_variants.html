@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Накладная header — 5 qora variant</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:40px 22px 80px;
+    background:#06070a; color:#e7ebf3;
+    font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+  }
+  h1{font-size:1.15rem;font-weight:800;margin:0 0 4px}
+  .sub{color:#828aa0;font-size:.86rem;margin:0 0 34px}
+  .wrap{max-width:920px;margin:0 auto}
+  .variant{margin-bottom:34px}
+  .vlabel{display:flex;align-items:center;gap:10px;margin:0 0 10px;
+    font-size:.8rem;font-weight:700;color:#aab3c7;text-transform:uppercase;letter-spacing:.08em}
+  .vlabel b{display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:7px;background:#222630;color:#fff;font-size:.78rem;font-weight:800}
+  .vlabel .note{font-weight:600;text-transform:none;letter-spacing:0;font-size:.78rem;color:#6f7892}
+
+  .modal{border-radius:16px;overflow:hidden;background:#101218;
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.05)}
+  .body-hint{padding:16px 20px 18px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .body-hint .cell{height:34px;border-radius:9px;background:rgba(255,255,255,.035)}
+
+  .hd{position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px}
+  .hd-left{display:flex;align-items:center;gap:14px;min-width:0}
+  .ic{flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center}
+  .ic svg{width:22px;height:22px}
+  .txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .kick{font-size:.66rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+  .num{font-size:1.22rem;font-weight:800;line-height:1.1;color:#fff;white-space:nowrap}
+  .btn{flex:none;display:inline-flex;align-items:center;gap:.45rem;padding:.6rem 1rem;
+    border-radius:11px;font-size:.85rem;font-weight:700;text-decoration:none;cursor:pointer;
+    border:1px solid transparent;transition:.15s}
+  .btn svg{width:17px;height:17px}
+  .x{flex:none;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    border:none;cursor:pointer;font-size:1.05rem;line-height:1}
+
+  /* ===== V1 — Pure black, flat ===== */
+  .v1 .modal{background:#0c0d11}
+  .v1 .hd{background:#000}
+  .v1 .ic{border-radius:50%;background:#fff;color:#000}
+  .v1 .kick{color:#7c8398}
+  .v1 .btn{background:#fff;color:#000}
+  .v1 .btn:hover{background:#e9e9ee}
+  .v1 .x{background:rgba(255,255,255,.08);color:#cbd0db}
+
+  /* ===== V2 — Charcoal + hairline ===== */
+  .v2 .hd{background:#16181f}
+  .v2 .hd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent)}
+  .v2 .ic{border-radius:13px;background:#23262f;color:#dfe4ee;border:1px solid rgba(255,255,255,.08)}
+  .v2 .kick{color:#7c8398}
+  .v2 .btn{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#eef1f6}
+  .v2 .btn:hover{background:rgba(255,255,255,.13)}
+  .v2 .x{background:rgba(255,255,255,.06);color:#aab2c2}
+
+  /* ===== V3 — Black + monochrome left rail ===== */
+  .v3 .hd{background:#0c0d11;padding-left:22px}
+  .v3 .hd::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,#fff,#5a6072)}
+  .v3 .ic{border-radius:12px;background:#fff;color:#000}
+  .v3 .kick{color:#7c8398}
+  .v3 .btn{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#eef1f6}
+  .v3 .btn:hover{background:rgba(255,255,255,.13)}
+  .v3 .x{background:rgba(255,255,255,.07);color:#aab2c2}
+
+  /* ===== V4 — Black gradient depth (glossy) ===== */
+  .v4 .hd{background:
+    radial-gradient(120% 180% at 90% -40%,rgba(255,255,255,.06),transparent 50%),
+    linear-gradient(160deg,#1c1f27 0%,#0a0b0f 100%)}
+  .v4 .ic{border-radius:50%;background:linear-gradient(160deg,#2b2f3a,#15171d);color:#fff;
+    border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+  .v4 .kick{color:#8b93a8}
+  .v4 .btn{background:#f4f5f8;color:#15171d}
+  .v4 .btn:hover{background:#e3e5ea}
+  .v4 .x{background:rgba(255,255,255,.08);color:#cbd0db}
+
+  /* ===== V5 — Black glass / frosted ===== */
+  .v5 .modal{background:#0a0b0f}
+  .v5 .hd{background:rgba(28,31,40,.55);backdrop-filter:blur(8px);
+    border-bottom:1px solid rgba(255,255,255,.07)}
+  .v5 .ic{border-radius:14px;background:rgba(255,255,255,.08);color:#fff;
+    border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(4px)}
+  .v5 .kick{color:#9aa2b6}
+  .v5 .btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}
+  .v5 .btn:hover{background:rgba(255,255,255,.17)}
+  .v5 .x{background:rgba(255,255,255,.08);color:#cbd0db}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>«Накладная» modal header — 5 qora variant</h1>
+  <p class="sub">Hammasi to'q/qora tonda, bizning dark dizaynga mos. Yoqqanini raqami bilan ayting — modalga qo'yaman.</p>
+
+  <div class="variant v1">
+    <div class="vlabel"><b>1</b> Pure black <span class="note">— sof qora band, oq doira ikonka, oq tugma</span></div>
+    <div class="modal"><div class="hd"><div class="hd-left"><div class="ic">{{IC}}</div><div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div></div><a class="btn">{{PR}}<span>Akt отправки</span></a><button class="x">✕</button></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v2">
+    <div class="vlabel"><b>2</b> Charcoal + hairline <span class="note">— ko'mir rang, pastda nozik oq chiziq, kvadrat ikonka tile</span></div>
+    <div class="modal"><div class="hd"><div class="hd-left"><div class="ic">{{IC}}</div><div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div></div><a class="btn">{{PR}}<span>Akt отправки</span></a><button class="x">✕</button></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v3">
+    <div class="vlabel"><b>3</b> Mono left rail <span class="note">— chapda oq→kulrang vertikal chiziq, ghost tugma</span></div>
+    <div class="modal"><div class="hd"><div class="hd-left"><div class="ic">{{IC}}</div><div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div></div><a class="btn">{{PR}}<span>Akt отправки</span></a><button class="x">✕</button></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v4">
+    <div class="vlabel"><b>4</b> Gradient depth <span class="note">— chuqurlik beruvchi qora gradient, yaltiroq ikonka</span></div>
+    <div class="modal"><div class="hd"><div class="hd-left"><div class="ic">{{IC}}</div><div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div></div><a class="btn">{{PR}}<span>Akt отправки</span></a><button class="x">✕</button></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+
+  <div class="variant v5">
+    <div class="vlabel"><b>5</b> Black glass <span class="note">— shisha (frosted) effekt, blur fon, shaffof ikonka+tugma</span></div>
+    <div class="modal"><div class="hd"><div class="hd-left"><div class="ic">{{IC}}</div><div class="txt"><span class="kick">Накладная</span><span class="num">№120001021366</span></div></div><a class="btn">{{PR}}<span>Akt отправки</span></a><button class="x">✕</button></div><div class="body-hint"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+  </div>
+</div>
+
+<script>
+  var IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  var PR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  document.body.innerHTML=document.body.innerHTML.split('{{IC}}').join(IC).split('{{PR}}').join(PR);
+</script>
+</body>
+</html>

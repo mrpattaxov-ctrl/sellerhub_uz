@@ -1,0 +1,1978 @@
+{% extends "base.html" %}
+{% set lang = session.get('lang', 'uz') %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ===== Поставки — slate design (handoff pixel-perfect) ===== */
+  /* Fon base'dan keladi (FBS/DBS bilan bir xil: och #EFEEF5 / qorong'i #0E0E14);
+     ustiga FBS sahifasidagi kabi yuqori burchaklarda aurora nur qo'yamiz. */
+  .pkx-app { font-family:'Manrope', system-ui, sans-serif; color:#1C2030; font-size:14px; -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
+      radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
+    /* Yon padding base'ning container-fluid px-3'idan keladi (FBS bilan bir xil en). */
+    padding:0 0 24px; }
+  .pkx-wrap { max-width:none; margin:0; }
+  .pkx-app *{ box-sizing:border-box; }
+  .pkx-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(22,22,40,.05); }
+  /* FBS «Floating Glass» header bilan bir xil yarim-shaffof panel. */
+  .pkx-glass { background:rgba(255,255,255,.74);
+    -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.55);
+    box-shadow:0 10px 30px -12px rgba(20,16,40,.18); }
+  /* FBO/Возвраты/Авто-слот segmenti — FBS bo'lim tablari «Glass Slide» bilan
+     bir xil: aktiv tab ostida sirpanuvchi navy gradient plita (.pkx-seg-thumb).
+     Tab bosilganda view to'liq qayta chiziladi, shuning uchun plita oldingi
+     pozitsiyadan yangisiga JS'da (placeSegThumb) sirpatiladi. */
+  .pkx-seg { position:relative; display:inline-flex; gap:4px; padding:5px;
+    background:rgba(238,241,248,.82);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    border:1px solid #e4e9f3; border-radius:15px; }
+  .pkx-seg-btn { position:relative; z-index:1; background:none; border:none;
+    border-radius:11px; padding:9px 20px; font-size:14px; font-weight:700;
+    cursor:pointer; color:#5A5F72; font-family:inherit;
+    transition:color .2s ease; }
+  .pkx-seg-btn:hover:not(.is-active) { color:#101828; }
+  .pkx-seg-btn.is-active { color:#fff; }
+  /* Universal sirpanuvchi gradient plita — FBS .fbsx-thumb bilan bir xil.
+     JS (placeGlide) left/top/width/height o'rnatadi; transition sirpatadi. */
+  .pkx-glide { position:absolute; z-index:0; pointer-events:none; opacity:0;
+    border-radius:11px;
+    background:linear-gradient(135deg, #1E2435, #2b3450);
+    box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+    transition:left .28s cubic-bezier(.3,1.2,.4,1), width .28s cubic-bezier(.3,1.2,.4,1),
+               top .2s ease, height .2s ease, opacity .15s ease; }
+  /* Status/tur filtr chip'lari — FBS glass-trek bilan bir xil: yarim-shaffof
+     yumaloq trek, chip'lar shaffof, aktivini ostidagi .pkx-glide ko'rsatadi. */
+  .pkx-trek { position:relative; display:inline-flex; align-items:center; gap:5px;
+    flex-wrap:wrap; width:max-content; max-width:100%; padding:6px;
+    border:1px solid #ECECF2; border-radius:16px;
+    background:rgba(243,244,248,.82);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+  .pkx-chip { position:relative; z-index:1; display:inline-flex; align-items:center;
+    gap:.35rem; padding:.62rem 1.05rem; border-radius:11px;
+    font-size:.9rem; font-weight:700; font-family:inherit;
+    background:transparent; border:0; color:#5A5762; cursor:pointer;
+    transition:color .15s ease; }
+  .pkx-chip:hover:not(.is-active) { color:#1A1A22; }
+  .pkx-chip.is-active { color:#fff; }
+  /* Fallback: glide yo'q bo'lsa (JS ulgurmadi) aktiv chip o'zi bo'yaladi. */
+  .pkx-trek:not(:has(.pkx-glide)) .pkx-chip.is-active {
+    background:#1E2435; box-shadow:0 7px 18px -5px rgba(24,28,48,.45); }
+  /* «Вид» mini-segment tugmalari — hover'da matn qorayadi (FBS tablari kabi). */
+  .pkx-vseg-btn { background:none; border:none; border-radius:8px;
+    padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer;
+    color:#7A7F90; font-family:inherit; transition:color .15s ease, background .15s ease; }
+  .pkx-vseg-btn:hover:not(.is-active) { color:#101828; }
+  .pkx-vseg-btn.is-active { background:#1e293b; color:#fff; }
+  .pkx-h1 { margin:0; font-size:23px; font-weight:800; letter-spacing:-.02em; }
+  .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
+  .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
+  .pkx-muted { color:#9499AE; font-weight:600; }
+  .pkx-row-hover:hover { background:#f8fafc; }
+  .pkx-btn { border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; }
+  .pkx-btn-primary { background:#1e293b; color:#fff; } .pkx-btn-primary:hover{ background:#334155; }
+  .pkx-btn-soft { background:#f3f4f6; color:#334155; } .pkx-btn-soft:hover{ background:#e5e7eb; }
+  .pkx-mini { background:#fff; border:1px solid #e2e6ee; color:#334155; border-radius:9px; padding:7px 14px; font-size:13px; font-weight:700; cursor:pointer; }
+  .pkx-mini:hover { border-color:#1e293b; }
+  .pkx-mini.danger { border-color:#F2C9CB; color:#E5484D; } .pkx-mini.danger:hover{ background:#FCEBEC; }
+  .pkx-inp { border:1px solid #e6e6ec; border-radius:10px; padding:9px 13px; font-size:14px; font-weight:700; outline:none; color:#1C2030; font-family:inherit; }
+  .pkx-inp:focus { border-color:#1e293b; }
+  /* «К отправке» stepper — maydon + ↑↓ tugmalar bitta kapsulada (FBS «Ombor»
+     stk-stepper bilan bir xil his, postavki palitrasida). */
+  .pkx-stepper { display:inline-flex; align-items:stretch; width:120px; overflow:hidden; border:1px solid #e6e6ec; border-radius:10px; background:#fff; transition:border-color .15s, box-shadow .15s; }
+  .pkx-stepper:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,.10); }
+  .pkx-stepper .pkx-qty { flex:1 1 auto; min-width:0; width:100%; border:0; background:transparent; outline:none; padding:9px 11px; font-size:14px; font-weight:700; color:#1C2030; font-family:inherit; -moz-appearance:textfield; }
+  .pkx-stepper .pkx-qty::-webkit-outer-spin-button, .pkx-stepper .pkx-qty::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .pkx-step-col { display:flex; flex-direction:column; flex:none; width:24px; border-left:1px solid #eef0f5; }
+  .pkx-step { flex:1 1 0; display:flex; align-items:center; justify-content:center; padding:0; border:0; background:#fafbfd; color:#98a2b3; cursor:pointer; transition:background .12s ease, color .12s ease; }
+  .pkx-step:hover { background:rgba(30,41,59,.08); color:#1e293b; }
+  .pkx-step:active { background:rgba(30,41,59,.16); color:#0f172a; }
+  .pkx-step + .pkx-step { border-top:1px solid #eef0f5; }
+  .pkx-step svg { width:11px; height:11px; display:block; }
+  .pkx-search { display:flex; align-items:center; gap:9px; background:#f3f4f6; border-radius:11px; padding:10px 14px; }
+  .pkx-search input { border:none; background:none; outline:none; font-size:14px; font-weight:600; width:100%; color:#1C2030; font-family:inherit; }
+  .pkx-imgtile { border-radius:12px; background:#eef0f4; display:flex; align-items:center; justify-content:center; flex:none; color:#B8BCC9; overflow:hidden; border:1px solid rgba(22,22,40,.06); box-shadow:0 1px 3px rgba(22,22,40,.08); }
+  .pkx-imgtile img { width:100%; height:100%; object-fit:cover; cursor:zoom-in; transition:transform .14s ease; }
+  .pkx-imgtile:hover img { transform:scale(1.10); }
+  /* Товар qatori hover'i — FBS «Ombor» kabi: och fon + chap chetda navy akcent chiziq */
+  .pkx-prow { transition:background .12s ease, box-shadow .12s ease; }
+  .pkx-prow:hover { background:#F7F8FB; box-shadow:inset 3px 0 0 #1e293b; }
+  /* Miqdor kiritilgan qator — sariq «dirty» belgisi (FBS «Ombor» bilan bir xil):
+     amber fon + chapda 3px to'q-sariq chiziq, stepper ramkasi ham amber. */
+  .pkx-prow.is-dirty { background:#fffbeb; box-shadow:inset 3px 0 0 #f59e0b; }
+  .pkx-prow.is-dirty:hover { background:#fff7e0; box-shadow:inset 3px 0 0 #f59e0b; }
+  .pkx-prow.is-dirty .pkx-stepper { border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.14); }
+  /* Suzuvchi hover-zoom preview — <body>ga ulanadi (qator overflow'i qirqmasin), FBS «Ombor» bilan bir xil */
+  .pkx-zoom { position:fixed; z-index:4000; pointer-events:none; width:320px; height:320px; border-radius:16px; overflow:hidden; background:#fff; border:1px solid #e8eaf0; padding:6px; box-shadow:0 18px 50px rgba(22,22,40,.30); opacity:0; transform:scale(.90); transform-origin:center left; transition:opacity .15s ease, transform .15s ease; }
+  .pkx-zoom.is-on { opacity:1; transform:scale(1); }
+  .pkx-zoom img { width:100%; height:100%; object-fit:contain; display:block; border-radius:11px; background:#F8FAFC; }
+  .pkx-msg { padding:48px 20px; text-align:center; color:#9499AE; font-weight:600; }
+  .pkx-link { color:#1e293b; font-weight:700; font-size:13px; cursor:pointer; }
+  .pkx-modal-bg { position:fixed; inset:0; z-index:1300; background:rgba(20,20,35,.45); display:flex; align-items:center; justify-content:center; padding:24px; }
+  .pkx-scroll { overflow-x:auto; }
+  /* tasdiqlash / ogohlantirish dialog (brauzerning native confirm/alert o'rniga) */
+  .pkx-cfm-card { position:relative; width:min(400px,100%); background:#fff; border-radius:20px; padding:28px 26px 22px; box-shadow:0 24px 70px rgba(15,15,30,.32); text-align:center; animation:pkxCfmPop .18s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pkxCfmPop { from{ opacity:0; transform:translateY(10px) scale(.96);} to{ opacity:1; transform:none;} }
+  .pkx-cfm-icon { width:56px; height:56px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:26px; font-weight:800; }
+  .pkx-cfm-title { margin:0 0 8px; font-size:18px; font-weight:800; letter-spacing:-.01em; color:#1C2030; }
+  .pkx-cfm-msg { margin:0 0 22px; font-size:14px; line-height:1.55; color:#5A5F72; font-weight:500; }
+  .pkx-cfm-actions { display:flex; gap:10px; }
+  .pkx-cfm-actions .pkx-btn { flex:1; padding:12px 16px; border-radius:12px; }
+  .pkx-cfm-ok { transition:filter .12s, transform .08s; } .pkx-cfm-ok:hover{ filter:brightness(1.08); } .pkx-cfm-ok:active{ transform:translateY(1px); }
+  .pkx-cfm-x { position:absolute; top:14px; right:14px; width:32px; height:32px; border:none; border-radius:9px; background:none; color:#B8BCC9; font-size:18px; line-height:1; cursor:pointer; transition:background .12s,color .12s; }
+  .pkx-cfm-x:hover { background:#f3f4f6; color:#5A5F72; }
+  /* ── Maxsus galochka (FBS/DBS dizaynидан) — faqat «Создана» filtrida ── */
+  .pkx-check-cell { display:flex; align-items:center; justify-content:center; }
+  .pkx-row-check { appearance:none; -webkit-appearance:none; width:22px; height:22px; margin:0; flex:none;
+    border:2px solid #cdd5e3; border-radius:7px; background:#fff; cursor:pointer; position:relative;
+    transition:border-color .15s, background .15s, box-shadow .15s, transform .12s; }
+  .pkx-row-check:hover { border-color:#4169E1; box-shadow:0 0 0 4px rgba(65,105,225,.12); }
+  .pkx-row-check:active { transform:scale(.9); }
+  .pkx-row-check:checked, .pkx-row-check:indeterminate { border-color:transparent;
+    background:linear-gradient(135deg,#4169E1 0%,#6384ff 100%); box-shadow:0 4px 10px rgba(65,105,225,.32); }
+  .pkx-row-check:checked::after { content:""; position:absolute; left:7px; top:3px; width:5px; height:10px;
+    border:solid #fff; border-width:0 2.5px 2.5px 0; border-radius:1px; transform:rotate(42deg); animation:pkxCheckPop .18s ease; }
+  .pkx-row-check:indeterminate::after { content:""; position:absolute; left:4px; right:4px; top:8px; height:2.5px; background:#fff; border-radius:2px; }
+  .pkx-row-check:focus-visible { outline:none; box-shadow:0 0 0 4px rgba(65,105,225,.28); }
+  @keyframes pkxCheckPop { 0%{ opacity:0; transform:rotate(42deg) scale(.4);} 100%{ opacity:1; transform:rotate(42deg) scale(1);} }
+  /* suzuvchi tanlash paneli — FBS/DBS bulk-bar (.pkx-qrbar) bilan AYNAN bir xil
+     ko'rinish + pastdan sirpanib-xiralashib chiqish animatsiyasi */
+  .pkx-selbar { position:fixed; left:50%; bottom:1.5rem; transform:translate(-50%, calc(100% + 40px));
+    display:flex; align-items:center; gap:.6rem; padding:.72rem 1.1rem; border-radius:16px;
+    background:#1e293b; color:#f8fafc; box-shadow:0 16px 36px rgba(0,0,0,.3); z-index:1200;
+    pointer-events:none; opacity:0; transition:transform .24s cubic-bezier(.22,1,.36,1), opacity .24s ease-out;
+    max-width:calc(100vw - 2rem); flex-wrap:nowrap; font-family:'Manrope', system-ui, sans-serif; }
+  .pkx-selbar.is-visible { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
+  body:has(.pkx-selbar.is-visible) { padding-bottom:120px; }
+  .pkx-selbar-count { font-weight:700; font-size:.96rem; white-space:nowrap; padding-right:.6rem;
+    border-right:1px solid rgba(255,255,255,.18); margin-right:.15rem; color:#f8fafc; } .pkx-selbar-count b{ color:#fff; }
+  .pkx-selbar-btn, .pkx-selbar-btn2 { background:rgba(255,255,255,.08); color:#f8fafc; border:1px solid rgba(255,255,255,.28);
+    padding:.64rem 1.15rem; border-radius:12px; font-size:.94rem; font-weight:600; cursor:pointer;
+    display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap; flex:none; font-family:inherit;
+    transition:background .15s, color .15s, border-color .15s, transform .14s ease, box-shadow .18s ease; }
+  .pkx-selbar-btn svg, .pkx-selbar-btn2 svg { flex:none; }
+  .pkx-selbar-btn:hover, .pkx-selbar-btn2:hover { background:#fff; color:#1e293b; border-color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+  .pkx-selbar-btn:active, .pkx-selbar-btn2:active { transform:translateY(1px) scale(.99); }
+  /* badges */
+  .pkx-bd { display:inline-block; font-weight:700; font-size:12px; padding:5px 11px; border-radius:8px; }
+  .pkx-bd-gray { background:#E9E9EF; color:#50556B; }
+  .pkx-bd-green { background:#D8F1E1; color:#16794C; }
+  .pkx-bd-amber { background:#FBEFD6; color:#B6852A; }
+  .pkx-bd-red { background:#FCE9EA; color:#D33A3F; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:#d6dae2; border-radius:8px; border:3px solid transparent; background-clip:padding-box; }
+
+  /* ── «QR-коды» chop paneli — FBS/DBS bulk-bar bilan AYNAN bir xil dizayn+animatsiya ── */
+  .pkx-qrbar {
+    position:fixed; left:50%; bottom:1.5rem;
+    transform:translate(-50%, calc(100% + 40px));
+    display:flex; align-items:center; gap:.6rem;
+    padding:.72rem 1.1rem; border-radius:16px;
+    background:#1e293b; color:#f8fafc; box-shadow:0 16px 36px rgba(0,0,0,.3);
+    z-index:1400; pointer-events:none; opacity:0;
+    transition:transform .24s cubic-bezier(.22,1,.36,1), opacity .24s ease-out;
+    max-width:calc(100vw - 2rem); flex-wrap:nowrap; font-family:'Manrope', system-ui, sans-serif;
+  }
+  .pkx-qrbar.is-visible { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
+  .pkx-qrbar-title { font-weight:700; font-size:.96rem; white-space:nowrap; padding-right:.6rem; border-right:1px solid rgba(255,255,255,.18); margin-right:.15rem; }
+  .pkx-qrbar button {
+    background:rgba(255,255,255,.08); color:#f8fafc; border:1px solid rgba(255,255,255,.28);
+    padding:.64rem 1.15rem; border-radius:12px; font-size:.94rem; font-weight:600; cursor:pointer;
+    display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap; flex:none; font-family:inherit;
+    transition:background .15s, color .15s, border-color .15s, transform .14s ease, box-shadow .18s ease;
+  }
+  .pkx-qrbar button svg { flex:none; }
+  .pkx-qrbar button:hover { background:#fff; color:#1e293b; border-color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+  .pkx-qrbar button:active { transform:translateY(1px) scale(.99); }
+  .pkx-qrbar button.is-ghost { background:transparent; border-color:transparent; opacity:.8; padding:.64rem .72rem; font-size:1.05rem; line-height:1; }
+  .pkx-qrbar button.is-ghost:hover { background:rgba(255,255,255,.08); color:#f8fafc; opacity:1; box-shadow:none; }
+  /* QR o'lcham tanlagich — FBS `.qrsz` bilan AYNAN bir xil (yuqoriga ochiladigan popover) */
+  .qrsz { position:relative; flex:none; }
+  .qrsz-trigger { display:inline-flex; align-items:center; gap:.4rem; background:rgba(255,255,255,.08); color:#f8fafc; border:1px solid rgba(255,255,255,.28); border-radius:12px; padding:.58rem .72rem; font-size:.92rem; font-weight:600; cursor:pointer; white-space:nowrap; font-family:inherit; transition:background .15s, border-color .15s; }
+  .qrsz-trigger:hover { background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.42); }
+  .qrsz-ic { width:15px; height:15px; color:#cbd5e1; flex:none; }
+  .qrsz-val { min-width:84px; text-align:left; }
+  .qrsz-caret { width:14px; height:14px; color:#cbd5e1; flex:none; transition:transform .18s ease; }
+  .qrsz.is-open .qrsz-caret { transform:rotate(180deg); }
+  .qrsz-menu { position:absolute; left:0; bottom:calc(100% + 8px); margin:0; padding:6px; list-style:none; min-width:100%; width:max-content; background:#0f172a; border:1px solid rgba(255,255,255,.14); border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.5); opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .16s ease, transform .18s cubic-bezier(.22,1,.36,1); z-index:5; }
+  .qrsz.is-open .qrsz-menu { opacity:1; transform:translateY(0); pointer-events:auto; }
+  .qrsz-group { padding:.4rem .7rem .28rem; font-size:.7rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#7c8aa5; cursor:default; }
+  .qrsz-group + .qrsz-opt { margin-top:0; }
+  .qrsz-group:not(:first-child) { margin-top:.25rem; border-top:1px solid rgba(255,255,255,.08); padding-top:.5rem; }
+  .qrsz-opt { padding:.5rem .7rem; border-radius:9px; font-size:.9rem; font-weight:600; color:#e2e8f0; cursor:pointer; white-space:nowrap; transition:background .12s, color .12s; }
+  .qrsz-opt:hover { background:rgba(255,255,255,.1); color:#fff; }
+  .qrsz-opt.is-sel { background:#4169E1; color:#fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pkx-app">
+  <div class="pkx-wrap">
+    <div id="pkxView"><div class="pkx-msg">…</div></div>
+  </div>
+</div>
+<div id="pkxModalHost"></div>
+
+{# «QR-коды» chop paneli — FBS/DBS bulk-bar bilan bir xil. QR-коды bosilganda
+   pastdan sirpanib chiqadi; o'lcham «Принтер»/«Термопринтер» guruhlariga
+   bo'lingan (Uzum dialogidagi kabi). #}
+<div class="pkx-qrbar" id="pkxQrBar" role="region" aria-label="QR-коды">
+  <span class="pkx-qrbar-title">{{ 'Yorliq o‘lchami' if lang == 'uz' else 'Размер наклейки' }}</span>
+  <div class="qrsz" id="pkxQrSizeDd" data-value="43x25">
+    <button type="button" class="qrsz-trigger" aria-haspopup="listbox" aria-expanded="false">
+      <svg class="qrsz-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v3M11 7v4M15 7v3M19 7v4"/></svg>
+      <span class="qrsz-val">43 × 25 mm</span>
+      <svg class="qrsz-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <ul class="qrsz-menu" role="listbox">
+      <li class="qrsz-group" aria-hidden="true">Принтер</li>
+      <li class="qrsz-opt" role="option" data-val="70x37">70 × 37 mm</li>
+      <li class="qrsz-opt" role="option" data-val="48.5x25.4">48.5 × 25.4 mm</li>
+      <li class="qrsz-opt" role="option" data-val="38x21.2">38 × 21.2 mm</li>
+      <li class="qrsz-group" aria-hidden="true">Термопринтер</li>
+      <li class="qrsz-opt" role="option" data-val="30x20">30 × 20 mm</li>
+      <li class="qrsz-opt" role="option" data-val="43x25">43 × 25 mm</li>
+      <li class="qrsz-opt" role="option" data-val="40x30">40 × 30 mm</li>
+      <li class="qrsz-opt" role="option" data-val="60x60">60 × 60 mm</li>
+      <li class="qrsz-opt" role="option" data-val="70x37_t">70 × 37 mm</li>
+    </ul>
+  </div>
+  <button type="button" class="is-primary" id="pkxQrPrint">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/><line x1="17" y1="21" x2="14" y2="21"/></svg>
+    <span>{{ 'Chop etish' if lang == 'uz' else 'Печать' }}</span>
+  </button>
+  <button type="button" class="is-ghost" id="pkxQrClose" aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">✕</button>
+</div>
+
+<script>
+(function(){
+  const RU = "{{ 'ru' }}";
+  const SHOPS = [
+    {% for s in shops %}{uzum_id:"{{ s.uzum_id }}", name:"{{ (s.name or s.uzum_id)|e }}"},{% endfor %}
+  ];
+  const ADDR = "Город Ташкент, Сергелийский р-н, Эшонбулок ССГ (МСГ), улица Ханабад, дом 2/2";
+
+  // F5/qayta yuklashda tanlangan do'kon va tab YO'QOLMASIN — localStorage'dan tiklaymiz.
+  const _ls = (k)=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } };
+  const _savedShop = _ls('pkxShop');
+  const _savedTab  = _ls('pkxTab');
+  const S = {
+    shop: SHOPS.some(s=>s.uzum_id===_savedShop) ? _savedShop : (SHOPS.length ? SHOPS[0].uzum_id : ''),
+    tab: (['fbo','returns','grab'].indexOf(_savedTab)>=0 ? _savedTab : 'fbo'),
+    view:'list', listStyle:'clean', filter:'all', search:'',
+    invoices:[], invPage:0, invGen:0, sel:{},
+    detailId:null, detail:null, products:[],
+    // Возвраты ro'yxati (server-side filtr + pagination)
+    returns:[], retPage:0, retGen:0, retHasMore:true, retLoading:false,
+    retStatus:'', retType:'', retSearch:'',
+    retDetailId:null, retDetail:null,
+    // Возврат yaratish sehrgari (stock-sku → amount → POST)
+    rskus:[], rskuPage:0, rskuGen:0, rskuHasMore:true, rskuLoading:false, rskuSearch:'', rskuSrchBusy:false,
+    ramt:{}, robj:{}, rskuTotal:0, retBannerHidden:false,  // ramt: {skuId:amount}, robj: {skuId: to'liq sku DTO}
+    step:'products', restock:[], rstPage:0, rstGen:0, rstHasMore:true, rstLoading:false, rstSearch:'', rstSrchBusy:false, qty:{}, price:{}, meta:{}, showReview:false, reviewHi:false,
+    prep:null, slots:[], calMonth:null, daySel:null, slotSel:null,
+    slotModal:null,  // {mode:'create'|'change', invoiceId, num, stockId, poolSource}
+  };
+
+  const el = document.getElementById('pkxView');
+  const host = document.getElementById('pkxModalHost');
+  const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmtN = v => (v==null?'0':Number(v).toLocaleString('ru-RU'));
+  const plural = (n,one,few,many) => { n=Math.abs(n)%100; const d=n%10; if(n>10&&n<20)return many; if(d>1&&d<5)return few; if(d===1)return one; return many; };
+  const fmtSom = v => (v==null?'—':fmtN(v)+' soʼm');
+  const fmtSum = v => (v==null?'—':fmtN(v)+' сум');
+  const fmtSlot = ts => { if(!ts) return ''; const d=new Date(ts); return d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); };
+  const fmtDate = ts => { if(!ts) return ''; return new Date(ts).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); };
+  const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MONTHS_G = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+  // image-tile glyph
+  const IMG_GLYPH = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+  // Thumbnail sifati: past o'lchamli URL'ni (80 yoki *_low) 240_high'ga ko'taramiz → tiniq.
+  const _imgUp = u => (u||'').replace(/t_product_\d+_(?:high|low)\.(jpe?g|png|webp)/i,'t_product_240_high.$1');
+  const tile = (img,sz) => `<div class="pkx-imgtile" style="width:${sz}px;height:${sz}px">${img?`<img src="${esc(_imgUp(img))}" decoding="async" onerror="this.parentNode.innerHTML='${'' }'">`:IMG_GLYPH}</div>`;
+
+  // ───────── «QR-коды» chop paneli (FBS/DBS bulk-bar bilan bir xil) ─────────
+  const qrBar = document.getElementById('pkxQrBar');
+  // O'lcham dropdown — FBS `initQrSizeDropdown` bilan AYNAN bir xil mantiq;
+  // tanlov localStorage(`pkxQrSize`) bilan eslab qolinadi. `.qrsz-group`
+  // sarlavhalari (Принтер/Термопринтер) variant EMAS — faqat `.qrsz-opt`.
+  const qrSize = (function(){
+    const root=document.getElementById('pkxQrSizeDd'); if(!root) return null;
+    const trigger=root.querySelector('.qrsz-trigger');
+    const valEl=root.querySelector('.qrsz-val');
+    const opts=Array.from(root.querySelectorAll('.qrsz-opt'));
+    if(!trigger||!valEl||!opts.length) return null;
+    const apply=(v,persist)=>{ const o=opts.find(x=>x.dataset.val===v)||opts[0]; root.dataset.value=o.dataset.val; valEl.textContent=o.textContent; opts.forEach(x=>x.classList.toggle('is-sel',x===o)); if(persist){ try{ localStorage.setItem('pkxQrSize',o.dataset.val);}catch(_){}} };
+    let init='43x25'; try{ const s=localStorage.getItem('pkxQrSize'); if(s) init=s; }catch(_){}
+    apply(init,false);
+    const close=()=>{ root.classList.remove('is-open'); trigger.setAttribute('aria-expanded','false'); };
+    trigger.addEventListener('click',e=>{ e.stopPropagation(); const willOpen=!root.classList.contains('is-open'); root.classList.toggle('is-open',willOpen); trigger.setAttribute('aria-expanded',willOpen?'true':'false'); });
+    opts.forEach(o=>o.addEventListener('click',e=>{ e.stopPropagation(); apply(o.dataset.val,true); close(); }));
+    document.addEventListener('click',e=>{ if(!root.contains(e.target)) close(); });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+    return { get value(){ return root.dataset.value||'43x25'; } };
+  })();
+  function openQrBar(){ if(qrBar) qrBar.classList.add('is-visible'); }
+  function closeQrBar(){ if(qrBar) qrBar.classList.remove('is-visible'); }
+  (function(){
+    const printBtn=document.getElementById('pkxQrPrint');
+    const closeBtn=document.getElementById('pkxQrClose');
+    if(closeBtn) closeBtn.addEventListener('click',closeQrBar);
+    // Hamma o'lcham → bizning o'tkir qrserver-HTML chop sahifasi YASHIRIN
+    // iframe'da yuklanadi va to'g'ridan-to'g'ri chop oynasini ochadi (yangi tab
+    // ochilmaydi). Backend o'lchamга qarab A4-grid (Принтер) yoki 1-yorliq/sahifa
+    // (Термопринтер) rejimini tanlaydi.
+    // Takroriy-bosish himoyasi: yuklanish sekin bo'lsa (ko'p yorliq) tugma
+    // "ishlamayotgandek" tuyulib, qayta bosilsa har bosish YANGI iframe + YANGI chop
+    // oynasi ochardi (3-4 ta oyna bagi). Endi bosgandan keyin tugma bloklanadi va
+    // "Tayyorlanmoqda…" ko'rsatadi; chop sahifasi tayyor bo'lib chop oynasi ochilгач
+    // (`fbs-qr-print-done` postMessage) yoki 12s zaxira'da tiklanadi.
+    if(printBtn){
+      const _qrOrigHtml=printBtn.innerHTML;
+      let _qrBusy=false;
+      const _qrSetBusy=(b)=>{
+        _qrBusy=b;
+        printBtn.disabled=b;
+        printBtn.style.opacity=b?'.7':'';
+        printBtn.style.cursor=b?'wait':'';
+        printBtn.innerHTML=b?'<span>{{ "Tayyorlanmoqda…" if lang == "uz" else "Готовим…" }}</span>':_qrOrigHtml;
+      };
+      printBtn.addEventListener('click',()=>{
+        if(_qrBusy) return;                       // takror bosishni e'tiborsiz qoldiramiz
+        const id=S.detail&&S.detail.id; if(!id) return;
+        const size=(qrSize&&qrSize.value)||'43x25';
+        const url=`/postavki/api/invoice/${id}/qr-print?shop=${encodeURIComponent(S.shop)}&size=${encodeURIComponent(size)}`;
+        _qrSetBusy(true);
+        const fr=document.createElement('iframe');
+        fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+        fr.src=url;
+        document.body.appendChild(fr);
+        let _qrFallback;
+        const _onMsg=(e)=>{ if(e&&e.data&&e.data.type==='fbs-qr-print-done'){ _qrSetBusy(false); window.removeEventListener('message',_onMsg); clearTimeout(_qrFallback); } };
+        window.addEventListener('message',_onMsg);
+        // Zaxira — xabar kelmasa ham 12s da tugmani tiklaymiz (mangu bloklanmasin).
+        _qrFallback=setTimeout(()=>{ _qrSetBusy(false); window.removeEventListener('message',_onMsg); },12000);
+        setTimeout(()=>{ try{ fr.remove(); }catch(e){} },120000);
+      });
+    }
+  })();
+
+  // ───────── data ─────────
+  async function api(url, opt){ const r=await fetch(url,opt); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j; }
+  const Q = obj => Object.entries(obj).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+
+  const FILTER_STATUSES = { all:'', created:'CREATED', accepted:'ACCEPTED', canceled:'CANCELED' };
+  async function loadInvoices(reset){
+    if(reset){ S.invPage=0; S.invoices=[]; S.invHasMore=true; }
+    else if(S.invLoading || S.invHasMore===false) return;
+    const gen=++S.invGen; S.invLoading=true;
+    try{
+      const st=FILTER_STATUSES[S.filter]||'';
+      const j=await api(`/postavki/api/invoices?`+Q({shop:S.shop,page:S.invPage,size:20,statuses:st}));
+      if(gen!==S.invGen) return;          // newer reset superseded us → discard
+      const items=j.items||[];
+      S.invoices=S.invoices.concat(items);
+      S.invHasMore = items.length===20;
+      S.invPage++;
+    } finally { if(gen===S.invGen) S.invLoading=false; }
+  }
+  // ── Возвраты: status/type lug'atlari (HAR «Поставки20+» qiymatlari) ──
+  const RET_STATUS_LABEL = {
+    CREATED:'Создана', SENT:'Отправлена', IN_PROGRESS:'В работе',
+    MOVED_TO_DELIVERY:'Передан в доставку', ASSEMBLED:'Готов к выдаче',
+    COMPLETED:'Завершен', UTILIZED:'Утилизирован', CANCELED:'Отменён',
+  };
+  const RET_STATUS_ORDER = ['CREATED','SENT','IN_PROGRESS','MOVED_TO_DELIVERY','ASSEMBLED','COMPLETED','UTILIZED','CANCELED'];
+  const RET_TYPE_LABEL = { RETURN:'Возврат', DEFECTED:'Брак', FBS:'FBS' };
+
+  // Server-side filtrlangan + sahifalangan возврат ro'yxati (FBO bilan bir xil naqsh).
+  async function loadReturns(reset){
+    if(reset){ S.retPage=0; S.returns=[]; S.retHasMore=true; }
+    else if(S.retLoading || S.retHasMore===false) return;
+    const gen=++S.retGen; S.retLoading=true;
+    try{
+      const j=await api(`/postavki/api/returns?`+Q({shop:S.shop,page:S.retPage,size:20,
+        statuses:S.retStatus, types:S.retType, number:S.retSearch.trim()}));
+      if(gen!==S.retGen) return;             // newer reset superseded us
+      const items=j.items||[];
+      S.returns=S.returns.concat(items);
+      S.retHasMore = items.length===20;
+      S.retPage++;
+    } finally { if(gen===S.retGen) S.retLoading=false; }
+  }
+  async function loadRetDetail(id){ const j=await api(`/postavki/api/return/${id}?`+Q({shop:S.shop})); S.retDetail=j.detail||{}; }
+  // Pool'ga yangi SKU'larni qo'shadi (skuId bo'yicha dedupe) + to'liq DTO'ni robj'ga
+  // saqlaydi (create POST'ga AYNAN qaytariladi). Qaytaradi: qancha qo'shildi.
+  function mergeRskus(items){
+    if(!items||!items.length) return 0;
+    const seen=new Set(S.rskus.map(p=>String(p.skuId)));
+    let added=0;
+    items.forEach(p=>{ if(p && p.skuId!=null){ const k=String(p.skuId); S.robj[p.skuId]=p; if(!seen.has(k)){ seen.add(k); S.rskus.push(p); added++; } } });
+    return added;
+  }
+  // Browse (qidiruvsiz) — to'liq katalogni 20 tadan to'plab boradi.
+  async function loadRskus(reset){
+    if(reset){ S.rskuPage=0; S.rskus=[]; S.rskuHasMore=true; }
+    else if(S.rskuLoading || S.rskuHasMore===false) return;
+    const gen=++S.rskuGen; S.rskuLoading=true;
+    try{
+      const j=await api(`/postavki/api/return-skus?`+Q({shop:S.shop,page:S.rskuPage,size:20}));
+      if(gen!==S.rskuGen) return;
+      const items=j.items||[];
+      if(j.total!=null) S.rskuTotal=j.total;   // hero «доступно N SKU» uchun
+      mergeRskus(items);
+      S.rskuHasMore = items.length===20;
+      S.rskuPage++;
+    } finally { if(gen===S.rskuGen) S.rskuLoading=false; }
+  }
+  // Fonda server qidiruvi (&filter=q) — pool'da hali yo'q mos SKU'larni topib qo'shadi.
+  let rskuSrchGen=0;
+  async function searchRskuServer(q){
+    if(!q) return;
+    const gen=++rskuSrchGen;
+    try{
+      const j=await api(`/postavki/api/return-skus?`+Q({shop:S.shop,page:0,size:50,search:q}));
+      if(gen!==rskuSrchGen || S.rskuSearch.trim()!==q) return;   // eskirgan → tashlab yubor
+      mergeRskus(j.items||[]);
+    }catch(_){}
+    finally{ if(gen===rskuSrchGen && S.rskuSearch.trim()===q){ S.rskuSrchBusy=false; renderRskuRows(); } }   // qidiruv tugadi → holatni yangila
+  }
+  // Pool'ga qo'shadi (skuId bo'yicha). Mavjud bo'lsa — REAL ma'lumot bilan ALMASHTIRADI
+  // (draft placeholder'i 0/«—» bo'lsa, real остаток/габариты bilan to'ldiriladi).
+  function mergeRst(items){
+    if(!items||!items.length) return 0;
+    const idx=new Map(); S.restock.forEach((p,i)=>idx.set(String(p.skuId),i));
+    let added=0;
+    items.forEach(p=>{ if(p&&p.skuId!=null){ const k=String(p.skuId);
+      if(idx.has(k)) S.restock[idx.get(k)]=p;                         // yangila (placeholder → real)
+      else { idx.set(k,S.restock.length); S.restock.push(p); added++; }
+    }});
+    return added;
+  }
+  // Browse (qidiruvsiz) sahifalash — to'liq katalogni 20 tadan to'plab boradi.
+  async function loadRestock(reset){
+    if(reset){ S.rstPage=0; S.restock=[]; S.rstHasMore=true; }
+    else if(S.rstLoading || S.rstHasMore===false) return;
+    const gen=++S.rstGen; S.rstLoading=true;
+    try{
+      const j=await api(`/postavki/api/restock?`+Q({shop:S.shop,page:S.rstPage,size:20}));
+      if(gen!==S.rstGen) return;          // newer reset superseded us → discard
+      const items=j.items||[];
+      mergeRst(items);
+      S.rstHasMore = items.length===20;
+      S.rstPage++;
+    } finally { if(gen===S.rstGen) S.rstLoading=false; }
+  }
+  // Fonda server qidiruvi — pool'da hali yo'q SKU'larni topib qo'shadi (yuklanmagan sahifalardan).
+  let rstSrchGen=0;
+  async function searchRstServer(q){
+    if(!q) return;
+    const gen=++rstSrchGen;
+    try{
+      const j=await api(`/postavki/api/restock?`+Q({shop:S.shop,page:0,size:50,search:q}));
+      if(gen!==rstSrchGen || S.rstSearch.trim()!==q) return;  // eskirgan → tashlab yubor
+      mergeRst(j.items||[]);
+    }catch(_){}
+    finally{ if(gen===rstSrchGen && S.rstSearch.trim()===q){ S.rstSrchBusy=false; renderRstRows(); } }   // qidiruv tugadi → holatni yangila
+  }
+  // Yuklangan pool ichidan lokal filtr (nom · SKU · ШК · skuId), ko'p-so'zli.
+  // Defis (-) AYNAN saqlanadi (SKU'da ma'noli ajratgich) → tartib KATALOG bo'yicha
+  // qoladi, variantlar bir joyda — «tarqab ketmaydi».
+  function rstFiltered(){
+    const q=S.rstSearch.trim().toLowerCase();
+    if(!q) return S.restock;
+    const terms=q.split(/\s+/);
+    return S.restock.filter(p=>{
+      const hay=((p.productTitle||'')+' '+(p.skuTitle||'')+' '+(p.barcode||'')+' '+(p.skuId||'')).toLowerCase();
+      return terms.every(t=>hay.includes(t));
+    });
+  }
+  // Faqat qatorlar DOM'ini yangilaydi (butun sahifa emas) → qidiruv inputi fokusda qoladi, miltillamaydi.
+  function renderRstRows(){
+    const cont=el.querySelector('#pkxRstRows'); if(!cont) return;
+    const rows=rstFiltered();
+    const searching=S.rstSearch.trim()!=='';
+    cont.innerHTML = rows.length ? rows.map(rstRowHtml).join('')
+      : `<div class="pkx-msg">${searching ? (S.rstSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rstLoading||S.rstHasMore)?'Загрузка…':'Нет данных')}</div>`;
+    const more=el.querySelector('#pkxRstMore');
+    if(more) more.style.display=(searching||!S.rstHasMore)?'none':'';
+    bindQty();
+    updateBar();
+  }
+  async function loadDetail(id){ const j=await api(`/postavki/api/invoice/${id}?`+Q({shop:S.shop})); S.detail=j.detail||{}; S.products=j.products||[]; }
+
+  // ───────── status helpers ─────────
+  function statusVal(it){ return (it.invoiceStatus||{}).value || ''; }
+  function statusText(it){ const v=statusVal(it); if(v==='CREATED')return'Создана'; if(v==='ACCEPTED')return'Принята на складе'; if(v==='CANCELED'||v==='CANCELLED')return'Отменена'; return (it.invoiceStatus||{}).text||it.status||''; }
+  function statusBadge(it){ const v=statusVal(it); const cls = v==='CREATED'?'pkx-bd-gray': v==='ACCEPTED'?'pkx-bd-green': (v==='CANCELED'||v==='CANCELLED')?'pkx-bd-red':'pkx-bd-gray'; return `<span class="pkx-bd ${cls}">${esc(statusText(it))}</span>`; }
+  function statusDot(it){ const v=statusVal(it); const canc=(v==='CANCELED'||v==='CANCELLED'); const created=v==='CREATED'; const c=canc?'#E5484D':created?'#A2A6B8':'#2BAE6A'; const col=canc?'#E5484D':created?'#50556B':'#16794C'; const t=canc?'Отменена':created?'Создана':'Принята'; return `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:${col}"><span style="width:8px;height:8px;border-radius:50%;background:${c}"></span>${t}</span>`; }
+
+  // Do'kon-tanlagich (ro'yxat + yaratish sahifalarida bir xil). shopMenu() shuni anchor qiladi.
+  function shopSelHtml(){
+    const shopName = (SHOPS.find(s=>s.uzum_id===S.shop)||{}).name || S.shop || '—';
+    return `<div id="pkxShopSel" style="display:flex;align-items:center;gap:12px;border:1px solid #e6e6ec;border-radius:12px;padding:9px 14px;cursor:pointer;background:#fff;position:relative">
+        <span style="color:#9499AE;font-weight:700;font-size:11px;letter-spacing:.04em">МАГАЗИН</span>
+        <span style="font-weight:800;font-size:14px">${esc(shopName)}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>`;
+  }
+
+  // ════════════ LIST VIEW ════════════
+  function viewList(){
+    const tabBtn = (active,label,on)=>`<button data-on="${on}" class="pkx-seg-btn${active?' is-active':''}">${label}</button>`;
+    const header = `
+      <div class="pkx-card pkx-glass" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:46px;height:46px;border-radius:13px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:24px">🚚</div>
+          <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+            <h1 class="pkx-h1">Поставки</h1>
+            <span style="background:rgba(65,105,225,.1);color:#4169E1;font-weight:800;font-size:11px;letter-spacing:.05em;padding:5px 12px;border-radius:999px;text-transform:uppercase">FBO</span>
+            <span class="pkx-muted" style="font-size:13px">пополнение склада</span>
+          </div>
+        </div>
+        ${shopSelHtml()}
+      </div>`;
+    const tabs = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="pkx-seg">
+          ${tabBtn(S.tab==='fbo','FBO','tab-fbo')}
+          ${tabBtn(S.tab==='returns','Возвраты','tab-returns')}
+          ${tabBtn(S.tab==='grab','Авто-слот','tab-grab')}
+        </div>
+        ${S.tab==='grab' ? '' : `<button data-on="${S.tab==='returns'?'ret-create':'create'}" class="pkx-btn pkx-btn-primary" style="display:flex;align-items:center;gap:8px;padding:11px 18px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>${S.tab==='returns'?'Создать возврат':'Создать поставку'}</button>`}
+      </div>`;
+    return header + tabs + (S.tab==='fbo' ? fboCard() : S.tab==='grab' ? grabCard() : returnsCard());
+  }
+
+  function viewSwitchHtml(){
+    const b=(active,label,on)=>`<button data-on="${on}" class="pkx-vseg-btn${active?' is-active':''}">${label}</button>`;
+    return `<div style="display:flex;align-items:center;gap:9px">
+      <span class="pkx-muted" style="font-size:12px">Вид</span>
+      <div style="display:flex;background:#f3f4f6;border-radius:11px;padding:3px">
+        ${b(S.listStyle==='clean','Чистый','vs-clean')}${b(S.listStyle==='summary','Сводка','vs-summary')}${b(S.listStyle==='progress','Прогресс','vs-progress')}
+      </div></div>`;
+  }
+
+  function filteredInvoices(){
+    // status filtri server-side (statuses param). Bu yerda faqat qidiruv (yuklangan qatorlar).
+    let rows = S.invoices;
+    if(S.search.trim()){ const q=S.search.trim(); rows=rows.filter(r=>String(r.invoiceNumber||'').includes(q)); }
+    return rows;
+  }
+
+  // Tanlash rejimi — «Создана» va «Все» filtrlarida (Принята/Отменена'да checkbox chiqmaydi).
+  // «Все»da checkbox FAQAT «Создана» statusidagi qatorlar uchun ko'rinadi.
+  function selMode(){ return S.view==='list' && S.tab==='fbo' && (S.filter==='created' || S.filter==='all'); }
+  function rowSelectable(it){ return statusVal(it)==='CREATED'; }
+  // Slot KUNI o'tib ketganmi — SANA bo'yicha (soat emas!): Uzum slot kuni
+  // ichida soati o'tgan aktni ham qabul qilaveradi; faqat kun to'liq o'tgach
+  // akt «kuygan» hisoblanadi (yangi slot ham berilmaydi — time-slot-003).
+  function slotIsPassed(it){
+    const ts=(it||{}).timeSlotReservation; if(!(ts && ts.timeFrom)) return false;
+    const d=new Date(ts.timeFrom);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()+1).getTime() <= Date.now();
+  }
+  const SLOT_PASSED_HINT='Время слота уже прошло — отмените поставку и создайте новую';
+  // Uzum'ning xom JSON xatosini odam tiliga o'giradi (time-slot-003).
+  function slotErrMsg(m){
+    m=String(m||'');
+    if(/time-slot-003|cannot be reserved/i.test(m))
+      return 'Uzum отклонил бронирование слота. Если время текущего слота уже прошло — отмените поставку и создайте новую; иначе слот успели занять, выберите другое время.';
+    return m;
+  }
+  function invGridCss(){ return 'grid-template-columns:'+(selMode()?'44px ':'')+'1.4fr 110px 175px 150px 150px 130px 180px'; }
+  function invoiceRowHtml(it){
+    const created = statusVal(it)==='CREATED';
+    const dots = S.listStyle==='progress';
+    const showBar = S.listStyle!=='clean';
+    const slot = it.timeSlotReservation ? it.timeSlotReservation.timeFrom : null;
+    const gplan = (S.grabPlans||{})[it.id];
+    // Re-booking: akt allaqachon slotда bo'lsa ham, avto-slot faol bo'lsa
+    // slot YONIDA kichik «⏳» chip (ertaroq slot kuzatilyapti; bosilsa bekor).
+    const grabChip = gplan
+      ? `<span data-grabcancel="${gplan.id}" title="Авто-слот активен (ищем слот раньше) · нажмите чтобы отменить" style="display:inline-flex;align-items:center;background:#FFF4D6;color:#9A6B00;border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px;cursor:pointer">⏳</span>`
+      : '';
+    const passed = created && slotIsPassed(it);
+    const passedChip = passed
+      ? `<span title="${SLOT_PASSED_HINT}" style="display:inline-flex;align-items:center;background:#FDECEC;color:#C0353A;border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px">просрочен</span>`
+      : '';
+    const slotCell = slot
+      ? `<span style="display:inline-flex;align-items:center;gap:7px"><span style="color:${passed?'#9499AE':'#1C2030'};font-weight:700;font-size:13px">${fmtSlot(slot)}</span>${passedChip}${grabChip}</span>`
+      : (gplan
+          ? `<span data-grabcancel="${gplan.id}" title="Авто-слот до ${esc(gplan.targetDay)} · нажмите чтобы отменить" style="display:inline-flex;align-items:center;gap:5px;background:#FFF4D6;color:#9A6B00;border-radius:8px;padding:4px 9px;font-weight:800;font-size:12px;cursor:pointer">⏳ ${esc(grabDayFmt(gplan.targetDay))}</span>`
+          : `<span style="color:#B8BCC9;font-weight:600;font-size:13px">— нет слота —</span>`);
+    const acc=it.totalAccepted||0, tot=it.totalToStock||0, pct=tot?Math.min(100,Math.round(acc/tot*100)):0, full=acc>=tot&&tot>0;
+    const prog = showBar
+      ? `<div style="font-weight:700;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`
+      : `<span style="font-weight:700;font-size:13px">${acc} / ${tot}</span>`;
+    const statusCell = dots ? statusDot(it) : statusBadge(it);
+    const canChange = created && !passed && (it.remainingAmountOfUpdates==null || it.remainingAmountOfUpdates>0);
+    // O'tgan-slotli aktda tugma o'chiq + sabab tooltip'да (disabled tugma
+    // Chrome'да title ko'rsatmaydi — wrapper span kerak).
+    const slotBtn = passed
+      ? `<span title="${SLOT_PASSED_HINT}" style="display:inline-flex"><button class="pkx-mini" disabled>Слот</button></span>`
+      : `<button class="pkx-mini" data-act="slot" ${canChange?'':'disabled'}>Слот</button>`;
+    const acts = created
+      ? `${slotBtn}<button class="pkx-mini danger" data-act="cancel">Отмена</button>`
+      : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+    const stk = it.stock||{};
+    const checkCell = selMode()
+      ? (rowSelectable(it)
+          ? `<div class="pkx-check-cell"><input type="checkbox" class="pkx-row-check" data-check="${it.id}" ${S.sel[it.id]?'checked':''} aria-label="Выбрать"></div>`
+          : `<div class="pkx-check-cell"></div>`)   // «Все»da Создана bo'lmagan qatorda bo'sh katak (tekislik saqlanadi)
+      : '';
+    return `<div class="pkx-row-hover" data-row="${it.id}" data-num="${esc(it.invoiceNumber)}" data-stock="${stk.id||''}" data-pool="${esc(stk.poolSource||'FULLFILMENT')}"
+        style="display:grid;${invGridCss()};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+      ${checkCell}
+      <div style="font-weight:800;font-size:14px;letter-spacing:-.01em"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(it.invoiceNumber)}</div>
+      <div style="color:#5A5F72;font-weight:600;font-size:13px">${esc(it.dateCreated)}</div>
+      <div>${statusCell}</div>
+      <div>${slotCell}</div>
+      <div>${prog}</div>
+      <div style="font-weight:800;font-size:13px">${fmtSom(it.fullPrice)}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">${acts}</div>
+    </div>`;
+  }
+
+  function fboCard(){
+    const rows = filteredInvoices();
+    const showStats = S.listStyle==='summary';
+
+    let stats='';
+    if(showStats){
+      const tot=S.invoices.length, acc=S.invoices.filter(r=>statusVal(r)==='ACCEPTED').length, cre=S.invoices.filter(r=>statusVal(r)==='CREATED').length;
+      const sum=S.invoices.reduce((a,r)=>a+(r.fullPrice||0),0);
+      const card=(lbl,val,col)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 16px"><div class="pkx-muted" style="font-size:12px;margin-bottom:8px;font-weight:700">${lbl}</div><div style="font-size:24px;font-weight:800;letter-spacing:-.02em;${col?'color:'+col:''}">${val}</div></div>`;
+      stats = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:20px 20px 4px">
+        ${card('Всего поставок',tot)}${card('Принято на складе',acc,'#1A7F4B')}${card('В ожидании',cre,'#B6852A')}
+        <div style="border:1px solid #1e293b;border-radius:14px;padding:15px 16px;background:#1e293b"><div style="color:rgba(255,255,255,.65);font-weight:700;font-size:12px;margin-bottom:8px">Сумма за период</div><div style="font-size:19px;font-weight:800;letter-spacing:-.02em;color:#fff">${fmtSom(sum)}</div></div></div>`;
+    }
+    const chip=(active,label,on)=>`<button data-on="${on}" class="pkx-chip${active?' is-active':''}">${label}</button>`;
+    const chips = `<div class="pkx-trek" data-glide="filter">${chip(S.filter==='all','Все','f-all')}${chip(S.filter==='created','Создана','f-created')}${chip(S.filter==='accepted','Принята','f-accepted')}${chip(S.filter==='canceled','Отменена','f-canceled')}</div>`;
+
+    const toolbar = `<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap">
+        <div class="pkx-search" style="width:240px;max-width:100%">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input id="pkxSearch" type="search" name="pkx-inv-search" value="${esc(S.search)}" placeholder="Номер поставки" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+        </div>
+        ${chips}
+        <div style="flex:1"></div>
+        ${viewSwitchHtml()}
+      </div>`;
+
+    const headCheck = selMode() ? `<div class="pkx-check-cell"><input id="pkxSelAll" type="checkbox" class="pkx-row-check" aria-label="Выбрать все"></div>` : '';
+    const head = `<div style="display:grid;${invGridCss()};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+        ${headCheck}${['№','ДАТА','СТАТУС','ТАЙМ-СЛОТ','ПРИНЯТО / ВСЕГО','СУММА',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+
+    const body = rows.length ? rows.map(invoiceRowHtml).join('') : `<div class="pkx-msg">${(S.invLoading||S.invHasMore)?'Загрузка…':'Нет данных'}</div>`;
+    const more = (S.invHasMore && rows.length) ? `<div id="pkxMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+
+    const selBar = selMode() ? `<div id="pkxSelBar" class="pkx-selbar">
+        <span class="pkx-selbar-count"><b id="pkxSelCount">0</b> выбрано</span>
+        <button id="pkxSelSlot" class="pkx-selbar-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Выбрать время поставки</button>
+        <button id="pkxSelGrab" class="pkx-selbar-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/></svg>Авто-слот по дате</button>
+        <button id="pkxSelAct" class="pkx-selbar-btn2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>Акт отправки</button>
+        <button id="pkxSelActDl" class="pkx-selbar-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Скачать акт</button>
+      </div>` : '';
+
+    return `<div class="pkx-card" style="overflow:hidden">${stats}${toolbar}<div class="pkx-scroll"><div style="min-width:1100px">${head}<div id="pkxRows">${body}</div>${more}</div></div></div>${selBar}`;
+  }
+
+  function retStatusBadge(st){
+    const lbl=RET_STATUS_LABEL[st]||st||'—';
+    const cls = st==='COMPLETED'?'pkx-bd-green'
+      : (st==='ASSEMBLED'||st==='IN_PROGRESS'||st==='MOVED_TO_DELIVERY')?'pkx-bd-amber'
+      : (st==='CANCELED'||st==='UTILIZED')?'pkx-bd-red':'pkx-bd-gray';
+    return `<span class="pkx-bd ${cls}">${esc(lbl)}</span>`;
+  }
+  function returnsCard(){
+    const GRID='grid-template-columns:90px 175px 1.2fr 120px 145px 115px 155px 110px';
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+      ${['ТИП','СТАТУС','НОМЕР','ДАТА','ВРЕМЯ ВЫДАЧИ','МЕСТО','ХРАНЕНИЕ','ЭТТН'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const now=Date.now();
+    const body = S.returns.length ? S.returns.map(r=>{
+      const place=(r.stock||{}).title||'—';
+      const ps=r.paidStorage||{}; let storageDays=0;
+      if(ps.startDate){ const end=ps.endDate||now; storageDays=Math.max(0,Math.floor((end-ps.startDate)/86400000)); }
+      const storage = (ps.status==='ACTIVE'&&storageDays>0)
+        ? `<div style="display:flex;align-items:center;gap:6px;color:#E5484D;font-weight:800;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${storageDays} дней</div><div style="color:#B8BCC9;font-weight:600;font-size:11px;margin-top:2px">платное хранение</div>`
+        : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      const issue = r.executionDate ? `<span style="color:#1C2030;font-weight:700;font-size:13px">${fmtDate(r.executionDate)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      const ettn = (r.ettnInfo) ? `<span style="color:#1C2030;font-weight:700;font-size:13px">${esc(r.ettnInfo.number||r.ettnInfo)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      return `<div class="pkx-row-hover" data-retrow="${esc(r.id)}" style="display:grid;${GRID};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+        <div style="font-weight:700;font-size:13px;color:#5A5F72">${esc(RET_TYPE_LABEL[r.type]||r.type||'—')}</div>
+        <div>${retStatusBadge(r.status)}</div>
+        <div style="font-weight:800;font-size:14px">${esc(r.id)}</div>
+        <div style="color:#5A5F72;font-weight:600;font-size:13px">${fmtDate(r.dateCreated)}</div>
+        <div>${issue}</div>
+        <div style="display:flex;align-items:center;gap:5px;color:#5A5F72;font-weight:600;font-size:13px">${esc(place)}</div>
+        <div>${storage}</div>
+        <div>${ettn}</div></div>`;
+    }).join('') : `<div class="pkx-msg">${(S.retLoading||S.retHasMore)?'Загрузка…':'Нет данных'}</div>`;
+    const more = (S.retHasMore && S.returns.length) ? `<div id="pkxRetMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+
+    // type chiplari (Все / Возврат / Брак / FBS) — yagona tanlov, server-side
+    const tchip=(active,label,on)=>`<button data-on="${on}" class="pkx-chip${active?' is-active':''}">${label}</button>`;
+    const tchips=`<div class="pkx-trek" data-glide="rettype">${tchip(S.retType==='','Все','rt-all')}${tchip(S.retType==='RETURN','Возвраты','rt-return')}${tchip(S.retType==='DEFECTED','Брак','rt-defected')}${tchip(S.retType==='FBS','FBS','rt-fbs')}</div>`;
+    // status dropdown (Все статусы / …)
+    const stLabel = S.retStatus ? RET_STATUS_LABEL[S.retStatus] : 'Все статусы';
+    const statusDd=`<div class="pkx-retstatus" id="pkxRetStatus" style="position:relative">
+      <button type="button" data-on="rstatus-toggle" style="display:flex;align-items:center;gap:10px;background:#f3f4f6;border:none;border-radius:11px;padding:10px 14px;font-weight:700;color:#5A5F72;cursor:pointer">${esc(stLabel)}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
+    const toolbar=`<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap">
+      <div class="pkx-search" style="width:240px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRetSearch" type="search" name="pkx-ret-search" placeholder="Номер возврата" value="${esc(S.retSearch)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+      ${statusDd}
+      <div style="flex:1"></div>
+      ${tchips}</div>`;
+    return `<div class="pkx-card" style="overflow:hidden">${toolbar}<div class="pkx-scroll"><div style="min-width:1100px">${head}${body}${more}</div></div></div>`;
+  }
+
+  // ════════════ DETAIL VIEW ════════════
+  function viewDetail(){
+    const d=S.detail||{};
+    const created=statusVal(d)==='CREATED';
+    const slot=d.timeSlotReservation?d.timeSlotReservation.timeFrom:null;
+    const units=(S.products||[]).reduce((a,p)=>a+(p.quantityToStock||0),0);
+    const badge = created?`<span class="pkx-bd pkx-bd-gray">Создана</span>`:`<span class="pkx-bd pkx-bd-green">Принята на складе</span>`;
+    const stk=d.stock||{};
+    const tile2 = (lbl,inner)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px">${lbl}${inner}</div>`;
+    const info = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      ${tile2(`<div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Фулфилмент центр</div>`,`<div style="font-weight:700;font-size:14px;line-height:1.45">${esc(stk.address||ADDR)}</div>`)}
+      <div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Время поставки</div>${slot?`<div style="font-weight:700;font-size:14px">${fmtSlot(slot)}</div>`:`<div style="color:#B8BCC9;font-weight:600;font-size:14px">Не выбрано</div>`}</div>
+        ${created?`<span class="pkx-link" data-on="d-change" style="white-space:nowrap">Изменить</span>`:''}
+      </div>
+      <div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="display:flex;align-items:center;gap:6px"><span class="pkx-muted" style="font-size:12px">ЭТТН</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8bfcc" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+        <span class="pkx-link">Добавить</span></div>
+      ${tile2(`<div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Состав и сумма</div>`,`<div style="font-weight:700;font-size:14px">${units} шт, ${fmtSum(d.fullPrice)}</div>`)}
+    </div>`;
+    const actBtn=(bg,col,svg,label,attr)=>`<button ${attr||''} class="pkx-btn" style="display:flex;align-items:center;gap:8px;background:${bg};color:${col};padding:11px 18px;${bg==='#fff'?'border:1px solid #F2C9CB':''}">${svg}${label}</button>`;
+    const docSvg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6"/></svg>`;
+    const qrSvg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
+    const actions = created
+      ? `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}${actBtn('#f3f4f6','#334155',qrSvg,'QR-коды','data-on="d-qr"')}<button data-on="d-cancel" class="pkx-btn" style="background:#fff;border:1px solid #F2C9CB;color:#E5484D;padding:11px 18px">Отменить поставку</button></div>`
+      : `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('#f3f4f6','#334155',qrSvg,'QR-коды','data-on="d-qr"')}${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}</div>`;
+
+    // products table
+    const showFact = statusVal(d)==='ACCEPTED';
+    const flat=[]; (S.products||[]).forEach(g=>{ (g.skuForInvoiceDtoList||[{id:g.id,skuTitle:g.skuTitle,quantityToStock:g.quantityToStock,quantityAccepted:g.quantityAccepted,purchasePrice:g.purchasePrice}]).forEach(sk=>flat.push({...sk,productTitle:g.productTitle})); });
+    let ptable;
+    if(showFact){
+      const head=`<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','ПЛАН, ШТ','ФАКТ, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+      const rows=flat.map(it=>{ const short=(it.quantityAccepted||0)<(it.quantityToStock||0); return `<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+        <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.id)}</div></div></div>
+        <div style="font-weight:700;font-size:14px">${it.quantityToStock||0}</div>
+        <div style="font-weight:700;font-size:14px"><span style="${short?'color:#E5484D':''}">${it.quantityAccepted||0}</span></div>
+        <div style="font-weight:700;font-size:14px">${fmtN(it.purchasePrice)}</div></div>`; }).join('');
+      ptable=head+rows;
+    } else {
+      const head=`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','ПЛАН, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+      const rows=flat.map(it=>`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+        <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.id)}</div></div></div>
+        <div style="font-weight:700;font-size:14px">${it.quantityToStock||0}</div>
+        <div style="font-weight:700;font-size:14px">${fmtN(it.purchasePrice)}</div></div>`).join('');
+      ptable=head+rows;
+    }
+
+    return `<div>
+      <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;flex-wrap:wrap">
+        <button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="pkx-h1" style="white-space:nowrap">Поставка №${esc(d.invoiceNumber||'')}</h1>
+        <span class="pkx-muted" style="font-size:16px;font-weight:700">от ${esc(d.dateCreated||'')}</span>
+        ${badge}
+      </div>
+      <div class="pkx-card" style="padding:22px;margin-bottom:16px">${info}${actions}</div>
+      <div class="pkx-card" style="overflow:hidden">
+        <div style="padding:18px 22px 4px"><h2 class="pkx-h2" style="font-size:16px">Товары</h2></div>
+        <div class="pkx-scroll"><div style="min-width:760px">${ptable}</div></div>
+      </div></div>`;
+  }
+  function skuImg(it){ const p=it.photo&&it.photo.photo; if(!p) return it.image||''; const k=p['240']||p['80']||{}; return k.high||k.low||''; }
+
+  // ════════════ CREATE VIEW ════════════
+  function viewCreate(){
+    const stepper = `<div class="pkx-card" style="padding:20px 24px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+        <button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="pkx-h1" style="font-size:22px">Новая поставка</h1>
+        <div style="flex:1"></div>
+        ${shopSelHtml()}
+      </div>
+      <div style="display:flex;gap:14px">
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#1A7F4B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">1</span>Товары</div><div style="height:4px;border-radius:3px;background:#1A7F4B"></div></div>
+        <div style="flex:1">${S.step==='time'
+          ? `<div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#1e293b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#1e293b"></div>`
+          : `<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#B8BCC9;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#e8eaf0;color:#9499AE;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#e9ecf2"></div>`}</div>
+      </div></div>`;
+    return `<div>${stepper}${S.step==='time'?createTime():createProducts()}</div>` + (S.showReview?reviewModalHtml():'');
+  }
+
+  const RST_GRID='grid-template-columns:1fr 110px 110px 145px 185px';
+  function rstRowHtml(p){
+    const q = S.qty[p.skuId]!=null?S.qty[p.skuId]:'';
+    const gab=(p.dimensionalGroup||{}).title||'—';
+    const rec=(p.recommendQty!=null&&p.recommendQty>0)?`<div class="pkx-muted" style="font-size:12px;margin-top:5px">Рекомендуем привезти ${p.recommendQty} шт</div>`:'';
+    // Bloklangan SKU — qizil «Заблокирован» belgisi (+ sabab, agar bor bo'lsa)
+    const blkBadge = p.blocked ? `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:5px;background:#FCE8E8;color:#D14343;font-weight:700;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid #F3C9C9"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>Заблокирован</span>${p.blockReason?`<span class="pkx-muted" style="font-size:11px">${esc(p.blockReason)}</span>`:''}</div>` : '';
+    return `<div class="pkx-prow${(S.qty[p.skuId]>0)?' is-dirty':''}" style="display:grid;${RST_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6${p.blocked?';background:#FDF5F5':''}">
+      <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(p.image,64)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">SKU ${esc(p.skuTitle||'')} · ШК ${esc(p.barcode||'')}</div>${blkBadge}</div></div>
+      <div><span style="display:inline-block;background:#EEF1F8;color:#5A6588;font-weight:700;font-size:12px;padding:4px 10px;border-radius:7px">${esc(gab)}</span></div>
+      <div style="font-weight:700;font-size:14px">${p.quantityActive!=null?p.quantityActive:'…'}</div>
+      <div style="font-weight:700;font-size:14px">${fmtN(p.purchasePrice)}</div>
+      <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${p.skuId}" data-price="${p.purchasePrice||0}" data-name="${esc(p.productTitle||'')}" data-skutitle="${esc(p.skuTitle||'')}" data-bc="${esc(p.barcode||'')}" data-img="${esc(p.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
+    </div>`;
+  }
+  function createProducts(){
+    const GRID=RST_GRID;
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const visible = rstFiltered();
+    const searching = S.rstSearch.trim()!=='';
+    const rowsHtml = visible.length ? visible.map(rstRowHtml).join('')
+      : `<div class="pkx-msg">${searching ? (S.rstSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rstLoading||S.rstHasMore)?'Загрузка…':'Нет данных')}</div>`;
+    const more = (S.rstHasMore && S.restock.length && !searching) ? `<div id="pkxRstMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+    const rows = `<div id="pkxRstRows">${rowsHtml}</div>${more}`;
+
+    const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
+    const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
+    const canNext=totalUnits>0;
+    const bar=`<div style="position:sticky;bottom:14px;display:flex;align-items:center;gap:18px;background:#1e293b;border-radius:14px;padding:14px 20px;box-shadow:0 12px 34px rgba(22,22,40,.22);margin-top:14px">
+      <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Выбрано SKU:</span> ${selectedCount} / 100</div>
+      <div style="width:1px;height:18px;background:rgba(255,255,255,.16)"></div>
+      <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Количество единиц:</span> ${totalUnits} шт</div>
+      <div style="width:1px;height:18px;background:rgba(255,255,255,.16)"></div>
+      <button data-on="review" style="background:none;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0">Посмотреть</button>
+      <div style="flex:1"></div>
+      <button data-on="next" ${canNext?'':'disabled'} style="background:${canNext?'#fff':'rgba(255,255,255,.12)'};color:${canNext?'#1e293b':'#A9AEC4'};border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:${canNext?'pointer':'not-allowed'}">Дальше</button>
+    </div>`;
+
+    const card=`<div class="pkx-card" style="overflow:hidden;margin-bottom:14px">
+      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Выберите товары для поставки</h2>
+        <div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Не объединяйте в одну поставку крупногабаритный товар с малогабаритным и среднегабаритным.</div></div></div>
+      <div style="padding:0 22px 6px"><div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRstSearch" type="search" name="pkx-rst-search" value="${esc(S.rstSearch)}" placeholder="SKU или название товара" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div></div>
+      ${head}${rows}</div>`;
+    return card+bar;
+  }
+
+  function reviewModalHtml(){
+    const items=Object.keys(S.qty).filter(k=>S.qty[k]>0).map(k=>({skuId:k, qty:S.qty[k], price:(S.price[k]!=null?S.price[k]:(S.meta[k]||{}).price||0), ...(S.meta[k]||{})}));
+    // Narxsiz qator — qizil ramka (Uzum baribir rad etadi). «Дальше»dan
+    // kelinganда (S.reviewHi) tepada tushuntiruvchi banner ham chiqadi.
+    const warn = (S.reviewHi && items.some(it=>!(it.price>0)))
+      ? `<div style="display:flex;align-items:flex-start;gap:10px;background:#FDECEC;border-radius:12px;padding:12px 15px;margin:14px 0 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C0353A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div style="color:#A32E33;font-weight:600;font-size:13px">У выделенных товаров не указана себестоимость — без неё Uzum не примет поставку. Укажите цену и нажмите «Сохранить», чтобы продолжить.</div></div>`
+      : '';
+    const body = items.length ? items.map(it=>{ const bad=!(it.price>0); return `<div style="display:grid;grid-template-columns:1fr 150px 120px 40px;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid #f3f4f6">
+      <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(it.image,46)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">SKU ${esc(it.skutitle||'')} · ШК ${esc(it.bc||'')}</div></div></div>
+      <div style="display:flex;align-items:center;background:${bad?'#FDECEC':'#f3f4f6'};border-radius:10px;padding:0 12px;height:42px;${bad?'box-shadow:inset 0 0 0 1.5px #E5484D':''}"><input class="pkx-rprice" data-sku="${it.skuId}" inputmode="numeric" value="${it.price}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:#1C2030;font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">сум</span></div>
+      <div style="display:flex;align-items:center;background:#f3f4f6;border-radius:10px;padding:0 12px;height:42px"><input class="pkx-rqty" data-sku="${it.skuId}" inputmode="numeric" value="${it.qty}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:#1C2030;font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">шт</span></div>
+      <button class="pkx-rdel" data-sku="${it.skuId}" style="width:40px;height:40px;border-radius:10px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9499AE;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
+    </div>`; }).join('') : `<div style="padding:64px 0;text-align:center" class="pkx-muted">Нет выбранных товаров</div>`;
+    return `<div class="pkx-modal-bg" data-on="review-close"><div data-stop="1" style="background:#fff;border-radius:20px;width:760px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:19px">Товары для поставки</h2><button data-on="review-close" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#5A5F72;flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div style="flex:1;overflow-y:auto;padding:4px 24px 8px">${warn}${body}</div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid #eef0f4"><button data-on="review-close" class="pkx-btn pkx-btn-soft" style="padding:11px 22px;border-radius:11px">Назад</button><button data-on="review-save" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px">Сохранить</button></div>
+    </div></div>`;
+  }
+
+  function createTime(){
+    const place=`<div class="pkx-card" style="padding:20px 22px;margin-bottom:14px"><h2 class="pkx-h2" style="margin-bottom:6px">Место приёма</h2><div style="font-weight:700;font-size:14px;margin-bottom:3px">Фулфилмент центр</div><div class="pkx-muted" style="font-size:13px">${esc((S.prep&&S.prep.stock&&S.prep.stock.address)||ADDR)}</div></div>`;
+    const cal=`<div class="pkx-card" style="padding:22px;margin-bottom:14px"><h2 class="pkx-h2" style="margin-bottom:18px">Время поставки</h2>${calendarHtml()}</div>`;
+    const footer=`<div class="pkx-card" style="display:flex;align-items:center;justify-content:space-between;border-radius:14px;padding:14px 18px">
+      <button data-on="later" class="pkx-btn pkx-btn-soft" style="padding:11px 18px;border-radius:11px">Выбрать позже</button>
+      <div style="display:flex;gap:10px"><button data-on="back-products" class="pkx-btn" style="background:#f3f4f6;color:#334155;padding:11px 20px;border-radius:11px">Назад</button>
+      <button data-on="finish" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px;${S.slotSel?'':'opacity:.5;cursor:not-allowed'}">Готово</button></div></div>`;
+    return place+cal+footer;
+  }
+
+  // calendar shared by create-step2 and change-slot modal. Uses S.slots, S.calMonth, S.daySel, S.slotSel
+  function slotsByDay(){ const m={}; (S.slots||[]).forEach(s=>{ const d=new Date(s.timeFrom); const k=d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); (m[k]=m[k]||[]).push(s); }); return m; }
+  function calendarHtml(){
+    const map=slotsByDay();
+    const availDays=new Set(Object.keys(map));
+    if(!S.calMonth){ const first=(S.slots&&S.slots[0])?new Date(S.slots[0].timeFrom):new Date(); S.calMonth=new Date(first.getFullYear(),first.getMonth(),1).getTime(); }
+    const cm=new Date(S.calMonth); const y=cm.getFullYear(), mo=cm.getMonth();
+    const firstDow=(new Date(y,mo,1).getDay()+6)%7; // Mon=0
+    const daysIn=new Date(y,mo+1,0).getDate();
+    let cells='';
+    for(let i=0;i<firstDow;i++) cells+='<div></div>';
+    for(let dn=1;dn<=daysIn;dn++){
+      const key=y+'-'+mo+'-'+dn; const has=availDays.has(key);
+      const sel=S.daySel===key;
+      if(sel) cells+=`<div data-day="${key}" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#1e293b;color:#fff;font-weight:800;font-size:14px;cursor:pointer">${dn}</div>`;
+      else if(has) cells+=`<div data-day="${key}" class="pkx-cal-day" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#1C2030;font-weight:700;font-size:14px;cursor:pointer">${dn}</div>`;
+      else cells+=`<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#ccd2dc;font-weight:600;font-size:14px">${dn}</div>`;
+    }
+    const dows=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(d=>`<div style="text-align:center;color:#B8BCC9;font-weight:800;font-size:11px;padding:4px 0">${d}</div>`).join('');
+    const calLeft=`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div data-on="cal-prev" style="width:32px;height:32px;border-radius:9px;border:1px solid #e6e6ec;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div style="font-weight:800;font-size:15px">${MONTHS[mo]} <span class="pkx-muted" style="margin-left:6px">${y}</span></div>
+        <div data-on="cal-next" style="width:32px;height:32px;border-radius:9px;border:1px solid #e6e6ec;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${dows}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div></div>`;
+    // right: slots of selected day
+    let right='<div class="pkx-muted" style="font-weight:700;align-self:center">Выберите день</div>';
+    if(S.daySel && map[S.daySel]){
+      const arr=map[S.daySel]; const d0=new Date(arr[0].timeFrom);
+      const heading=`${d0.getDate()} ${MONTHS_G[d0.getMonth()]}`;
+      const chips=arr.map(s=>{ const sel=S.slotSel===s.timeFrom; const lbl=new Date(s.timeFrom).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+'–'+new Date(s.timeTo).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        return `<button data-slot="${s.timeFrom}" style="border:${sel?'1.5px solid #1e293b':'1px solid #e6e6ec'};background:${sel?'#1e293b':'#fff'};color:${sel?'#fff':'#334155'};border-radius:11px;padding:13px 8px;font-size:14px;font-weight:700;cursor:pointer">${lbl}</button>`; }).join('');
+      right=`<div><div style="font-weight:800;font-size:15px;margin-bottom:14px">${heading}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${chips}</div></div>`;
+    }
+    return `<div style="display:grid;grid-template-columns:340px 1fr;gap:32px">${calLeft}${right}</div>`;
+  }
+
+  // ───────── render + wiring ─────────
+  // FBO/Возвраты/Авто-слот segmenti «Glass Slide» plitasi. Har render'da DOM
+  // yangidan quriladi, shuning uchun plita avval OLDINGI pozitsiyaga
+  // (transition'siz) qo'yiladi, keyin aktiv tab ostiga sirpatiladi —
+  // FBS bo'lim tablari bilan bir xil his.
+  // Har bir trek/segment uchun plita pozitsiyasi eslab qolinadi (key bo'yicha) —
+  // view to'liq qayta chizilganda plita eski joyidan yangisiga sirpaydi.
+  const _glidePrev = {};
+  function placeGlide(row, key){
+    let th = row.querySelector(':scope > .pkx-glide');
+    if(!th){ th = document.createElement('span'); th.className = 'pkx-glide'; row.insertBefore(th, row.firstChild); }
+    const a = row.querySelector('.is-active');
+    if(!a){ th.style.opacity = '0'; delete _glidePrev[key]; return; }
+    const target = { left: a.offsetLeft, top: a.offsetTop, width: a.offsetWidth, height: a.offsetHeight };
+    const from = _glidePrev[key] || target;
+    // Avval oldingi pozitsiyaga transition'siz qo'yamiz; sirpashni rAF'ga
+    // qoldiramiz — handler bir tick'da bir necha marta render qilsa ham
+    // pozitsiya faqat ekranga chiqqan plitada yangilanadi, animatsiya kesilmaydi.
+    th.style.transition = 'none';
+    th.style.left = from.left + 'px'; th.style.top = from.top + 'px';
+    th.style.width = from.width + 'px'; th.style.height = from.height + 'px';
+    th.style.opacity = '1';
+    void th.offsetWidth;                       // reflow — keyingi o'zgarish animatsiyalanadi
+    th.style.transition = '';
+    requestAnimationFrame(function(){
+      if(!th.isConnected) return;              // shu tick'da qayta render bo'lgan — eskisi o'lik
+      th.style.left = target.left + 'px'; th.style.top = target.top + 'px';
+      th.style.width = target.width + 'px'; th.style.height = target.height + 'px';
+      _glidePrev[key] = target;
+    });
+    if(!_glidePrev[key]) _glidePrev[key] = target;
+  }
+  function placeSegThumb(){
+    const seg = el.querySelector('.pkx-seg');
+    if(seg) placeGlide(seg, 'seg'); else delete _glidePrev['seg'];
+    el.querySelectorAll('.pkx-trek').forEach(row => placeGlide(row, row.dataset.glide || 'trek'));
+  }
+  window.addEventListener('resize', placeSegThumb);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>placeSegThumb());
+
+  function render(){
+    try{ if(S.shop) localStorage.setItem('pkxShop',S.shop); localStorage.setItem('pkxTab',S.tab); }catch(_){}  // F5'da tiklash uchun
+    el.innerHTML = S.view==='list'?viewList(): S.view==='create'?viewCreate(): S.view==='detail'?viewDetail()
+      : S.view==='retdetail'?viewRetDetail(): S.view==='retcreate'?viewRetCreate():'';
+    wire();
+    placeSegThumb();
+  }
+
+  function go(view){ if(view!=='detail') closeQrBar(); S.view=view; render(); }
+
+  async function openDetail(id){ S.detailId=id; S.detail=null; S.products=[]; go('detail'); try{ await loadDetail(id); }catch(e){ el.innerHTML=`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`; return;} render(); }
+
+  function wire(){
+    // generic data-on
+    el.querySelectorAll('[data-on]').forEach(node=>{
+      const on=node.dataset.on;
+      node.addEventListener('click', async (e)=>{
+        if(on==='tab-fbo'){ S.tab='fbo'; render(); if(!S.invoices.length){await safe(()=>loadInvoices(true));} safe(()=>loadGrabPlans()).then(()=>render()); render(); }
+        else if(on==='tab-returns'){ S.tab='returns'; render(); if(!S.returns.length){ await safe(()=>loadReturns(true)); } render(); }
+        else if(on==='tab-grab'){ S.tab='grab'; render(); await safe(()=>loadAllPlans()); render(); }
+        else if(on==='create'){ S.view='create'; S.step='products'; S.qty={}; S.price={}; S.meta={}; S.rstSearch=''; S.showReview=false; render(); await safe(()=>loadRestock(true)); const cd=restoreCreateDraft(); render(); if(cd){ pkxAlert({variant:'success',icon:'✓',title:'Черновик восстановлен',message:'Ранее введённые количества к поставке восстановлены — можно продолжить.'}); fillCreateStock(); } }
+        else if(on==='back'){ if(retDirty()) saveRetDraftFlush(); if(createDirty()) saveCreateDraftFlush(); go('list'); refreshList(); }   // tasdiqsiz chiqamiz — qoralama jim saqlanadi
+        else if(on==='back-products'){ S.step='products'; render(); }
+        else if(on==='vs-clean'){ S.listStyle='clean'; render(); }
+        else if(on==='vs-summary'){ S.listStyle='summary'; render(); }
+        else if(on==='vs-progress'){ S.listStyle='progress'; render(); }
+        else if(on==='f-all'){ await setFilter('all'); }
+        else if(on==='f-created'){ await setFilter('created'); }
+        else if(on==='f-accepted'){ await setFilter('accepted'); }
+        else if(on==='f-canceled'){ await setFilter('canceled'); }
+        else if(on==='review'){ S.showReview=true; render(); }
+        else if(on==='review-close'){ S.showReview=false; S.reviewHi=false; render(); }
+        // «Сохранить»: «Дальше»dan kelingan bo'lsa (reviewHi) — narxsiz qator
+        // qolmagachgina yopiladi va avtomatik davom etadi.
+        else if(on==='review-save'){
+          if(S.reviewHi && zeroPriceSkus().length){ render(); pkxAlert({variant:'danger',title:'Укажите себестоимость',message:'У выделенных красным товаров себестоимость не указана — введите цену, чтобы продолжить.'}); }
+          else { const cont=S.reviewHi; S.showReview=false; S.reviewHi=false; render(); if(cont) await gotoTime(); }
+        }
+        // Narxsiz tanlangan tovar bo'lsa — Uzum validation-failed-001 qaytaradi;
+        // avval review-modalда qizil bilan narx so'raymiz.
+        else if(on==='next'){ if(node.disabled) return;
+          if(zeroPriceSkus().length){ S.showReview=true; S.reviewHi=true; render(); }
+          else await gotoTime(); }
+        else if(on==='later'){ await createSupply(false); }
+        else if(on==='finish'){ await createSupply(true); }
+        else if(on==='cal-prev'){ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()-1,1).getTime(); render(); }
+        else if(on==='cal-next'){ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()+1,1).getTime(); render(); }
+        else if(on==='d-change'){
+          if(slotIsPassed(S.detail)){ pkxAlert({variant:'danger',title:'Слот недоступен',message:SLOT_PASSED_HINT+'.'}); }
+          else openChangeSlot({invoiceId:S.detail.id, num:S.detail.invoiceNumber, stockId:(S.detail.stock||{}).id, poolSource:(S.detail.stock||{}).poolSource||'FULLFILMENT'});
+        }
+        else if(on==='d-cancel'){ await doCancel({invoiceId:S.detail.id, num:S.detail.invoiceNumber}, true); }
+        else if(on==='d-act'){ window.open(`/postavki/api/invoice/${S.detail.id}/act?shop=${encodeURIComponent(S.shop)}`,'_blank'); }
+        else if(on==='d-qr'){ openQrBar(); }
+        // ── Возвраты ──
+        else if(on==='rt-all'){ await setRetType(''); }
+        else if(on==='rt-return'){ await setRetType('RETURN'); }
+        else if(on==='rt-defected'){ await setRetType('DEFECTED'); }
+        else if(on==='rt-fbs'){ await setRetType('FBS'); }
+        else if(on==='rstatus-toggle'){ e.stopPropagation(); retStatusMenu(); }
+        else if(on==='ret-create'){ openRetCreate(); }
+        else if(on==='retd-cancel'){ await doCancelReturn({id:S.retDetail.id}, true); }
+        else if(on==='ret-submit'){ if(!node.disabled) await submitReturn(); }
+        else if(on==='ret-banner-x'){ S.retBannerHidden=true; render(); }
+        else if(on==='ret-selectall'){ retSelectAll(); }
+      });
+    });
+    // «Авто-слот» tabda reja bekor qilish
+    el.querySelectorAll('[data-grabcancel2]').forEach(b=>b.addEventListener('click',()=>cancelGrabPlanShop(b.dataset.shop, parseInt(b.dataset.grabcancel2))));
+    // shop selector
+    const ss=el.querySelector('#pkxShopSel'); if(ss) ss.addEventListener('click',shopMenu);
+    // search
+    const sb=el.querySelector('#pkxSearch'); if(sb) sb.addEventListener('input',e=>{ S.search=e.target.value; const card=el.querySelector('.pkx-card[style*="overflow:hidden"]'); refreshFboBody(); });
+    // rst search — lokal-birinchi (oniy filtr, faqat qatorlar) + fonda server backfill
+    const rs=el.querySelector('#pkxRstSearch'); if(rs){ let t; rs.addEventListener('input',e=>{
+      S.rstSearch=e.target.value; const q=S.rstSearch.trim();
+      S.rstSrchBusy=!!q;                                  // server javobigacha «Загрузка…» (xato «yo'q» chiqmasin)
+      renderRstRows();                                   // oniy lokal filtr — silliq, fokus saqlanadi
+      clearTimeout(t);
+      if(q) t=setTimeout(()=>searchRstServer(q),300);    // yuklanmagan SKU'larni fonda tortib keladi
+    }); rs.focus(); rs.setSelectionRange(rs.value.length,rs.value.length); }
+    // invoice rows
+    el.querySelectorAll('[data-row]').forEach(row=>{
+      row.addEventListener('click',()=>openDetail(row.dataset.row));
+      row.querySelectorAll('[data-act]').forEach(btn=>{ btn.addEventListener('click',(e)=>{ e.stopPropagation();
+        const ctx={invoiceId:parseInt(row.dataset.row), num:row.dataset.num, stockId:parseInt(row.dataset.stock)||0, poolSource:row.dataset.pool};
+        if(btn.dataset.act==='slot'){ if(!btn.disabled) openChangeSlot(ctx); }
+        else doCancel(ctx,false);
+      }); });
+    });
+    // Возврат qatorlari → detal
+    el.querySelectorAll('[data-retrow]').forEach(row=>{
+      row.addEventListener('click',()=>openRetDetail(row.dataset.retrow));
+    });
+    // Возврат qidiruv (nomer) — debounced server reload
+    const rsb=el.querySelector('#pkxRetSearch'); if(rsb){ let t; rsb.addEventListener('input',e=>{
+      S.retSearch=e.target.value; clearTimeout(t);
+      t=setTimeout(async ()=>{ await safe(()=>loadReturns(true)); render(); },350);
+    }); }
+    // Возврат yaratish — miqdor inputlari + qidiruv (lokal filtr)
+    bindRamt();
+    const rsk=el.querySelector('#pkxRskuSearch'); if(rsk){ let t; rsk.addEventListener('input',e=>{
+      S.rskuSearch=e.target.value; const q=S.rskuSearch.trim();
+      S.rskuSrchBusy=!!q;                                // server javobigacha «Загрузка…»
+      renderRskuRows();                                  // oniy lokal filtr — silliq, fokus saqlanadi
+      clearTimeout(t);
+      if(q) t=setTimeout(()=>searchRskuServer(q),300);   // yuklanmagan SKU'larni fonda &filter bilan tortib keladi
+    }); }
+    // ichki scroll → keyingi 20 SKU (modal ichida scroll bo'lгani uchun window emas)
+    const rscr=el.querySelector('#pkxRskuScroll'); if(rscr && !rscr._bound){ rscr._bound=1; rscr.addEventListener('scroll',()=>{
+      if(S.view!=='retcreate'||!S.rskuHasMore||S.rskuLoading||S.rskuSearch.trim()) return;
+      if(rscr.scrollHeight-rscr.scrollTop-rscr.clientHeight < 400){ loadRskus(false).then(()=>{ if(S.view==='retcreate') renderRskuRows(); }); }
+    }); }
+    // bulk-select (faqat «Создана») — checkbox + select-all + suzuvchi panel
+    wireSelection();
+    // qty inputs (create products)
+    bindQty();
+    // calendar day/slot
+    el.querySelectorAll('[data-day]').forEach(d=>d.addEventListener('click',()=>{ S.daySel=d.dataset.day; S.slotSel=null; render(); }));
+    el.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click',()=>{ S.slotSel=parseInt(b.dataset.slot); render(); }));
+
+    // review modal wiring (host overlay rendered inline within view)
+    wireReview();
+  }
+
+  // ── Bulk-tanlash (faqat «Создана») ──────────────────────────────
+  function updateSelUI(){
+    if(!selMode()) return;
+    const boxes=[...el.querySelectorAll('.pkx-row-check[data-check]')];
+    const checkedVisible=boxes.filter(b=>S.sel[b.dataset.check]).length;
+    const all=el.querySelector('#pkxSelAll');
+    if(all){ all.checked = boxes.length>0 && checkedVisible===boxes.length; all.indeterminate = checkedVisible>0 && checkedVisible<boxes.length; }
+    const bar=document.getElementById('pkxSelBar');
+    if(bar){ const cnt=Object.keys(S.sel).length; const c=bar.querySelector('#pkxSelCount'); if(c) c.textContent=cnt; bar.classList.toggle('is-visible', cnt>0); }
+  }
+  function wireSelection(){
+    if(!selMode()) return;
+    // qator checkbox'lari — bosilganда detalga o'tib ketmasin (stopPropagation)
+    el.querySelectorAll('.pkx-row-check[data-check]').forEach(cb=>{
+      const cell=cb.closest('.pkx-check-cell'); if(cell) cell.addEventListener('click',e=>e.stopPropagation());
+      cb.addEventListener('change',()=>{ const id=cb.dataset.check; if(cb.checked) S.sel[id]=true; else delete S.sel[id]; updateSelUI(); });
+    });
+    // «Выбрать все» — yuklangan (ko'rinayotgan) qatorlarni belgilaydi/yechadi
+    const all=el.querySelector('#pkxSelAll');
+    if(all) all.addEventListener('change',()=>{
+      el.querySelectorAll('.pkx-row-check[data-check]').forEach(cb=>{ cb.checked=all.checked; const id=cb.dataset.check; if(all.checked) S.sel[id]=true; else delete S.sel[id]; });
+      updateSelUI();
+    });
+    const slotBtn=document.getElementById('pkxSelSlot');
+    if(slotBtn) slotBtn.addEventListener('click',openBulkSlot);
+    const grabBtn=document.getElementById('pkxSelGrab');
+    if(grabBtn) grabBtn.addEventListener('click',openGrabPlan);
+    const actBtn=document.getElementById('pkxSelAct');
+    if(actBtn) actBtn.addEventListener('click',openBulkAct);
+    const actDlBtn=document.getElementById('pkxSelActDl');
+    if(actDlBtn) actDlBtn.addEventListener('click',downloadBulkAct);
+    // «kutyapti» badge bosilsa — avto-band rejani bekor qiladi (detalga o'tmaydi).
+    el.querySelectorAll('[data-grabcancel]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); cancelGrabPlan(parseInt(b.dataset.grabcancel)); }));
+    updateSelUI();
+  }
+
+  function wireReview(){
+    if(!S.showReview) return;
+    el.querySelectorAll('.pkx-rprice').forEach(i=>i.addEventListener('input',()=>{ S.price[i.dataset.sku]=parseInt(i.value)||0; saveCreateDraft();
+      // Qizil belgi jonli yangilansin: narx kiritilgach ramka o'chadi (re-render'siz — fokus saqlanadi).
+      const box=i.parentElement, ok=(parseInt(i.value)||0)>0;
+      if(box){ box.style.background = ok?'#f3f4f6':'#FDECEC'; box.style.boxShadow = ok?'':'inset 0 0 0 1.5px #E5484D'; }
+    }));
+    el.querySelectorAll('.pkx-rqty').forEach(i=>i.addEventListener('input',()=>{ let v=parseInt(i.value)||0; if(v<0)v=0; S.qty[i.dataset.sku]=v; saveCreateDraft(); }));
+    el.querySelectorAll('.pkx-rdel').forEach(b=>b.addEventListener('click',()=>{ S.qty[b.dataset.sku]=0; saveCreateDraft(); render(); }));
+    el.querySelectorAll('[data-stop]').forEach(n=>n.addEventListener('click',e=>e.stopPropagation()));
+  }
+
+  // bind qty inputs idempotently (so appended rows wire without re-running wire())
+  function bindQty(){
+    el.querySelectorAll('.pkx-qty').forEach(inp=>{ if(inp._bound) return; inp._bound=1;
+      inp.addEventListener('input',()=>{
+        const sku=inp.dataset.sku; let v=parseInt(inp.value)||0; if(v<0)v=0;
+        S.qty[sku]=v; S.meta[sku]={price:parseInt(inp.dataset.price)||0,name:inp.dataset.name,skutitle:inp.dataset.skutitle,bc:inp.dataset.bc,image:inp.dataset.img||''};
+        const row=inp.closest('.pkx-prow'); if(row) row.classList.toggle('is-dirty', v>0);
+        updateBar(); saveCreateDraft();
+      });
+    });
+  }
+  // ↑↓ stepper (FBS «Ombor» bilan bir xil): bosish ±1, ~400ms ushlab turilsa
+  // avto-takror (80ms). Delegatsiya el'da — render/append'lardan omon qoladi.
+  function stepQty(inp, dir){
+    if(!inp) return;
+    let v=parseInt(inp.value)||0; v=Math.max(0, v+dir);
+    inp.value=String(v);
+    const sku=inp.dataset.sku;
+    S.qty[sku]=v; S.meta[sku]={price:parseInt(inp.dataset.price)||0,name:inp.dataset.name,skutitle:inp.dataset.skutitle,bc:inp.dataset.bc,image:inp.dataset.img||''};
+    const row=inp.closest('.pkx-prow'); if(row) row.classList.toggle('is-dirty', v>0);
+    updateBar(); saveCreateDraft();
+  }
+  let _qtyHold=null, _qtyRep=null;
+  function stopQtyHold(){ clearTimeout(_qtyHold); clearInterval(_qtyRep); _qtyHold=_qtyRep=null; }
+  el.addEventListener('pointerdown', e=>{
+    const btn=e.target.closest('.pkx-step'); if(!btn) return;
+    e.preventDefault();  // maydon fokusini o'g'irlamaydi
+    const inp=btn.closest('.pkx-stepper').querySelector('.pkx-qty');
+    const dir=btn.dataset.step==='up'?1:-1;
+    stepQty(inp, dir);
+    _qtyHold=setTimeout(()=>{ _qtyRep=setInterval(()=>stepQty(inp, dir), 80); }, 400);
+  });
+  window.addEventListener('pointerup', stopQtyHold);
+  window.addEventListener('pointercancel', stopQtyHold);
+
+  // append the next restock page in place (no full render → search box keeps focus, no scroll jump)
+  function appendRstRows(items){
+    const cont=el.querySelector('#pkxRstRows'); if(!cont) return;
+    if(items.length) cont.insertAdjacentHTML('beforeend', items.map(rstRowHtml).join(''));
+    bindQty();
+    const more=el.querySelector('#pkxRstMore');
+    if(more && !S.rstHasMore) more.remove();
+    updateBar();
+  }
+
+  function updateBar(){
+    const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
+    const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
+    const bar=el.querySelector('[data-on="next"]'); if(!bar) return;
+    // re-render only the sticky bar text spans by re-rendering products would lose focus; cheap: update counts via DOM
+    const spans=el.querySelectorAll('#pkxView'); // fallback: just re-render bar region
+    const barWrap=bar.closest('div[style*="sticky"]');
+    if(barWrap){ const can=totalUnits>0;
+      barWrap.querySelectorAll('div')[0].innerHTML=`<span style="color:#A9AEC4">Выбрано SKU:</span> ${selectedCount} / 100`;
+      barWrap.querySelectorAll('div')[2].innerHTML=`<span style="color:#A9AEC4">Количество единиц:</span> ${totalUnits} шт`;
+      bar.disabled=!can; bar.style.background=can?'#fff':'rgba(255,255,255,.12)'; bar.style.color=can?'#1e293b':'#A9AEC4'; bar.style.cursor=can?'pointer':'not-allowed';
+    }
+  }
+
+  function refreshFboBody(){ // re-render list card body for search without losing the search box focus
+    const sb=el.querySelector('#pkxSearch'); const pos=sb?sb.selectionStart:0;
+    const card=el.querySelector('.pkx-card[style*="overflow:hidden"]'); if(card){ card.outerHTML=fboCard(); }
+    // rewire
+    wire();
+    const sb2=el.querySelector('#pkxSearch'); if(sb2){ sb2.focus(); try{sb2.setSelectionRange(pos,pos);}catch(_){} }
+  }
+
+  async function setFilter(f){ if(S.filter===f) return; S.filter=f; S.search=''; S.sel={}; S.invoices=[]; S.invHasMore=true; render(); await safe(()=>loadInvoices(true)); render(); }
+  async function refreshList(){ try{ if(S.tab==='fbo'){ await loadInvoices(true); await loadGrabPlans(); } else if(S.tab==='grab'){ await loadAllPlans(); } else { await loadReturns(true); } render(); }catch(e){} }
+  async function setRetType(t){ if(S.retType===t) return; S.retType=t; S.returns=[]; S.retHasMore=true; render(); await safe(()=>loadReturns(true)); render(); }
+  async function setRetStatus(st){ if(S.retStatus===st) return; S.retStatus=st; S.returns=[]; S.retHasMore=true; render(); await safe(()=>loadReturns(true)); render(); }
+
+  // infinite scroll — pastга yetganda keyingi 20 ta yuklanadi
+  function onScroll(){
+    const sc=document.scrollingElement||document.documentElement;
+    const near = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 600;
+    if(!near) return;
+    // FBO ro'yxati (list)
+    if(S.view==='list' && S.tab==='fbo' && S.invHasMore && !S.invLoading){
+      loadInvoices(false).then(()=>{ if(S.view==='list'&&S.tab==='fbo') render(); });
+    }
+    // Возвраты ro'yxati (list)
+    else if(S.view==='list' && S.tab==='returns' && S.retHasMore && !S.retLoading){
+      loadReturns(false).then(()=>{ if(S.view==='list'&&S.tab==='returns') render(); });
+    }
+    // Возврат yaratish — SKU ro'yxati (faqat qatorlarni qayta chizamiz — fokus saqlanadi)
+    else if(S.view==='retcreate' && S.rskuHasMore && !S.rskuLoading && !S.rskuSearch.trim()){
+      loadRskus(false).then(()=>{ if(S.view==='retcreate') renderRskuRows(); });
+    }
+    // Yangi поставка — mahsulot tanlash ro'yxati (create/products)
+    else if(S.view==='create' && S.step==='products' && S.rstHasMore && !S.rstLoading && !S.rstSearch.trim()){
+      const before=S.restock.length;
+      loadRestock(false).then(()=>{ if(S.view==='create'&&S.step==='products'&&!S.rstSearch.trim()) appendRstRows(S.restock.slice(before)); });
+    }
+  }
+
+  function lines(){ return Object.keys(S.qty).filter(k=>S.qty[k]>0).map(k=>({skuId:parseInt(k), quantityToStock:S.qty[k], purchasePrice:(S.price[k]!=null?S.price[k]:(S.meta[k]||{}).price||0)})); }
+  // Sebestoimost KIRITILMAGAN tanlangan SKU'lar — Uzum time-slot/create bunday
+  // qatorlarni validation-failed-001 bilan rad etadi, shuning uchun «Дальше»
+  // oldidan review-modalда qizil bilan so'raymiz.
+  function zeroPriceSkus(){ return Object.keys(S.qty).filter(k=>S.qty[k]>0 && !(((S.price[k]!=null)?S.price[k]:((S.meta[k]||{}).price||0))>0)); }
+
+  async function gotoTime(){
+    S.step='time'; S.prep=null; S.slots=[]; S.daySel=null; S.slotSel=null; S.calMonth=null; render();
+    try{ const j=await api('/postavki/api/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,skuList:lines()})});
+      S.prep=j; S.slots=j.slots||[]; render();
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); S.step='products'; render(); }
+  }
+
+  async function createSupply(withSlot){
+    if(!(S.prep&&S.prep.stock)){ pkxAlert({variant:'danger',title:'Склад не определён',message:'Не удалось определить склад для выбранных товаров.'}); return; }
+    if(withSlot && !S.slotSel){ pkxAlert({title:'Выберите слот',message:'Сначала выберите время поставки в календаре.'}); return; }
+    const ok=await pkxConfirm({ variant:'success', icon:'✓', title:'Создать поставку?',
+      message: withSlot ? 'Это откроет реальную накладную в Uzum.'
+                        : 'Без тайм-слота. Слот можно выбрать позже кнопкой «Слот».',
+      okLabel:'Создать', cancelLabel:'Отмена' });
+    if(!ok) return;
+    const body={shop:S.shop, skuList:lines(), stockId:S.prep.stock.id};
+    if(withSlot) body.timeFrom=S.slotSel;
+    try{ await api('/postavki/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      clearCreateDraft(); S.qty={}; S.price={}; S.meta={}; S.tab='fbo'; go('list'); await refreshList();
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  // change-slot modal (reuse calendar)
+  async function openChangeSlot(ctx){
+    S.slotModal=ctx; S.slots=[]; S.daySel=null; S.slotSel=null; S.calMonth=null;
+    renderSlotModal('<div class="pkx-msg">Загрузка…</div>');
+    try{ const j=await api('/postavki/api/invoice/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceId:ctx.invoiceId,poolSource:ctx.poolSource})});
+      S.slots=j.slots||[]; renderSlotModalCal();
+    }catch(e){ renderSlotModal(`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`); }
+  }
+
+  // tanlangan (S.sel) поставкаlar — to'liq obyektlari (yuklangan ro'yxatdan)
+  function selectedInvoices(){ return S.invoices.filter(it=>S.sel[it.id]); }
+
+  // BULK akt URL: ids + (HAMMAsi mavjud bo'lsa) PARALLEL dus=dateUpdated.
+  // dus — freshness guard: slot o'zgargан bo'lsa yangi dateUpdated keshdagi
+  // eskisiga mos kelmaydi → server jonli qayta tortadi → ESKI akt ko'chmaydi.
+  // (refreshList slot o'zgargач ro'yxatni yangilab, S.invoices'ni yangi du bilan to'ldiradi.)
+  function bulkActUrl(){
+    const sel=selectedInvoices();
+    const ids=sel.map(it=>it.id);
+    const dus=sel.map(it=>it.dateUpdated);
+    let q=`shop=${encodeURIComponent(S.shop)}&ids=${ids.join(',')}`;
+    if(ids.length && dus.every(d=>d!=null && d!=='')) q+=`&dus=${dus.join(',')}`;
+    return {ids, url:`/postavki/api/invoices/act-bulk?${q}`};
+  }
+
+  // BULK: tanlangan поставкаlar aktini BITTA PDF qilib, yangi tab EMAS —
+  // yashirin iframe'ga yuklab, yuklangач DARROV chop (печать) oynasini ochadi.
+  // Aksar akt keshda → tez. Sovuq keshda (ko'p akt jonli tortilса) tugma «Готовим…»
+  // bo'lib turadi (qayta bosib bo'lmaydi), tayyor bo'lгач chop oynasi chiqadi.
+  let _bulkActBusy=false;
+  function openBulkAct(){
+    if(_bulkActBusy) return;
+    const {ids,url}=bulkActUrl();
+    if(!ids.length) return;
+    const btn=document.getElementById('pkxSelAct');
+    const orig=btn?btn.innerHTML:'';
+    const setBusy=b=>{ _bulkActBusy=b; if(btn){ btn.disabled=b; btn.style.opacity=b?'.7':''; btn.style.cursor=b?'wait':''; btn.innerHTML=b?'Готовим…':orig; } };
+    setBusy(true);
+    let got=null, req=null;  // qisman muvaffaqiyat: header'lardan (N tadan M ta)
+    fetch(url).then(async res=>{
+      if(!res.ok){ let m='HTTP '+res.status; try{ m=(await res.json()).error||m; }catch(_){ } throw new Error(m); }
+      got=parseInt(res.headers.get('X-Akt-Count'))||0; req=parseInt(res.headers.get('X-Akt-Requested'))||0;
+      return res.blob();
+    }).then(blob=>{
+      const burl=URL.createObjectURL(blob);
+      const fr=document.createElement('iframe');
+      fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+      fr.src=burl;
+      fr.onload=()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ try{ window.open(burl,'_blank'); }catch(_){ } } };
+      document.body.appendChild(fr);
+      setTimeout(()=>{ try{ fr.remove(); }catch(e){} try{ URL.revokeObjectURL(burl); }catch(e){} },120000);
+      setBusy(false);
+      bulkActPartialWarn(got, req, 'Акт отправки');
+    }).catch(e=>{ setBusy(false); pkxAlert({variant:'danger',title:'Акт отправки',message:e.message||'Не удалось получить акт'}); });
+  }
+
+  // BULK: «Скачать акт» — yuqoridagi bilan AYNAN bir endpoint (act-bulk), faqat
+  // chop EMAS — PDF blob'ni faylga yuklaydi (<a download>). Brauzer yuklab oladi.
+  let _bulkActDlBusy=false;
+  function downloadBulkAct(){
+    if(_bulkActDlBusy) return;
+    const {ids,url}=bulkActUrl();
+    if(!ids.length) return;
+    const btn=document.getElementById('pkxSelActDl');
+    const orig=btn?btn.innerHTML:'';
+    const setBusy=b=>{ _bulkActDlBusy=b; if(btn){ btn.disabled=b; btn.style.opacity=b?'.7':''; btn.style.cursor=b?'wait':''; btn.innerHTML=b?'Готовим…':orig; } };
+    setBusy(true);
+    let got=null, req=null;  // qisman muvaffaqiyat: header'lardan (N tadan M ta)
+    fetch(url).then(async res=>{
+      if(!res.ok){ let m='HTTP '+res.status; try{ m=(await res.json()).error||m; }catch(_){ } throw new Error(m); }
+      got=parseInt(res.headers.get('X-Akt-Count'))||0; req=parseInt(res.headers.get('X-Akt-Requested'))||0;
+      return res.blob();
+    }).then(blob=>{
+      const burl=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=burl;
+      a.download = ids.length>1 ? `akt_otpravki_${ids.length}.pdf` : `akt_otpravki_${ids[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ try{ a.remove(); }catch(e){} try{ URL.revokeObjectURL(burl); }catch(e){} },4000);
+      setBusy(false);
+      bulkActPartialWarn(got, req, 'Скачать акт');
+    }).catch(e=>{ setBusy(false); pkxAlert({variant:'danger',title:'Скачать акт',message:e.message||'Не удалось получить акт'}); });
+  }
+
+  // Qisman muvaffaqiyat ogohlantirishi: server X-Akt-Count (olingan) < X-Akt-Requested
+  // (so'ralган) bo'lsa, foydalanuvchiga «N tadan M ta olindi» deb bildiradi.
+  function bulkActPartialWarn(got, req, title){
+    if(!req || got==null || got>=req) return;
+    const miss=req-got;
+    pkxAlert({variant:'danger', title:'Получены не все акты',
+      message:`Запрошено: ${req}, получено: ${got}. Не удалось получить акт для ${miss} ${plural(miss,'поставки','поставок','поставок')}. Повторите попытку позже.`});
+  }
+
+  // BULK: bir nechta поставкага bitta vaqt-slot belgilash. Slotlar birinchi
+  // tanlangan накладной bo'yicha olinadi (bir do'kon/pool → odatda bir xil).
+  async function openBulkSlot(){
+    // O'tgan-slotli aktlar Uzum'да baribir 400 oladi — oldindan chiqarib tashlaymiz.
+    const sel=selectedInvoices();
+    const passedCnt=sel.filter(slotIsPassed).length;
+    const usable=sel.filter(it=>!slotIsPassed(it));
+    if(!usable.length){
+      if(passedCnt) pkxAlert({variant:'danger',title:'Слот недоступен',message:'Время слота уже прошло у выбранных поставок — Uzum не разрешит назначить новое. Отмените их и создайте новые.'});
+      return;
+    }
+    if(passedCnt){
+      await pkxAlert({title:'Часть поставок пропущена',message:`${passedCnt} ${plural(passedCnt,'поставка','поставки','поставок')} с прошедшим слотом — слот у них изменить нельзя (отмените и создайте новые). Время будет назначено остальным ${usable.length}.`});
+    }
+    const items=usable.map(it=>({invoiceId:it.id, num:it.invoiceNumber, stockId:(it.stock||{}).id, poolSource:(it.stock||{}).poolSource||'FULLFILMENT'}));
+    if(!items.length) return;
+    S.slotModal={bulk:true, items}; S.slots=[]; S.daySel=null; S.slotSel=null; S.calMonth=null;
+    renderSlotModal('<div class="pkx-msg">Загрузка…</div>');
+    try{ const first=items[0];
+      const j=await api('/postavki/api/invoice/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceId:first.invoiceId,poolSource:first.poolSource})});
+      S.slots=j.slots||[]; renderSlotModalCal();
+    }catch(e){ renderSlotModal(`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`); }
+  }
+
+  function renderSlotModal(inner){
+    const titleTxt = S.slotModal.bulk
+      ? `Время поставки · ${S.slotModal.items.length} ${plural(S.slotModal.items.length,'поставка','поставки','поставок')}`
+      : `Изменить слот · №${esc(S.slotModal.num||'')}`;
+    host.innerHTML=`<div class="pkx-modal-bg" id="pkxSlotBg"><div id="pkxSlotCard" style="background:#fff;border-radius:20px;width:860px;max-width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:18px">${titleTxt}</h2><button id="pkxSlotX" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;cursor:pointer;color:#5A5F72">✕</button></div>
+      <div style="padding:20px 24px" id="pkxSlotBody">${inner}</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #eef0f4"><button id="pkxSlotCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxSlotSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px;${S.slotSel?'':'opacity:.5;cursor:not-allowed'}">Сохранить</button></div>
+    </div></div>`;
+    const close=()=>{host.innerHTML='';S.slotModal=null;};
+    host.querySelector('#pkxSlotBg').addEventListener('click',e=>{ if(e.target.id==='pkxSlotBg') close(); });
+    host.querySelector('#pkxSlotX').addEventListener('click',close);
+    host.querySelector('#pkxSlotCancel').addEventListener('click',close);
+    host.querySelector('#pkxSlotSave').addEventListener('click',saveSlot);
+  }
+  function renderSlotModalCal(){ renderSlotModal(calendarHtml()); wireSlotCal(); }
+  function wireSlotCal(){
+    const body=host.querySelector('#pkxSlotBody'); if(!body) return;
+    body.querySelectorAll('[data-day]').forEach(d=>d.addEventListener('click',()=>{ S.daySel=d.dataset.day; S.slotSel=null; renderSlotModalCal(); }));
+    body.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click',()=>{ S.slotSel=parseInt(b.dataset.slot); renderSlotModalCal(); }));
+    body.querySelectorAll('[data-on="cal-prev"]').forEach(n=>n.addEventListener('click',()=>{ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()-1,1).getTime(); renderSlotModalCal(); }));
+    body.querySelectorAll('[data-on="cal-next"]').forEach(n=>n.addEventListener('click',()=>{ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()+1,1).getTime(); renderSlotModalCal(); }));
+  }
+  async function saveSlot(){
+    if(!S.slotSel){ return; } const ctx=S.slotModal;
+    if(ctx.bulk){ return saveBulkSlot(); }
+    try{ await api('/postavki/api/invoice/set-slot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceId:ctx.invoiceId,timeFrom:S.slotSel,stockId:ctx.stockId,poolSource:ctx.poolSource})});
+      host.innerHTML=''; S.slotModal=null;
+      if(S.view==='detail'){ await loadDetail(S.detailId); render(); } else { await refreshList(); }
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:slotErrMsg(e.message)}); }
+  }
+
+  // BULK: tanlangan slotni har bir поставкага KETMA-KET belgilaydi (Uzum'ni
+  // bosmaslik uchun jonli, bittadan). Xato bo'lganlarni hisoblab, oxirida bildiradi.
+  async function saveBulkSlot(){
+    const items=S.slotModal.items, tf=S.slotSel;
+    const ok=await pkxConfirm({ variant:'success', icon:'✓', title:'Назначить время поставки?',
+      message:`Выбранный слот будет назначен для ${items.length} ${plural(items.length,'поставки','поставок','поставок')} в Uzum.`,
+      okLabel:'Назначить', cancelLabel:'Отмена' });
+    if(!ok) return;
+    const body=host.querySelector('#pkxSlotBody');
+    const saveBtn=host.querySelector('#pkxSlotSave'), cancBtn=host.querySelector('#pkxSlotCancel');
+    if(saveBtn){ saveBtn.disabled=true; saveBtn.style.opacity='.5'; saveBtn.style.cursor='not-allowed'; }
+    if(cancBtn){ cancBtn.disabled=true; }
+    let done=0, fail=0; const errs=[];
+    for(const it of items){
+      try{
+        await api('/postavki/api/invoice/set-slot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceId:it.invoiceId,timeFrom:tf,stockId:it.stockId,poolSource:it.poolSource})});
+        done++;
+      }catch(e){ fail++; if(errs.length<5) errs.push('№'+it.num+' — '+slotErrMsg(e.message)); }
+      if(body) body.innerHTML=`<div class="pkx-msg">Назначаем время… ${done+fail} / ${items.length}</div>`;
+    }
+    host.innerHTML=''; S.slotModal=null; S.sel={};
+    await refreshList();
+    if(fail) pkxAlert({variant:'danger',title:'Готово с ошибками',message:`Назначено: ${done}, не удалось: ${fail}. ${errs.join('; ')}`});
+    else pkxAlert({variant:'success',icon:'✓',title:'Готово',message:`Время поставки назначено для ${done} ${plural(done,'поставки','поставок','поставок')}.`});
+  }
+
+  // ════════════ Avto-slot reja (Faza 2 — tanlangan kunga band) ════════════
+  // "YYYY-MM-DD" → "DD.MM" (badge uchun qisqa ko'rinish).
+  function grabDayFmt(s){ const p=(s||'').split('-'); return p.length===3?`${p[2]}.${p[1]}`:s; }
+
+  // «Авто-слот» tab: hamma do'kon rejalari (cross-shop) + jadval.
+  async function loadAllPlans(){
+    try{ const j=await api('/postavki/api/grab-plan/all'); S.allPlans=j.plans||[]; }
+    catch(e){ S.allPlans=[]; }
+  }
+  function grabCard(){
+    // `failed` rejalar panelда ko'rsatilmaydi — ular odatda o'lik/arvox
+    // (akt keyin boshqa reja bilan band bo'lgan) va xom JSON-xato chalg'itadi.
+    const plans=(S.allPlans||[]).filter(p=>p.status!=='failed');
+    const SL={waiting:['⏳ Ожидает','#FFF4D6','#9A6B00'], booked:['✅ Забронирован','#D8F1E1','#16794C'],
+              canceled:['Отменён','#e9ecf2','#8A8F9E'], failed:['❌ Ошибка','#FCE9EA','#D33A3F']};
+    const GRID='grid-template-columns:1.1fr 1.4fr 90px 160px 160px 110px';
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['МАГАЗИН','№ ПОСТАВКИ','ОБЪЁМ','ЖЕЛАЕМЫЙ ДЕНЬ','СТАТУС',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const body = plans.length ? plans.map(p=>{
+      const s=SL[p.status]||[p.status,'#e9ecf2','#5A5F72'];
+      const cancelBtn = p.status==='waiting'
+        ? `<button class="pkx-mini danger" data-grabcancel2="${p.id}" data-shop="${esc(p.shop)}">Отмена</button>`
+        : '<span style="color:#c3c8d4;font-weight:700">—</span>';
+      const booked = (p.status==='booked'&&p.bookedSlotMs) ? `<div class="pkx-muted" style="font-size:11px;margin-top:3px">слот: ${fmtSlot(p.bookedSlotMs)}</div>` : '';
+      const err = (p.status==='failed'&&p.error) ? `<div class="pkx-muted" style="font-size:11px;margin-top:3px;color:#D33A3F">${esc(p.error)}</div>` : '';
+      return `<div style="display:grid;${GRID};align-items:center;padding:14px 22px;border-bottom:1px solid #f3f4f6">
+        <div style="font-weight:700;font-size:13px">${esc(p.shopName||p.shop)}</div>
+        <div style="font-weight:800;font-size:14px"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(p.invoiceNumber||p.invoiceId)}</div>
+        <div style="font-weight:700;font-size:13px">${p.size} шт</div>
+        <div style="font-weight:700;font-size:13px">${esc(grabDayFmt(p.targetDay))}${booked}${err}</div>
+        <div><span style="display:inline-flex;background:${s[1]};color:${s[2]};border-radius:8px;padding:5px 11px;font-weight:800;font-size:12px">${s[0]}</span></div>
+        <div style="text-align:right">${cancelBtn}</div>
+      </div>`;
+    }).join('') : `<div class="pkx-msg">Нет авто-слотов. Создайте на вкладке FBO → «Создана» → выберите поставки → «Авто-слот по дате».</div>`;
+    const hint=`<div style="padding:14px 22px;color:#8A8F9E;font-size:12px;border-top:1px solid #f3f4f6">Система следит за выбранным днём по каждой поставке и бронирует слот, как только он освободится.</div>`;
+    return `<div class="pkx-card" style="overflow:hidden"><div class="pkx-scroll"><div style="min-width:920px">${head}<div>${body}</div>${plans.length?hint:''}</div></div></div>`;
+  }
+  async function cancelGrabPlanShop(shop, planId){
+    const ok=await pkxConfirm({variant:'danger',icon:'✕',title:'Отменить авто-слот?',message:'Бронирование слота по дате будет отменено.',okLabel:'Отменить',cancelLabel:'Назад'});
+    if(!ok) return;
+    try{ await api('/postavki/api/grab-plan/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:shop,planId:planId})}); await loadAllPlans(); render(); }
+    catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  // Do'kon uchun KUTAYOTGAN avto-band rejalarni yuklab, invoiceId→reja xaritasi qiladi.
+  async function loadGrabPlans(){
+    if(!S.shop){ S.grabPlans={}; return; }
+    try{ const j=await api('/postavki/api/grab-plan/list?'+Q({shop:S.shop,status:'waiting'}));
+      const m={}; (j.plans||[]).forEach(p=>{ m[p.invoiceId]=p; }); S.grabPlans=m;
+    }catch(e){ S.grabPlans=S.grabPlans||{}; }
+  }
+
+  // Tanlangan slotsiz draft'lar uchun «o'sha kunga avto-band» modali.
+  function openGrabPlan(){
+    const items=selectedInvoices().map(it=>({id:it.id,num:it.invoiceNumber,size:(it.totalToStock||0)}));
+    if(!items.length) return;
+    const pad=n=>String(n).padStart(2,'0'); const t=new Date();
+    const minDay=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+    const list=items.map(it=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="font-weight:800">№${esc(it.num)}</span><span class="pkx-muted" style="font-weight:700">${it.size} шт</span></div>`).join('');
+    host.innerHTML=`<div class="pkx-modal-bg" id="pkxGrabBg"><div style="background:#fff;border-radius:20px;width:540px;max-width:100%;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:18px">Авто-слот до даты · ${items.length} ${plural(items.length,'поставка','поставки','поставок')}</h2><button id="pkxGrabX" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;cursor:pointer;color:#5A5F72">✕</button></div>
+      <div style="padding:20px 24px">
+        <p class="pkx-muted" style="font-size:13px;margin:0 0 16px;line-height:1.5">Система забронирует слот, освободившийся в выбранном диапазоне дней (включительно). Раньше начала («с») слоты не берутся — удобно, если товар готов не сразу. Чем раньше включён авто-слот, тем выше место в очереди. Если поставка уже забронирована — переставит на более ранний слот (один раз).</p>
+        <div style="display:flex;gap:12px;margin-bottom:18px">
+          <div style="flex:1">
+            <label style="display:block;font-weight:800;font-size:13px;margin-bottom:8px">С (от)</label>
+            <input id="pkxGrabMinDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+          </div>
+          <div style="flex:1">
+            <label style="display:block;font-weight:800;font-size:13px;margin-bottom:8px">До (крайний)</label>
+            <input id="pkxGrabDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+          </div>
+        </div>
+        <div style="font-weight:800;font-size:13px;margin-bottom:6px">Поставки (${items.length})</div>
+        <div style="max-height:200px;overflow:auto">${list}</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #eef0f4"><button id="pkxGrabCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxGrabSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px">Создать план</button></div>
+    </div></div>`;
+    const close=()=>{ host.innerHTML=''; };
+    host.querySelector('#pkxGrabBg').addEventListener('click',e=>{ if(e.target.id==='pkxGrabBg') close(); });
+    host.querySelector('#pkxGrabX').addEventListener('click',close);
+    host.querySelector('#pkxGrabCancel').addEventListener('click',close);
+    host.querySelector('#pkxGrabSave').addEventListener('click',()=>saveGrabPlan(items.map(it=>it.id)));
+  }
+
+  async function saveGrabPlan(ids){
+    const day=(host.querySelector('#pkxGrabDay')||{}).value;
+    const minDay=(host.querySelector('#pkxGrabMinDay')||{}).value;
+    if(!day){ pkxAlert({variant:'danger',title:'Выберите день',message:'Укажите крайний день поставки.'}); return; }
+    if(minDay && minDay>day){ pkxAlert({variant:'danger',title:'Проверьте даты',message:'День «с» не может быть позже крайнего дня.'}); return; }
+    const btn=host.querySelector('#pkxGrabSave'); if(btn){ btn.disabled=true; btn.style.opacity='.5'; }
+    try{
+      const j=await api('/postavki/api/grab-plan/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceIds:ids,maxDate:day,minDate:minDay||''})});
+      host.innerHTML=''; S.sel={};
+      await refreshList();
+      const n=(j.created||0)+(j.updated||0);
+      const skip=(j.skipped&&j.skipped.length)?` Пропущено (не черновики): ${j.skipped.length}.`:'';
+      pkxAlert({variant:'success',icon:'✓',title:'План создан',message:`Авто-слот до ${day} настроен для ${n} ${plural(n,'поставки','поставок','поставок')}.${skip}`});
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  async function cancelGrabPlan(planId){
+    const ok=await pkxConfirm({variant:'danger',icon:'✕',title:'Отменить авто-слот?',message:'Бронирование слота по дате будет отменено.',okLabel:'Отменить',cancelLabel:'Назад'});
+    if(!ok) return;
+    try{ await api('/postavki/api/grab-plan/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,planId:planId})}); await refreshList(); }
+    catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  // ── Maxsus tasdiqlash/ogohlantirish modali (native confirm/alert o'rniga) ──
+  // pkxConfirm({title,message,okLabel,cancelLabel,variant:'success'|'primary'|'danger',icon}) → Promise<bool>
+  // pkxAlert(opts|string) → Promise (faqat OK). Dizayn postavki kartalariga mos + Esc/Enter + backdrop.
+  const PKX_CFM={ success:{ibg:'#D8F1E1',ic:'#16794C',ok:'#1A7F4B'},
+                  primary:{ibg:'#ECEFF8',ic:'#1e293b',ok:'#1e293b'},
+                  danger :{ibg:'#FCE9EA',ic:'#D33A3F',ok:'#E5484D'} };
+  function pkxConfirm(o){ return _pkxDialog(o||{}, true); }
+  function pkxAlert(o){ return _pkxDialog(typeof o==='string'?{message:o}:(o||{}), false); }
+  function _pkxDialog(o, withCancel){
+    const v=PKX_CFM[o.variant]||PKX_CFM.primary;
+    const icon=o.icon || (withCancel?'?':'!');
+    return new Promise(resolve=>{
+      const ov=document.createElement('div'); ov.className='pkx-modal-bg'; ov.style.zIndex='1400';
+      ov.innerHTML=`<div class="pkx-cfm-card" role="dialog" aria-modal="true">
+        <button class="pkx-cfm-x" data-cfm="0" aria-label="Закрыть">✕</button>
+        <div class="pkx-cfm-icon" style="background:${v.ibg};color:${v.ic}">${esc(icon)}</div>
+        <h3 class="pkx-cfm-title">${esc(o.title||(withCancel?'Подтвердите действие':'Внимание'))}</h3>
+        <p class="pkx-cfm-msg">${esc(o.message||'')}</p>
+        <div class="pkx-cfm-actions">
+          ${withCancel?`<button class="pkx-btn pkx-btn-soft" data-cfm="0">${esc(o.cancelLabel||'Отмена')}</button>`:''}
+          <button class="pkx-btn pkx-cfm-ok" data-cfm="1" style="background:${v.ok};color:#fff">${esc(o.okLabel||'OK')}</button>
+        </div></div>`;
+      document.body.appendChild(ov);
+      const ok=ov.querySelector('[data-cfm="1"]'); let done=false;
+      const close=res=>{ if(done)return; done=true; ov.remove(); document.removeEventListener('keydown',onKey); resolve(res); };
+      ov.addEventListener('click',e=>{ if(e.target===ov) close(false); });
+      ov.querySelectorAll('[data-cfm]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.cfm==='1')));
+      function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(false); } else if(e.key==='Enter'){ e.preventDefault(); close(true); } }
+      document.addEventListener('keydown',onKey);
+      setTimeout(()=>{ try{ok.focus();}catch(_){} },30);
+    });
+  }
+
+  async function doCancel(ctx, fromDetail){
+    const ok=await pkxConfirm({ variant:'danger', icon:'✕', title:'Отменить поставку?', message:'Поставка № '+ctx.num+' будет отменена в Uzum.', okLabel:'Отменить', cancelLabel:'Назад' });
+    if(!ok) return;
+    try{ await api('/postavki/api/invoice/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,invoiceId:ctx.invoiceId})});
+      if(fromDetail){ go('list'); await refreshList(); } else { await refreshList(); }
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  // ════════════ ВОЗВРАТЫ: detal + bekor + yaratish ════════════
+  const _backBtn=`<button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
+
+  async function openRetDetail(id){ S.retDetailId=id; S.retDetail=null; go('retdetail'); try{ await loadRetDetail(id); }catch(e){ el.innerHTML=`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`; return; } render(); }
+
+  function viewRetDetail(){
+    const d=S.retDetail;
+    if(!d || !d.id) return `<div class="pkx-msg">Загрузка…</div>`;
+    const items=d.returnItems||[];
+    const created=d.status==='CREATED';
+    const GR='grid-template-columns:1fr 120px 130px 160px';
+    const head=`<div style="display:grid;${GR};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','КОЛ-ВО','УПАКОВАНО','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const rows=items.map(it=>`<div style="display:grid;${GR};align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+      <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.skuId)}</div></div></div>
+      <div style="font-weight:700;font-size:14px">${it.amount||0}</div>
+      <div style="font-weight:700;font-size:14px">${it.packedAmount||0}</div>
+      <div style="font-weight:700;font-size:14px">${fmtN(it.purchasePrice)}</div></div>`).join('');
+    const totalUnits=d.totalAmount!=null?d.totalAmount:items.reduce((a,it)=>a+(it.amount||0),0);
+    const totalSum=items.reduce((a,it)=>a+((it.purchasePrice||0)*(it.amount||0)),0);
+    const place=(d.stock||{}).title;
+    const tile2=(lbl,val)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px"><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">${lbl}</div><div style="font-weight:700;font-size:14px">${val}</div></div>`;
+    const info=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:${created?'18px':'0'}">
+      ${tile2('Тип', esc(RET_TYPE_LABEL[d.type]||d.type||'—'))}
+      ${tile2('Место выдачи', esc(place||'—'))}
+      ${tile2('Состав и сумма', `${totalUnits} шт, ${fmtSum(totalSum)}`)}</div>`;
+    const cancelBtn = created ? `<button data-on="retd-cancel" class="pkx-btn" style="background:#fff;border:1px solid #F2C9CB;color:#E5484D;padding:11px 18px">Отменить возврат</button>` : '';
+    return `<div>
+      <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;flex-wrap:wrap">
+        ${_backBtn}<h1 class="pkx-h1" style="white-space:nowrap">Возврат №${esc(d.id||'')}</h1>
+        <span class="pkx-muted" style="font-size:16px;font-weight:700">от ${fmtDate(d.dateCreated)}</span>
+        ${retStatusBadge(d.status)}</div>
+      <div class="pkx-card" style="padding:22px;margin-bottom:16px">${info}${cancelBtn}</div>
+      <div class="pkx-card" style="overflow:hidden">
+        <div style="padding:18px 22px 4px"><h2 class="pkx-h2" style="font-size:16px">Товары</h2></div>
+        <div class="pkx-scroll"><div style="min-width:700px">${head}${rows||'<div class="pkx-msg">Нет позиций</div>'}</div></div>
+      </div></div>`;
+  }
+
+  async function doCancelReturn(ctx, fromDetail){
+    const ok=await pkxConfirm({ variant:'danger', icon:'✕', title:'Отменить возврат?', message:'Возврат № '+ctx.id+' будет отменён в Uzum.', okLabel:'Отменить', cancelLabel:'Назад' });
+    if(!ok) return;
+    try{ await api(`/postavki/api/return/${ctx.id}/cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop})});
+      if(fromDetail){ S.view='list'; S.tab='returns'; render(); await refreshList(); render(); } else { await refreshList(); }
+    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  // Status filtr dropdown menyusi (shopMenu naqshi bilan)
+  function retStatusMenu(){
+    const anchor=el.querySelector('#pkxRetStatus'); if(!anchor) return;
+    const existing=document.getElementById('pkxRetStatusMenu'); if(existing){ existing.remove(); return; }
+    const menu=document.createElement('div'); menu.id='pkxRetStatusMenu';
+    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
+    const opt=(val,label)=>`<div data-rst="${val}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${val===S.retStatus?'background:#f3f4f6':''}">${esc(label)}</div>`;
+    menu.innerHTML=opt('','Все статусы')+RET_STATUS_ORDER.map(s=>opt(s,RET_STATUS_LABEL[s])).join('');
+    anchor.appendChild(menu);
+    menu.querySelectorAll('[data-rst]').forEach(it=>it.addEventListener('click',async ev=>{ ev.stopPropagation(); menu.remove(); await setRetStatus(it.dataset.rst); }));
+    setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxRetStatusMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
+  }
+
+  // ── Возврат yaratish sehrgari ──
+  async function openRetCreate(){ S.ramt={}; S.robj={}; S.rskus=[]; S.rskuHasMore=true; S.rskuSearch=''; S.retBannerHidden=false; S.view='retcreate';
+    // brauzer «orqaga» tugmasi uchun tuzoq — popstate'ни ushlab, saytdan chiqib
+    // ketmasdan ichki ro'yxatга qaytaramiz (pastdagi popstate listener bilan).
+    try{ history.pushState({pkxRet:1}, ''); }catch(_){}
+    render(); await safe(()=>loadRskus(true));
+    const restored=restoreRetDraft();   // reload/🔄 dan keyин qoralamani tiklaymiz
+    render();
+    if(restored){ updateRetBar(); pkxAlert({variant:'success',icon:'✓',title:'Черновик восстановлен',message:'Ранее введённые количества к возврату восстановлены — можно продолжить.'}); }
+  }
+  // «Выбрать все» — ko'rinayotgan (filtrlanган) SKU'larga to'liq mavjud miqdorni qo'yadi.
+  // Hammasi allaqachon to'la bo'lsa — tozalaydi (toggle).
+  function retSelectAll(){
+    const rows=filteredRskus();
+    const allFull = rows.length>0 && rows.every(p=>{ const av=p.quantityActive!=null?p.quantityActive:(p.quantityAvailable||0); return av<=0 || S.ramt[p.skuId]===av; });
+    rows.forEach(p=>{ const av=p.quantityActive!=null?p.quantityActive:(p.quantityAvailable||0); if(av>0){ if(allFull) delete S.ramt[p.skuId]; else S.ramt[p.skuId]=av; } });
+    renderRskuRows(); updateRetBar(); saveRetDraft();
+  }
+
+  const RSKU_GRID='grid-template-columns:1fr 150px 190px';
+  // Габариты: stock-sku'да dimensionalGroup — SATR (masalan "KGT"); ba'zан obyekt
+  // (.title) yoki actualDimensionalGroup.title. Hammasini qo'llaymiz.
+  function rskuGab(p){
+    const d=p.dimensionalGroup;
+    if(typeof d==='string' && d) return d;
+    if(d && d.title) return d.title;
+    const a=p.actualDimensionalGroup;
+    if(a && a.title) return a.title;
+    return '—';
+  }
+  function rskuRowHtml(p){
+    const avail = p.quantityActive!=null ? p.quantityActive : (p.quantityAvailable||0);
+    const v = S.ramt[p.skuId]!=null ? S.ramt[p.skuId] : 0;
+    const amt = v>0 ? v : '';
+    const gab = rskuGab(p);
+    const sub = 'SKU '+(p.skuFullTitle||p.skuTitle||'') + (p.barcode?(' · ШК '+p.barcode):'');
+    return `<div class="pkx-prow" style="display:grid;${RSKU_GRID};align-items:center;padding:5px 6px;border-bottom:1px solid #f3f4f6">
+      <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(p),64)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(sub)}</div></div></div>
+      <div><span style="display:inline-block;background:#EEF1F8;color:#5A6588;font-weight:700;font-size:12px;padding:4px 11px;border-radius:7px">${esc(gab)}</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><input class="pkx-ramt pkx-inp" data-sku="${p.skuId}" data-max="${avail}" inputmode="numeric" value="${amt}" placeholder="0" style="width:92px;text-align:center" ${avail>0?'':'disabled'}/><span class="pkx-muted" style="font-weight:700;font-size:13px;white-space:nowrap">/ ${avail}</span></div>
+    </div>`;
+  }
+
+  // Yuklangan pool ichidan lokal filtr (nom · SKU · ШК · skuId), ko'p-so'zli — restock bilan bir xil.
+  function filteredRskus(){
+    const q=S.rskuSearch.trim().toLowerCase();
+    if(!q) return S.rskus;
+    const terms=q.split(/\s+/);
+    return S.rskus.filter(p=>{
+      const hay=((p.productTitle||'')+' '+(p.skuFullTitle||'')+' '+(p.skuTitle||'')+' '+(p.barcode||'')+' '+(p.skuId||'')).toLowerCase();
+      return terms.every(t=>hay.includes(t));
+    });
+  }
+  // miqdor inputlarini bog'lash (wire + renderRskuRows ikkalasi ishlatadi)
+  function bindRamt(){
+    el.querySelectorAll('.pkx-ramt').forEach(inp=>{ if(inp._bound) return; inp._bound=1;
+      inp.addEventListener('input',()=>{
+        const sku=inp.dataset.sku; const max=parseInt(inp.dataset.max)||0;
+        let v=parseInt(inp.value)||0; if(v<0)v=0; if(max&&v>max){ v=max; inp.value=max; }
+        S.ramt[sku]=v; updateRetBar(); saveRetDraft();
+      });
+    });
+  }
+  // faqat qatorlar konteynerini qayta chizadi (qidiruv yozayotганда fokus saqlanadi)
+  function renderRskuRows(){
+    const cont=el.querySelector('#pkxRskuRows'); if(!cont) return;
+    const rows=filteredRskus();
+    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>`:'';
+    cont.innerHTML = (rows.length ? rows.map(rskuRowHtml).join('') : `<div class="pkx-msg">${S.rskuSearch.trim() ? (S.rskuSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rskuLoading||S.rskuHasMore)?'Загрузка…':'Ничего не найдено')}</div>`) + more;
+    bindRamt();
+  }
+
+  function shopName(){ const s=SHOPS.find(x=>x.uzum_id===S.shop); return s?s.name:S.shop; }
+
+  function viewRetCreate(){
+    const retIco=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>`;
+    const search=`<div class="pkx-search" style="width:100%;margin-bottom:14px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRskuSearch" type="search" placeholder="SKU или название товара" value="${esc(S.rskuSearch)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>`;
+    const head=`<div style="display:grid;${RSKU_GRID};align-items:center;padding:11px 6px;border-bottom:1px solid #eef0f4">${['ТОВАР','ГАБАРИТЫ','К ВОЗВРАТУ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const fr=filteredRskus();
+    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>`:'';
+    const rows = (fr.length ? fr.map(rskuRowHtml).join('') : `<div class="pkx-msg">${S.rskuSearch.trim() ? (S.rskuSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rskuLoading||S.rskuHasMore)?'Загрузка…':'Ничего не найдено')}</div>`) + more;
+    const skuCount=Object.values(S.ramt).filter(v=>v>0).length;
+    const units=Object.values(S.ramt).reduce((a,v)=>a+(v>0?v:0),0);
+    const can=units>0;
+    // ── pastdagi suzuvchi navy panel (4-variant «Floating bar») ──
+    const bar=`<div id="pkxRetBar" style="position:sticky;bottom:16px;margin-top:16px;display:flex;align-items:center;gap:18px;background:#1e293b;color:#fff;padding:15px 22px;border-radius:16px;box-shadow:0 16px 36px rgba(22,22,40,.28)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.85;flex:none"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>
+      <div style="font-weight:700;font-size:13px"><span style="color:#A9AEC4">Выбрано SKU:</span> <b id="pkxRetSku">${skuCount}</b></div>
+      <div style="font-weight:700;font-size:13px"><span style="color:#A9AEC4">Единиц:</span> <b id="pkxRetUnits">${units}</b></div>
+      <div style="flex:1"></div>
+      <button data-on="ret-selectall" class="pkx-btn" style="background:rgba(255,255,255,.1);color:#fff;padding:11px 18px">Выбрать все</button>
+      <button data-on="ret-submit" id="pkxRetDone" class="pkx-btn" ${can?'':'disabled'} style="background:#fff;color:#1e293b;padding:12px 24px;${can?'':'opacity:.5;cursor:not-allowed'}">Создать возврат</button>
+    </div>`;
+    return `<div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+        ${_backBtn}<div style="width:46px;height:46px;border-radius:13px;background:#1e293b;display:flex;align-items:center;justify-content:center;flex:none">${retIco}</div>
+        <h1 class="pkx-h1" style="font-size:22px">Новый возврат</h1>
+        <div style="flex:1"></div>${shopSelHtml()}</div>
+      <div class="pkx-card" style="padding:22px">
+        <h2 class="pkx-h2" style="font-size:18px;margin-bottom:16px">Укажите количество товаров к возврату</h2>
+        ${search}
+        ${head}
+        <div id="pkxRskuRows">${rows}</div>
+      </div>
+      ${bar}</div>`;
+  }
+
+  function updateRetBar(){
+    const skuCount=Object.values(S.ramt).filter(v=>v>0).length;
+    const units=Object.values(S.ramt).reduce((a,v)=>a+(v>0?v:0),0);
+    const sc=el.querySelector('#pkxRetSku'); if(sc) sc.textContent=skuCount;
+    const u=el.querySelector('#pkxRetUnits'); if(u) u.textContent=units;
+    const btn=el.querySelector('#pkxRetDone'); if(btn){ const can=units>0; btn.disabled=!can; btn.style.opacity=can?'':'.5'; btn.style.cursor=can?'pointer':'not-allowed'; }
+  }
+
+  async function submitReturn(){
+    const items=Object.keys(S.ramt).filter(k=>S.ramt[k]>0).map(k=>{ const o=S.robj[k]||{skuId:parseInt(k)}; return Object.assign({}, o, {amount:S.ramt[k]}); });
+    if(!items.length) return;
+    const units=items.reduce((a,it)=>a+it.amount,0);
+    const ok=await pkxConfirm({ variant:'success', icon:'✓', title:'Создать возврат?',
+      message:`Будет создан возврат: ${items.length} SKU, ${units} ${plural(units,'единица','единицы','единиц')}. Это действие создаёт реальный возврат в Uzum.`,
+      okLabel:'Создать', cancelLabel:'Отмена' });
+    if(!ok) return;
+    const btn=el.querySelector('[data-on="ret-submit"]'); const orig=btn?btn.innerHTML:'';
+    if(btn){ btn.disabled=true; btn.style.cursor='wait'; btn.innerHTML='Создаём…'; }
+    try{ const j=await api('/postavki/api/return/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,returnItems:items})});
+      clearRetDraft(); S.ramt={}; S.robj={}; S.view='list'; S.tab='returns'; render(); await refreshList(); render();
+      pkxAlert({variant:'success',icon:'✓',title:'Готово',message:`Возврат № ${(j.return||{}).id||''} создан.`});
+    }catch(e){ if(btn){ btn.disabled=false; btn.style.cursor='pointer'; btn.innerHTML=orig; } pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+  }
+
+  function shopMenu(e){
+    e.stopPropagation();
+    const anchor=el.querySelector('#pkxShopSel'); if(!anchor) return;
+    const existing=document.getElementById('pkxShopMenu'); if(existing){ existing.remove(); return; }
+    const menu=document.createElement('div'); menu.id='pkxShopMenu';
+    menu.style.cssText='position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:180px;max-height:300px;overflow:auto';
+    menu.innerHTML=SHOPS.map(s=>`<div data-shop="${s.uzum_id}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${s.uzum_id===S.shop?'background:#f3f4f6':''}">${esc(s.name)}</div>`).join('');
+    anchor.appendChild(menu);
+    menu.querySelectorAll('[data-shop]').forEach(it=>it.addEventListener('click',async ev=>{
+      ev.stopPropagation(); if(it.dataset.shop===S.shop){ menu.remove(); return; }
+      S.shop=it.dataset.shop; menu.remove();
+      if(S.view==='create'){
+        // yaratish oqimini yangi do'kon uchun tozalab, restock'ni qayta yuklaymiz
+        S.step='products'; S.qty={}; S.price={}; S.meta={}; S.rstSearch=''; S.showReview=false;
+        render(); await safe(()=>loadRestock(true)); restoreCreateDraft(); render(); fillCreateStock();
+      } else if(S.view==='retcreate'){
+        // возврат sehrgarini yangi do'kon uchun tozalab, SKU'larni qayta yuklaymiz
+        S.ramt={}; S.robj={}; render(); await safe(()=>loadRskus(true)); restoreRetDraft(); render();
+      } else if(S.view==='retdetail'){
+        // detal boshqa do'konники — ro'yxatga qaytamiz
+        S.view='list'; S.tab='returns'; S.invoices=[];S.returns=[];S.sel={}; render(); await refreshList();
+      } else {
+        S.invoices=[];S.returns=[];S.invPage=0; S.sel={}; render(); await refreshList();
+      }
+    }));
+    setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxShopMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
+  }
+
+  async function safe(fn){ try{ await fn(); }catch(e){ /* surfaced via render or alert */ console.error(e); } }
+
+  // Возврат yaratишда miqdor kiritilganmi? (saqlanmagan ish bor-yo'qligi)
+  function retDirty(){ return S.view==='retcreate' && Object.values(S.ramt).some(v=>v>0); }
+
+  // ── Qoralama (draft) — localStorage'да do'kon bo'yicha saqlanadi ──────
+  // Maqsad: 🔄 reload tugmasi / tab-yopish KABI ushlаб bo'lmaydigan holatlarда
+  // ham kiritilган miqdorlar YO'QOLMAYDI — keyingi ochishда tiklanadi.
+  // (Brauzer 🔄 tugmasiga JS hech qanday hodisa bermaydi → styled oyna imkonsiz,
+  //  shuning uchun ma'lumotni saqlаб-tiklab, yo'qolishning OLDINI olamiz.)
+  function retDraftKey(){ return 'pkxRetDraft_'+S.shop; }
+  // Diskka AYNAN yozish (sinxron). Tashqaridan to'g'ridan-to'g'ri chaqirma —
+  // saveRetDraft() (debounce'li) yoki saveRetDraftFlush() (darhol) ishlat.
+  function saveRetDraftNow(){
+    try{
+      const items=Object.keys(S.ramt).filter(k=>S.ramt[k]>0)
+        .map(k=>({obj:S.robj[k]||{skuId:parseInt(k)}, amount:S.ramt[k]}));
+      if(items.length) localStorage.setItem(retDraftKey(), JSON.stringify({items}));
+      else localStorage.removeItem(retDraftKey());
+    }catch(_){}
+  }
+  // Debounce: tez yozishда har bosishда emas, 250 ms tinchlikdan keyin BIR marta
+  // yoziladi — katta tanlovда (select-all) ham input silliq qoladi.
+  let _retDraftT=null;
+  function saveRetDraft(){ clearTimeout(_retDraftT); _retDraftT=setTimeout(()=>{ _retDraftT=null; saveRetDraftNow(); }, 250); }
+  // Reload/navigatsiya OLDIDAN — kutib turган yozuvni darhol diskka tushiramiz.
+  function saveRetDraftFlush(){ clearTimeout(_retDraftT); _retDraftT=null; saveRetDraftNow(); }
+  function restoreRetDraft(){
+    try{
+      const r=localStorage.getItem(retDraftKey()); if(!r) return false;
+      const d=JSON.parse(r); if(!d||!Array.isArray(d.items)||!d.items.length) return false;
+      const have=new Set(S.rskus.map(p=>String(p.skuId)));
+      d.items.slice().reverse().forEach(it=>{        // teskari — unshift tartibni saqlasin
+        const o=it.obj||{}; const id=o.skuId; if(id==null) return;
+        S.ramt[id]=it.amount; S.robj[id]=o;
+        if(!have.has(String(id))){ S.rskus.unshift(o); have.add(String(id)); }  // tiklanган SKU ro'yxat boshiда ko'rinsin
+      });
+      return true;
+    }catch(_){ return false; }
+  }
+  // Tozalashда kutib turган debounce yozuvini ham BEKOR qilamiz — aks holda
+  // submit'dan keyin kechikkan yozuv tozalаnган qoralamani qayta tiklаб qo'yardi.
+  function clearRetDraft(){ clearTimeout(_retDraftT); _retDraftT=null; try{ localStorage.removeItem(retDraftKey()); }catch(_){} }
+
+  // ── Qoralama: «Создать поставку» (FBO) — возврат bilan AYNAN bir xil naqsh ──
+  // qty + narx (S.price override) + meta saqlanadi; 🔄/F5/orqaga'да yo'qolmaydi.
+  function createDirty(){ return S.view==='create' && Object.values(S.qty).some(v=>v>0); }
+  function createDraftKey(){ return 'pkxCreateDraft_'+S.shop; }
+  function saveCreateDraftNow(){
+    try{
+      const byId={}; S.restock.forEach(p=>{ if(p&&p.skuId!=null) byId[String(p.skuId)]=p; });
+      const items=Object.keys(S.qty).filter(k=>S.qty[k]>0).map(k=>{
+        const m=S.meta[k]||{};
+        // To'liq DTO (остаток=quantityActive, габариты=dimensionalGroup bilan) — pool'dan;
+        // pool'da bo'lmasa metadan tiklab (eng kamida ko'rinish maydonlari).
+        const obj = byId[String(k)] || {skuId:parseInt(k), productTitle:m.name||'', skuTitle:m.skutitle||'', barcode:m.bc||'', image:m.image||'', purchasePrice:m.price||0};
+        return {skuId:parseInt(k), qty:S.qty[k], price:(S.price[k]!=null?S.price[k]:null), obj};
+      });
+      if(items.length) localStorage.setItem(createDraftKey(), JSON.stringify({items}));
+      else localStorage.removeItem(createDraftKey());
+    }catch(_){}
+  }
+  let _createDraftT=null;
+  function saveCreateDraft(){ clearTimeout(_createDraftT); _createDraftT=setTimeout(()=>{ _createDraftT=null; saveCreateDraftNow(); }, 250); }
+  function saveCreateDraftFlush(){ clearTimeout(_createDraftT); _createDraftT=null; saveCreateDraftNow(); }
+  function restoreCreateDraft(){
+    try{
+      const r=localStorage.getItem(createDraftKey()); if(!r) return false;
+      const d=JSON.parse(r); if(!d||!Array.isArray(d.items)||!d.items.length) return false;
+      const have=new Set(S.restock.map(p=>String(p.skuId)));
+      d.items.slice().reverse().forEach(it=>{        // teskari — unshift tartibni saqlasin
+        const id=it.skuId; if(id==null) return;
+        // it.obj — yangi format (to'liq DTO: остаток+габариты); it.meta — eski format (zaxira).
+        const o=it.obj || (it.meta ? {skuId:id, productTitle:it.meta.name||'', skuTitle:it.meta.skutitle||'', barcode:it.meta.bc||'', image:it.meta.image||'', purchasePrice:it.meta.price||0} : {skuId:id});
+        S.qty[id]=it.qty;
+        if(it.price!=null) S.price[id]=it.price;
+        // meta — submit (lines) + review modal uchun
+        S.meta[id]={price:(o.purchasePrice!=null?o.purchasePrice:0), name:o.productTitle||'', skutitle:o.skuTitle||'', bc:o.barcode||'', image:o.image||''};
+        if(!have.has(String(id))){ S.restock.unshift(o); have.add(String(id)); }   // to'liq obj → остаток/габариты saqlanadi
+      });
+      return true;
+    }catch(_){ return false; }
+  }
+  function clearCreateDraft(){ clearTimeout(_createDraftT); _createDraftT=null; try{ localStorage.removeItem(createDraftKey()); }catch(_){} }
+  // Tiklangach: real остаток/габариты yo'q (placeholder) tovarlar uchun serverdan
+  // NOM bo'yicha qayta tortamiz (variantlar bir nomda → kam so'rov), mergeRst real
+  // bilan almashtiradi. Eski VA yangi format draft — ikkalasi uchun ishlaydi.
+  async function fillCreateStock(){
+    const sel=Object.keys(S.qty).filter(k=>S.qty[k]>0);
+    if(!sel.length) return;
+    const byId={}; S.restock.forEach(p=>{ if(p&&p.skuId!=null) byId[String(p.skuId)]=p; });
+    const missing=sel.filter(k=>{ const p=byId[k]; return !p || p.quantityActive==null; });   // real ma'lumot yo'q
+    if(!missing.length) return;
+    const names=[...new Set(missing.map(k=>(S.meta[k]||{}).name).filter(Boolean))];
+    // PARALLEL — barcha nomlarni bir vaqtda so'raymiz (ketma-ket emas → ~1s, 3-4s emas)
+    await Promise.all(names.map(async nm=>{
+      try{ const j=await api(`/postavki/api/restock?`+Q({shop:S.shop,page:0,size:50,search:nm})); mergeRst(j.items||[]); }catch(_){}
+    }));
+    if(S.view==='create' && S.step==='products') renderRstRows();   // real остаток ko'rinsin
+  }
+
+  // init
+  // Saqlanmagan ish himoyasi (TASDIQSIZ — modal yo'q, faqat jim qoralama):
+  //   • F5 / Ctrl+R / 🔄 / orqaga / ‹ / tab-yopish → so'ramaymiz, darrov chiqamiz.
+  //   • Kiritилган miqdorlar localStorage qoralамasига saqlangani uchun YO'QOLMAYDI
+  //     — qayta ochilганда «Черновик восстановлен» bilan tiklanadi.
+
+  // F5/Ctrl+R'ни endi USHLAMAYMIZ — reload jim o'tadi, pagehide qoralамани saqlaydi.
+
+  // 🔄 reload tugmasi / tab-yopish — JS ushlay olmaydi, LEKIN pagehide'да
+  // kutib turган debounce yozuvini darhol diskka tushiramiz (sinxron, ruxsat
+  // etilган) → oxirgi bosish ham yo'qolmaydi.
+  window.addEventListener('pagehide', ()=>{ if(_retDraftT) saveRetDraftFlush(); if(_createDraftT) saveCreateDraftFlush(); });
+
+  // Brauzer «orqaga» tugmasi — tasdiqsiz ro'yxatga qaytaramiz (qoralama saqlanadi)
+  window.addEventListener('popstate', ()=>{
+    if(S.view!=='retcreate') return;
+    if(retDirty()){ saveRetDraftFlush(); S.ramt={}; S.robj={}; }
+    go('list'); refreshList();
+  });
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  // ── Hover-zoom preview (FBS «Ombor» bilan bir xil) ──────────────────
+  // <body>ga ulangan bitta suzuvchi karta; .pkx-imgtile rasm ustiga hover'da
+  // yuqori-aniqlik (240→540) versiyani yon tomonda ko'rsatadi, chetda aylanadi.
+  const _zoomEl=document.createElement('div'); _zoomEl.className='pkx-zoom';
+  const _zoomImg=document.createElement('img'); _zoomImg.alt=''; _zoomImg.decoding='async';
+  _zoomEl.appendChild(_zoomImg); document.body.appendChild(_zoomEl);
+  const _ZW=320,_ZH=320,_ZGAP=14;
+  let _zoomCur=null;   // hozir hover qilinayotgan rasm (yoki null) — stale-flash'ning oldini oladi
+  function _placeZoom(r){
+    let left=r.right+_ZGAP; if(left+_ZW>window.innerWidth-8) left=r.left-_ZGAP-_ZW;   // chetda yon almashtir
+    left=Math.max(8,Math.min(left,window.innerWidth-_ZW-8));
+    let top=r.top+r.height/2-_ZH/2; top=Math.max(8,Math.min(top,window.innerHeight-_ZH-8));
+    _zoomEl.style.left=left+'px'; _zoomEl.style.top=top+'px';
+  }
+  // YANGI rasm to'liq yuklanmaguncha kartani ko'rsatmaymiz — aks holda yuklanguncha
+  // ESKI (oldingi hover) rasm bir lahza ko'rinib qolardi (bag). onload kechiksa ham
+  // faqat hali o'sha rasm ustida tursak ko'rsatamiz.
+  _zoomImg.addEventListener('load', ()=>{ if(_zoomCur) { _placeZoom(_zoomCur.getBoundingClientRect()); _zoomEl.classList.add('is-on'); } });
+  _zoomImg.addEventListener('error', _hideZoom);
+  function _showZoom(img){
+    const src=img.getAttribute('src'); if(!src){ _hideZoom(); return; }
+    _zoomCur=img;
+    // Istalgan Uzum o'lcham/sifatni (80/240, low/high) 540_high'ga ko'taramiz.
+    const hi=src.replace(/t_product_\d+_(?:high|low)\.(jpe?g|png|webp)/i, 't_product_540_high.$1');
+    _placeZoom(img.getBoundingClientRect());
+    if(_zoomImg.getAttribute('src')===hi){                    // shu rasm allaqachon o'rnatilgan
+      if(_zoomImg.complete && _zoomImg.naturalWidth) _zoomEl.classList.add('is-on');   // kesh'da → darrov
+      return;
+    }
+    _zoomEl.classList.remove('is-on');                        // eski rasmni darrov yashir (flash yo'q)
+    _zoomImg.src=hi;                                          // yuklanib bo'lgach 'load' is-on qo'shadi
+    if(_zoomImg.complete && _zoomImg.naturalWidth) _zoomEl.classList.add('is-on');   // kesh'da → o'sha freymda, miltillashsiz
+  }
+  function _hideZoom(){ _zoomCur=null; _zoomEl.classList.remove('is-on'); }
+  function _zoomTarget(e){ const t=e.target; return (t&&t.tagName==='IMG'&&t.closest&&t.closest('.pkx-imgtile'))?t:null; }
+  document.addEventListener('mouseover',(e)=>{ const img=_zoomTarget(e); if(img) _showZoom(img); });
+  document.addEventListener('mouseout',(e)=>{ if(_zoomTarget(e)) _hideZoom(); });
+  window.addEventListener('scroll', _hideZoom, true);
+
+  (async function(){ if(!S.shop){ el.innerHTML='<div class="pkx-msg">Нет магазинов</div>'; return; } render();
+    if(S.tab==='returns') await safe(()=>loadReturns(true));        // saqlangan tab'ga mos ma'lumot
+    else if(S.tab==='grab') await safe(()=>loadAllPlans());
+    else { await safe(()=>loadInvoices(true)); safe(()=>loadGrabPlans()).then(()=>render()); }  // grabPlans BLOKLAMAYDI: ro'yxat darhol, chip keyin
+    render(); })();
+})();
+</script>
+{% endblock %}

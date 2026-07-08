@@ -29,7 +29,6 @@ from core.uzum_openapi import (
     extract_fbs_orders_list,
     FBS_ORDER_STATUSES,
 )
-from core.fbs_locks import pace_uzum_call
 
 
 # Uzum's /v2/fbs/orders caps page size at 50; trying to ask for more
@@ -137,6 +136,67 @@ def fbs_statuses_for_tick(tick_index: int, slow_every_n: int) -> tuple[str, ...]
     if tick_index % slow_every_n == 0:
         return FBS_ALL_SYNC_STATUSES
     return FBS_ACTIVE_SYNC_STATUSES
+
+
+# ── Per-status sync cadence (Abdulaziz 2026-06-16) ───────────────────
+# The old two-tier model (active-every-tick / slow-every-Nth) is replaced
+# by an explicit PER-STATUS interval in MINUTES. The worker now wakes on a
+# fine heartbeat (≈1 min) and syncs each status only when its own interval
+# has elapsed — so a status can be tuned independently without touching the
+# others. A status ABSENT from this map (or mapped to a non-positive value)
+# is NEVER background-synced:
+#   * PENDING_DELIVERY — shown only via the live "Поставка"/накладные view.
+#   * PENDING_CANCELLATION — transient; never listed.
+# These minutes are honoured exactly only if the worker heartbeat divides
+# them (run the loop every 60s); a coarser heartbeat rounds up to the next
+# wake-up. Override any value via FBS_STATUS_SYNC_INTERVAL_MIN_<STATUS> at
+# the call site if a deployment needs to retune without a code edit.
+FBS_STATUS_SYNC_INTERVAL_MIN: dict[str, int] = {
+    "CREATED": 23,
+    "PACKING": 23,
+    "DELIVERING": 63,
+    "DELIVERED": 57,
+    "ACCEPTED_AT_DP": 57,
+    "DELIVERED_TO_CUSTOMER_DELIVERY_POINT": 57,
+    "COMPLETED": 63,
+    "CANCELED": 63,
+    "RETURNED": 63,
+    # PENDING_DELIVERY / PENDING_CANCELLATION omitted on purpose → never.
+}
+
+
+def fbs_statuses_due(
+    now_ts: float,
+    last_sync_ts: dict[str, float],
+    *,
+    intervals: dict[str, int] | None = None,
+    first_run: bool = False,
+) -> tuple[str, ...]:
+    """Which statuses the worker should sync on this heartbeat.
+
+    ``now_ts`` / ``last_sync_ts`` are epoch seconds (``time.time()``); the
+    dict maps ``status -> last successful sync ts``. A status whose interval
+    has elapsed since its last sync — or that has never been synced — is due.
+
+    ``first_run=True`` forces every CONFIGURED status due, so a (re)start
+    re-backfills the full set in one pass (the old "tick 0 = full sweep").
+
+    Pure function: no DB, no clock, no globals — the caller owns the clock
+    and the ``last_sync_ts`` book-keeping, keeping this deterministic and
+    trivially testable. Result follows :data:`FBS_ALL_SYNC_STATUSES` order.
+    """
+    intervals = intervals if intervals is not None else FBS_STATUS_SYNC_INTERVAL_MIN
+    due: set[str] = set()
+    for status, interval_min in intervals.items():
+        if not interval_min or interval_min <= 0:
+            continue  # absent / non-positive → never synced
+        if first_run:
+            due.add(status)
+            continue
+        last = last_sync_ts.get(status)
+        if last is None or (now_ts - last) >= interval_min * 60:
+            due.add(status)
+    return tuple(s for s in FBS_ALL_SYNC_STATUSES if s in due)
 
 
 def parse_iso_naive_utc(s):
@@ -269,10 +329,9 @@ def fetch_all_pages(token: str, shop_uzum_id, *,
     page = 0
     MAX_PAGES = 50
     while page < MAX_PAGES:
-        # Pace every Uzum /orders call through the shared per-token gate
-        # so the worker and a live Yangilash never land two calls on the
-        # token inside one second (Uzum's burst-penalty trigger).
-        pace_uzum_call(token)
+        # Bosqich A.11 — pacing is handled centrally by the shared per-token
+        # bucket inside _fbs_orders_request_with_auth, so the worker and a
+        # live Yangilash are serialised cross-process without a gate here.
         body, _ = fetch_fbs_orders_page(
             token, shop_uzum_id,
             status=status, page=page, size=_FBS_PAGE_SIZE,
@@ -564,4 +623,6 @@ __all__ = [
     "FBS_ACTIVE_SYNC_STATUSES",
     "FBS_SLOW_SYNC_STATUSES",
     "fbs_statuses_for_tick",
+    "FBS_STATUS_SYNC_INTERVAL_MIN",
+    "fbs_statuses_due",
 ]

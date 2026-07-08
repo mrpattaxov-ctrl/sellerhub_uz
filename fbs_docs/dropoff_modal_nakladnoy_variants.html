@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qabul punktlari — Накладная uslubida</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vio:#6938ef; --vio-dark:#5524d6;
+  --vio-bg:rgba(105,56,239,.08); --vio-bg2:rgba(105,56,239,.12);
+  --vio-border:rgba(105,56,239,.12); --vio-border2:rgba(105,56,239,.35);
+  --ink:#101828; --muted:#667085; --soft-muted:#98a2b3;
+  --line:#eaecf0; --row-line:#f2f4f7;
+  --green-bg:#ecfdf3; --green:#027a48; --green-border:#abefc6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EAF0;font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;color:var(--ink);padding:34px 18px 120px}
+.page-title{max-width:900px;margin:0 auto 6px;font-size:1.4rem;font-weight:800}
+.page-sub{max-width:900px;margin:0 auto 36px;color:var(--muted);font-size:.9rem}
+.variant{max-width:900px;margin:0 auto 64px}
+.vlabel{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.vlabel .num{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;
+  background:var(--vio);color:#fff;font-weight:800;font-size:.95rem}
+.vlabel h2{margin:0;font-size:1.06rem;font-weight:800}
+.vlabel p{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
+.stage{border-radius:26px;padding:34px 22px;display:flex;justify-content:center;
+  background:radial-gradient(1100px 480px at 50% -10%, rgba(105,56,239,.30), rgba(16,24,40,.55) 70%),#3c3a4e}
+
+.modal{width:min(760px,100%);max-height:780px;display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(16,24,40,.5)}
+.scroll{overflow-y:auto}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(102,112,133,.3);border-radius:99px}
+button{font-family:inherit;cursor:pointer}
+
+/* ===== umumiy "nakladnoy" atomlari ===== */
+.head{display:flex;align-items:center;gap:12px;padding:18px 22px 14px}
+.head h3{margin:0;flex:1;font-size:1.08rem;font-weight:700;color:var(--ink)}
+.head h3 small{display:block;font-size:.78rem;font-weight:500;color:var(--muted);margin-top:2px}
+.x{width:32px;height:32px;border-radius:50%;border:0;background:#f2f4f7;color:var(--muted);
+  font-size:1rem;transition:.15s;flex:none}
+.x:hover{background:#e6e8ee;color:var(--ink)}
+.btn-solid{display:inline-flex;align-items:center;gap:6px;padding:.5rem .85rem;border-radius:10px;
+  background:var(--vio);color:#fff;border:1px solid var(--vio);font-size:.82rem;font-weight:600;transition:.15s}
+.btn-solid:hover{background:var(--vio-dark);border-color:var(--vio-dark)}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:.5rem .85rem;border-radius:10px;
+  border:1px solid var(--vio-border2);background:var(--vio-bg);color:var(--vio);
+  font-size:.82rem;font-weight:600;transition:.15s}
+.btn-ghost:hover{background:var(--vio);color:#fff;border-color:var(--vio)}
+.btn-plain{display:inline-flex;align-items:center;gap:6px;padding:.5rem .85rem;border-radius:10px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);font-size:.82rem;font-weight:600;transition:.15s}
+.btn-plain:hover{border-color:#d7deea;color:var(--ink);box-shadow:0 2px 8px rgba(16,24,40,.06)}
+.lbl{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.ico{flex:none;width:28px;height:28px;border-radius:8px;background:var(--vio-bg2);color:var(--vio);
+  display:flex;align-items:center;justify-content:center;font-size:.85rem}
+.ico.blue{background:rgba(99,132,255,.12);color:#4169E1}
+.pin{flex:none;width:36px;height:36px;border-radius:10px;background:var(--vio-bg);color:var(--vio);
+  display:flex;align-items:center;justify-content:center;font-size:1rem}
+.pill{display:inline-flex;align-items:center;padding:.18rem .5rem;border-radius:999px;
+  font-size:.7rem;font-weight:700;line-height:1.4}
+.pill--green{background:var(--green-bg);color:var(--green)}
+.pill--violet{background:var(--vio);color:#fff;font-size:.74rem;padding:.22rem .55rem;border-radius:8px}
+.pill--grey{background:#f2f4f7;color:#475467}
+.slot-chip{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);
+  padding:6px 13px;border-radius:10px;font-size:.8rem;font-weight:700;transition:.12s;cursor:pointer}
+.slot-chip:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(2,122,72,.15)}
+.strip{display:flex;align-items:center;gap:10px;margin:0 22px;padding:.6rem .9rem;border-radius:12px;
+  background:var(--vio-bg)}
+.strip .lbl{color:var(--vio)}
+.search-card{display:flex;align-items:center;gap:10px;margin:0 22px;padding:.65rem .9rem;
+  background:#fff;border:1px solid var(--vio-border);border-radius:14px;
+  box-shadow:0 1px 3px rgba(105,56,239,.06), 0 1px 2px rgba(16,24,40,.04);
+  color:var(--soft-muted);font-size:.88rem}
+.search-card .kbd{margin-left:auto;font-size:.68rem;font-weight:700;color:var(--muted);
+  background:#f2f4f7;border:1px solid var(--line);padding:3px 7px;border-radius:6px}
+/* toggle */
+.sw{display:inline-flex;align-items:center;gap:8px;font-size:.84rem;font-weight:600;color:var(--ink)}
+.tr{width:38px;height:22px;border-radius:99px;background:var(--vio);position:relative;flex:none}
+.tr i{position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.hint{width:17px;height:17px;border-radius:50%;background:#f2f4f7;color:var(--muted);
+  font-size:.7rem;font-weight:700;display:inline-grid;place-items:center;cursor:help}
+.geo-ok{font-size:.76rem;font-weight:600;color:var(--green)}
+/* tab segment — violet */
+.seg{display:inline-flex;background:#f2f4f7;border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;padding:7px 16px;border-radius:9px;
+  font-size:.84rem;font-weight:600;color:var(--muted);transition:.15s}
+.seg button.on{background:#fff;color:var(--vio);box-shadow:0 2px 8px rgba(16,24,40,.10);font-weight:700}
+/* point card (inv-order-card uslubi) */
+.pcard{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  transition:box-shadow .16s ease, transform .12s ease, border-color .15s ease}
+.pcard:hover{border-color:#d7deea;box-shadow:0 10px 26px rgba(16,24,40,.10);transform:translateY(-1px)}
+.pcard.fav{border-color:rgba(245,158,11,.5)}
+.star{border:0;background:transparent;font-size:1.15rem;color:#d0d3dd;padding:0;line-height:1;flex:none}
+.star.on{color:#f59e0b}
+.star:hover{color:#f59e0b}
+</style>
+</head>
+<body>
+
+<div class="page-title">📍 Qabul punktlari — Накладная oynasi uslubida</div>
+<div class="page-sub">Aynan накладной dizayn tili: binafsha #6938ef aksent, oq kartalar + nozik binafsha ramka, ikonka-chiplar, UPPERCASE yorliqlar, lavanda strip, yashil slot-chiplar. Aktiv/Σ belgilar olib tashlangan.</div>
+
+<!-- ================= VARIANT 1 ================= -->
+<div class="variant">
+  <div class="vlabel">
+    <div class="num">1</div>
+    <div><h2>Fakt-strip</h2><p>To'liq накладной nusxasi: sarlavha + fakt-kartasi + lavanda strip + karta-qatorlar</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <h3>Qabul punktlari</h3>
+      <button class="btn-solid">🧭 Joylashuvni yangilash</button>
+      <button class="x">✕</button>
+    </div>
+    <!-- fakt-strip: nakladnoydagi VAQT SLOT / YARATILGAN qatori kabi -->
+    <div style="margin:0 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem 1rem;
+                padding:1rem 1.1rem;background:#fff;border:1px solid var(--vio-border);border-radius:14px;
+                box-shadow:0 1px 3px rgba(105,56,239,.06),0 1px 2px rgba(16,24,40,.04)">
+      <div style="display:flex;gap:.55rem;align-items:flex-start">
+        <span class="ico">⊞</span>
+        <div><div class="lbl">Manba</div>
+          <div class="seg" style="margin-top:5px">
+            <button class="on">Mening punktlarim</button>
+            <button>Uzum'dan to'liq</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.55rem;align-items:flex-start">
+        <span class="ico">⚙</span>
+        <div><div class="lbl">Filtr</div>
+          <div style="margin-top:9px;display:flex;align-items:center;gap:7px">
+            <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+            <span class="hint">?</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.55rem;align-items:flex-start">
+        <span class="ico blue">🧭</span>
+        <div><div class="lbl">Joylashuv</div>
+          <div style="margin-top:8px" class="geo-ok">✓ Aniqlandi — yaqinlar tepada</div>
+        </div>
+      </div>
+    </div>
+    <div class="search-card" style="margin-top:14px">🔎 Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)<span class="kbd">Ctrl K</span></div>
+    <div class="strip" style="margin-top:14px">
+      <span class="lbl" style="flex:1">Manzil</span>
+      <span class="lbl">Masofa</span>
+      <span class="lbl" style="width:200px;text-align:right">Amallar</span>
+    </div>
+    <div class="scroll" style="padding:12px 22px 20px;display:flex;flex-direction:column;gap:.6rem">
+      <div class="pcard fav">
+        <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem">
+          <button class="star on">★</button>
+          <span class="pin">📍</span>
+          <div style="flex:1;min-width:0">
+            <div class="lbl" style="margin-bottom:.15rem">BLUMMY, LUXUZ</div>
+            <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+          </div>
+          <span class="pill--violet pill">5.6 km</span>
+          <span class="pill pill--green">ENG YAQIN</span>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.7rem 1rem;border-top:1px solid var(--row-line);background:#fcfbff">
+          <span class="slot-chip">14.06 10:00–15:30</span>
+          <span class="slot-chip">15.06 10:00–15:30</span>
+        </div>
+      </div>
+      <div class="pcard">
+        <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem">
+          <button class="star">☆</button>
+          <span class="pin">📍</span>
+          <div style="flex:1;min-width:0">
+            <div class="lbl" style="margin-bottom:.15rem">BLUMMY</div>
+            <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          </div>
+          <span class="pill--violet pill" style="background:var(--vio-bg);color:var(--vio)">6.3 km</span>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+      </div>
+      <div class="pcard">
+        <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem">
+          <button class="star">☆</button>
+          <span class="pin">📍</span>
+          <div style="flex:1;min-width:0">
+            <div class="lbl" style="margin-bottom:.15rem">BLUMMY, LUXUZ</div>
+            <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          </div>
+          <span class="pill--violet pill" style="background:var(--vio-bg);color:var(--vio)">7.1 km</span>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 2 ================= -->
+<div class="variant">
+  <div class="vlabel">
+    <div class="num">2</div>
+    <div><h2>Address-card</h2><p>Har punkt — накладнойdagi «QABUL PUNKTI» kartasi ko'rinishida; tepada yagona boshqaruv kartasi</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <h3>Qabul punktlari<small>2 ta buyurtma uchun punkt tanlang</small></h3>
+      <button class="x">✕</button>
+    </div>
+    <!-- boshqaruv kartasi -->
+    <div style="margin:0 22px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+                padding:.8rem 1rem;background:#fff;border:1px solid var(--vio-border);border-radius:14px;
+                box-shadow:0 1px 3px rgba(105,56,239,.06),0 1px 2px rgba(16,24,40,.04)">
+      <div class="seg">
+        <button class="on">Mening punktlarim</button>
+        <button>Uzum'dan to'liq</button>
+      </div>
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <span class="hint">?</span>
+      <button class="btn-ghost" style="margin-left:auto">🧭 Joylashuvni yangilash</button>
+    </div>
+    <div class="search-card" style="margin-top:12px">🔎 Manzil yoki do'kon bo'yicha qidirish…</div>
+    <div style="margin:10px 22px 0;display:flex;align-items:center;gap:8px">
+      <span class="geo-ok">✓ Joylashuv aniqlandi — yaqin punktlar tepada</span>
+      <span class="pill pill--grey" style="margin-left:auto">4 ta punkt</span>
+    </div>
+    <div class="scroll" style="padding:12px 22px 20px;display:flex;flex-direction:column;gap:.6rem">
+      <div class="pcard fav" style="display:flex;gap:.75rem;align-items:center;padding:.9rem 1.1rem;border-color:var(--vio-border)">
+        <span class="pin">📍</span>
+        <div style="flex:1;min-width:0">
+          <div class="lbl" style="margin-bottom:.15rem">Qabul punkti · BLUMMY, LUXUZ · 5.6 km · <span style="color:var(--green)">eng yaqin</span></div>
+          <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+          <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.55rem">
+            <span class="slot-chip">14.06 10:00–15:30</span>
+            <span class="slot-chip">15.06 10:00–15:30</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.45rem;align-items:flex-end">
+          <button class="star on">★</button>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+      </div>
+      <div class="pcard" style="display:flex;gap:.75rem;align-items:center;padding:.9rem 1.1rem">
+        <span class="pin">📍</span>
+        <div style="flex:1;min-width:0">
+          <div class="lbl" style="margin-bottom:.15rem">Qabul punkti · BLUMMY · 6.3 km</div>
+          <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.45rem;align-items:flex-end">
+          <button class="star">☆</button>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+      </div>
+      <div class="pcard" style="display:flex;gap:.75rem;align-items:center;padding:.9rem 1.1rem">
+        <span class="pin">📍</span>
+        <div style="flex:1;min-width:0">
+          <div class="lbl" style="margin-bottom:.15rem">Qabul punkti · BLUMMY, LUXUZ · 7.1 km</div>
+          <div style="font-size:.95rem;font-weight:600;line-height:1.35">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.45rem;align-items:flex-end">
+          <button class="star">☆</button>
+          <button class="btn-ghost">🕐 Slotlar</button>
+          <button class="btn-plain">Nusxalash</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ================= VARIANT 3 ================= -->
+<div class="variant">
+  <div class="vlabel">
+    <div class="num">3</div>
+    <div><h2>Lavanda-jadval</h2><p>Накладной ichidagi mahsulot jadvali kabi: lavanda sarlavha-strip + bitta katta karta ichida qatorlar</p></div>
+  </div>
+  <div class="stage"><div class="modal">
+    <div class="head">
+      <h3>Qabul punktlari</h3>
+      <div class="seg">
+        <button class="on">Mening punktlarim</button>
+        <button>Uzum'dan to'liq</button>
+      </div>
+      <button class="x">✕</button>
+    </div>
+    <div class="search-card">🔎 Manzil yoki do'kon bo'yicha qidirish… (masalan: Yunusobod, Chilonzor)</div>
+    <div style="margin:10px 22px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="sw"><span class="tr"><i></i></span>Faqat mos keladigan</span>
+      <span class="hint">?</span>
+      <button class="btn-ghost" style="margin-left:auto;padding:.4rem .7rem">🧭 Joylashuvni yangilash</button>
+      <span class="geo-ok">✓ Aniqlandi</span>
+    </div>
+    <div class="strip" style="margin-top:12px">
+      <span class="lbl" style="width:26px"></span>
+      <span class="lbl" style="flex:1">Manzil / Do'konlar</span>
+      <span class="lbl" style="width:70px">Masofa</span>
+      <span class="lbl" style="width:190px;text-align:right">Amallar</span>
+    </div>
+    <!-- bitta katta karta, ichida qatorlar (inv-item-row uslubi) -->
+    <div class="scroll" style="margin:10px 22px 20px;background:#fff;border:1px solid var(--line);border-radius:14px">
+      <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem;background:#fffaf3">
+        <button class="star on">★</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.92rem;font-weight:600;line-height:1.35">Toshkent sh., Yunusobod tumani, Yunusobod dahasi, 13 mavzesi, 53/1 uy</div>
+          <div style="margin-top:.25rem;font-size:.76rem;color:var(--muted)">BLUMMY, LUXUZ · ШК qabul qilinadi</div>
+          <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.55rem">
+            <span class="slot-chip" style="padding:4px 11px;font-size:.76rem">14.06 10:00–15:30</span>
+            <span class="slot-chip" style="padding:4px 11px;font-size:.76rem">15.06 10:00–15:30</span>
+          </div>
+        </div>
+        <div style="width:70px"><span class="pill pill--green">5.6 km</span></div>
+        <div style="width:190px;display:flex;gap:.4rem;justify-content:flex-end">
+          <button class="btn-ghost" style="padding:.4rem .7rem">🕐 Yashirish</button>
+          <button class="btn-plain" style="padding:.4rem .7rem">Nusxalash</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem;border-top:1px solid var(--row-line)">
+        <button class="star">☆</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.92rem;font-weight:600;line-height:1.35">Toshkent sh., Shayxontohur tumani, Zulfiyaxonim ko'chasi, 18 uy</div>
+          <div style="margin-top:.25rem;font-size:.76rem;color:var(--muted)">BLUMMY</div>
+        </div>
+        <div style="width:70px"><span class="pill" style="background:var(--vio-bg);color:var(--vio)">6.3 km</span></div>
+        <div style="width:190px;display:flex;gap:.4rem;justify-content:flex-end">
+          <button class="btn-ghost" style="padding:.4rem .7rem">🕐 Slotlar</button>
+          <button class="btn-plain" style="padding:.4rem .7rem">Nusxalash</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem;border-top:1px solid var(--row-line)">
+        <button class="star">☆</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.92rem;font-weight:600;line-height:1.35">Toshkent sh., Sag'bon ko'chasi, 30a</div>
+          <div style="margin-top:.25rem;font-size:.76rem;color:var(--muted)">BLUMMY, LUXUZ</div>
+        </div>
+        <div style="width:70px"><span class="pill" style="background:var(--vio-bg);color:var(--vio)">7.1 km</span></div>
+        <div style="width:190px;display:flex;gap:.4rem;justify-content:flex-end">
+          <button class="btn-ghost" style="padding:.4rem .7rem">🕐 Slotlar</button>
+          <button class="btn-plain" style="padding:.4rem .7rem">Nusxalash</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;align-items:center;padding:.85rem 1rem;border-top:1px solid var(--row-line)">
+        <button class="star">☆</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.92rem;font-weight:600;line-height:1.35">Toshkent sh., Mirzo-Ulug'bek tumani, Oloy mavzesi, 16 uy</div>
+          <div style="margin-top:.25rem;font-size:.76rem;color:var(--muted)">LUXUZ</div>
+        </div>
+        <div style="width:70px"><span class="pill" style="background:var(--vio-bg);color:var(--vio)">8.4 km</span></div>
+        <div style="width:190px;display:flex;gap:.4rem;justify-content:flex-end">
+          <button class="btn-ghost" style="padding:.4rem .7rem">🕐 Slotlar</button>
+          <button class="btn-plain" style="padding:.4rem .7rem">Nusxalash</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+</body>
+</html>

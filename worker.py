@@ -66,6 +66,21 @@ if os.environ.get("PRODUCTS_SYNC_LOOP", "1").strip().lower() not in ("0", "false
     threads.append(t8)
     print("[Worker] Started: products sync loop")
 
+# FBO slot-kuzatuvi (Faza 0 — premissa sinovi, read-only). Disable via
+# POSTAVKA_SLOT_WATCH_LOOP=0.
+if os.environ.get("POSTAVKA_SLOT_WATCH_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+    t9 = threading.Thread(target=_app._postavka_slot_watch_loop, daemon=True, name="postavka-slot-watch")
+    t9.start()
+    threads.append(t9)
+    print("[Worker] Started: postavka slot watcher")
+
+# Avto-slot grabber (Faza 2D — накладной-bo'yicha, cross-shop). Off: POSTAVKA_GRAB_LOOP=0.
+if os.environ.get("POSTAVKA_GRAB_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+    t10 = threading.Thread(target=_app._postavka_grab_loop, daemon=True, name="postavka-grab")
+    t10.start()
+    threads.append(t10)
+    print("[Worker] Started: postavka slot grabber")
+
 _app._start_auto_login_scheduler()
 print("[Worker] Started: auto-login scheduler")
 

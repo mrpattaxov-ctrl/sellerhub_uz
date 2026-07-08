@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBS ixcham header + haqiqiy jadval — 5 variant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F9; --card:#fff; --bd:#ECECF2; --track:#F3F4F8;
+    --ink:#1A1A22; --mut:#6A6676; --chip:#5A5762;
+    --blue:#4169E1; --vio:#7C3AED;
+    --input-bg:#FBFBFD; --input-bd:#E6E6EC;
+    --shadow:0 2px 8px rgba(0,0,0,.04);
+    --seg-bg:#f1f4fa; --seg-bd:#e4e9f3;
+    --cell:#fff; --cell-bd:#ECECF2; --th:#8A93A6;
+  }
+  body.dark{
+    --bg:#0f1117; --card:#1a1d27; --bd:#2b3346; --track:#1c2334;
+    --ink:#e8edf5; --mut:#9aa3b2; --chip:#9aa3b2;
+    --blue:#5b7cf0; --vio:#8b5cf6;
+    --input-bg:#1e2130; --input-bd:#3a3f5c;
+    --shadow:0 2px 12px rgba(0,0,0,.4);
+    --seg-bg:#1c2334; --seg-bd:#2b3346;
+    --cell:#1a1d27; --cell-bd:#2d3148; --th:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Manrope',-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg); color:var(--ink);
+    padding:2.5rem 1.5rem 6rem; transition:background .3s,color .3s;
+  }
+  .wrap{max-width:1380px;margin:0 auto;}
+  h1{font-size:1.5rem;font-weight:800;margin-bottom:.4rem;}
+  .sub{color:var(--mut);font-size:.9rem;margin-bottom:2.2rem;}
+  .vhead{display:flex;align-items:baseline;gap:.8rem;margin:3.6rem 0 1rem;}
+  .vnum{
+    width:34px;height:34px;border-radius:10px;flex:none;
+    display:grid;place-items:center;font-weight:800;color:#fff;font-size:.95rem;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 6px 14px -4px rgba(96,60,200,.5);
+  }
+  .vname{font-size:1.12rem;font-weight:800;}
+  .vdesc{color:var(--mut);font-size:.84rem;font-weight:600;}
+  .stage{
+    background:var(--bg);border:1px dashed color-mix(in srgb,var(--mut) 35%,transparent);
+    border-radius:22px;padding:1.1rem;
+  }
+  .theme-btn{
+    position:fixed;top:1.2rem;right:1.4rem;z-index:50;
+    border:1px solid var(--bd);background:var(--card);color:var(--ink);
+    border-radius:999px;padding:.55rem 1.1rem;font-weight:700;font-size:.82rem;
+    cursor:pointer;font-family:inherit;box-shadow:var(--shadow);
+  }
+  select,button{font-family:inherit;cursor:pointer;}
+
+  /* ── Umumiy qismlar — KATTALASHTIRILGAN ─────────────────────── */
+  .cap-field{
+    display:flex;align-items:center;gap:.55rem;
+    background:var(--input-bg);border:1px solid var(--input-bd);border-radius:14px;
+    padding:.34rem .35rem .34rem 1rem;
+  }
+  .cap-field .k{font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);}
+  .cap-field select{
+    appearance:none;border:0;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .6rem center;
+    color:var(--ink);font-weight:700;font-size:.97rem;padding:.5rem 1.9rem .5rem .4rem;border-radius:10px;
+  }
+  .cap-field select:hover{background-color:rgba(127,127,160,.07);}
+  .reload{
+    border:0;border-radius:14px;padding:.78rem 1.7rem;
+    background:linear-gradient(135deg,var(--blue),var(--vio));color:#fff;
+    font-weight:800;font-size:.98rem;display:inline-flex;align-items:center;gap:.55rem;
+    box-shadow:0 8px 20px -6px rgba(96,60,200,.55);
+    transition:transform .16s ease,box-shadow .16s ease;
+  }
+  .reload:hover{transform:translateY(-1px);box-shadow:0 12px 26px -6px rgba(96,60,200,.65);}
+  .reload svg{transition:transform .5s ease;}
+  .reload:hover svg{transform:rotate(180deg);}
+
+  .gl-track{
+    position:relative;display:inline-flex;gap:5px;
+    padding:6px;border-radius:17px;background:var(--track);border:1px solid var(--bd);
+    max-width:100%;flex-wrap:wrap;
+  }
+  .gl-thumb{
+    position:absolute;top:6px;left:0;height:calc(100% - 12px);border-radius:12px;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 7px 18px -5px rgba(96,60,200,.6);
+    transition:left .28s cubic-bezier(.3,1.2,.4,1),width .28s cubic-bezier(.3,1.2,.4,1);
+    z-index:0;
+  }
+  .gl-tab{
+    position:relative;z-index:1;border:0;background:transparent;
+    padding:.68rem 1.25rem;border-radius:12px;font-weight:800;font-size:.97rem;
+    color:var(--chip);display:inline-flex;align-items:center;gap:.5rem;
+    transition:color .2s ease;white-space:nowrap;
+  }
+  .gl-tab:hover{color:var(--ink);}
+  .gl-tab.on{color:#fff;}
+  .gl-tab .ct{
+    min-width:22px;height:22px;padding:0 7px;border-radius:999px;
+    display:inline-grid;place-items:center;font-size:.74rem;font-weight:800;
+    background:var(--card);color:var(--mut);transition:background .2s,color .2s;
+  }
+  .gl-tab.on .ct{background:rgba(255,255,255,.25);color:#fff;}
+  .gl-tab .ct.hot{background:#FFE9E3;color:#D9480F;}
+  .gl-tab.on .ct.hot{background:rgba(255,255,255,.25);color:#fff;}
+
+  .seg{
+    display:inline-flex;gap:4px;padding:4px;border-radius:14px;
+    background:var(--seg-bg);border:1px solid var(--seg-bd);flex:none;
+  }
+  .seg a{
+    display:inline-flex;align-items:center;gap:.45rem;
+    padding:.55rem 1.05rem;border-radius:10px;text-decoration:none;
+    color:var(--chip);font-weight:700;font-size:.92rem;transition:background .15s,color .15s;
+  }
+  .seg a:hover{color:var(--ink);}
+  .seg a.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.1);}
+  body.dark .seg a.active{background:#2a3349;color:#fff;}
+
+  .brand{
+    display:inline-flex;align-items:center;gap:.45rem;
+    font-size:.76rem;font-weight:800;letter-spacing:.05em;color:#3456b9;
+    background:rgba(52,86,185,.1);border-radius:999px;padding:.36rem .8rem;flex:none;
+  }
+  body.dark .brand{color:#93b4ff;background:rgba(99,132,255,.15);}
+  .spacer{flex:1 1 auto;}
+
+  /* ════════ V1 — Mono Card ════════ */
+  .v1-card{
+    background:var(--card);border:1px solid var(--bd);border-radius:20px;
+    padding:1.05rem 1.15rem;box-shadow:var(--shadow);
+    display:flex;flex-direction:column;gap:.95rem;
+  }
+  .v1-row1{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+  .v1-title{font-size:1.42rem;font-weight:800;display:flex;align-items:center;gap:.65rem;}
+
+  /* ════════ V2 — Title Switch ════════ */
+  .v2-head{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;padding:.2rem .3rem 1rem;}
+  .v2-switch{display:flex;align-items:baseline;gap:1.4rem;}
+  .v2-switch a{
+    position:relative;text-decoration:none;color:var(--mut);
+    font-size:1.55rem;font-weight:800;padding-bottom:.35rem;transition:color .2s;
+    display:inline-flex;align-items:center;gap:.5rem;
+  }
+  .v2-switch a svg{opacity:.6;}
+  .v2-switch a::after{
+    content:"";position:absolute;left:0;right:100%;bottom:0;height:3.5px;border-radius:99px;
+    background:linear-gradient(90deg,var(--blue),var(--vio));
+    transition:right .28s cubic-bezier(.4,1,.4,1);
+  }
+  .v2-switch a:hover{color:var(--ink);}
+  .v2-switch a.active{color:var(--ink);}
+  .v2-switch a.active::after{right:0;}
+  .v2-switch a.active svg{opacity:1;color:var(--vio);}
+  .v2-card{
+    background:var(--card);border:1px solid var(--bd);border-radius:20px;
+    padding:1rem 1.15rem;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+  }
+
+  /* ════════ V3 — Command Bar ════════ */
+  .v3-bar{
+    background:var(--card);border:1px solid var(--bd);border-radius:18px;
+    padding:.75rem .9rem;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;
+  }
+  .v3-cube{
+    width:46px;height:46px;border-radius:13px;flex:none;
+    display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    box-shadow:0 6px 14px -4px rgba(96,60,200,.5);
+  }
+  .v3-sep{width:1px;height:32px;background:var(--bd);flex:none;}
+
+  /* ════════ V4 — Split Banner ════════ */
+  .v4-card{
+    background:var(--card);border:1px solid var(--bd);border-radius:20px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .v4-strip{
+    display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+    padding:.8rem 1.15rem;
+    background:linear-gradient(120deg,rgba(65,105,225,.09),rgba(124,58,237,.09) 60%,rgba(192,38,211,.07));
+    border-bottom:1px solid var(--bd);
+  }
+  .v4-strip .t{font-size:1.18rem;font-weight:800;display:flex;align-items:center;gap:.6rem;}
+  .v4-strip .t .br{
+    font-size:.74rem;font-weight:800;letter-spacing:.05em;color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--vio));
+    border-radius:8px;padding:.28rem .6rem;
+  }
+  .v4-body{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;padding:1rem 1.15rem;}
+
+  /* ════════ V5 — Floating Glass ════════ */
+  .v5-zone{
+    position:relative;border-radius:22px;padding:1.1rem;
+    background:
+      radial-gradient(60% 90% at 12% 0%,rgba(65,105,225,.16),transparent 60%),
+      radial-gradient(50% 80% at 88% 10%,rgba(124,58,237,.14),transparent 60%),
+      var(--bg);
+  }
+  .v5-glass{
+    display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+    background:color-mix(in srgb,var(--card) 72%,transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid color-mix(in srgb,var(--card) 40%,rgba(255,255,255,.25));
+    border-radius:18px;padding:.85rem 1.05rem;
+    box-shadow:0 10px 30px -12px rgba(20,16,40,.25);
+  }
+  body.dark .v5-glass{border-color:rgba(255,255,255,.08);box-shadow:0 10px 30px -12px rgba(0,0,0,.6);}
+  .v5-glass .t{font-size:1.3rem;font-weight:800;}
+  .v5-tabsrow{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;margin-top:.95rem;}
+
+  /* ════════ Haqiqiy jadval (1-rasmdagi qatorlar) ════════ */
+  .tbl-zone{margin-top:1rem;}
+  table.tbl{width:100%;border-collapse:separate;border-spacing:0 8px;}
+  table.tbl thead th{
+    font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--th);padding:.45rem .85rem;text-align:left;white-space:nowrap;
+  }
+  table.tbl thead th.num,table.tbl tbody td.num{text-align:right;}
+  table.tbl tbody td{
+    background:var(--cell);border-top:1px solid var(--cell-bd);border-bottom:1px solid var(--cell-bd);
+    padding:.8rem .85rem;font-size:.92rem;vertical-align:middle;
+  }
+  table.tbl tbody td:first-child{border-left:1px solid var(--cell-bd);border-radius:14px 0 0 14px;}
+  table.tbl tbody td:last-child{border-right:1px solid var(--cell-bd);border-radius:0 14px 14px 0;}
+  table.tbl tbody tr{cursor:pointer;transition:box-shadow .16s ease;}
+  table.tbl tbody tr:hover{box-shadow:0 10px 26px rgba(16,24,40,.10);}
+  body.dark table.tbl tbody tr:hover{box-shadow:0 10px 26px rgba(0,0,0,.5);}
+  table.tbl input[type=checkbox]{width:16px;height:16px;accent-color:#3456b9;cursor:pointer;}
+  .o-num{font-weight:800;font-size:.95rem;}
+  .dl-chip{
+    display:inline-flex;align-items:center;gap:.3rem;margin-top:.45rem;
+    padding:.22rem .6rem;border-radius:999px;font-size:.72rem;font-weight:800;white-space:nowrap;
+  }
+  .dl-chip.over{background:#1e293b;color:#fff;}
+  body.dark .dl-chip.over{background:#0f1117;color:#cbd5e1;border:1px solid #2d3148;}
+  .dl-chip.warn{background:#FEF3C7;color:#B45309;border:1px solid #FCD34D;}
+  body.dark .dl-chip.warn{background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.35);}
+  .prod{display:flex;align-items:center;gap:.85rem;min-width:280px;}
+  .prod .ph{
+    width:58px;height:58px;border-radius:13px;flex:none;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,#6E8FE8,#4169E1);
+  }
+  .prod .ph.p2{background:linear-gradient(135deg,#F9A8D4,#EC4899);}
+  .prod .ph.p3{background:linear-gradient(135deg,#94A3B8,#64748B);}
+  .prod .ph svg{width:44%;height:44%;opacity:.92;}
+  .prod .info{min-width:0;}
+  .prod .sku{font-weight:700;font-size:.9rem;}
+  .prod .sht{color:var(--mut);font-size:.8rem;margin-top:.15rem;}
+  .qty-pill{
+    display:inline-flex;align-items:center;padding:.2rem .65rem;border-radius:999px;
+    background:#EEF2FF;color:#3456b9;border:1px solid #DDE3FA;
+    font-size:.76rem;font-weight:800;white-space:nowrap;flex:none;margin-left:auto;
+  }
+  body.dark .qty-pill{background:rgba(99,132,255,.14);color:#93b4ff;border-color:rgba(99,132,255,.3);}
+  .sch-pill{
+    display:inline-block;padding:.18rem .6rem;border-radius:8px;
+    background:#EEF2FF;color:#3456b9;font-size:.74rem;font-weight:800;
+  }
+  body.dark .sch-pill{background:rgba(99,132,255,.14);color:#93b4ff;}
+  .t-mut{color:var(--mut);font-size:.88rem;white-space:nowrap;}
+  .t-red{color:#DC2626;font-weight:700;font-size:.88rem;white-space:nowrap;}
+  body.dark .t-red{color:#f87171;}
+  .t-shop{font-weight:800;}
+  .t-sum{font-weight:800;white-space:nowrap;}
+  .bottombar{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--bd);
+    font-weight:800;font-size:.84rem;color:var(--chip);
+  }
+  .bottombar select{
+    appearance:none;border:1px solid var(--input-bd);border-radius:10px;cursor:pointer;
+    background:var(--input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%239B98A5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right .55rem center;
+    color:var(--ink);font-weight:700;font-size:.84rem;padding:.5rem 1.8rem .5rem .75rem;
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="document.body.classList.toggle('dark')">🌓 Light / Dark</button>
+<div class="wrap">
+  <h1>Ixcham header (kattalashtirilgan) + haqiqiy qatorlar — 5 variant</h1>
+  <p class="sub">Header elementlari ~15–20% kattalashtirildi. Har variant ostida 1-rasmdagi real buyurtma qatorlari turibdi — yakuniy sahifa qanday ko'rinishini his qilish uchun. Tab'lar interaktiv, o'ngda dark rejim.</p>
+
+  <!-- ═══════════ V1 ═══════════ -->
+  <div class="vhead"><span class="vnum">1</span><div><div class="vname">Mono Card</div><div class="vdesc">Hammasi bitta kartada: sarlavha + bo'lim + filtrlar bir qatorda, glide-trek ostida.</div></div></div>
+  <div class="stage">
+    <div class="v1-card">
+      <div class="v1-row1">
+        <span class="v1-title">Buyurtmalar <span class="brand">FBS / DBS</span></span>
+        <nav class="seg">
+          <a href="#" class="active" onclick="return false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Buyurtmalar</a>
+          <a href="#" onclick="return false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Ombor</a>
+        </nav>
+        <span class="spacer"></span>
+        <div class="cap-field"><span class="k">Do'kon</span>
+          <select><option>Hammasi</option><option>BLUMMY</option><option>KrossFit</option></select>
+        </div>
+        <div class="cap-field"><span class="k">Sxema</span>
+          <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+        </div>
+        <button class="reload">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Yangilash
+        </button>
+      </div>
+      <div>
+        <div class="gl-track">
+          <div class="gl-thumb"></div>
+          <button class="gl-tab on">Yangi <span class="ct hot">3</span></button>
+          <button class="gl-tab">Yig'ilmoqda <span class="ct">3</span></button>
+          <button class="gl-tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Поставка <span class="ct">1</span></button>
+          <button class="gl-tab">Yo'lda <span class="ct">0</span></button>
+          <button class="gl-tab">Boshqa holatlar
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="tbl-zone" data-table></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ V2 ═══════════ -->
+  <div class="vhead"><span class="vnum">2</span><div><div class="vname">Title Switch</div><div class="vdesc">Sarlavha o'zi tab («Buyurtmalar / Ombor»). Karta: trek chapda, filtrlar o'ngda.</div></div></div>
+  <div class="stage">
+    <div class="v2-head">
+      <div class="v2-switch">
+        <a href="#" class="active" onclick="return false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Buyurtmalar</a>
+        <a href="#" onclick="return false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Ombor</a>
+      </div>
+      <span class="brand">FBS / DBS</span>
+    </div>
+    <div class="v2-card">
+      <div class="gl-track">
+        <div class="gl-thumb"></div>
+        <button class="gl-tab on">Yangi <span class="ct hot">3</span></button>
+        <button class="gl-tab">Yig'ilmoqda <span class="ct">3</span></button>
+        <button class="gl-tab">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Поставка <span class="ct">1</span></button>
+        <button class="gl-tab">Yo'lda <span class="ct">0</span></button>
+        <button class="gl-tab">Boshqa holatlar
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <span class="spacer"></span>
+      <div class="cap-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>BLUMMY</option><option>KrossFit</option></select>
+      </div>
+      <div class="cap-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="reload">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="tbl-zone" data-table data-card></div>
+  </div>
+
+  <!-- ═══════════ V3 ═══════════ -->
+  <div class="vhead"><span class="vnum">3</span><div><div class="vname">Command Bar</div><div class="vdesc">Eng ixcham: hammasi bitta satrda — logo-kub, bo'lim, trek, filtrlar, Yangilash.</div></div></div>
+  <div class="stage">
+    <div class="v3-bar">
+      <span class="v3-cube">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </span>
+      <nav class="seg">
+        <a href="#" class="active" onclick="return false">Buyurtmalar</a>
+        <a href="#" onclick="return false">Ombor</a>
+      </nav>
+      <span class="v3-sep"></span>
+      <div class="gl-track">
+        <div class="gl-thumb"></div>
+        <button class="gl-tab on">Yangi <span class="ct hot">3</span></button>
+        <button class="gl-tab">Yig'ilmoqda <span class="ct">3</span></button>
+        <button class="gl-tab">Поставка <span class="ct">1</span></button>
+        <button class="gl-tab">Yo'lda <span class="ct">0</span></button>
+        <button class="gl-tab">Boshqa
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <span class="spacer"></span>
+      <div class="cap-field"><span class="k">Do'kon</span>
+        <select><option>Hammasi</option><option>BLUMMY</option><option>KrossFit</option></select>
+      </div>
+      <div class="cap-field"><span class="k">Sxema</span>
+        <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+      </div>
+      <button class="reload">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Yangilash
+      </button>
+    </div>
+    <div class="tbl-zone" data-table data-card></div>
+  </div>
+
+  <!-- ═══════════ V4 ═══════════ -->
+  <div class="vhead"><span class="vnum">4</span><div><div class="vname">Split Banner</div><div class="vdesc">Kartaning tepasida yupqa gradient strip (brending + bo'lim), ostida filtr + trek.</div></div></div>
+  <div class="stage">
+    <div class="v4-card">
+      <div class="v4-strip">
+        <span class="t"><span class="br">FBS / DBS</span> Buyurtmalar</span>
+        <span class="spacer"></span>
+        <nav class="seg">
+          <a href="#" class="active" onclick="return false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Buyurtmalar</a>
+          <a href="#" onclick="return false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Ombor</a>
+        </nav>
+      </div>
+      <div class="v4-body">
+        <div class="gl-track">
+          <div class="gl-thumb"></div>
+          <button class="gl-tab on">Yangi <span class="ct hot">3</span></button>
+          <button class="gl-tab">Yig'ilmoqda <span class="ct">3</span></button>
+          <button class="gl-tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Поставка <span class="ct">1</span></button>
+          <button class="gl-tab">Yo'lda <span class="ct">0</span></button>
+          <button class="gl-tab">Boshqa holatlar
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <span class="spacer"></span>
+        <div class="cap-field"><span class="k">Do'kon</span>
+          <select><option>Hammasi</option><option>BLUMMY</option><option>KrossFit</option></select>
+        </div>
+        <div class="cap-field"><span class="k">Sxema</span>
+          <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+        </div>
+        <button class="reload">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Yangilash
+        </button>
+      </div>
+      <div class="tbl-zone" data-table style="padding:0 1.15rem 1.05rem"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ V5 ═══════════ -->
+  <div class="vhead"><span class="vnum">5</span><div><div class="vname">Floating Glass</div><div class="vdesc">Oynasimon panel aurora fonda; glide-trek kartasiz erkin turadi.</div></div></div>
+  <div class="stage">
+    <div class="v5-zone">
+      <div class="v5-glass">
+        <span class="t">Buyurtmalar</span>
+        <span class="brand">FBS / DBS</span>
+        <nav class="seg">
+          <a href="#" class="active" onclick="return false">Buyurtmalar</a>
+          <a href="#" onclick="return false">Ombor</a>
+        </nav>
+        <span class="spacer"></span>
+        <div class="cap-field"><span class="k">Do'kon</span>
+          <select><option>Hammasi</option><option>BLUMMY</option><option>KrossFit</option></select>
+        </div>
+        <div class="cap-field"><span class="k">Sxema</span>
+          <select><option>FBS + DBS</option><option>FBS</option><option>DBS</option></select>
+        </div>
+        <button class="reload">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Yangilash
+        </button>
+      </div>
+      <div class="v5-tabsrow">
+        <div class="gl-track">
+          <div class="gl-thumb"></div>
+          <button class="gl-tab on">Yangi <span class="ct hot">3</span></button>
+          <button class="gl-tab">Yig'ilmoqda <span class="ct">3</span></button>
+          <button class="gl-tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Поставка <span class="ct">1</span></button>
+          <button class="gl-tab">Yo'lda <span class="ct">0</span></button>
+          <button class="gl-tab">Boshqa holatlar
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="tbl-zone" data-table data-card></div>
+    </div>
+  </div>
+</div>
+
+<!-- Haqiqiy qatorlar shabloni — har variant ostiga klonlanadi -->
+<template id="tblTpl">
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th style="width:34px"><input type="checkbox"></th>
+          <th>№</th>
+          <th>Mahsulot</th>
+          <th>Sxema</th>
+          <th>Yaratildi</th>
+          <th>Muddat</th>
+          <th>Do'kon</th>
+          <th class="num">Summa</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td>
+            <div class="o-num">111073603</div>
+            <span class="dl-chip over">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Muddat o'tdi</span>
+          </td>
+          <td>
+            <div class="prod">
+              <span class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+              <div class="info">
+                <div class="sku">SKU: BLUMMY-MAGNIT2-35</div>
+                <div class="sht">Shtrix: 1000007817167</div>
+              </div>
+              <span class="qty-pill">1 dona</span>
+            </div>
+          </td>
+          <td><span class="sch-pill">FBS</span></td>
+          <td class="t-mut">10.06.2026, 18:57</td>
+          <td class="t-red">11.06.2026, 10:57</td>
+          <td class="t-shop">BLUMMY</td>
+          <td class="num t-sum">15 000 UZS</td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td>
+            <div class="o-num">111073760</div>
+            <span class="dl-chip over">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Muddat o'tdi</span>
+          </td>
+          <td>
+            <div class="prod">
+              <span class="ph p2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+              <div class="info">
+                <div class="sku">SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</div>
+                <div class="sht">Shtrix: 1000103129447</div>
+              </div>
+              <span class="qty-pill">1 dona</span>
+            </div>
+          </td>
+          <td><span class="sch-pill">FBS</span></td>
+          <td class="t-mut">10.06.2026, 18:58</td>
+          <td class="t-red">11.06.2026, 10:58</td>
+          <td class="t-shop">BLUMMY</td>
+          <td class="num t-sum">22 950 UZS</td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td>
+            <div class="o-num">111161812</div>
+            <span class="dl-chip warn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              15 soat qoldi</span>
+          </td>
+          <td>
+            <div class="prod">
+              <span class="ph p3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+              <div class="info">
+                <div class="sku">SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</div>
+                <div class="sht">Shtrix: 1000101649008</div>
+              </div>
+              <span class="qty-pill">1 dona</span>
+            </div>
+          </td>
+          <td><span class="sch-pill">FBS</span></td>
+          <td class="t-mut">11.06.2026, 10:51</td>
+          <td class="t-red" style="color:inherit;font-weight:600">12.06.2026, 02:51</td>
+          <td class="t-shop">KrossFit</td>
+          <td class="num t-sum">59 900 UZS</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="bottombar">Sahifada
+      <select><option>10</option><option selected>20</option><option>50</option></select>
+    </div>
+  </div>
+</template>
+
+<script>
+// Jadvalni har variant ostiga klonlash. data-card bo'lsa oq karta ichiga o'raladi.
+var tpl = document.getElementById('tblTpl');
+document.querySelectorAll('[data-table]').forEach(function(zone){
+  var node = tpl.content.cloneNode(true);
+  if (zone.hasAttribute('data-card')) {
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:1rem 1.15rem;box-shadow:var(--shadow);';
+    card.appendChild(node);
+    zone.appendChild(card);
+  } else {
+    zone.appendChild(node);
+  }
+});
+
+// Glide-trek thumb
+function placeThumb(track){
+  var on = track.querySelector('.gl-tab.on');
+  var th = track.querySelector('.gl-thumb');
+  if(!on || !th) return;
+  th.style.left = on.offsetLeft + 'px';
+  th.style.width = on.offsetWidth + 'px';
+}
+document.querySelectorAll('.gl-track').forEach(function(track){
+  track.querySelectorAll('.gl-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      track.querySelectorAll('.gl-tab').forEach(function(b){ b.classList.remove('on'); });
+      btn.classList.add('on');
+      placeThumb(track);
+    });
+  });
+});
+function placeAll(){ document.querySelectorAll('.gl-track').forEach(placeThumb); }
+window.addEventListener('load', placeAll);
+window.addEventListener('resize', placeAll);
+</script>
+</body>
+</html>

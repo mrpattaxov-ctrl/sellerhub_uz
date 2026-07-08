@@ -31,6 +31,7 @@ from core.fbs_sync import (
     FBS_ALL_SYNC_STATUSES as _FBS_ALL_SYNC_STATUSES,
     FBS_ACTIVE_SYNC_STATUSES as _FBS_ACTIVE_SYNC_STATUSES,
     fbs_statuses_for_tick as _fbs_statuses_for_tick,
+    fbs_statuses_due as _fbs_statuses_due,
 )
 from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
@@ -147,6 +148,28 @@ def _ensure_postgres_runtime_schema():
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS blocking_reason VARCHAR(500) NULL",
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS sku_block_reason TEXT NULL",
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS ikpu VARCHAR(80) NULL",
+        # ── Avto-slot QUEUE kengaytmasi (postavka_grab_plan, Bosqich 1) ──
+        # «vaqt + hajm» navbat + atomic-claim uchun. Hammasi additive/NULLABLE
+        # (attempts default 0), eski grabber (target_day) buzilmaydi.
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS user_id INTEGER NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS enabled_at TIMESTAMP NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS max_date DATE NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS min_date DATE NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS lease_until TIMESTAMP NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS current_slot_ms BIGINT NULL",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 0",
+        # Eski qatorlarni navbatga moslab to'ldirish (faqat NULL bo'lganlar —
+        # bir martalik; yangi qatorlar bu maydonlarni doim o'zi to'ldiradi).
+        "UPDATE postavka_grab_plan SET max_date = target_day WHERE max_date IS NULL",
+        "UPDATE postavka_grab_plan SET enabled_at = created_at WHERE enabled_at IS NULL",
+        # Navbat prioriteti va hot-path indekslari.
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_user_id ON postavka_grab_plan (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_enabled_at ON postavka_grab_plan (enabled_at)",
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_max_date ON postavka_grab_plan (max_date)",
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_min_date ON postavka_grab_plan (min_date)",
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_priority ON postavka_grab_plan (priority)",
+        "CREATE INDEX IF NOT EXISTS ix_grab_plan_hotpath ON postavka_grab_plan (status, pool_source, dim_group, max_date)",
     ]
     try:
         with engine.begin() as conn:
@@ -373,7 +396,7 @@ from translations import get_translations
 
 @app.context_processor
 def _inject_lang():
-    lang = session.get("lang", "ru")
+    lang = session.get("lang", "uz")
     return {"lang": lang, "t": get_translations(lang)}
 
 
@@ -651,6 +674,19 @@ app.register_blueprint(_telegram_mod.telegram_bp)
 import fbs.routes as _fbs_mod
 app.register_blueprint(_fbs_mod.fbs_bp)
 
+# ---------------------------------------------------------------------------
+# Register postavki Blueprint (Поставки — avto yuk xati + taym-slot, izolyatsiya)
+# ---------------------------------------------------------------------------
+import postavki.routes as _postavki_mod
+app.register_blueprint(_postavki_mod.postavki_bp)
+
+# ---------------------------------------------------------------------------
+# Register admin «Авто-слот» panel (IZOLYATSIYALANGAN — admin_autoslot/ papka)
+# Faqat operator: global avto-slot navbatini ko'rish + prioritet boshqaruvi.
+# ---------------------------------------------------------------------------
+import admin_autoslot as _admin_autoslot_mod
+app.register_blueprint(_admin_autoslot_mod.admin_autoslot_bp)
+
 
 # ----------------------------
 # Pages (new)
@@ -672,6 +708,51 @@ def _tg_config() -> dict:
             return json.load(f)
     except Exception:
         return {}
+
+def _send_telegram_chat(chat_id: str, text: str) -> bool:
+    """Send a plain Markdown message to an explicit Telegram chat id.
+
+    Best-effort — returns False (and logs) if the bot isn't configured or the
+    chat id is empty. Used by background loops (e.g. postavka slot-watcher,
+    which targets POSTAVKA_SLOT_WATCH_TG_CHAT — no admin record needed).
+    """
+    try:
+        import telebot as _tb
+        import time as _t
+    except Exception as e:
+        print(f"[Telegram] telebot import failed: {e!r}")
+        return False
+
+    cfg = _tg_config()
+    token = (cfg.get("bot_token") or "").strip()
+    chat_id = (str(chat_id) if chat_id else "").strip()
+    if not token or not chat_id:
+        return False
+
+    # O'zgaruvchan tarmoq (O'zbekistonda Telegram tez-tez sekinlashadi) tufayli
+    # api.telegram.org ga ulanish timeout bo'lishi mumkin — shu sabab bir necha
+    # marta qayta urinamiz (orasida qisqa kutib). Best-effort: hammasi tushsa False.
+    attempts = 4
+    for i in range(attempts):
+        try:
+            _tb.TeleBot(token, threaded=False).send_message(chat_id, text, parse_mode="Markdown")
+            if i:
+                print(f"[Telegram] yuborildi ({i + 1}-urinishda)")
+            return True
+        except Exception as e:
+            print(f"[Telegram] chat send urinish {i + 1}/{attempts} muvaffaqiyatsiz: {e!r}"[:180])
+            if i < attempts - 1:
+                _t.sleep(2 * (i + 1))  # 2s, 4s, 6s backoff
+    return False
+
+
+def _send_admin_telegram(text: str) -> bool:
+    """Send a plain Markdown message to the admin's linked Telegram."""
+    with SessionLocal() as db:
+        admin = db.execute(select(User).where(User.is_admin == True)).scalars().first()
+        tg_id = admin.telegram_id if admin else None
+    return _send_telegram_chat(tg_id, text) if tg_id else False
+
 
 def _tg_save_config(cfg: dict):
     with open(_TELEGRAM_CONFIG_PATH, "w") as f:
@@ -3337,6 +3418,280 @@ def _products_sync_loop():
         _t.sleep(interval_seconds)
 
 
+def _postavka_slot_watch_loop():
+    """FBO slot-kuzatuvi (Faza 0 — premissa sinovi, READ-ONLY).
+
+    Har POSTAVKA_SLOT_WATCH_INTERVAL_MIN daqiqada (default 10) belgilangan
+    do'kon(lar) uchun bir nechta tovar-miqdori bo'yicha bo'sh slotlarni
+    o'qiydi va `postavka_slot_watch` jadvaliga yozadi. Har
+    POSTAVKA_SLOT_WATCH_DIGEST_MIN daqiqada (default 60) batafsil xulosani
+    admin Telegramiga yuboradi.
+
+    Maqsad: «Uzum FBO slotlari vaqt o'tib o'zi bo'shaydimi?» savoliga isbot.
+    HECH NARSA yaratmaydi/o'zgartirmaydi — 3-martalik `set` budjetiga tegmaydi.
+    Butun loop'ni o'chirish: POSTAVKA_SLOT_WATCH_LOOP=0.
+    Do'konlar: POSTAVKA_SLOT_WATCH_SHOPS="51948" (vergul bilan).
+    """
+    import time as _t
+    from postavki import slot_watch, slot_volume
+    from postavki.autoslot import monitor as autoslot_monitor
+    # Avto-slot: bo'shashni `bus`'ga publish qilish (Bosqich 4). Off: =0.
+    autoslot_publish = os.environ.get("POSTAVKA_AUTOSLOT_PUBLISH", "1").strip().lower() not in ("0", "false", "no")
+
+    # ✅ QAYTA YOQILDI (Abdulaziz, 2026-06-19): kechagi pauza «bot-himoya» deb
+    # NOTO'G'RI taxmin qilingani uchun edi. Asl sabab `timeFrom=now` (Uzum endi
+    # KELAJAK timeFrom talab qiladi) — `postavki/client.py`'da tuzatildi. Kuzatuvchi
+    # read-only (hech narsa band qilmaydi) → ban xavfi yo'q. Favqulodda yana
+    # to'xtatish kerak bo'lsa: env POSTAVKA_SLOT_WATCH_PAUSED=1.
+    if os.environ.get("POSTAVKA_SLOT_WATCH_PAUSED", "0").strip().lower() in ("1", "true", "yes"):
+        print("[SlotWatch] ⏸ PAUSED — POSTAVKA_SLOT_WATCH_PAUSED=1")
+        return
+
+    # Interval: POSTAVKA_SLOT_WATCH_INTERVAL_SEC (sekund) berilsa daqiqadan ustun —
+    # sub-daqiqalik tez poll uchun (bo'shagan slotni tezroq ushlash, Abdulaziz
+    # 2026-06-26). ⚠️ Har poll = LADDER uzunligicha time-slot so'rovi: masalan
+    # 1 sek + 15 pog'ona = ~15 so'rov/sek portal token'iga → 429 xavfi. Avval
+    # controlled probe/log bilan tasdiqlanglar. Default = daqiqa (xavfsiz).
+    # Default 1 sek (Abdulaziz 2026-06-26 — bo'shagan slotni darhol ushlash uchun
+    # eng tez poll). Sekinlashtirish: POSTAVKA_SLOT_WATCH_INTERVAL_SEC=10 (yoki
+    # _MIN=1) env bilan — kodga tegmasdan. To'liq o'chirish: ..._LOOP=0 / _PAUSED=1.
+    try:
+        interval_sec = int(os.environ.get("POSTAVKA_SLOT_WATCH_INTERVAL_SEC", "1").strip() or "1")
+    except Exception:
+        interval_sec = 1
+    if interval_sec <= 0:
+        try:
+            interval_sec = max(1, int(os.environ.get("POSTAVKA_SLOT_WATCH_INTERVAL_MIN", "1").strip() or "1")) * 60
+        except Exception:
+            interval_sec = 60
+    try:
+        digest_min = max(1, int(os.environ.get("POSTAVKA_SLOT_WATCH_DIGEST_MIN", "30").strip() or "30"))
+    except Exception:
+        digest_min = 30
+    shops = [s.strip() for s in os.environ.get("POSTAVKA_SLOT_WATCH_SHOPS", "51948").split(",") if s.strip()]
+    # Xulosа yuboriladigan Telegram chat id (admin hisобига bog'liq emas).
+    tg_chat = os.environ.get("POSTAVKA_SLOT_WATCH_TG_CHAT", "110575962").strip()
+
+    # POYGA RADARI (Abdulaziz 2026-07-06): tez detekt + parallel o'lchov rejimi.
+    # =1 → har poll 1 yengil so'rov (slot chiqsa parallel 15-o'lchov), radar_sec
+    # (0.4s) cadence. Default OFF = eski 15-narvon xulqi. Buzilsa → =0 qaytar.
+    fast_radar = os.environ.get("POSTAVKA_FAST_RADAR", "0").strip().lower() not in ("0", "false", "no", "")
+    # CHUQUR-PARALLEL SINOV (Abdulaziz 2026-07-06): fast-radardan USTUN. =1 → har
+    # poll 15-narvonni PARALLEL o'lchaydi (detekt-darvozasiz) → «mavjud slot
+    # kattalashди» (o'sish) ham tutiladi. ⚠️ ~37.5 so'rov/s (IP-blok tezligidan
+    # ~10× baland) — faqat SINOV; 403 kelsa cooldown himoya qiladi. Qaytar: =0.
+    deep_parallel = os.environ.get("POSTAVKA_DEEP_PARALLEL", "0").strip().lower() not in ("0", "false", "no", "")
+    # PIPELINE-RADAR SINOV (Abdulaziz 2026-07-06): eng USTUN rejim. =1 → har
+    # POSTAVKA_PIPELINE_INTERVAL_SEC (0.2s)'da YANGI 15-narvon o'lchov SUBMIT qiladi
+    # (oldingisini KUTMASDAN, ustma-ust) → ~0.2s resolution. 0.2s×15 = ~75 so'rov/s.
+    # ⚠️ FAQAT SINOV: 75/s uzoq ketsa ban. 403-cooldown himoya. Qaytarish: =0.
+    pipeline_radar = os.environ.get("POSTAVKA_PIPELINE_RADAR", "0").strip().lower() not in ("0", "false", "no", "")
+    try:
+        pipeline_interval = max(0.05, float(os.environ.get("POSTAVKA_PIPELINE_INTERVAL_SEC", "0.2").strip() or "0.2"))
+    except Exception:
+        pipeline_interval = 0.2
+    try:
+        radar_sec = max(0.1, float(os.environ.get("POSTAVKA_FAST_RADAR_SEC", "0.4").strip() or "0.4"))
+    except Exception:
+        radar_sec = 0.4
+    if pipeline_radar:
+        _poll_once = None  # pipeline shoxobchasi SUBMIT qiladi (sync chaqirmaydi)
+        _poll_nap = pipeline_interval
+        mode_label = f"PIPELINE ({pipeline_interval}s = ~{15 / pipeline_interval:.0f} so'rov/s)"
+    elif deep_parallel:
+        _poll_once = slot_volume.poll_deep_parallel_once
+        _poll_nap = radar_sec
+        mode_label = "DEEP-PARALLEL"
+    elif fast_radar:
+        _poll_once = slot_volume.poll_fast_once
+        _poll_nap = radar_sec
+        mode_label = "FAST-RADAR"
+    else:
+        _poll_once = slot_volume.poll_volume_once
+        _poll_nap = interval_sec
+        mode_label = "ladder"
+    # Fixed-rate pacing (tsikl aynan _poll_nap): radar/chuqur/pipeline rejimlarda
+    # so'rov/submit vaqti tsikldan ayriladi → tezlik nishondan OSHMAYDI (ban-cheklov).
+    _fixed_rate = deep_parallel or fast_radar
+    # Pipeline uchun: ustma-ust o'lchovlar (~3 ta × 15 = ~45 thread) + zaxira.
+    _pipeline_pool = None
+    _pending = []  # uchayotgan o'lchov future'lari
+    if pipeline_radar:
+        from concurrent.futures import ThreadPoolExecutor as _TPE
+        _pipeline_pool = _TPE(max_workers=64)
+
+    print(f"[SlotWatch] loop started — mode={mode_label}, "
+          f"every {_poll_nap}s, digest every {digest_min} min, shops={shops}, tg={tg_chat or 'admin'}")
+    # Digest SOATGA moslangan: epoch'ni digest_min'lik «bucket»larga bo'lamiz
+    # (digest_min=30 → har soat :00 va :30; UTC↔Toshkent farqi butun soat
+    # bo'lgani uchun chegaralar ikkala mintaqada ham aynan tushadi). Bucket
+    # o'zgarganda yuboramiz → restart/qotish bo'lsa ham digest baribir keyingi
+    # :00/:30 chegarasiga to'g'ri keladi (taymer «loop boshidan» surilmaydi).
+    last_digest_bucket = None
+    err_state: dict[str, bool] = {}  # do'kon → hozir xatomi (signalni bir marta yuborish uchun)
+
+    def _alert(msg: str):
+        try:
+            (_send_telegram_chat(tg_chat, msg) if tg_chat else _send_admin_telegram(msg))
+        except Exception as _te:
+            print(f"[SlotWatch] signal yuborilmadi: {_te!r}")
+
+    # 403 (IP-blok) / xato COOLDOWN: ketma-ket xatoda poll orasidagi uyqu
+    # bosqichma-bosqich oshadi (60s → 5daq → 15daq) — bloklangan IP «sovisin».
+    # Aks holda har interval_sec'da urish WAF blokini TIRIK saqlaydi (2026-07-03
+    # Abdulaziz: 1s poll ~5 soatda IP-blok → WiFi/IP almashguncha 403 davom etdi).
+    # Muvaffaqiyatda darhol normal interval'ga qaytadi.
+    consec_err = 0
+    cooldown_steps = (60, 300, 900)
+
+    while True:
+        iter_error = False
+        cycle_start = _t.monotonic()   # fixed-rate pacing (FAST-RADAR aniq 2.5/s)
+        try:
+            if pipeline_radar:
+                # Har tsiklda har do'kon uchun YANGI o'lchov SUBMIT (kutmaymiz —
+                # ustma-ust). started_at = tartib-guard uchun monotonic vaqt.
+                for s in shops:
+                    def _pub(evs, pool, dim, _shop=s):
+                        autoslot_monitor.publish_freed(
+                            evs, pool_source=pool, dim_group=dim, source_shop_id=_shop)
+                    _pending.append(_pipeline_pool.submit(
+                        slot_volume.poll_pipeline_measure, s,
+                        (_pub if autoslot_publish else None), _t.monotonic()))
+                # Tugagan o'lchovlarni yig'ib xato/eventni tekshiramiz (bloklanmaymiz).
+                done = [f for f in _pending if f.done()]
+                _pending = [f for f in _pending if not f.done()]
+                nev = 0
+                for f in done:
+                    try:
+                        n, err_msg = f.result()
+                        if err_msg:
+                            iter_error = True
+                            print(f"[SlotWatch] pipeline o'lchov XATO: {err_msg}")
+                        else:
+                            nev += n
+                    except Exception as e:
+                        print(f"[SlotWatch] pipeline future ERROR: {e!r}")
+                if nev:
+                    print(f"[SlotWatch] pipeline — {nev} ta yangi event ({len(_pending)} uchmoqda)")
+            else:
+                for s in shops:
+                    err_msg = None
+                    try:
+                        def _publish(evs, pool, dim, _shop=s):
+                            autoslot_monitor.publish_freed(
+                                evs, pool_source=pool, dim_group=dim, source_shop_id=_shop)
+                        n, err_msg = _poll_once(
+                            s, on_events=(_publish if autoslot_publish else None))
+                        print(f"[SlotWatch] shop={s} volume poll — {n} ta yangi event" + (f" — XATO: {err_msg}" if err_msg else ""))
+                    except Exception as e:
+                        err_msg = f"poll crash: {e!r}"[:140]
+                        print(f"[SlotWatch] shop={s} poll ERROR: {e!r}")
+                    # Xato/ban/429 → Telegramga QISQA signal (faqat holat o'zgarganda — spam yo'q).
+                    if err_msg:
+                        iter_error = True
+                    was_err = err_state.get(s, False)
+                    if err_msg and not was_err:
+                        err_state[s] = True
+                        _alert(f"⚠️ Slot-kuzatuv xato\nDo'kon {s}: {err_msg}")
+                    elif not err_msg and was_err:
+                        err_state[s] = False
+                        _alert(f"✅ Slot-kuzatuv tiklandi (do'kon {s})")
+            bucket = int(_t.time() // (digest_min * 60))
+            if last_digest_bucket is None:
+                last_digest_bucket = bucket  # boshlang'ich — darhol yubormaymiz, keyingi :00/:30 ni kutamiz
+            elif bucket != last_digest_bucket:
+                last_digest_bucket = bucket
+                for s in shops:
+                    try:
+                        name = s
+                        with SessionLocal() as db:
+                            sh = db.execute(select(Shop).where(Shop.uzum_id == str(s))).scalars().first()
+                            if sh and sh.name:
+                                name = sh.name
+                        text = slot_volume.build_volume_digest(s, name)
+                        if text:
+                            sent = _send_telegram_chat(tg_chat, text) if tg_chat else _send_admin_telegram(text)
+                            if sent:
+                                print(f"[SlotWatch] shop={s} digest sent to Telegram")
+                    except Exception as e:
+                        print(f"[SlotWatch] shop={s} digest ERROR: {e!r}")
+        except Exception as e:
+            iter_error = True
+            print(f"[SlotWatch] unexpected error: {e!r}")
+        # Cooldown: xatosiz → normal interval; ketma-ket xatoda uyqu oshadi
+        # (bloklangan IP hammalamaslik uchun). Muvaffaqiyatda 0 ga qaytadi.
+        if iter_error:
+            consec_err += 1
+            nap = cooldown_steps[min(consec_err - 1, len(cooldown_steps) - 1)]
+            if consec_err == 1:
+                print(f"[SlotWatch] xato aniqlandi — cooldown {nap}s "
+                      f"(IP-blok bo'lishi mumkin; hammalamaslik uchun sekinlashtiramiz)")
+        else:
+            if consec_err:
+                print(f"[SlotWatch] tiklandi — normal interval {_poll_nap}s")
+            consec_err = 0
+            if pipeline_radar or _fixed_rate:
+                # Fixed-rate: bir TSIKL aynan _poll_nap bo'lsin. So'rov/submit qancha
+                # vaqt olsa, shuncha kam uxlaymiz → aniq nishon-tezlik. Pipeline'da
+                # SUBMIT deyarli oniy (o'lchov async) → nap ≈ pipeline_interval (0.2s).
+                nap = max(0.0, _poll_nap - (_t.monotonic() - cycle_start))
+            else:
+                nap = _poll_nap
+        _t.sleep(nap)
+
+
+def _postavka_allocator_loop():
+    """Avto-slot ALLOKATOR konsumeri (Bosqich 4+).
+
+    `bus`'dan SlotFreedEvent oqimini doimiy iste'mol qiladi: event kelganda
+    bucket+kunni kutayotgan nomzodlarni topadi → (B5) «vaqt+hajm» tanlaydi →
+    (B6) atomic-claim + parallel band qiladi. HOZIR (B4) faqat nomzodlarni
+    topib loglaydi (band qilmaydi). Monitor (slot-watch loop) `bus`'ga publish
+    qiladi — bu loop o'sha process ichida drain qiladi (navbat to'lmasin).
+    O'chirish: POSTAVKA_AUTOSLOT_LOOP=0.
+    """
+    from postavki.autoslot import allocator
+    if os.environ.get("POSTAVKA_AUTOSLOT_LOOP", "1").strip().lower() in ("0", "false", "no"):
+        print("[autoslot] allokator loop o'chiq (POSTAVKA_AUTOSLOT_LOOP=0)")
+        return
+    # Telegram bildirishnoma (DI) — slot-watch bilan bir chatga (band/sinov xabari).
+    tg_chat = os.environ.get("POSTAVKA_SLOT_WATCH_TG_CHAT", "110575962").strip()
+    allocator.set_notifier(lambda text: _send_telegram_chat(tg_chat, text) if tg_chat
+                           else _send_admin_telegram(text))
+    allocator.run()  # bus.consume_forever — bloklaydi (daemon thread)
+
+
+def _postavka_grab_loop():
+    """Avto-slot grabber (Faza 2D — накладной-bo'yicha, cross-shop).
+
+    Har POSTAVKA_GRAB_INTERVAL_SEC soniyada (default 5) barcha do'kon bo'yicha
+    `waiting` avto-band rejalarni ko'rib chiqadi: har draft накладнойning O'Z
+    bo'sh slotlarini so'rab (`time-slot/get`), maqsad-kunда slot bo'lsa band
+    qiladi. Rejim env `POSTAVKA_SLOT_GRAB_MODE` (off/dry/live, default dry —
+    band qilmaydi, faqat loglaydi). O'chirish: POSTAVKA_GRAB_LOOP=0.
+    """
+    import time as _t
+    from postavki import slot_grabber
+
+    if os.environ.get("POSTAVKA_GRAB_LOOP", "1").strip().lower() in ("0", "false", "no"):
+        print("[SlotGrab] grab loop o'chiq (POSTAVKA_GRAB_LOOP=0)")
+        return
+    try:
+        interval = max(2, int(os.environ.get("POSTAVKA_GRAB_INTERVAL_SEC", "5").strip() or "5"))
+    except Exception:
+        interval = 5
+    print(f"[SlotGrab] grab loop started — every {interval}s, mode={slot_grabber.grab_mode()}")
+    while True:
+        try:
+            n = slot_grabber.run_grab_cycle()
+            if n:
+                print(f"[SlotGrab] cycle — {n} ta rejaга mos slot topildi")
+        except Exception as e:
+            print(f"[SlotGrab] cycle ERROR: {e!r}")
+        _t.sleep(interval)
+
+
 def _hourly_finance_loop():
     """Sleep until next HH:00 Tashkent; refresh today's finance for every shop.
 
@@ -3848,6 +4203,20 @@ except (TypeError, ValueError, ZeroDivisionError):
 # _fbs_sync_tick (single worker thread), so no lock is needed.
 _fbs_sync_tick_count = 0
 
+# Per-status cadence (Abdulaziz 2026-06-16). The worker now wakes on a fine
+# HEARTBEAT and syncs each status only when its own interval
+# (core.fbs_sync.FBS_STATUS_SYNC_INTERVAL_MIN) has elapsed. The heartbeat
+# must DIVIDE the configured minutes for them to land exactly — 60s honours
+# 23/57/63. ``_fbs_status_last_sync`` records the last successful sync ts per
+# status (epoch seconds); single worker thread → no lock.
+try:
+    _FBS_SYNC_HEARTBEAT_SEC = max(10, int(
+        os.environ.get("FBS_SYNC_HEARTBEAT_SEC", "60").strip() or "60"
+    ))
+except (TypeError, ValueError):
+    _FBS_SYNC_HEARTBEAT_SEC = 60
+_fbs_status_last_sync: dict[str, float] = {}
+
 # Two-strike guard for the active-status reconcile (2026-06-08). The
 # reconcile's riskiest move is the mass-delete when a status fetch comes
 # back EMPTY (delete EVERY row of that status for the shops). A one-off
@@ -3872,6 +4241,34 @@ def _fbs_shop_has_fbs_stock(db, shop_id_int: int) -> bool:
         .where(ProductGroup.shop_id == shop_id_int)
         .where(Variant.quantity_fbs.is_not(None))
         .where(Variant.quantity_fbs > 0)
+        .limit(1)
+    ).scalar() or 0)
+
+
+def _fbs_shop_has_open_active_orders(db, shop_uzum_id) -> bool:
+    """True iff this shop has any ``fbs_orders`` row still in an ACTIVE
+    status (CREATED/PACKING/PENDING_DELIVERY/DELIVERING).
+
+    Why this exists (the "arvox" / phantom-order fix, 2026-06-10): the
+    FBS-stock gate (:func:`_fbs_shop_has_fbs_stock`) assumes "no FBS stock
+    ⇒ nothing to sync". That is FALSE for orders already in flight — an
+    order placed before the last unit sold (or the very order that consumed
+    it) keeps living in an active status while the variant shows
+    ``quantity_fbs = 0``. Such a shop dropped out of the batched sweep
+    entirely, so the reconcile step could never prune a phantom that left
+    an active status out-of-band (seller cancels in the Uzum app / Uzum
+    auto-cancels an overdue order) — the row froze on the seller's list
+    forever. Keeping a shop with OPEN active orders in the sweep lets the
+    reconcile clean it up; once it has none left it naturally drops out
+    again, so we never sync a truly-idle shop.
+
+    One indexed COUNT (rides ``ix`` on shop_id+status), short-circuited
+    with ``limit(1)``.
+    """
+    return bool(db.execute(
+        select(func.count(FbsOrder.id))
+        .where(FbsOrder.shop_id == str(shop_uzum_id))
+        .where(FbsOrder.status.in_(_FBS_ACTIVE_SYNC_STATUSES))
         .limit(1)
     ).scalar() or 0)
 
@@ -3929,7 +4326,16 @@ def _fbs_sync_one_token(
     # shops get their IDs into the batched Uzum call; inactive ones
     # only get the state touch at the end.
     with SessionLocal() as db:
-        active_shops = [s for s in shops if _fbs_shop_has_fbs_stock(db, s.id)]
+        # A shop is swept if it either still HAS FBS stock, or still has
+        # OPEN active orders to reconcile. The second clause is the phantom
+        # fix: a zero-stock shop with an order frozen in an active status
+        # stays in the sweep so the reconcile below can prune it, then drops
+        # out once it's clean. See _fbs_shop_has_open_active_orders.
+        active_shops = [
+            s for s in shops
+            if _fbs_shop_has_fbs_stock(db, s.id)
+            or _fbs_shop_has_open_active_orders(db, s.uzum_id)
+        ]
     active_uzum_ids = [str(s.uzum_id) for s in active_shops]
 
     counts: dict[str, int] = {str(s.uzum_id): 0 for s in shops}
@@ -4088,25 +4494,42 @@ def _fbs_sync_tick():
     inactive — we looked at them, couldn't sync them, moved on.
     """
     global _fbs_sync_tick_count
+    import time as _t
     tick_start = datetime.utcnow()
 
-    # Bosqich A.10 — pick this tick's status set (active-only vs full
-    # sweep) BEFORE any work, then advance the counter. Active statuses
-    # sync every tick; the settled/terminal tail only every Nth tick, so
-    # the worker stops exhausting the per-token Uzum quota (the 429 root
-    # cause). Closed over by _sync_token_group below.
-    statuses_this_tick = _fbs_statuses_for_tick(
-        _fbs_sync_tick_count, _FBS_SLOW_EVERY_N_TICKS
+    # Per-status cadence (Abdulaziz 2026-06-16). The worker wakes on a fine
+    # heartbeat; each status syncs only when its own interval
+    # (FBS_STATUS_SYNC_INTERVAL_MIN) has elapsed. The FIRST tick after boot
+    # forces every configured status due (the restart backfill). Empty ticks
+    # (nothing due) return immediately and stay SILENT so the 1-min heartbeat
+    # doesn't spam the log. PENDING_DELIVERY / PENDING_CANCELLATION are absent
+    # from the interval map → never background-synced.
+    now_ts = _t.time()
+    first_run = (_fbs_sync_tick_count == 0)
+    statuses_this_tick = _fbs_statuses_due(
+        now_ts, _fbs_status_last_sync, first_run=first_run
     )
     _fbs_sync_tick_count += 1
+    if not statuses_this_tick:
+        return  # nothing due this heartbeat — silent no-op
+
+    # Mark these statuses synced NOW (interval starts from the attempt, not
+    # success — mirrors the old behaviour where an errored fetch waited a full
+    # interval before retrying rather than re-hammering Uzum).
+    for _s in statuses_this_tick:
+        _fbs_status_last_sync[_s] = now_ts
+
     is_full_sweep = len(statuses_this_tick) == len(_FBS_ALL_SYNC_STATUSES)
-    sweep_label = "full" if is_full_sweep else "active"
+    sweep_label = "first-run" if first_run else (
+        "full" if is_full_sweep else "due"
+    )
 
     with SessionLocal() as db:
         shops = db.execute(select(Shop).order_by(Shop.id)).scalars().all()
     print(
         f"[FBS Worker] Tick start: {len(shops)} shops, "
-        f"sweep={sweep_label} ({len(statuses_this_tick)} statuses)"
+        f"sweep={sweep_label} ({len(statuses_this_tick)} statuses: "
+        f"{','.join(statuses_this_tick)})"
     )
 
     # Group shops by token. Token lookup goes through the same helper
@@ -4165,11 +4588,53 @@ def _fbs_sync_tick():
             owner_id = next((s.owner_id for s in shops_in_group if s.owner_id), None)
             if owner_id:
                 from core.fbs_akt_cache import prefetch_akts_for_token
-                n_fetched, n_pruned = prefetch_akts_for_token(token, owner_id)
+                from core.fbs_data import get_owned_invoice_numbers
+                # Scope filter: the invoice list is TOKEN-level (covers shops
+                # never registered here too). Cached rows are stamped with
+                # owner_id and a cache HIT is the ownership proof in
+                # _get_akt_guarded — so scope to the shops THAT OWNER owns,
+                # not the whole token group: a group can mix several owners
+                # (live example: 6 shops, 2 owners on one token) and caching
+                # another owner's akt under this owner_id would let them
+                # print it. Other owners' akts simply stay live-fetched.
+                owned_nums = get_owned_invoice_numbers(
+                    [s.uzum_id for s in shops_in_group
+                     if s.owner_id == owner_id]
+                )
+                n_fetched, n_pruned = prefetch_akts_for_token(
+                    token, owner_id, owned_numbers=owned_nums
+                )
                 if n_fetched or n_pruned:
                     print(f"[FBS Worker] token={token[:8]}.. akts prefetched={n_fetched} pruned={n_pruned}")
         except Exception as e:
             print(f"[FBS Worker] token={token[:8]}.. akt prefetch ERROR: {e!r}")
+
+        # Warm the LABEL cache for this token's active FBS orders (PACKING /
+        # PENDING_DELIVERY) so the seller's bulk "Yorliq"/"Yorliq + QR" print
+        # reads from the DB — instant, never tripping Uzum's per-order /labels
+        # 429. The label is immutable once confirmed (verified 2026-06-12), so a
+        # cached row is never stale while the order is active. Bounded + paced:
+        # capped per tick (≤30) and the active set comes from our own DB (no Uzum
+        # list call); prune drops labels for shipped/departed orders.
+        try:
+            owner_id = next((s.owner_id for s in shops_in_group if s.owner_id), None)
+            if owner_id:
+                from core.fbs_label_cache import prefetch_labels_for_token
+                # Scope to the shops THIS owner owns — mirror the akt warm
+                # above. A token group can mix several owners (e.g. 6 shops, 2
+                # owners on one token); labels are stamped with this single
+                # owner_id, so warming another owner's shops here would fetch
+                # their labels under the wrong user (wasted paced Uzum calls,
+                # and a latent cross-owner leak if a future read path ever
+                # trusts a cache hit as ownership proof the way the akt path
+                # does). Other owners' labels stay live-fetched on demand.
+                shop_uzum_ids = [s.uzum_id for s in shops_in_group
+                                 if s.uzum_id and s.owner_id == owner_id]
+                l_fetched, l_pruned = prefetch_labels_for_token(token, owner_id, shop_uzum_ids)
+                if l_fetched or l_pruned:
+                    print(f"[FBS Worker] token={token[:8]}.. labels prefetched={l_fetched} pruned={l_pruned}")
+        except Exception as e:
+            print(f"[FBS Worker] token={token[:8]}.. label prefetch ERROR: {e!r}")
 
     try:
         max_parallel = int(os.environ.get("FBS_SYNC_SHOP_PARALLELISM", "10").strip())
@@ -4199,7 +4664,7 @@ def _fbs_sync_tick():
 
 
 def _fbs_sync_loop():
-    """Run _fbs_sync_tick every ``_FBS_SYNC_INTERVAL_SEC`` seconds.
+    """Run _fbs_sync_tick every ``_FBS_SYNC_HEARTBEAT_SEC`` seconds.
 
     Mirrors the structure of ``_hourly_finance_loop`` — exception in the
     tick is logged with full traceback and the loop sleeps then retries.
@@ -4223,7 +4688,11 @@ def _fbs_sync_loop():
         except Exception as e:
             print(f"[FBS Worker] Tick unexpected error: {e!r}")
             traceback.print_exc()
-        _t.sleep(_FBS_SYNC_INTERVAL_SEC)
+        # Fine heartbeat (≈60s): the tick itself decides which statuses are
+        # due via their per-status interval, so most wake-ups are silent
+        # no-ops. The heartbeat must divide the configured minutes for them
+        # to land exactly (60s honours 23/57/63).
+        _t.sleep(_FBS_SYNC_HEARTBEAT_SEC)
 
 
 # ─────────────────────────────────────────────────────────────────────

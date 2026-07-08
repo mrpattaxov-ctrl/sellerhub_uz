@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBS jadval — qator dizayn variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1080px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}.note b{color:#dcdce4}
+.wrap{padding:26px 22px 90px}.stage{max-width:1080px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:24px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+.barhint{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:4px;border-bottom:1px solid #F0F0F4}
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:14px}
+.st{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font:700 .84rem 'Inter';color:#5A5762}
+.st .n{min-width:18px;padding:0 6px;border-radius:999px;background:#fff;color:#7A7684;font:700 .68rem/18px 'Inter';text-align:center}
+.st.on{background:#fff;color:#1A1A22;box-shadow:0 2px 8px rgba(20,16,40,.1)}
+.st.on .n{background:#1A1A22;color:#fff}
+
+/* thumbnails */
+.thumb{flex:none;border-radius:11px;display:grid;place-items:center;color:#fff;overflow:hidden;position:relative;background:linear-gradient(135deg,#6E8FE8,#4169E1)}
+.thumb svg{width:46%;height:46%;opacity:.92}
+.thumb.t2{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.thumb.t3{background:linear-gradient(135deg,#34d399,#059669)}
+.thumb.t4{background:linear-gradient(135deg,#fb923c,#ea580c)}
+.thumb .cnt{position:absolute;right:-3px;bottom:-3px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#fff;color:#111;font:700 10px/18px 'Inter';display:grid;place-items:center;box-shadow:0 0 0 2px #fff}
+
+/* shared cells */
+.onum{font:700 .9rem 'Inter';color:#1A1A22}
+.prod{display:flex;align-items:center;gap:11px;min-width:0}
+.qty{flex:none;display:inline-block;padding:2px 9px;border-radius:999px;background:#EEF1FF;color:#3D5CCB;font:700 .67rem 'Inter'}
+.sku{font:600 .82rem 'Inter';color:#1A1A22;line-height:1.3}
+.bc{font:.73rem 'JetBrains Mono';color:#9B98A5;margin-top:2px}
+.tag{display:inline-block;padding:3px 10px;border-radius:7px;font:700 .67rem 'Inter'}
+.tag.fbs{background:#EEF1FF;color:#3D5CCB}.tag.dbs{background:#FFF4D6;color:#9A6207}
+.dt{font:.82rem 'Inter';color:#56535F}
+.money{font:800 .9rem 'Inter';color:#1A1A22;font-variant-numeric:tabular-nums}
+.dl{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:700 11px/1.3 'Inter';border:1px solid transparent;white-space:nowrap;margin-top:5px}
+.dl svg{width:11px;height:11px}
+.dl.urgent{background:#FEECEB;color:#C0362B;border-color:#F8C4BF;animation:pulse 2s infinite}
+.dl.ok{background:#E9FBF2;color:#0A7A52;border-color:#BDEED7}
+.dl.warn{background:#FFF6E3;color:#9A6207;border-color:#F6DD9B}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,71,71,0)}50%{box-shadow:0 0 0 4px rgba(232,71,71,.16)}}
+.ck{width:16px;height:16px;accent-color:#4169E1}
+
+table{width:100%;border-collapse:separate;border-spacing:0 9px;margin-top:14px}
+thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:#A6A2AE;text-align:left;padding:0 16px 4px;white-space:nowrap}
+thead th.r{text-align:right}
+tbody td{background:#FBFBFD;padding:15px 16px;font-size:.85rem;vertical-align:middle;border-top:1px solid #EFEFF3;border-bottom:1px solid #EFEFF3}
+tbody td:first-child{border-left:1px solid #EFEFF3;border-radius:16px 0 0 16px;width:40px}
+tbody td:last-child{border-right:1px solid #EFEFF3;border-radius:0 16px 16px 0;text-align:right}
+tbody tr{transition:.16s}tbody tr:hover td{background:#fff;border-color:transparent}
+tbody tr:hover{transform:translateY(-2px);filter:drop-shadow(0 14px 26px rgba(20,16,40,.1))}
+
+/* mode-specific thumb sizes */
+.m-b .thumb{width:44px;height:44px}
+.m-c tbody td{padding:11px 16px}.m-c .thumb{width:34px;height:34px}.m-c .bc{display:none}
+.m-d .thumb{width:54px;height:54px;border-radius:13px}
+.m-d tbody td:first-child{border-left:4px solid var(--accent,#4169E1);border-radius:16px 0 0 16px}
+.m-d .sku{font-size:.9rem}
+.m-d tr.acc-fbs td:first-child{border-left-color:#4169E1}
+.m-d tr.acc-dbs td:first-child{border-left-color:#E0A019}
+</style>
+</head>
+<body>
+<div class="pvbar">
+  <h1>FBS jadval — qator dizayn</h1>
+  <span class="sub">4 variant</span>
+  <div class="seg" id="seg">
+    <button data-v="a" class="on">A · Rasmsiz (hozirgidek)</button>
+    <button data-v="b">B · Rasmli</button>
+    <button data-v="c">C · Ixcham</button>
+    <button data-v="d">D · Boy (rasm + aksent)</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel">
+  <div class="barhint">
+    <div class="segtrack">
+      <span class="st">Новый <span class="n">0</span></span>
+      <span class="st on">Сборка <span class="n">2</span></span>
+      <span class="st">Поставка <span class="n">5</span></span>
+      <span class="st">В пути <span class="n">0</span></span>
+    </div>
+  </div>
+  <table><thead><tr><th><input type="checkbox" class="ck"></th><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Yaratildi</th><th>Muddat</th><th>Do'kon</th><th class="r">Summa</th></tr></thead>
+  <tbody id="tb"></tbody></table>
+</div></div></div></div>
+
+<script>
+const BOX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>';
+const ICLK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const R=[
+ {id:'110388551',q:'1 dona',n:1,sku:'KROSSFT-SHALVAR5-СЕРЫЙ-L',bc:'1000101649008',sc:'fbs',cr:'06.06.2026, 17:49',md:'10.06.2026, 16:00',shop:'KrossFit',sum:'59 900',left:'1 soat qoldi',lc:'urgent',t:'t1'},
+ {id:'110373473',q:'1 dona',n:1,sku:'BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ',bc:'1000103129447',sc:'dbs',cr:'06.06.2026, 16:23',md:'02.07.2026, 23:59',shop:'BLUMMY',sum:'7 950',left:'537 soat qoldi',lc:'ok',t:'t2'},
+ {id:'110366201',q:'2 dona',n:2,sku:'ATIR-PARFYUM-50ML-WOOD',bc:'1000100558112',sc:'fbs',cr:'05.06.2026, 09:14',md:'09.06.2026, 18:00',shop:'AromaUz',sum:'120 000',left:'5 soat qoldi',lc:'warn',t:'t3'},
+ {id:'110355789',q:'1 dona',n:1,sku:'NIKE-AIR-KROSSOVKA-44',bc:'1000104471900',sc:'dbs',cr:'05.06.2026, 08:02',md:'12.06.2026, 12:00',shop:'SportLine',sum:'89 900',left:'128 soat qoldi',lc:'ok',t:'t4'},
+];
+const thumb=r=>`<div class="thumb ${r.t}">${BOX}${r.n>1?`<span class="cnt">${r.n}</span>`:''}</div>`;
+
+function rowsFor(mode){
+  return R.map(r=>{
+    let prod;
+    if(mode==='a'){ // rasmsiz
+      prod=`<div class="prod"><span class="qty">${r.q}</span><div style="min-width:0"><div class="sku">SKU: ${r.sku}</div><div class="bc">Shtrix: ${r.bc}</div></div></div>`;
+    }else if(mode==='c'){ // ixcham (rasm kichik, bir qator)
+      prod=`<div class="prod">${thumb(r)}<div style="min-width:0"><div class="sku">${r.sku}</div></div><span class="qty" style="margin-left:auto">${r.q}</span></div>`;
+    }else{ // b, d — rasm bilan
+      prod=`<div class="prod">${thumb(r)}<div style="min-width:0"><div class="sku">${r.sku}</div><div class="bc">SKU ${r.sku.slice(0,7)}… · ${r.bc}</div></div><span class="qty" style="margin-left:auto">${r.q}</span></div>`;
+    }
+    const accCls=mode==='d'?`acc-${r.sc}`:'';
+    return `<tr class="${accCls}">
+      <td><input type="checkbox" class="ck"></td>
+      <td><div class="onum">№${r.id}</div><span class="dl ${r.lc}">${ICLK}${r.left}</span></td>
+      <td>${prod}</td>
+      <td><span class="tag ${r.sc}">${r.sc.toUpperCase()}</span></td>
+      <td class="dt">${r.cr}</td><td class="dt">${r.md}</td><td class="dt">${r.shop}</td>
+      <td><span class="money">${r.sum} UZS</span></td>
+    </tr>`;
+  }).join('');
+}
+const tb=document.getElementById('tb');
+const table=document.querySelector('table');
+function render(v){tb.innerHTML=rowsFor(v);table.parentElement.className='panel';table.classList.remove('m-a','m-b','m-c','m-d');table.classList.add('m-'+v);}
+render('a');
+
+const NOTES={
+ a:'<b>A · Rasmsiz</b> — hozirgi ko\'rinish, faqat Soft uslubda silliqlangan: son-pill + SKU + shtrix. Eng tig\'iz ma\'lumot, rasm yo\'q.',
+ b:'<b>B · Rasmli</b> — mahsulot <b>rasmi</b> (44px) qo\'shildi, yonida SKU+shtrix, o\'ngda son-pill. Vizual, mahsulotni darrov tanaysiz. (Ko\'p tovarli buyurtmada rasm ustida son.)',
+ c:'<b>C · Ixcham</b> — kichik rasm (34px), bitta qatorda nom, shtrix yashirin. Ko\'p buyurtmani bir ekranda ko\'rish uchun zич.',
+ d:'<b>D · Boy</b> — katta rasm (54px), yirik nom, chap chetda <b>sxema-rangli aksent chiziq</b> (FBS=ko\'k, DBS=sariq). Eng dadil va ajralib turadigan.'
+};
+const note=document.getElementById('note');note.innerHTML=NOTES.a;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ render(b.dataset.v);note.innerHTML=NOTES[b.dataset.v];});
+</script>
+</body>
+</html>

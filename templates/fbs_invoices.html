@@ -10,11 +10,47 @@
   body.fbs-embed { padding: 0; background: transparent; }
   .inv-page { gap: 0; max-width: 100%; }
   .inv-card { border: none; box-shadow: none; background: transparent; padding: 0; }
+
+  /* «Поставка» embed — buyurtmalar ro'yxati («Yangi»/«Yig'ilmoqda») bilan BIR
+     XIL «Soft» ko'rinish. orders sahifasidagi `table.fbs-table` ni aks ettiramiz:
+     har qator alohida yumaloq oq karta, qatorlar orasida bo'shliq, hover'da
+     yengil ko'tariladi. Ustunlar boshqa (накладна ma'lumotlari), lekin vizual
+     til bir xil — shu sababli ikki tab orasida o'tganda dizayn «sakramaydi». */
+  body.fbs-embed .inv-table-wrap { overflow: visible; }      /* soft soya qirqilmasin */
+  body.fbs-embed .inv-table {
+    border-collapse: separate; border-spacing: 0 8px; font-size: .9rem;
+  }
+  body.fbs-embed .inv-table thead th {
+    border: none; background: transparent;
+    text-transform: uppercase; letter-spacing: .055em;
+    color: #98a2b3; font-weight: 600; font-size: .68rem;
+    padding: .15rem .85rem .4rem;
+  }
+  body.fbs-embed .inv-table tbody td {
+    background: #fff; padding: .85rem; vertical-align: middle;
+    border-top: 1px solid #eaecf0; border-bottom: 1px solid #eaecf0;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  body.fbs-embed .inv-table tbody td:first-child {
+    border-left: 1px solid #eaecf0;
+    border-top-left-radius: 14px; border-bottom-left-radius: 14px;
+  }
+  body.fbs-embed .inv-table tbody td:last-child {
+    border-right: 1px solid #eaecf0;
+    border-top-right-radius: 14px; border-bottom-right-radius: 14px;
+  }
+  body.fbs-embed .inv-table tbody tr { transition: box-shadow .16s ease; }
+  body.fbs-embed .inv-table tbody tr:hover td { background: #fafbfe; border-color: #d7deea; }
+  body.fbs-embed .inv-table tbody tr:hover { box-shadow: 0 10px 26px rgba(16,24,40,.10); }
+  [data-bs-theme="dark"] body.fbs-embed .inv-table thead th { color: #64748b; }
+  [data-bs-theme="dark"] body.fbs-embed .inv-table tbody td { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] body.fbs-embed .inv-table tbody tr:hover td { background: #1e2233; border-color: #3a4058; }
+  [data-bs-theme="dark"] body.fbs-embed .inv-table tbody tr:hover { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
 {% endif %}
   .inv-hero {
-    border: 1px solid rgba(53, 86, 185, .12);
+    border: 1px solid rgba(65, 105, 225, .12);
     border-radius: 20px;
-    background: linear-gradient(160deg, #ffffff 0%, #f8faff 60%, #eef2ff 100%);
+    background: #f8faff;
     box-shadow: 0 12px 28px rgba(27, 42, 84, .06);
     padding: 1.3rem 1.4rem;
     /* Tab'lar hero ichida (o'ng yuqorida) — bitta yaxlit karta. */
@@ -26,8 +62,8 @@
     display: inline-flex; align-items: center; gap: .4rem;
     padding: .32rem .7rem;
     border-radius: 999px;
-    background: rgba(52, 86, 185, .1);
-    color: #3456b9;
+    background: rgba(65, 105, 225, .1);
+    color: #4169E1;
     font-size: .72rem; font-weight: 700;
     letter-spacing: .05em; text-transform: uppercase;
     margin-bottom: .6rem;
@@ -72,6 +108,8 @@
     border-radius: 18px;
     padding: 1rem 1.1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    /* `overflow: hidden` QO'YMANG — dropdown/popoverlarni qirqishi mumkin.
+       Postavka burchaklari iframe'ning border-radius'i bilan hal qilingan. */
   }
 
   /* Status filter ─ single "Hamma statuslar" dropdown (Uzum-style).
@@ -162,20 +200,71 @@
   .inv-table .col-slot  { color: #475467; white-space: nowrap; font-size: .83rem; }
   .inv-table .col-act   { text-align: right; white-space: nowrap; }
 
-  /* Checkbox column (bulk akt selection) — narrow, centred. The native
-     checkbox is recoloured to our accent so it reads as "selected" the
-     same way across light/dark. */
+  /* Checkbox column (bulk akt selection) — narrow, centred.
+     ── Maxsus galochka (Abdulaziz 2026-06-13) ───────────────────────
+     Native binafsha (#6938ef) o'rniga «Buyurtmalar» sahifasidagi
+     `.fbs-row-check` bilan bir xil brend-ko'k gradient + oq belgili
+     yumshoq galochka (1↔2-rasm birxilligi). `.inv-check` (qator) va
+     `#invCheckAll` (sarlavha) bitta ko'rinishni baham ko'radi. */
   .inv-table .col-check { width: 36px; text-align: center; padding-right: 0; }
   .inv-check {
-    width: 17px; height: 17px;
-    cursor: pointer;
-    accent-color: #6938ef;
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    width: 22px; height: 22px; margin: 0; flex: none;
+    border: 2px solid #cdd5e3; border-radius: 7px;
+    background: #fff; cursor: pointer; position: relative;
     vertical-align: middle;
+    transition: border-color .15s ease, background .15s ease,
+                box-shadow .15s ease, transform .12s ease;
+  }
+  .inv-check:hover {
+    border-color: #4169E1;
+    box-shadow: 0 0 0 4px rgba(65,105,225,.12);
+  }
+  .inv-check:active { transform: scale(.9); }
+  .inv-check:checked,
+  #invCheckAll:indeterminate {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4169E1 0%, #6384ff 100%);
+    box-shadow: 0 4px 10px rgba(65,105,225,.32);
+  }
+  /* Oq «✓» belgi — checked holatda paydo bo'ladi */
+  .inv-check:checked::after {
+    content: ""; position: absolute;
+    left: 7px; top: 3px; width: 5px; height: 10px;
+    border: solid #fff; border-width: 0 2.5px 2.5px 0;
+    border-radius: 1px; transform: rotate(42deg);
+    animation: invCheckPop .18s ease;
+  }
+  /* «Select all» yarim-tanlangan holati — gorizontal chiziq */
+  #invCheckAll:indeterminate::after {
+    content: ""; position: absolute;
+    left: 4px; right: 4px; top: 8px; height: 2.5px;
+    background: #fff; border-radius: 2px;
+  }
+  .inv-check:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px rgba(65,105,225,.28);
+  }
+  @keyframes invCheckPop {
+    0% { opacity: 0; transform: rotate(42deg) scale(.4); }
+    100% { opacity: 1; transform: rotate(42deg) scale(1); }
   }
   /* Non-CREATED rows: checkbox present but muted + unclickable (bulk akt is
      CREATED-only). Subtle so the table doesn't read as "broken". */
-  .inv-check:disabled { opacity: .28; cursor: not-allowed; }
-  [data-bs-theme="dark"] .inv-check { accent-color: #7b4eff; }
+  .inv-check:disabled { opacity: .28; cursor: not-allowed; box-shadow: none; }
+  .inv-check:disabled:hover { border-color: #cdd5e3; box-shadow: none; }
+  /* Dark rejim */
+  [data-bs-theme="dark"] .inv-check {
+    background: #1a1d27; border-color: #3a4058;
+  }
+  [data-bs-theme="dark"] .inv-check:hover {
+    border-color: #6384ff; box-shadow: 0 0 0 4px rgba(99,132,255,.16);
+  }
+  [data-bs-theme="dark"] .inv-check:checked,
+  [data-bs-theme="dark"] #invCheckAll:indeterminate {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4169E1 0%, #6384ff 100%);
+    box-shadow: 0 4px 12px rgba(65,105,225,.45);
+  }
 
   /* Bulk-action bar — bottom-centred floating dark pill, mirroring the
      orders page's `.fbs-bulk-bar` so both FBS pages share one selection
@@ -183,13 +272,22 @@
      ticked, then it slides up via the `.is-visible` class. */
   .inv-bulkbar {
     position: fixed; left: 50%; bottom: 1.25rem;
-    transform: translate(-50%, calc(100% + 30px));
-    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    /* Kirish animatsiyasi — buyurtmalar sahifasidagi `.fbs-bulk-bar` PORTI
+       (Abdulaziz 2026-06-15): 40px pastdan `cubic-bezier(.22,1,.36,1)` bilan
+       silliq sirpanib chiqadi (.24s), tabiiy susayish — overshoot yo'q.
+       Eski oddiy `ease-out` (.22s / 30px) olib tashlandi; dizayn o'zgarmadi. */
+    transform: translate(-50%, calc(100% + 40px));
+    display: flex; align-items: center; gap: .6rem; flex-wrap: nowrap;
     padding: .6rem .9rem; border-radius: 14px;
     background: #1e293b; color: #f8fafc;
     box-shadow: 0 14px 32px rgba(0,0,0,.25);
     z-index: 2070; pointer-events: none; opacity: 0;
-    transition: transform .22s ease-out, opacity .22s ease-out;
+    transition: transform .24s cubic-bezier(.22,1,.36,1), opacity .24s ease-out;
+    /* KENG MODAL detal iframe'i ichida bar `position:fixed` — kompozitor
+       slaydni ba'zan «sakratardi». `will-change` GPU-qatlam ajratadi →
+       modal paneli (#invOrdBulkBar) ham ro'yxat paneli (#invBulkBar) bilan
+       AYNAN bir xil silliq chiqadi (Abdulaziz 2026-06-15). */
+    will-change: transform, opacity;
     max-width: calc(100vw - 2rem);
   }
   .inv-bulkbar.is-visible {
@@ -198,41 +296,98 @@
   /* Reserve scroll space so the floating bar never hides the last rows. */
   body:has(.inv-bulkbar.is-visible) { padding-bottom: 120px; }
   .inv-bulk-count {
-    font-weight: 700; font-size: .92rem;
+    font-weight: 700; font-size: .92rem; white-space: nowrap; flex: none;
     padding-right: .6rem; margin-right: .1rem;
     border-right: 1px solid rgba(255,255,255,.18);
   }
   .inv-bulk-count strong { color: #fff; }
-  .inv-bulk-actions { display: flex; gap: .5rem; align-items: center; }
-  /* The akt button — purple gradient (same family as the orders page's
-     `.is-postavka`), with a hover lift + shine sweep. */
+  /* Bir qatorda — elementlar SIQILMAYDI (flex:none); aks holda nowrap matnni/
+     ikonkani ezib qo'yadi (ikonka nuqtaga aylanardi). */
+  .inv-bulk-actions { display: flex; gap: .4rem; align-items: center; flex: none; }
+  /* QR stiker o'lcham tanlagichi — maxsus (custom) dropdown. Trigger tugmalar
+     bilan bir oila «Ghost Outline»; ro'yxat to'q popover, YUQORIGA ochiladi
+     (panel ekran tagida). Native select xunuk ro'yxati o'rniga to'liq nazorat. */
+  .qrsz { position: relative; flex: none; }
+  .qrsz-trigger {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: rgba(255,255,255,.08); color: #f8fafc;
+    border: 1px solid rgba(255,255,255,.28); border-radius: 12px;
+    padding: .54rem .7rem; font-size: .9rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, border-color .15s;
+  }
+  .qrsz-trigger:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.42); }
+  .qrsz-ic { width: 15px; height: 15px; color: #cbd5e1; flex: none; }
+  .qrsz-val { min-width: 70px; text-align: left; }
+  .qrsz-caret { width: 13px; height: 13px; color: #cbd5e1; flex: none; transition: transform .18s ease; }
+  .qrsz.is-open .qrsz-caret { transform: rotate(180deg); }
+  .qrsz-menu {
+    position: absolute; left: 0; bottom: calc(100% + 8px);
+    margin: 0; padding: 6px; list-style: none;
+    min-width: 100%; width: max-content;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+    opacity: 0; transform: translateY(6px); pointer-events: none;
+    transition: opacity .16s ease, transform .18s cubic-bezier(.22,1,.36,1);
+    z-index: 5;
+  }
+  .qrsz.is-open .qrsz-menu { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .qrsz-opt {
+    padding: .5rem .7rem; border-radius: 9px; font-size: .9rem; font-weight: 600;
+    color: #e2e8f0; cursor: pointer; white-space: nowrap;
+    transition: background .12s, color .12s;
+  }
+  .qrsz-opt:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .qrsz-opt.is-sel { background: #4169E1; color: #fff; }
+  /* The akt button — tekis binafsha (orders sahifasidagi `.is-postavka` bilan
+     bir oilada), hover'da ko'tariladi. Gradientsiz, bitta ton. */
+  /* «Ghost Outline» (V2): shaffof + oq ramka, hover'da oqga to'ladi.
+     Dark Header dizayni bilan bir oila — to'q bar ichida oq-ramkali tugmalar. */
   .inv-bulk-btn {
     position: relative; overflow: hidden;
-    display: inline-flex; align-items: center; gap: .45rem;
-    padding: .58rem 1.25rem; border-radius: 12px;
-    font-size: .92rem; font-weight: 600; cursor: pointer; color: #fff;
-    background: linear-gradient(135deg, #9061f9, #7c3aed);
-    border: 1px solid #7c3aed;
-    transition: background .15s, transform .14s ease, box-shadow .18s ease;
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .56rem .95rem; border-radius: 12px;
+    font-size: .9rem; font-weight: 600; cursor: pointer; color: #fff;
+    white-space: nowrap; flex: none;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.28);
+    transition: background .15s, color .15s, border-color .15s, transform .14s ease, box-shadow .18s ease;
   }
+  /* Ikonka SVG siqilmasin — nuqtaga aylanib qolmasin. */
+  .inv-bulk-btn svg { flex: none; }
   .inv-bulk-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, #7f4ff0, #6d28d9);
+    background: #fff; color: #1e293b; border-color: #fff;
     transform: translateY(-2px);
-    box-shadow: 0 8px 22px rgba(124, 58, 237, .5);
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
   }
   .inv-bulk-btn:active:not(:disabled) { transform: translateY(0) scale(.99); }
   .inv-bulk-btn:disabled {
     background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08);
     color: #64748b; cursor: progress;
   }
-  .inv-bulk-btn::after {
-    content: ""; position: absolute; top: 0; left: -120%;
-    width: 55%; height: 100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,.38), transparent);
-    transform: skewX(-20deg); pointer-events: none;
-    transition: left .55s ease;
+  /* «Yuklab olish» — print tugmasidan ajralib tursin: qora bar ichida
+     shaffof/outline variant (asosiy binafsha tugma — pechat uchun). */
+  .inv-bulk-btn.is-download {
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.22);
+    color: #e8edf5;
   }
-  .inv-bulk-btn:hover:not(:disabled)::after { left: 135%; }
+  .inv-bulk-btn.is-download:hover:not(:disabled) {
+    background: rgba(255,255,255,.16);
+    box-shadow: 0 8px 22px rgba(0,0,0,.3);
+  }
+  /* «Yorliq»/«QR» — «Ghost Outline» (asosiy .inv-bulk-btn bilan bir xil):
+     to'q bar ichida shaffof oq-ramkali, hover'da oqga to'ladi. Eski ko'k
+     (#4169E1) olib tashlandi — yangi to'q slate dizayniga mos. */
+  .inv-bulk-btn.is-print {
+    background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.28);
+  }
+  .inv-bulk-btn.is-print:hover:not(:disabled) {
+    background: #fff; color: #1e293b; border-color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  }
+  /* Tayyorlanyapti — qayta bosishni to'sib turamiz (Uzum 429 burst-jazosi). */
+  .inv-bulk-btn.is-busy { opacity: .8; cursor: progress; pointer-events: none; }
 
   .inv-status-badge {
     display: inline-flex; align-items: center; gap: .3rem;
@@ -290,7 +445,7 @@
      left accent + soft top inset shadow give the panel a "dropped
      from above" feel. */
   .inv-detail-row td {
-    background: linear-gradient(180deg, #f3effd 0%, #f9f7ff 35%, #fafbff 100%) !important;
+    background: #f7f4ff !important;
     border-bottom: 2px solid #ddd4ff;
     padding: 0 !important;
     position: relative;
@@ -310,7 +465,7 @@
     display: grid; gap: 1rem;
   }
   [data-bs-theme="dark"] .inv-detail-row td {
-    background: linear-gradient(180deg, #251c45 0%, #1f1a36 35%, #1c2334 100%) !important;
+    background: #1f1a36 !important;
     border-bottom-color: #382870;
     box-shadow:
       inset 5px 0 0 #7b4eff,
@@ -378,6 +533,12 @@
   .inv-detail-header {
     display: flex; align-items: flex-start; justify-content: space-between;
     gap: .75rem; flex-wrap: wrap;
+    /* KENG MODAL ichida ochilganda parent'ning «×» yopish tugmasi
+       (.fbs-inv-modal-x, top:12 right:14) sarlavhaning o'ng burchagida
+       turadi → «Акт отправки» tugmasi uning TAGIGA tushib ketmasin uchun
+       o'ng tomondan joy qoldiramiz. Inline (jadval ichi) rejimida ham
+       zararsiz — faqat bo'sh joy qo'shadi. */
+    padding-right: 2.25rem;
   }
   .inv-detail-header-left { min-width: 0; }
   .inv-detail-h-title {
@@ -418,7 +579,7 @@
     width: 28px; height: 28px;
     border-radius: 8px;
     background: rgba(99,132,255,.12);
-    color: #3456b9;
+    color: #4169E1;
     display: flex; align-items: center; justify-content: center;
   }
   .inv-fact-body { display: flex; flex-direction: column; min-width: 0; }
@@ -625,12 +786,13 @@
     margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #eef0f4;
   }
   .inv-oprod-thumb {
-    flex: none; width: 44px; height: 44px; border-radius: 9px;
+    flex: none; width: 68px; height: 68px; border-radius: 13px;
     overflow: hidden; background: #f5f7fb; border: 1px solid #eaecf0;
     display: flex; align-items: center; justify-content: center;
+    transition: transform .14s ease, box-shadow .14s ease;
   }
   .inv-oprod-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .inv-oprod-noimg { font-size: 1.1rem; opacity: .55; }
+  .inv-oprod-noimg { font-size: 1.6rem; opacity: .55; }
   .inv-oprod-info { min-width: 0; }
   .inv-oprod-title {
     font-weight: 600; color: #101828; line-height: 1.3;
@@ -650,6 +812,114 @@
   [data-bs-theme="dark"] .inv-oprod-thumb { background: #161c2b; border-color: #2b3346; }
   [data-bs-theme="dark"] .inv-oprod-title { color: #e8edf5; }
   [data-bs-theme="dark"] .inv-oprod + .inv-oprod { border-top-color: #2b3346; }
+
+  /* ── Buyurtmalar v3 — checkbox + quticha-raqam + rail (akt_modal_final
+     dizayni). Sarlavha strip + karta'lar: [✓] | № + mahsulotlar (dona pill)
+     | rail (Status/Jami/Summa). Ustunlar 3 ta: 46px / 1fr / 198px. ───── */
+  .inv-orders-v3 { display: flex; flex-direction: column; gap: .6rem; }
+  .inv-ord-head {
+    display: grid; grid-template-columns: 46px minmax(0,1fr) 198px; align-items: center;
+    background: rgba(105,56,239,.07); border: 1px solid rgba(105,56,239,.10); border-radius: 12px;
+  }
+  .inv-ord-head .inv-ocard-chk { background: transparent; box-shadow: none; }
+  .inv-ord-head-l { display: flex; align-items: center; gap: .7rem; padding: .6rem .95rem; }
+  .inv-ord-head-r { padding: .6rem .95rem; }
+  .inv-ord-th { font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6938ef; }
+  .inv-ord-th--dona { width: 64px; text-align: center; }
+  .inv-ord-grow { flex: 1; }
+
+  /* checkbox (bizning binafsha dizayn) */
+  .inv-ord-chk {
+    width: 22px; height: 22px; border-radius: 7px; border: 2px solid #d7deea; background: #fff;
+    cursor: pointer; display: grid; place-items: center; transition: .15s; flex: none;
+  }
+  .inv-ord-chk svg { color: #fff; opacity: 0; transform: scale(.5); transition: .15s; }
+  .inv-ord-chk.is-on { background: #6938ef; border-color: #6938ef; box-shadow: 0 3px 8px rgba(105,56,239,.35); }
+  .inv-ord-chk.is-on svg { opacity: 1; transform: scale(1); }
+  .inv-ord-chk:hover { border-color: #6938ef; }
+
+  /* buyurtma karta */
+  .inv-ocard {
+    display: grid; grid-template-columns: 46px minmax(0,1fr) 198px; align-items: stretch;
+    border: 1px solid #eaecf0; border-radius: 14px; overflow: hidden; background: #fff;
+    box-shadow: 0 1px 3px rgba(105,56,239,.06), 0 1px 2px rgba(16,24,40,.04);
+    transition: box-shadow .16s ease, transform .12s ease, border-color .15s ease;
+  }
+  .inv-ocard:hover { box-shadow: 0 10px 26px rgba(16,24,40,.10); transform: translateY(-1px); }
+  .inv-ocard.is-sel { border-color: #6938ef; box-shadow: 0 0 0 2px rgba(105,56,239,.16), 0 10px 26px rgba(16,24,40,.10); }
+  .inv-ocard-chk { display: flex; align-items: center; justify-content: center; background: #fafbff; box-shadow: inset -1px 0 0 #eaecf0; }
+  .inv-ocard.is-sel .inv-ocard-chk { background: rgba(105,56,239,.08); }
+  .inv-ocard-left { padding: .45rem .95rem .6rem; min-width: 0; }
+  .inv-ocard-no { padding: .5rem 0 .35rem; }
+  .inv-onum { display: inline-flex; align-items: center; font-size: .86rem; font-variant-numeric: tabular-nums; }
+  .inv-onum-pre { color: #98a2b3; font-weight: 700; }
+  .inv-onum-box {
+    background: #6938ef; color: #fff; font-weight: 800; padding: .1rem .44rem; border-radius: 7px;
+    margin-left: .2rem; box-shadow: 0 2px 7px rgba(105,56,239,.35);
+  }
+
+  /* mahsulot satri + dona pill */
+  .inv-pl { display: flex; align-items: center; gap: .8rem; min-height: 78px; padding: .4rem 0; min-width: 0; }
+  .inv-pl + .inv-pl { border-top: 1px solid #f2f4f7; }
+  .inv-pl .inv-oprod { flex: 1; align-items: center; }
+  .inv-ocard .inv-oprod-title { -webkit-line-clamp: 1; }
+  /* rasm ustida sichqoncha → zoom-in ishorasi + yengil ko'tarilish */
+  .inv-pl .inv-oprod-thumb { cursor: zoom-in; }
+  .inv-pl .inv-oprod-thumb:hover { transform: scale(1.06); box-shadow: 0 6px 16px rgba(16,24,40,.16); }
+
+  /* sichqoncha rasm ustiga kelganda chiqadigan kattalashgan oynacha (zoom) */
+  .inv-img-zoom {
+    position: fixed; z-index: 99999; width: 240px; height: 240px;
+    border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid #eaecf0;
+    box-shadow: 0 22px 60px -14px rgba(50,30,120,.55); pointer-events: none;
+    animation: invZoomIn .14s ease;
+  }
+  .inv-img-zoom img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @keyframes invZoomIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+  [data-bs-theme="dark"] .inv-img-zoom { background: #1a1d27; border-color: #2d3148; }
+  .inv-dpill {
+    flex: none; min-width: 64px; display: inline-flex; align-items: center; justify-content: center;
+    padding: .3rem .62rem; border-radius: 999px; background: rgba(105,56,239,.10); color: #6938ef;
+    font-weight: 800; font-size: .76rem; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+
+  /* o'ng rail */
+  .inv-ocard-rail {
+    background: #faf9ff; box-shadow: inset 1px 0 0 #eaecf0; padding: .85rem 1rem;
+    display: flex; flex-direction: column; justify-content: center; gap: .5rem;
+  }
+  .inv-rail-it { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+  .inv-rail-k { font-size: .62rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #98a2b3; }
+  .inv-rail-q { font-size: .82rem; font-weight: 800; color: #475467; font-variant-numeric: tabular-nums; }
+  .inv-rail-sum { font-size: 1.02rem; font-weight: 800; color: #6938ef; font-variant-numeric: tabular-nums; }
+
+  /* tor ekran — rail pastga tushadi */
+  @media (max-width: 640px) {
+    .inv-ord-head, .inv-ocard { grid-template-columns: 40px minmax(0,1fr); }
+    .inv-ocard-rail { grid-column: 1 / -1; box-shadow: none; border-top: 1px solid #eaecf0;
+      flex-direction: row; flex-wrap: wrap; gap: .4rem 1rem; }
+    .inv-ord-head-r { display: none; }
+    .inv-dpill { min-width: auto; }
+  }
+
+  /* dark theme */
+  [data-bs-theme="dark"] .inv-ord-head { background: rgba(123,78,255,.12); border-color: rgba(123,78,255,.18); }
+  [data-bs-theme="dark"] .inv-ord-th { color: #b8a8ff; }
+  [data-bs-theme="dark"] .inv-ord-chk { background: #1a1d27; border-color: #3a4058; }
+  [data-bs-theme="dark"] .inv-ord-chk.is-on { background: #7b4eff; border-color: #7b4eff; }
+  [data-bs-theme="dark"] .inv-ocard { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .inv-ocard:hover { border-color: #3a4058; box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .inv-ocard.is-sel { border-color: #7b4eff; box-shadow: 0 0 0 2px rgba(123,78,255,.25), 0 10px 26px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .inv-ocard-chk { background: #161b27; box-shadow: inset -1px 0 0 #2b3346; }
+  [data-bs-theme="dark"] .inv-ocard.is-sel .inv-ocard-chk { background: rgba(123,78,255,.14); }
+  [data-bs-theme="dark"] .inv-onum-pre { color: #7a849a; }
+  [data-bs-theme="dark"] .inv-onum-box { background: #7b4eff; }
+  [data-bs-theme="dark"] .inv-pl + .inv-pl { border-top-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-dpill { background: rgba(123,78,255,.18); color: #cbb8ff; }
+  [data-bs-theme="dark"] .inv-ocard-rail { background: #161b27; box-shadow: inset 1px 0 0 #2b3346; }
+  [data-bs-theme="dark"] .inv-rail-k { color: #7a849a; }
+  [data-bs-theme="dark"] .inv-rail-q { color: #aeb6c7; }
+  [data-bs-theme="dark"] .inv-rail-sum { color: #cbb8ff; }
 
   /* MUHIM tuzatish: `.inv-detail-row td` (drawer) qoidasi !important bilan
      fon-gradient, padding:0 va binafsha `inset` chap soyani HAR BIR ichki
@@ -752,18 +1022,115 @@
   [data-bs-theme="dark"] .inv-item-qty { color: #9aa3b2; }
   [data-bs-theme="dark"] .inv-empty { background: #1a2030; border-color: #2b3346; color: #6b7689; }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     «Dark Header Band» REDIZAYN (Abdulaziz 2026-06-13): binafsha/ko'k urg'ular
+     → to'q slate #1e293b (buyurtmalar sahifasidagi active tugmalar bilan bir
+     xil). Sarlavha to'liq to'q band bo'ladi, «Акт отправки» oq tugma.
+     Bu blok yuqoridagi ESKI binafsha qiymatlarni ataylab QAYTA YOZADI —
+     kaskadda oxirgi → ustun keladi. Light + Dark.  fbs_docs/inv_modal_color_
+     variants.html V4 + fbs_docs/inv_bulkbar_variants.html V2 asosida.
+     ═══════════════════════════════════════════════════════════════════════ */
+  /* — Sarlavha: full-bleed to'q slate band (inv-detail-v2 padding'ini teskari
+       margin bilan yamlab, butun modal kengligiga yoyamiz). O'ng padding 3.4rem
+       — parent «×» tugmasi (top:14 right:16) tagiga matn tushmasin uchun. */
+  .inv-detail-header {
+    margin: -1rem -1.1rem 0; padding: 1.05rem 3.4rem 1.1rem 1.1rem;
+    background: #1e293b; border-radius: 0;
+    align-items: center;
+  }
+  .inv-detail-header-left { display: flex; align-items: center; gap: .8rem; }
+  .inv-detail-h-icon {
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    background: #fff; color: #1e293b;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,.28);
+  }
+  .inv-detail-h-icon svg { width: 21px; height: 21px; }
+  .inv-detail-h-text { display: flex; flex-direction: column; gap: .12rem; min-width: 0; }
+  .inv-detail-h-kicker {
+    font-size: .66rem; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: #8ea2c4; line-height: 1;
+  }
+  .inv-detail-h-title { color: #fff; font-size: 1.15rem; font-weight: 800; line-height: 1.15; }
+  .inv-detail-h-meta { margin-top: .25rem; }
+  /* «Akt отправки» — ghost (shaffof) tugma to'q band ustida */
+  .inv-akt-btn-v2 {
+    background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22);
+    color: #fff !important;
+  }
+  .inv-akt-btn-v2:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.38); }
+  /* — Fact strip + manzil: neytral slate ramka/soya — */
+  .inv-fact-grid { border-color: #e6e9ef; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+  .inv-fact-icon { background: #eef1f6; color: #334155; }
+  .inv-fact.is-primary .inv-fact-icon { background: #1e293b; color: #fff; }
+  .inv-fact.is-primary .inv-fact-value { color: #0f172a; }
+  .inv-address-card { border-color: #e6e9ef; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+  .inv-address-icon { background: #eef1f6; color: #334155; }
+  .inv-pickup-edit-btn-v2 { background: #f1f3f7; border-color: #d3d9e3; color: #1e293b; }
+  .inv-pickup-edit-btn-v2:hover { background: #1e293b; color: #fff; border-color: #1e293b; }
+  /* — Buyurtmalar sarlavhasi + kartalar — */
+  .inv-ord-head { background: #f1f3f7; border-color: #e6e9ef; }
+  .inv-ord-th { color: #475467; }
+  .inv-ord-chk.is-on { background: #1e293b; border-color: #1e293b; box-shadow: 0 3px 8px rgba(30,41,59,.35); }
+  .inv-ord-chk:hover { border-color: #1e293b; }
+  .inv-ocard.is-sel { border-color: #1e293b; box-shadow: 0 0 0 2px rgba(30,41,59,.16), 0 10px 26px rgba(16,24,40,.10); }
+  .inv-ocard.is-sel .inv-ocard-chk { background: rgba(30,41,59,.08); }
+  .inv-onum-box { background: #1e293b; box-shadow: 0 2px 7px rgba(30,41,59,.35); }
+  .inv-dpill { background: #eef1f6; color: #334155; }
+  .inv-ocard-rail { background: #f8fafc; }
+  .inv-rail-sum { color: #0f172a; }
+
+  /* — DARK — */
+  [data-bs-theme="dark"] .inv-detail-header { background: #11141d; }
+  [data-bs-theme="dark"] .inv-detail-h-title { color: #fff; }
+  [data-bs-theme="dark"] .inv-detail-h-kicker { color: #7e8aa6; }
+  [data-bs-theme="dark"] .inv-detail-h-icon { background: #f1f5f9; color: #11141d; }
+  [data-bs-theme="dark"] .inv-akt-btn-v2 { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18); color: #fff !important; }
+  [data-bs-theme="dark"] .inv-akt-btn-v2:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.32); }
+  [data-bs-theme="dark"] .inv-fact-icon { background: #232a3a; color: #aeb6c7; }
+  [data-bs-theme="dark"] .inv-fact.is-primary .inv-fact-icon { background: #475467; color: #fff; }
+  [data-bs-theme="dark"] .inv-fact.is-primary .inv-fact-value { color: #f1f5f9; }
+  [data-bs-theme="dark"] .inv-address-icon { background: #232a3a; color: #cbd5e1; }
+  [data-bs-theme="dark"] .inv-pickup-edit-btn-v2 { background: #232a3a; border-color: #3a4358; color: #cbd5e1; }
+  [data-bs-theme="dark"] .inv-pickup-edit-btn-v2:hover { background: #475467; color: #fff; border-color: #475467; }
+  [data-bs-theme="dark"] .inv-ord-head { background: #1f2433; border-color: #2b3346; }
+  [data-bs-theme="dark"] .inv-ord-th { color: #aeb6c7; }
+  [data-bs-theme="dark"] .inv-ord-chk.is-on { background: #475467; border-color: #475467; }
+  [data-bs-theme="dark"] .inv-ocard.is-sel { border-color: #475467; box-shadow: 0 0 0 2px rgba(71,84,103,.3), 0 10px 26px rgba(0,0,0,.5); }
+  [data-bs-theme="dark"] .inv-onum-box { background: #475467; }
+  [data-bs-theme="dark"] .inv-dpill { background: #232a3a; color: #cbd5e1; }
+  [data-bs-theme="dark"] .inv-ocard-rail { background: #161b27; }
+  [data-bs-theme="dark"] .inv-rail-sum { color: #f1f5f9; }
+
   /* "Detali" button toggle state */
   .inv-btn.is-open { background: #101828; color: #fff; border-color: #101828; }
   [data-bs-theme="dark"] .inv-btn.is-open { background: #6384ff; border-color: #6384ff; }
 
-  /* Pagination */
+  /* Pagination — «Soft» (Buyurtmalar sahifasi bilan bir xil ko'rinish):
+     markazda icon ◀ ▶ + joriy sahifa indigo pill. (Uzum накладные API jami
+     sonni bermaydi → raqamli sakrash yo'q, faqat oldinga/orqaga.) */
   .inv-pager {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: .75rem; margin-top: .9rem;
-    color: #667085; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin-top: 1.1rem;
   }
-  .inv-pager-buttons { display: flex; gap: .5rem; }
-  .inv-pager .inv-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .inv-pgbtn {
+    width: 38px; height: 38px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid #E6E6EC; background: #fff; color: #475467;
+    border-radius: 10px; cursor: pointer; transition: border-color .13s ease;
+  }
+  .inv-pgbtn:hover:not(:disabled) { border-color: #4169E1; }
+  .inv-pgbtn:disabled { opacity: .4; cursor: default; }
+  .inv-pgbtn svg { width: 15px; height: 15px; }
+  .inv-pgnum {
+    min-width: 38px; height: 38px; padding: 0 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #4169E1; color: #fff; border-radius: 10px;
+    font-weight: 700; font-size: .84rem;
+    box-shadow: 0 6px 14px -5px rgba(65,105,225,.6);
+  }
+  [data-bs-theme="dark"] .inv-pgbtn { background: #1a1d27; border-color: #2d3148; color: #cbd5e1; }
+  [data-bs-theme="dark"] .inv-pgnum { background: #5b7cf0; }
 
   /* Empty / loading / error */
   .inv-state {
@@ -774,7 +1141,7 @@
 
   /* Dark mode */
   [data-bs-theme="dark"] .inv-hero {
-    background: linear-gradient(160deg, #1a1f2e 0%, #1e2333 60%, #232a3d 100%);
+    background: #1e2333;
     border-color: rgba(99,132,255,.18);
   }
   [data-bs-theme="dark"] .inv-title { color: #e8edf5; }
@@ -819,7 +1186,7 @@
     max-height: 86vh;
     background: #ffffff;
     border-radius: 20px;
-    box-shadow: 0 24px 60px rgba(8,13,26,.32), 0 0 0 1px rgba(53,86,185,.08);
+    box-shadow: 0 24px 60px rgba(8,13,26,.32), 0 0 0 1px rgba(65,105,225,.08);
     display: flex; flex-direction: column;
     overflow: hidden;
     animation: ppSlideUp .22s cubic-bezier(.16,.84,.36,1);
@@ -868,8 +1235,8 @@
     background: #e4e9f3; color: #667085;
     font-size: .68rem; font-weight: 700;
   }
-  .pp-step.is-active { background: rgba(99,132,255,.12); color: #3456b9; }
-  .pp-step.is-active .pp-step-num { background: #3456b9; color: #fff; }
+  .pp-step.is-active { background: rgba(99,132,255,.12); color: #4169E1; }
+  .pp-step.is-active .pp-step-num { background: #4169E1; color: #fff; }
   .pp-step.is-done .pp-step-num { background: #12b76a; color: #fff; }
   .pp-step-sep { color: #d0d5dd; font-weight: 700; }
   /* Search bar */
@@ -932,7 +1299,7 @@
     width: 36px; height: 36px;
     border-radius: 10px;
     background: rgba(99,132,255,.12);
-    color: #3456b9;
+    color: #4169E1;
     display: flex; align-items: center; justify-content: center;
   }
   .pp-point.is-active .pp-point-icon { background: rgba(105,56,239,.16); color: #6938ef; }
@@ -958,7 +1325,7 @@
   .pp-point-dist {
     display: inline-flex; align-items: center;
     padding: .12rem .5rem; border-radius: 999px;
-    background: rgba(99, 132, 255, .12); color: #3456b9;
+    background: rgba(99, 132, 255, .12); color: #4169E1;
     font-size: .68rem; font-weight: 700;
   }
   [data-bs-theme="dark"] .pp-point-badge--closest { background: #12b76a; color: #fff; }
@@ -1078,12 +1445,27 @@
   .inv-detail-mode .inv-card,
   .inv-detail-mode .inv-hero { display: none !important; }
   .inv-standalone {
-    background: linear-gradient(180deg, #f3effd 0%, #f9f7ff 35%, #fafbff 100%);
+    background: #f7f4ff;
     min-height: 120px;
   }
   [data-bs-theme="dark"] .inv-standalone {
-    background: linear-gradient(180deg, #251c45 0%, #1f1a36 35%, #1c2334 100%);
+    background: #1f1a36;
   }
+
+  /* ── Detail modal: KONTENTGA MOSLAB o'lchanadi (parent 88vh gacha cheklaydi,
+     undan oshsa iframe o'zi skroll bo'ladi) — buyurtma-detal modali bilan
+     bir xil, sinalgan naqsh. Eski «HAR DOIM 88vh + ichki skroll» olib tashlandi:
+     u kontent KAM bo'lsa modal pastida katta bo'sh joy qoldirar, ko'p bo'lsa
+     floating panel oxirgi zakazni yopib qo'yar edi (Abdulaziz 2026-06-16).
+     Endi modal aynan kontent bo'yi ochiladi → bo'sh joy ham, ustiga-chiqish
+     ham yo'q. Faqat detail-only rejimda — «Поставка» ro'yxat embed'iga tegmaydi. */
+  body:has(.inv-detail-mode) { padding-bottom: 0; }
+  /* Floating bulk-bar (#invOrdBulkBar) chiqqanda — pastdan joy ajratamiz, panel
+     hech qachon oxirgi buyurtma-kartani yopmaydi. scrollHeight shu padding bilan
+     o'sadi → modal panel joyini o'z ichiga olib silliq kengayadi (ResizeObserver
+     + postDetailHeight orqali). `.24s` o'tish slayd ritmiga mos. */
+  body:has(.inv-detail-mode) { transition: padding-bottom .24s cubic-bezier(.22,1,.36,1); }
+  body:has(.inv-detail-mode):has(#invOrdBulkBar.is-visible) { padding-bottom: 88px; }
 </style>
 {% endblock %}
 
@@ -1099,22 +1481,20 @@
   <section class="inv-hero">
     <div class="inv-hero-main">
       <span class="inv-kicker">FBS / DBS</span>
-      <h1 class="inv-title">Накладные</h1>
+      <h1 class="inv-title">{{ list_labels.inv_page_title }}</h1>
       <p class="inv-subtitle">
-        Sizning FBS «Накладные» ro'yxatingiz. Yaratish, qabul holati,
-        bekor qilish va detallarni shu yerdan ko'rasiz. Ma'lumotlar Uzum Seller OpenAPI orqali
-        to'g'ridan-to'g'ri olinadi.
+        {{ list_labels.inv_intro }}
       </p>
     </div>
 
-    <nav class="fbs-section-tabs" aria-label="FBS bo'limi">
+    <nav class="fbs-section-tabs" aria-label="{{ list_labels.aria_section_fbs }}">
     <a href="/fbs">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      Buyurtmalar
+      {{ list_labels.tab_orders }}
     </a>
     <a href="/fbs/stock">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-      Ombor
+      {{ list_labels.tab_stock }}
     </a>
     </nav>
   </section>
@@ -1122,20 +1502,20 @@
 
   {% if not has_token %}
   <div class="inv-warning">
-    Uzum Seller OpenAPI tokeni o'rnatilmagan. Накладные ro'yxatini ko'rish uchun
-    <a href="/fetch">«Mening do'konlarim»</a> sahifasida token kiriting.
+    {{ list_labels.warn_token_pre_inv }}
+    <a href="/fetch">{{ list_labels.link_my_shops }}</a>{{ list_labels.warn_token_post }}
   </div>
   {% endif %}
 
   <section class="inv-card">
     <div class="inv-filter-row">
       <div class="inv-select-wrap">
-        <select id="invStatusSelect" class="inv-select" aria-label="Status bo'yicha filtr">
-          <option value="">Hamma statuslar</option>
-          <option value="CREATED" selected>Yaratilgan</option>
-          <option value="ACCEPTANCE_IN_PROGRESS">Qabul jarayonida</option>
-          <option value="ACCEPTED">Qabul qilindi</option>
-          <option value="CANCELLED">Bekor qilindi</option>
+        <select id="invStatusSelect" class="inv-select" aria-label="{{ list_labels.inv_filter_status_aria }}" data-fxsel data-fxsel-variant="outline" data-fxsel-minw="230px">
+          <option value="">{{ list_labels.inv_status_all }}</option>
+          <option value="CREATED" selected>{{ list_labels.inv_status_created }}</option>
+          <option value="ACCEPTANCE_IN_PROGRESS">{{ list_labels.inv_status_acceptance }}</option>
+          <option value="ACCEPTED">{{ list_labels.inv_status_accepted }}</option>
+          <option value="CANCELLED">{{ list_labels.inv_status_cancelled }}</option>
         </select>
         <svg class="inv-select-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
@@ -1144,80 +1524,131 @@
     <!-- Bulk-action bar — bottom-centred floating pill, shown when ≥1 row
          is ticked (Vazifa: ko'p akt). Visibility toggled via `.is-visible`. -->
     <div class="inv-bulkbar" id="invBulkBar">
-      <span class="inv-bulk-count"><strong id="invBulkN">0</strong> ta tanlandi</span>
+      <span class="inv-bulk-count"><strong id="invBulkN">0</strong> {{ list_labels.bulk_n_selected }}</span>
       <div class="inv-bulk-actions">
+        <button type="button" class="inv-bulk-btn is-download" id="invBulkAktDownload">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>{{ list_labels.akt_download_btn }}</span>
+        </button>
         <button type="button" class="inv-bulk-btn" id="invBulkAkt">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          <span>Akt отправки (PDF)</span>
+          <span>{{ list_labels.akt_print_btn }}</span>
         </button>
       </div>
     </div>
+
 
     <div class="inv-table-wrap">
       <table class="inv-table" id="invTable">
         <thead>
           <tr>
-            <th class="col-check"><input type="checkbox" class="inv-check" id="invCheckAll" aria-label="Hammasini belgilash"></th>
-            <th class="col-num">№</th>
-            <th class="col-date">Sana</th>
-            <th>Ombor</th>
-            <th class="col-orders">Buyurtmalar</th>
-            <th class="col-price">Narx</th>
-            <th class="col-addr">Manzil</th>
-            <th class="col-slot">Slot</th>
-            <th>Status</th>
+            <th class="col-check"><input type="checkbox" class="inv-check" id="invCheckAll" aria-label="{{ list_labels.inv_check_all_aria }}"></th>
+            <th class="col-num">{{ list_labels.th_num }}</th>
+            <th class="col-date">{{ list_labels.th_date }}</th>
+            <th>{{ list_labels.th_stock }}</th>
+            <th class="col-orders">{{ list_labels.th_orders }}</th>
+            <th class="col-price">{{ list_labels.th_price }}</th>
+            <th class="col-addr">{{ list_labels.th_address }}</th>
+            <th class="col-slot">{{ list_labels.th_slot }}</th>
+            <th>{{ list_labels.th_status }}</th>
           </tr>
         </thead>
         <tbody id="invBody">
-          <tr><td colspan="9" class="inv-state">Yuklanmoqda…</td></tr>
+          <tr><td colspan="9" class="inv-state">{{ list_labels.loading }}</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="inv-pager">
-      <span id="invPageInfo">—</span>
-      <div class="inv-pager-buttons">
-        <button type="button" class="inv-btn" id="invPrev" disabled>◀ Oldingi</button>
-        <button type="button" class="inv-btn" id="invNext" disabled>Keyingi ▶</button>
-      </div>
+      <button type="button" class="inv-pgbtn" id="invPrev" disabled aria-label="{{ list_labels.pager_prev }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="inv-pgnum" id="invPageInfo">1</span>
+      <button type="button" class="inv-pgbtn" id="invNext" disabled aria-label="{{ list_labels.pager_next }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
   </section>
+
+  <!-- Накладна detalida buyurtma-karta tanlanганда chiqadigan bar:
+       tanlangan buyurtmalar uchun Yorliq + QR (buyurtmalar sahifasidagi
+       bulk-bar bilan bir xil ish; backend: POST /fbs/api/orders/bulk-labels).
+       MUHIM: `.inv-card` TASHQARISIDA turibdi — detal rejimda (.inv-detail-mode)
+       `.inv-card` yashiriladi, bu bar esa ko'rinishi kerak. -->
+  <div class="inv-bulkbar" id="invOrdBulkBar">
+    <span class="inv-bulk-count"><strong id="invOrdBulkN">0</strong> {{ list_labels.bulk_n_selected }}</span>
+    <!-- QR stiker o'lchami — maxsus (custom) dropdown. «QR» va «Yorliq + QR»
+         chop etishda tovar-stiker sahifa o'lchami (mm). Backend product_qr_size;
+         tanlov localStorage'da (`fbsQrSize`) eslab qolinadi. Panel ekran tagida
+         turgani uchun ro'yxat YUQORIGA (popover) ochiladi. -->
+    <div class="qrsz" id="invOrdQrSizeDd" data-value="uzum">
+      <button type="button" class="qrsz-trigger" aria-haspopup="listbox" aria-expanded="false" title="{{ list_labels.qr_size_title }}">
+        <svg class="qrsz-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v3M11 7v4M15 7v3M19 7v4"/></svg>
+        <span class="qrsz-val">{{ list_labels.qr_size_uzum_full }}</span>
+        <svg class="qrsz-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <ul class="qrsz-menu" role="listbox" aria-label="{{ list_labels.qr_size_aria }}">
+        <li class="qrsz-opt" role="option" data-val="30x20">30 × 20 mm</li>
+        <li class="qrsz-opt" role="option" data-val="43x25">43 × 25 mm</li>
+        <li class="qrsz-opt" role="option" data-val="40x30">40 × 30 mm</li>
+        <li class="qrsz-opt" role="option" data-val="60x60">60 × 60 mm</li>
+        <li class="qrsz-opt" role="option" data-val="70x37">70 × 37 mm</li>
+        <li class="qrsz-opt" role="option" data-val="uzum">{{ list_labels.qr_size_uzum_full }}</li>
+      </ul>
+    </div>
+    <div class="inv-bulk-actions">
+      <button type="button" class="inv-bulk-btn is-print" id="invOrdYorliq" title="{{ list_labels.bulk_yorliq_title }}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        <span>{{ list_labels.bulk_yorliq_btn }}</span>
+      </button>
+      <button type="button" class="inv-bulk-btn is-print" id="invOrdQr" title="{{ list_labels.bulk_qr_title }}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/><line x1="17" y1="21" x2="14" y2="21"/></svg>
+        <span>QR</span>
+      </button>
+      <button type="button" class="inv-bulk-btn is-print" id="invOrdBoth" title="{{ list_labels.inv_both_title_full }}">
+        <span>{{ list_labels.bulk_both_btn }}</span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Qabul-punkti tahrirlash modali — ro'yxat sahifasidagi boy «Qabul
-     punktlari» modali (fbsDropoffModal) bilan BIR XIL dizayn. Per-row
-     «Изменить» tugmasidan ochiladi; oxirida slot bosilganda накладна
-     punkti /change-pickup orqali o'zgartiriladi. -->
+     punktlari» modali (fbsDropoffModal) bilan BIR XIL «Royal Blue
+     Spotlight» dizayn (2026-06 redizayn). Per-row «Изменить» tugmasidan
+     ochiladi; oxirida slot bosilganda накладна punkti /change-pickup
+     orqali o'zgartiriladi. -->
 <div id="fbsDropoffModal" class="fbs-dropoff-modal" role="dialog"
      aria-hidden="true" aria-labelledby="fbsDropoffTitle">
   <div class="fbs-dropoff-backdrop" data-dropoff-close="1"></div>
   <div class="fbs-dropoff-card">
     <div class="fbs-dropoff-head">
-      <div>
-        <h3 id="fbsDropoffTitle">📍 Qabul punktini o'zgartirish</h3>
-        <p id="fbsDropoffSubtitle" style="margin:.2rem 0 0; font-size:.85rem; opacity:.7;">Накладная <strong></strong></p>
+      <div style="flex:1; min-width:0;">
+        <h3 id="fbsDropoffTitle">{{ list_labels.dropoff_change_title_pre }}<span class="grad">{{ list_labels.dropoff_change_title_grad }}</span></h3>
+        <p id="fbsDropoffSubtitle" class="fbs-dropoff-subtitle">{{ list_labels.iframe_invoice_title }} <strong></strong></p>
       </div>
       <button type="button" class="fbs-dropoff-x" data-dropoff-close="1"
-              aria-label="Yopish">×</button>
+              aria-label="{{ list_labels.aria_close }}">✕</button>
     </div>
-    <div class="fbs-dropoff-tools">
-      <div class="fbs-dropoff-source" role="tablist" aria-label="Source">
-        <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
-                data-source="db" role="tab">
-          {{ list_labels.dropoff_src_db }}
-        </button>
-        <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
-                data-source="uzum" role="tab">
-          {{ list_labels.dropoff_src_uzum }}
-        </button>
-      </div>
-      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
-        <span aria-hidden="true">🧭</span>
-        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+    <div class="fbs-dropoff-tabs" role="tablist" aria-label="Source">
+      <button type="button" id="fbsDropoffSrcDb" class="fbs-dropoff-src-btn is-active"
+              data-source="db" role="tab">
+        {{ list_labels.dropoff_src_db }}
       </button>
-      <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
+      <button type="button" id="fbsDropoffSrcUzum" class="fbs-dropoff-src-btn"
+              data-source="uzum" role="tab">
+        {{ list_labels.dropoff_src_uzum }}
+      </button>
     </div>
-    <div class="fbs-dropoff-match-row">
+    <div class="fbs-dropoff-ctl">
+      <div class="fbs-dropoff-search-row">
+        <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
+        <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
+               placeholder="{{ list_labels.dropoff_search_ph }}"
+               autocomplete="off" spellcheck="false">
+        <button type="button" id="fbsDropoffSearchClear"
+                class="fbs-dropoff-search-clear" hidden aria-label="{{ list_labels.aria_close }}">×</button>
+        <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
+      </div>
       <label class="fbs-dropoff-match">
         <input type="checkbox" id="fbsDropoffMatchOnly" checked>
         <span class="fbs-dropoff-match-track"><span class="fbs-dropoff-match-thumb"></span></span>
@@ -1226,18 +1657,21 @@
       <span class="fbs-dropoff-match-help" tabindex="0"
             title="{{ list_labels.dropoff_match_hint }}"
             aria-label="{{ list_labels.dropoff_match_hint }}">?</span>
+      <button type="button" id="fbsDropoffGeoBtn" class="fbs-dropoff-geo-btn">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="fbsDropoffGeoLabel">{{ list_labels.dropoff_geo_btn }}</span>
+      </button>
     </div>
-    <div class="fbs-dropoff-search-row">
-      <span class="fbs-dropoff-search-icon" aria-hidden="true">🔎</span>
-      <input type="search" id="fbsDropoffSearch" class="fbs-dropoff-search"
-             placeholder="{{ list_labels.dropoff_search_ph }}"
-             autocomplete="off" spellcheck="false">
-      <button type="button" id="fbsDropoffSearchClear"
-              class="fbs-dropoff-search-clear" hidden aria-label="Yopish">×</button>
-      <span id="fbsDropoffSearchCount" class="fbs-dropoff-search-count" hidden></span>
-    </div>
+    <span id="fbsDropoffGeoStatus" class="fbs-dropoff-geo-status"></span>
     <div id="fbsDropoffBody" class="fbs-dropoff-body">
-      <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+      <div id="fbsDropoffList" class="fbs-dropoff-list">
+        <div class="fbs-dropoff-loading">{{ list_labels.dropoff_loading }}</div>
+      </div>
+      <div id="fbsDropoffPanel" class="fbs-dropoff-panel">
+        <div class="dp-panel-empty">{{ list_labels.dropoff_panel_hint }}</div>
+      </div>
     </div>
   </div>
 </div>
@@ -1250,129 +1684,319 @@
 {% include "_fbs_confirm_modal.html" %}
 
 <style>
-  /* ── Boy «Qabul punktlari» modali (fbs_orders.html dan ko'chirilgan) ── */
+  /* ── «Royal Blue Spotlight» qabul-punkti modali (fbs_orders.html
+     bilan BIR XIL uslub — o'zgartirsangiz, ikkalasini sinxron saqlang) ── */
+  /* z-index 2090: sahifadagi 2070-li panellar va pp-modal (1080)
+     USTIDA tursin — fbs_orders.html bilan sinxron. Toast (2100) tepada. */
   .fbs-dropoff-modal { position: fixed; inset: 0; display: none;
-    z-index: 1050; align-items: center; justify-content: center; }
+    z-index: 2090; align-items: center; justify-content: center; padding: 14px; }
   .fbs-dropoff-modal.is-open { display: flex; }
   .fbs-dropoff-backdrop { position: absolute; inset: 0;
-    background: rgba(0,0,0,.55); }
-  .fbs-dropoff-card { position: relative; background: var(--bs-body-bg, #fff);
-    color: var(--bs-body-color, #111); border-radius: 12px;
-    width: min(720px, 92vw); max-height: 86vh; overflow: hidden;
-    box-shadow: 0 18px 50px rgba(0,0,0,.4); display: flex; flex-direction: column; }
-  .fbs-dropoff-head { display: flex; justify-content: space-between;
-    align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(128,128,128,.2); }
-  .fbs-dropoff-head h3 { margin: 0; font-size: 1.05rem; }
-  .fbs-dropoff-x { background: transparent; border: 0; font-size: 1.6rem;
-    cursor: pointer; color: inherit; line-height: 1; padding: 0 6px; }
-  .fbs-dropoff-body { padding: 14px 18px; overflow-y: auto; }
-  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
-    padding: 28px 8px; opacity: .7; }
-  .fbs-dropoff-item { padding: 12px 14px; border: 1px solid rgba(128,128,128,.2);
-    border-radius: 10px; margin-bottom: 10px; display: flex;
-    justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
-  .fbs-dropoff-item .addr { font-weight: 600; font-size: 1rem; flex: 1 1 280px; }
-  .fbs-dropoff-item .shops { font-size: .85rem; opacity: .75; margin-top: 4px; }
-  .fbs-dropoff-item .counts { display: flex; gap: 10px; align-items: center;
-    flex: 0 0 auto; }
-  .fbs-dropoff-item .badge-active { background: #f59e0b; color: #1a1300;
-    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
-  .fbs-dropoff-item .badge-total { background: rgba(128,128,128,.18);
-    padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
-  .fbs-dropoff-item .btn-copy { background: transparent; border: 1px solid rgba(128,128,128,.4);
-    padding: 4px 10px; border-radius: 6px; cursor: pointer; color: inherit;
-    font-size: .85rem; }
-  .fbs-dropoff-item .btn-copy:hover { background: rgba(128,128,128,.12); }
-  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
-  .fbs-dropoff-tools { padding: 10px 18px; display: flex; gap: 10px;
-    align-items: center; flex-wrap: wrap;
-    border-bottom: 1px solid rgba(128,128,128,.15); }
-  .fbs-dropoff-source { display: inline-flex; border: 1px solid rgba(128,128,128,.3);
-    border-radius: 8px; overflow: hidden; }
-  .fbs-dropoff-src-btn { background: transparent; border: 0; padding: 6px 14px;
-    cursor: pointer; color: inherit; font-size: .85rem; font-weight: 600;
-    border-right: 1px solid rgba(128,128,128,.3); }
-  .fbs-dropoff-src-btn:last-child { border-right: 0; }
-  .fbs-dropoff-src-btn.is-active { background: #3456b9; color: #fff; }
-  .fbs-dropoff-src-btn:hover:not(.is-active) { background: rgba(128,128,128,.12); }
-  /* «Faqat mos keladigan» toggle */
-  .fbs-dropoff-match-row { padding: 9px 18px; display: flex; align-items: center;
-    gap: 8px; border-bottom: 1px solid rgba(128,128,128,.15); }
-  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 9px;
-    cursor: pointer; font-size: .88rem; font-weight: 600; user-select: none; }
+    background: rgba(16,24,40,.55); backdrop-filter: blur(3px); }
+  .fbs-dropoff-card { position: relative; background: #fff; color: #101828;
+    border-radius: 26px; width: min(760px, 94vw); max-height: 88vh;
+    overflow: hidden; box-shadow: 0 36px 90px rgba(16,24,40,.45);
+    display: flex; flex-direction: column; }
+  .fbs-dropoff-head { display: flex; align-items: center; gap: 12px;
+    padding: 20px 26px 0; }
+  .fbs-dropoff-head h3 { margin: 0; font-size: 1.3rem;
+    font-weight: 900; letter-spacing: -.02em; }
+  .fbs-dropoff-head h3 .grad { background: linear-gradient(120deg,#4169E1,#6384ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fbs-dropoff-subtitle { display: inline-flex; align-items: center; gap: 5px;
+    margin: 8px 0 0; background: rgba(65,105,225,.08);
+    border: 1px solid rgba(65,105,225,.25); color: #4169E1;
+    padding: 4px 12px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .fbs-dropoff-subtitle strong { font-weight: 800; }
+  .fbs-dropoff-x { width: 34px; height: 34px; border-radius: 50%; border: 0;
+    background: #f2f4f7; color: #667085; font-size: 1rem; cursor: pointer;
+    line-height: 1; padding: 0; flex: none;
+    transition: background .2s, color .2s, transform .2s; }
+  .fbs-dropoff-x:hover { background: #101828; color: #fff; transform: rotate(90deg); }
+  /* Tab'lar — pastki gradient chiziq bilan */
+  .fbs-dropoff-tabs { display: flex; gap: 26px; margin: 14px 26px 0;
+    border-bottom: 1px solid #eaecf0; }
+  .fbs-dropoff-src-btn { border: 0; background: transparent; padding: 0 2px 12px;
+    font-size: .9rem; font-weight: 700; color: #667085; position: relative;
+    cursor: pointer; transition: color .15s; }
+  .fbs-dropoff-src-btn.is-active { color: #4169E1; }
+  .fbs-dropoff-src-btn.is-active::after { content: ""; position: absolute;
+    left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg,#4169E1,#6384ff); }
+  .fbs-dropoff-src-btn:hover:not(.is-active) { color: #101828; }
+  /* Boshqaruv qatori: qidiruv + toggle + geo */
+  .fbs-dropoff-ctl { display: flex; gap: 10px; align-items: center;
+    padding: 14px 26px 0; flex-wrap: wrap; }
+  .fbs-dropoff-search-row { flex: 1; min-width: 220px; display: flex;
+    align-items: center; gap: 8px; background: #f7f8fb;
+    border: 1.5px solid transparent; border-radius: 14px; padding: 9px 14px;
+    transition: border-color .2s, background .2s; }
+  .fbs-dropoff-search-row:focus-within { border-color: rgba(65,105,225,.4);
+    background: #fff; }
+  .fbs-dropoff-search-icon { opacity: .55; font-size: .95rem; }
+  .fbs-dropoff-search { flex: 1; border: 0; background: transparent;
+    color: inherit; font-size: .88rem; outline: none; font-family: inherit;
+    min-width: 0; }
+  .fbs-dropoff-search-clear { background: rgba(102,112,133,.15);
+    border: 0; width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    color: inherit; font-size: .95rem; line-height: 1; padding: 0; flex: none; }
+  .fbs-dropoff-search-clear:hover { background: rgba(102,112,133,.3); }
+  .fbs-dropoff-search-count { font-size: .74rem; font-weight: 700; color: #4169E1;
+    background: rgba(65,105,225,.08); padding: 3px 9px; border-radius: 999px;
+    flex: none; }
+  .fbs-dropoff-match { display: inline-flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: .82rem; font-weight: 600; user-select: none; }
   .fbs-dropoff-match input { position: absolute; opacity: 0; width: 0; height: 0; }
   .fbs-dropoff-match-track { width: 38px; height: 22px; border-radius: 999px;
-    background: rgba(128,128,128,.4); position: relative; transition: background .15s;
+    background: rgba(128,128,128,.35); position: relative; transition: background .15s;
     flex: 0 0 auto; }
   .fbs-dropoff-match-thumb { position: absolute; top: 2px; left: 2px; width: 18px;
     height: 18px; border-radius: 50%; background: #fff; transition: transform .15s;
     box-shadow: 0 1px 3px rgba(0,0,0,.3); }
-  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track { background: #3456b9; }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track {
+    background: linear-gradient(135deg,#4169E1,#6384ff); }
   .fbs-dropoff-match input:checked + .fbs-dropoff-match-track .fbs-dropoff-match-thumb { transform: translateX(16px); }
-  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(52,86,185,.55); outline-offset: 2px; }
-  .fbs-dropoff-match-help { width: 18px; height: 18px; border-radius: 50%;
-    background: rgba(128,128,128,.25); color: inherit; font-size: .75rem;
+  .fbs-dropoff-match input:focus-visible + .fbs-dropoff-match-track { outline: 2px solid rgba(65,105,225,.55); outline-offset: 2px; }
+  .fbs-dropoff-match-help { width: 17px; height: 17px; border-radius: 50%;
+    background: #f2f4f7; color: #667085; font-size: .7rem;
     font-weight: 700; display: inline-flex; align-items: center;
-    justify-content: center; cursor: help; }
-  .fbs-dropoff-search-row { padding: 8px 18px; display: flex; gap: 8px;
-    align-items: center; border-bottom: 1px solid rgba(128,128,128,.15);
-    position: relative; }
-  .fbs-dropoff-search-icon { opacity: .6; font-size: 1rem; }
-  .fbs-dropoff-search { flex: 1; padding: 8px 12px; border-radius: 8px;
-    border: 1px solid rgba(128,128,128,.3); background: transparent;
-    color: inherit; font-size: .9rem; outline: none; }
-  .fbs-dropoff-search:focus { border-color: #3456b9;
-    box-shadow: 0 0 0 3px rgba(52,86,185,.15); }
-  .fbs-dropoff-search-clear { background: rgba(128,128,128,.18);
-    border: 0; width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
-    color: inherit; font-size: 1rem; line-height: 1; padding: 0; }
-  .fbs-dropoff-search-clear:hover { background: rgba(128,128,128,.3); }
-  .fbs-dropoff-search-count { font-size: .8rem; opacity: .7;
-    background: rgba(128,128,128,.15); padding: 3px 8px; border-radius: 999px; }
+    justify-content: center; cursor: help; flex: none; }
+  .fbs-dropoff-geo-btn { border: 0; background: transparent; color: #4169E1;
+    font-size: .84rem; font-weight: 700; display: inline-flex;
+    align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px;
+    cursor: pointer; transition: background .15s; }
+  .fbs-dropoff-geo-btn:hover { background: rgba(65,105,225,.08); }
+  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-geo-status { display: block; padding: 8px 26px 0;
+    font-size: .78rem; font-weight: 600; color: #027a48; }
+  .fbs-dropoff-geo-status:empty { display: none; }
+  .fbs-dropoff-body { padding: 12px 16px 20px; overflow-y: auto; }
+  .fbs-dropoff-loading, .fbs-dropoff-empty { text-align: center;
+    padding: 28px 8px; opacity: .7; }
+  /* Punkt qatori — spotlight */
+  .fbs-dropoff-item { position: relative; display: flex; gap: 13px;
+    align-items: center; padding: 14px; border-radius: 18px;
+    flex-wrap: wrap;
+    transition: transform .2s cubic-bezier(.16,.84,.36,1); }
+  .fbs-dropoff-item + .fbs-dropoff-item { margin-top: 4px; }
+  .fbs-dropoff-item::before { content: ""; position: absolute; inset: 0;
+    border-radius: 18px; opacity: 0; transition: opacity .2s;
+    background: linear-gradient(120deg,rgba(65,105,225,.07),rgba(99,132,255,.07));
+    border: 1px solid rgba(65,105,225,.25); pointer-events: none; }
+  .fbs-dropoff-item:hover { transform: translateX(4px); }
+  .fbs-dropoff-item:hover::before { opacity: 1; }
+  .fbs-dropoff-item .btn-fav { border: 0; background: transparent;
+    font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 0;
+    color: #d0d3dd; flex: none; transition: color .2s, transform .2s; }
+  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
+  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; transform: scale(1.25); }
+  .fbs-dropoff-item .dist-circle { flex: none; width: 44px; height: 44px;
+    border-radius: 50%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #4169E1;
+    background: rgba(65,105,225,.08); transition: background .2s, color .2s; }
+  .fbs-dropoff-item .dist-circle b { font-weight: 900; font-size: .9rem; line-height: 1; }
+  .fbs-dropoff-item .dist-circle i { font-style: normal; font-size: .68rem;
+    font-weight: 800; opacity: .85; line-height: 1.2; }
+  .fbs-dropoff-item .dist-circle.is-nodist { font-size: .95rem; }
+  .fbs-dropoff-item:hover .dist-circle {
+    background: linear-gradient(135deg,#4169E1,#6384ff); color: #fff; }
+  .fbs-dropoff-item .mid { flex: 1; min-width: 0; }
+  .fbs-dropoff-item .addr { font-weight: 700; font-size: .92rem;
+    line-height: 1.35; letter-spacing: -.01em; }
+  .fbs-dropoff-item .meta { margin-top: 4px; font-size: .82rem; color: #667085;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fbs-dropoff-item .shops { color: #4169E1; font-weight: 800; font-size: .8rem; }
+  .fbs-dropoff-item .badge-nearest { font-size: .67rem; font-weight: 800;
+    color: #027a48; background: #ecfdf3; border: 1px solid #abefc6;
+    padding: 2px 9px; border-radius: 999px;
+    animation: fbsDropoffPulse 2.4s infinite; }
+  @keyframes fbsDropoffPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(2,122,72,.35); }
+    50% { box-shadow: 0 0 0 7px rgba(2,122,72,0); }
+  }
+  .fbs-dropoff-item .counts { display: flex; gap: 7px; align-items: center;
+    flex: 0 0 auto; }
+  .fbs-dropoff-item .btn-slots { border: 0; background: #101828; color: #fff;
+    padding: 8px 15px; border-radius: 12px; font-size: .8rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: background .2s, box-shadow .2s; }
+  .fbs-dropoff-item:hover .btn-slots {
+    background: linear-gradient(120deg,#4169E1,#6384ff);
+    box-shadow: 0 6px 16px rgba(65,105,225,.4); }
+  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
+  .fbs-dropoff-item .btn-copy { border: 1px solid #eaecf0; background: #fff;
+    color: #667085; width: 35px; height: 35px; border-radius: 12px;
+    font-size: .85rem; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0; flex: none;
+    transition: color .15s, border-color .15s; }
+  .fbs-dropoff-item .btn-copy:hover { color: #4169E1; border-color: #4169E1; }
+  .fbs-dropoff-item .btn-copy.copied { color: #10b981; border-color: #10b981; }
   .fbs-dropoff-item mark { background: #fde68a; color: inherit;
     padding: 0 2px; border-radius: 3px; }
-  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
-  .fbs-dropoff-geo-btn { background: transparent; border: 1px solid #3456b9;
-    color: #3456b9; padding: 6px 14px; border-radius: 8px; cursor: pointer;
-    font-size: .9rem; display: inline-flex; align-items: center; gap: 6px;
-    font-weight: 600; }
-  .fbs-dropoff-geo-btn:hover { background: rgba(52,86,185,.1); }
-  .fbs-dropoff-geo-btn:disabled { opacity: .55; cursor: progress; }
-  .fbs-dropoff-geo-status { font-size: .85rem; opacity: .75; }
-  .fbs-dropoff-item.is-favorite { border-color: #f59e0b;
-    background: rgba(245,158,11,.06); }
-  .fbs-dropoff-item .btn-fav { background: transparent; border: 0;
-    font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px;
-    color: rgba(128,128,128,.45); margin-right: 2px; }
-  .fbs-dropoff-item .btn-fav.is-on { color: #f59e0b; }
-  .fbs-dropoff-item .btn-fav:hover { color: #f59e0b; }
-  .fbs-dropoff-item .badge-dist { background: rgba(52,86,185,.12);
-    color: #3456b9; padding: 4px 10px; border-radius: 999px;
-    font-weight: 700; font-size: .85rem; }
-  .fbs-dropoff-item .badge-nearest { background: #10b981; color: #fff;
-    padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .8rem; }
-  .fbs-dropoff-item .btn-slots { background: transparent; border: 1px solid #3456b9;
-    color: #3456b9; padding: 4px 10px; border-radius: 6px; cursor: pointer;
-    font-size: .85rem; font-weight: 600; }
-  .fbs-dropoff-item .btn-slots:hover { background: rgba(52,86,185,.1); }
-  .fbs-dropoff-item .btn-slots:disabled { opacity: .55; cursor: progress; }
-  .fbs-dropoff-slots { width: 100%; margin-top: 10px;
-    border-top: 1px dashed rgba(128,128,128,.3); padding-top: 10px;
-    display: flex; flex-wrap: wrap; gap: 8px; }
+  /* Slotlar — qator ostida, yashil chiplar */
+  .fbs-dropoff-slots { flex-basis: 100%; margin: 2px 0 0 70px;
+    display: flex; flex-wrap: wrap; gap: 7px; }
   .fbs-dropoff-slots .slot-empty, .fbs-dropoff-slots .slot-loading,
-  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .85rem;
-    opacity: .75; text-align: center; padding: 8px; }
+  .fbs-dropoff-slots .slot-error { width: 100%; font-size: .82rem;
+    opacity: .75; padding: 4px 0; }
   .fbs-dropoff-slots .slot-error { color: #dc2626; }
-  .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12);
-    color: #047857; padding: 5px 11px; border-radius: 8px;
-    font-size: .85rem; font-weight: 600; border: 1px solid rgba(16,185,129,.3); }
-  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { color: #34d399; }
+  .fbs-dropoff-slots .slot-pill { background: #ecfdf3; color: #027a48;
+    padding: 6px 13px; border-radius: 11px; font-size: .78rem;
+    font-weight: 700; border: 1.5px solid #abefc6; }
   .fbs-dropoff-slots .slot-pill.is-clickable { cursor: pointer;
-    transition: transform .08s ease, background .15s ease; }
-  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22);
-    transform: translateY(-1px); }
+    transition: transform .15s ease, background .15s ease, box-shadow .15s ease; }
+  .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: #d1fadf;
+    transform: translateY(-2px); box-shadow: 0 6px 14px rgba(2,122,72,.18); }
   .fbs-dropoff-slots .slot-pill.is-clickable:active { transform: translateY(0); }
   .fbs-dropoff-slots .slot-pill.is-clickable:disabled { opacity: .55; cursor: progress; }
+  /* Dark theme */
+  [data-bs-theme="dark"] .fbs-dropoff-card { background: #1c2333; color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-x { background: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-x:hover { background: #e8edf5; color: #101828; }
+  [data-bs-theme="dark"] .fbs-dropoff-subtitle { background: rgba(99,132,255,.14);
+    border-color: rgba(99,132,255,.35); color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-tabs { border-bottom-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn.is-active { color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-src-btn:hover:not(.is-active) { color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-search-row { background: #232a3d; }
+  [data-bs-theme="dark"] .fbs-dropoff-search-row:focus-within { background: #1c2333; }
+  [data-bs-theme="dark"] .fbs-dropoff-match-help { background: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .meta { color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .shops { color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .dist-circle { background: rgba(99,132,255,.16); color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .btn-copy { background: transparent; border-color: #2b3346; color: #9aa3b2; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .btn-copy:hover { color: #8aa4ff; border-color: #8aa4ff; }
+  [data-bs-theme="dark"] .fbs-dropoff-item .badge-nearest { background: rgba(16,185,129,.14); color: #34d399; border-color: rgba(16,185,129,.4); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.35); }
+  [data-bs-theme="dark"] .fbs-dropoff-slots .slot-pill.is-clickable:hover { background: rgba(16,185,129,.22); }
+  [data-bs-theme="dark"] .fbs-dropoff-item mark { background: #92400e; color: #fef3c7; }
+  /* ══ Split «Slate» redizayn (Abdulaziz, 2026-06-15): chapda punktlar,
+     o'ngda tanlangan punkt slotlari + sig'im rozetkasi (bo'sh/jami).
+     Ko'k urg'u → qora/slate (#1e293b). fbs_orders.html bilan SINXRON. ══ */
+  .fbs-dropoff-card { width: min(1200px, 96vw); height: 92vh; max-height: 92vh; }  /* keng + baland (ekranni to'ldiradi) */
+  .fbs-dropoff-head h3 .grad { background: linear-gradient(120deg,#0f172a,#475569);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fbs-dropoff-subtitle { background: rgba(30,41,59,.07);
+    border-color: rgba(30,41,59,.22); color: #1e293b; }
+  .fbs-dropoff-src-btn.is-active { color: #0f172a; }
+  .fbs-dropoff-src-btn.is-active::after { background: linear-gradient(90deg,#1e293b,#475569); }
+  .fbs-dropoff-search-row:focus-within { border-color: rgba(30,41,59,.4); }
+  .fbs-dropoff-search-count { color: #1e293b; background: rgba(30,41,59,.08); }
+  .fbs-dropoff-match input:checked + .fbs-dropoff-match-track {
+    background: linear-gradient(135deg,#1e293b,#475569); }
+  /* «Joylashuv» — V4 «Gradient Border» */
+  .fbs-dropoff-geo-btn { position: relative; color: #1e293b; background: #fff;
+    border-radius: 13px; padding: 9px 15px; font-weight: 800; }
+  .fbs-dropoff-geo-btn::before { content: ""; position: absolute; inset: 0;
+    border-radius: 13px; padding: 1.5px;
+    background: linear-gradient(120deg,#1e293b,#475569,#94a3b8);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .fbs-dropoff-geo-btn:hover { background: #fff; transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(30,41,59,.18); }
+  /* Split tana */
+  .fbs-dropoff-body { flex: 1; min-height: 0; padding: 0; display: flex;
+    border-top: 1px solid #eaecf0; overflow: hidden; }
+  .fbs-dropoff-list { flex: 1; min-width: 0; overflow-y: auto; padding: 8px;
+    border-right: 1px solid #eaecf0; }
+  .fbs-dropoff-panel { width: 380px; flex: none; display: flex;
+    flex-direction: column; background: #f7f8fb; min-height: 0; }
+  .dp-panel-empty { margin: auto; padding: 30px 20px; text-align: center;
+    color: #98a2b3; font-size: .85rem; max-width: 220px; }
+  /* Chap qator — bosiladigan, tanlanadigan */
+  .fbs-dropoff-item { gap: 11px; padding: 12px; border-radius: 15px;
+    flex-wrap: nowrap; cursor: pointer; border: 1.5px solid transparent;
+    transition: background .16s, border-color .16s; }
+  .fbs-dropoff-item + .fbs-dropoff-item { margin-top: 2px; }
+  .fbs-dropoff-item::before { display: none; }
+  .fbs-dropoff-item:hover { transform: none; background: rgba(30,41,59,.05); }
+  .fbs-dropoff-item.is-selected {
+    background: linear-gradient(120deg,rgba(30,41,59,.08),rgba(71,85,105,.05));
+    border-color: rgba(30,41,59,.22); }
+  .fbs-dropoff-item .dist-circle { width: 46px; height: 46px; border-radius: 13px;
+    color: #1e293b; background: rgba(30,41,59,.08); }
+  .fbs-dropoff-item:hover .dist-circle { background: rgba(30,41,59,.08); color: #1e293b; }
+  .fbs-dropoff-item.is-selected .dist-circle {
+    background: linear-gradient(135deg,#0f172a,#475569); color: #fff;
+    box-shadow: 0 6px 16px rgba(30,41,59,.34); }
+  .fbs-dropoff-item .addr { font-size: .94rem; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fbs-dropoff-item .shops { color: #475569; }
+  .fbs-dropoff-item .chev { flex: none; color: #c0c4ce; font-size: 1.05rem;
+    transition: transform .16s, color .16s; }
+  .fbs-dropoff-item.is-selected .chev { color: #1e293b; transform: translateX(2px); }
+  .fbs-dropoff-item .btn-fav { font-size: 1.05rem; }
+  /* O'ng panel — sarlavha + slotlar + footer */
+  .dp-panel-head { padding: 15px 17px 11px; }
+  .dp-panel-addr { font-weight: 800; font-size: .9rem; line-height: 1.34;
+    letter-spacing: -.01em; }
+  .dp-panel-sub { margin-top: 5px; font-size: .74rem; color: #667085;
+    display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+  .dp-slotwrap { flex: 1; min-height: 0; overflow-y: auto; padding: 0 13px 14px; }
+  .dp-daygrp { margin-top: 11px; }
+  .dp-dayhd { font-size: .71rem; font-weight: 800; color: #667085;
+    text-transform: uppercase; letter-spacing: .04em; margin: 0 2px 7px;
+    display: flex; align-items: center; gap: 7px; }
+  .dp-dayhd::after { content: ""; flex: 1; height: 1px; background: #eaecf0; }
+  .dp-slot { display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; background: #fff; border: 1.5px solid #eaecf0; border-radius: 13px;
+    padding: 11px 13px; margin-bottom: 7px; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, transform .15s, background .15s; }
+  .dp-slot:hover { border-color: #1e293b; transform: translateX(3px);
+    box-shadow: 0 6px 16px rgba(30,41,59,.12); }
+  .dp-slot.is-picked { border-color: #1e293b;
+    background: linear-gradient(120deg,rgba(30,41,59,.08),rgba(71,85,105,.05));
+    box-shadow: 0 0 0 1px rgba(30,41,59,.22); }
+  .dp-slot-time { font-weight: 800; font-size: .84rem; }
+  .dp-cap { font-size: .71rem; font-weight: 800; padding: 3px 9px;
+    border-radius: 99px; white-space: nowrap; flex: none; }
+  .dp-cap.ok   { color: #027a48; background: #ecfdf3; border: 1px solid #abefc6; }
+  .dp-cap.mid  { color: #b54708; background: #fffaeb; border: 1px solid #fedf89; }
+  .dp-cap.full { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; }
+  .dp-slot.is-full { opacity: .6; cursor: not-allowed; }
+  .dp-slot.is-full:hover { transform: none; border-color: #eaecf0; box-shadow: none; }
+  .dp-slot-msg { font-size: .82rem; color: #667085; padding: 14px 4px;
+    display: flex; flex-direction: column; gap: 8px; }
+  .dp-slot-msg.is-error { color: #dc2626; }
+  .dp-foot { padding: 12px 16px; border-top: 1px solid #eaecf0; background: #fff;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dp-foot-hint { font-size: .76rem; color: #667085; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-confirm { border: 0; border-radius: 12px; padding: 10px 20px; font-weight: 800;
+    font-size: .85rem; color: #fff; flex: none;
+    background: linear-gradient(120deg,#0f172a,#475569);
+    box-shadow: 0 8px 20px rgba(30,41,59,.34);
+    transition: transform .16s, box-shadow .16s, opacity .16s; cursor: pointer; }
+  .dp-confirm:hover:not(:disabled) { transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(30,41,59,.4); }
+  .dp-confirm:disabled { background: #d7dae3; box-shadow: none; cursor: not-allowed; }
+  .dp-show-all { align-self: flex-start; background: #1e293b; color: #fff; border: 0;
+    padding: 7px 14px; border-radius: 9px; cursor: pointer; font-weight: 700;
+    font-size: .82rem; }
+  /* Mobil — panel pastga tushadi */
+  @media (max-width: 640px) {
+    .fbs-dropoff-body { flex-direction: column; }
+    .fbs-dropoff-list { border-right: 0; border-bottom: 1px solid #eaecf0; max-height: 38vh; }
+    .fbs-dropoff-panel { width: auto; }
+  }
+  /* Dark theme — split */
+  [data-bs-theme="dark"] .fbs-dropoff-body,
+  [data-bs-theme="dark"] .fbs-dropoff-list { border-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-panel { background: #161c29; }
+  [data-bs-theme="dark"] .fbs-dropoff-item:hover { background: rgba(255,255,255,.05); }
+  [data-bs-theme="dark"] .fbs-dropoff-item.is-selected {
+    background: rgba(124,155,255,.12); border-color: rgba(124,155,255,.3); }
+  [data-bs-theme="dark"] .fbs-dropoff-item .dist-circle { background: rgba(255,255,255,.08); color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-dropoff-item.is-selected .dist-circle {
+    background: linear-gradient(135deg,#334155,#64748b); color: #fff; }
+  [data-bs-theme="dark"] .dp-panel-addr { color: #e8edf5; }
+  [data-bs-theme="dark"] .dp-slot { background: #1c2333; border-color: #2b3346; }
+  [data-bs-theme="dark"] .dp-slot-time { color: #e8edf5; }
+  [data-bs-theme="dark"] .dp-dayhd::after { background: #2b3346; }
+  [data-bs-theme="dark"] .dp-foot { background: #1c2333; border-color: #2b3346; }
+  [data-bs-theme="dark"] .fbs-dropoff-geo-btn { background: #1c2333; color: #e8edf5; }
+  [data-bs-theme="dark"] .fbs-dropoff-geo-btn:hover { background: #1c2333; }
   /* Toast */
   .fbs-list-toast-host { position: fixed; bottom: 20px; left: 50%;
     transform: translateX(-50%); z-index: 2100; display: flex;
@@ -1398,17 +2022,33 @@
   const INV_EMBED = {{ 'true' if embed else 'false' }};
   // ?detail=<id> bo'lsa — bu sahifa KENG MODAL ichidagi detail-only iframe.
   const INV_DETAIL_ID = {{ (detail_id or '')|tojson }};
+  // i18n ko'prigi (uz/ru). HTML {{ list_labels.KEY }} ishlatadi; JS shu obyektdan
+  // o'qiydi. Skript boshida e'lon qilamiz — barcha funksiyalar (sinxron initial
+  // render ham) LIST_LBL.KEY'dan foydalansin (temporal-dead-zone xatosi bo'lmasin).
+  const LIST_LBL = {{ list_labels|tojson }};
   if (INV_EMBED && window.parent && window.parent !== window) {
     // Detail-only rejimda balandlikni boshqa xabar turi bilan yuboramiz
     // (fbs-invoice-detail-height) — parent uni modal iframe'iga, oddiy
     // ro'yxat balandligini (fbs-invoices-height) esa «Поставка» iframe'iga
     // bog'laydi; ikkalasi aralashmaydi.
+    // List embed balandligini KONTENT o'rovchisidan (`.inv-page`) o'lchaymiz,
+    // `documentElement.scrollHeight`dan EMAS: scrollHeight iframe'ning o'z
+    // balandligidan past tushmaydi (html viewport'ni to'ldiradi), shu sabab
+    // qator kamaygan sahifaga (mas. 2-sahifa) o'tilganda iframe kichraymay
+    // ulkan bo'sh joy qolardi (Abdulaziz 2026-06-13 bug). `.inv-page` grid —
+    // balandligi haqiqiy kontentga teng, demak o'sadi ham, kichrayadi ham.
+    const _listEl = document.querySelector(".inv-page");
+    const _measureList = () => Math.ceil(((_listEl || document.body).getBoundingClientRect().height) || 0);
     const postH = () => window.parent.postMessage(
       INV_DETAIL_ID
         ? { type: "fbs-invoice-detail-height", height: document.documentElement.scrollHeight }
-        : { type: "fbs-invoices-height", height: document.documentElement.scrollHeight }, "*");
+        : { type: "fbs-invoices-height", height: _measureList() }, "*");
     if (window.ResizeObserver) {
-      new ResizeObserver(() => requestAnimationFrame(postH)).observe(document.body);
+      // List rejimida `.inv-page`ni kuzatamiz (body emas): body iframe
+      // balandligiga teng bo'lib qolib, kontent kichraysa ham «resize»
+      // bermasligi mumkin → height shrinkamasdi.
+      const _obsTarget = (!INV_DETAIL_ID && _listEl) ? _listEl : document.body;
+      new ResizeObserver(() => requestAnimationFrame(postH)).observe(_obsTarget);
     } else {
       window.addEventListener("load", postH);
     }
@@ -1416,7 +2056,16 @@
     // parent `fbs-reload` yuboradi → ro'yxatni jimgina yangilaymiz.
     if (!INV_DETAIL_ID) {
       window.addEventListener("message", (e) => {
-        if (e.data && e.data.type === "fbs-reload") reloadInvoices();
+        if (!e.data) return;
+        if (e.data.type === "fbs-reload") reloadInvoices();
+        // Parent (viewport-fixed) akt-bar tugmasi bosildi → amalni shu yerda
+        // bajaramiz (PDF/print mantiqi iframe ichida). bulkAkt/bulkAktDownload
+        // pastroqda e'lon qilingan; xabar foydalanuvchi bosgach (script to'liq
+        // ishlagandan keyin) keladi, shuning uchun closure ularni topadi.
+        else if (e.data.type === "fbs-postavka-akt-action") {
+          if (e.data.action === "print" && typeof bulkAkt !== "undefined") bulkAkt.click();
+          else if (e.data.action === "download" && typeof bulkAktDownload !== "undefined") bulkAktDownload.click();
+        }
       });
     }
   }
@@ -1438,6 +2087,10 @@
   // Per-(filter, page) cache so flipping back to a seen page costs nothing.
   // Key = `${filter}:${page}` → invoice array for that page.
   const _invPageCache = new Map();
+  // Per-(filter, page) "has more pages?" flag from the backend (`has_more`),
+  // computed on the PRE-filter Uzum count. Kept in its own map so the page
+  // cache stays a plain invoice array (selection code reads it directly).
+  const _invHasMore = new Map();
   // Monotonic request id — guards against a slow earlier fetch painting
   // over a newer selection (user clicks B while A is still in flight).
   let _invReqSeq = 0;
@@ -1456,6 +2109,7 @@
   const bulkBar   = document.getElementById("invBulkBar");
   const bulkN     = document.getElementById("invBulkN");
   const bulkAkt   = document.getElementById("invBulkAkt");
+  const bulkAktDownload = document.getElementById("invBulkAktDownload");
 
   function escapeHtml(s){
     return String(s ?? "").replace(/[&<>"']/g, c => ({
@@ -1508,21 +2162,21 @@
     const diffMs = t - Date.now();
     let label, klass;
     if (diffMs <= 0) {
-      label = "Muddat o'tdi";
+      label = LIST_LBL.cd_overdue;
       klass = "inv-deadline--past";
     } else {
       const hours = Math.floor(diffMs / 3600000);
       if (hours >= 1) {
-        label = `${hours} soat qoldi`;
+        label = LIST_LBL.cd_hours_left.replace("{n}", hours);
       } else {
         const mins = Math.max(1, Math.floor(diffMs / 60000));
-        label = `${mins} daq qoldi`;
+        label = LIST_LBL.cd_minutes_left.replace("{n}", mins);
       }
       if (hours >= 24)      klass = "inv-deadline--ok";
       else if (hours >= 6)  klass = "inv-deadline--warn";
       else                  klass = "inv-deadline--hot";
     }
-    return `<div class="inv-deadline ${klass}" data-deadline="${t}" title="Qabul punktiga topshirish muddati">${_IC_DEADLINE}<span>${escapeHtml(label)}</span></div>`;
+    return `<div class="inv-deadline ${klass}" data-deadline="${t}" title="${escapeHtml(LIST_LBL.deadline_tip)}">${_IC_DEADLINE}<span>${escapeHtml(label)}</span></div>`;
   }
 
   function statusBadge(status){
@@ -1561,8 +2215,8 @@
     // at a time from the detail panel (live fetch), not in bulk.
     const canSelect = statusValue === "CREATED";
     const checkbox = canSelect
-      ? `<input type="checkbox" class="inv-check inv-rowcheck" data-id="${escapeHtml(inv.id)}"${_invSelected.has(String(inv.id)) ? " checked" : ""} aria-label="Belgilash">`
-      : `<input type="checkbox" class="inv-check inv-rowcheck" disabled aria-label="Belgilab bo'lmaydi" title="Faqat «Yaratilgan» накладнойlarni belgilab, ko'p akt chop etish mumkin">`;
+      ? `<input type="checkbox" class="inv-check inv-rowcheck" data-id="${escapeHtml(inv.id)}"${_invSelected.has(String(inv.id)) ? " checked" : ""} aria-label="${escapeHtml(LIST_LBL.row_select_aria)}">`
+      : `<input type="checkbox" class="inv-check inv-rowcheck" disabled aria-label="${escapeHtml(LIST_LBL.row_unselectable_aria)}" title="${escapeHtml(LIST_LBL.row_unselectable_title)}">`;
     return `<tr data-detail-id="${escapeHtml(inv.id)}">
       <td class="col-check">${checkbox}</td>
       <td class="col-num">№${escapeHtml(number)}</td>
@@ -1596,7 +2250,7 @@
     }
 
     const myReq = ++_invReqSeq;
-    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_attempt ? "Uzum band — qayta urinilmoqda…" : "Yuklanmoqda…"}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_attempt ? LIST_LBL.uzum_retrying : LIST_LBL.loading}</td></tr>`;
     btnPrev.disabled = true;
     btnNext.disabled = true;
 
@@ -1623,21 +2277,25 @@
           setTimeout(() => { if (myReq === _invReqSeq) loadPage(value, page, _attempt + 1); }, 2800);
           return;
         }
-        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Xato:</strong> ${escapeHtml(data.error || r.status)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>${escapeHtml(LIST_LBL.inv_err_prefix)}</strong> ${escapeHtml(data.error || r.status)}</td></tr>`;
         pageInfo.textContent = "—";
         return;
       }
       // Uzum returns this single page already newest-first; keep its order.
       const list = (data.invoices || []);
       _invPageCache.set(key, list);
+      // Trust the backend's pre-filter `has_more`; fall back to the old
+      // length heuristic only if an older backend omits it.
+      _invHasMore.set(key, (typeof data.has_more === "boolean")
+        ? data.has_more : (list.length >= PAGE_SIZE));
       renderPage(list);
     } catch (e) {
       if (myReq !== _invReqSeq) return;
       if (e && e.name === "AbortError") {
-        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Uzum javob bermadi.</strong> Birozdan keyin qayta urinib ko'ring.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>${escapeHtml(LIST_LBL.inv_no_response_strong)}</strong> ${escapeHtml(LIST_LBL.inv_try_later)}</td></tr>`;
       } else {
         console.error("[invoices/list] fetch failed:", e);
-        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>Tarmoq xatosi:</strong> ${escapeHtml(e.message || "")}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="inv-state"><strong>${escapeHtml(LIST_LBL.net_err_prefix)}</strong> ${escapeHtml(e.message || "")}</td></tr>`;
       }
     } finally {
       clearTimeout(_to);
@@ -1648,19 +2306,28 @@
   // possible next page → "Keyingi" stays enabled; a short page is the end.
   function renderPage(list){
     _invExpandedId = null;
+    // "Keyingi" must follow the backend's PRE-filter `has_more`, NOT the
+    // post-filter row count: the scope-filter can shrink a full Uzum page
+    // below PAGE_SIZE, and `list.length < PAGE_SIZE` then wrongly read as
+    // "last page", stranding the user on page 0 (Abdulaziz 2026-06-13 fix).
+    const hasMore = _invHasMore.has(`${_invFilter}:${_invPage}`)
+      ? _invHasMore.get(`${_invFilter}:${_invPage}`)
+      : (list.length >= PAGE_SIZE);
     if (!list.length) {
       // Empty page 0 = nothing in this status; empty page N = walked past end.
-      tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_invPage === 0 ? "Bu statusda накладные yo'q" : "Boshqa накладные yo'q"}</td></tr>`;
-      pageInfo.textContent = `Sahifa ${_invPage + 1}`;
+      // A full-but-all-foreign page (hasMore yet 0 owned rows) keeps "Keyingi"
+      // live so the user can skip past it to their own накладные.
+      tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${_invPage === 0 ? LIST_LBL.inv_empty_status : LIST_LBL.inv_no_more}</td></tr>`;
+      pageInfo.textContent = String(_invPage + 1);
       btnPrev.disabled = (_invPage === 0);
-      btnNext.disabled = true;
+      btnNext.disabled = !hasMore;
       syncCheckAll();   // no rows → clear "hammasini" state
       return;
     }
     tbody.innerHTML = list.map(renderRow).join("");
-    pageInfo.textContent = `Sahifa ${_invPage + 1}`;
+    pageInfo.textContent = String(_invPage + 1);
     btnPrev.disabled = (_invPage === 0);
-    btnNext.disabled = (list.length < PAGE_SIZE);
+    btnNext.disabled = !hasMore;
     syncCheckAll();   // reflect persisted ticks on the freshly drawn rows
   }
 
@@ -1668,7 +2335,16 @@
   // Show/hide the bulk bar + update the "N ta tanlandi" count from the Set.
   function updateBulkBar(){
     const n = _invSelected.size;
-    bulkBar.classList.toggle("is-visible", n > 0);
+    if (INV_EMBED && window.parent && window.parent !== window) {
+      // Embed: iframe ichidagi `position:fixed` bar iframe (kontent-balandlik)
+      // tagiga yopishadi, brauzer oynasiga emas — zakaz ko'p bo'lsa ekrandan
+      // chiqib ketardi. Endi PARENT viewport-fixed bar ko'rsatadi; biz faqat
+      // tanlov sonini yuboramiz (Abdulaziz 2026-06-13).
+      try { window.parent.postMessage({ type: "fbs-postavka-akt-selection", count: n }, "*"); } catch (_) {}
+      bulkBar.classList.remove("is-visible");   // embed'da hech qachon ko'rsatmaymiz
+    } else {
+      bulkBar.classList.toggle("is-visible", n > 0);
+    }
     bulkN.textContent = String(n);
   }
   // "Hammasini belgilash" reflects whether every SELECTABLE (CREATED) row on
@@ -1694,6 +2370,7 @@
   // cached page is suspect. Drop all caches and reload the current page.
   function reloadInvoices(){
     _invPageCache.clear();
+    _invHasMore.clear();
     _invDetailCache.clear();
     // Detail-only rejim: ro'yxat yo'q — shu накладна detalini qayta yuklaymiz,
     // hamda parent'ga xabar beramiz → orqada turgan «Поставка» ro'yxati ham
@@ -1709,7 +2386,7 @@
     // Mutatsiyadan (punkt o'zgartirish) keyin Uzum per-token gate'i hali band
     // bo'lishi mumkin — darhol urmay, bir oz kutib yuklaymiz. Bu burst 429ни
     // kamaytiradi; loadPage qolganini jim qayta urinish bilan ushlaydi.
-    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">Yangilanmoqda…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="inv-state">${LIST_LBL.inv_refreshing}</td></tr>`;
     setTimeout(() => loadPage(_invFilter, _invPage), 1200);
   }
 
@@ -1733,6 +2410,7 @@
   const _IC_BOX   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
   const _IC_PIN   = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
   const _IC_PRINT = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  const _IC_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
 
   // Per-order status pill — translates the Uzum enum into a short
   // Uzbek-readable label + colors it by family.
@@ -1781,28 +2459,40 @@
       <div class="inv-oprod-thumb">${img}</div>
       <div class="inv-oprod-info">
         <div class="inv-oprod-title">${escapeHtml(it.title || "—")}</div>
-        <div class="inv-oprod-meta">${it.sku ? escapeHtml(it.sku) : ""}${it.barcode ? ` · ШК ${escapeHtml(String(it.barcode))}` : ""}</div>
+        <div class="inv-oprod-meta">${it.sku ? escapeHtml(it.sku) : ""}${it.barcode ? ` · ${escapeHtml(LIST_LBL.inv_barcode_label)} ${escapeHtml(String(it.barcode))}` : ""}</div>
       </div>
     </div>`;
   }
 
-  // Bitta buyurtma — jadval qatori (orders jadvali uslubida):
-  // № · Mahsulot · Status · Dona · Summa. Funksiyalar o'zgarmadi, faqat
-  // ko'rinish karta'dan jadval-qatorga o'tdi.
+  // Bitta buyurtma — karta ko'rinishi (akt_modal_final dizayni):
+  //   [checkbox] | № (oxirgi 4 raqam quticha) + mahsulotlar (har biriga dona pill)
+  //            | rail: Status / Jami / Summa.
+  // Status va Summa buyurtma darajasida (bir marta), Dona esa har mahsulotга
+  // moslab (it.amount) — Uzum ma'lumotiga to'liq mos.
   function renderOrderCard(o){
     const items = Array.isArray(o.items) ? o.items : [];
-    const oid = escapeHtml(o.order_id);
     const totalQty = items.reduce((s, it) => s + (Number(it.amount) || 0), 0) || items.length;
-    const prods = items.length
-      ? items.map(renderItemRow).join("")
-      : '<span class="inv-oprod-empty">Mahsulot ma\'lumotlari topilmadi</span>';
-    return `<tr class="inv-orow">
-      <td class="inv-orow-num">№${oid}</td>
-      <td class="inv-orow-prod">${prods}</td>
-      <td class="inv-orow-status">${statusMini(o.status)}</td>
-      <td class="inv-orow-qty ta-c">${escapeHtml(String(totalQty))} dona</td>
-      <td class="inv-orow-sum ta-r">${escapeHtml(fmtPriceUzs(o.price))}</td>
-    </tr>`;
+    // Buyurtma raqami: oxirgi 4 raqam binafsha quticha ichida (Uzum uslubi).
+    const oidStr = String(o.order_id || "");
+    const digits = oidStr.replace(/\D/g, "");
+    const onum = digits.length > 4
+      ? `<span class="inv-onum-pre">№${escapeHtml(digits.slice(0, -4))}</span><span class="inv-onum-box">${escapeHtml(digits.slice(-4))}</span>`
+      : `<span class="inv-onum-box">№${escapeHtml(digits || oidStr)}</span>`;
+    const lines = items.length
+      ? items.map(it => `<div class="inv-pl">${renderItemRow(it)}<span class="inv-dpill">${escapeHtml(String(Number(it.amount) || 1))} ${escapeHtml(LIST_LBL.unit_pcs)}</span></div>`).join("")
+      : `<div class="inv-oprod-empty">${escapeHtml(LIST_LBL.inv_no_items)}</div>`;
+    return `<div class="inv-ocard">
+      <div class="inv-ocard-chk"><span class="inv-ord-chk" data-ord-chk data-ord-id="${escapeHtml(oidStr)}" role="checkbox" aria-checked="false" tabindex="0">${_IC_CHECK}</span></div>
+      <div class="inv-ocard-left">
+        <div class="inv-ocard-no"><span class="inv-onum">${onum}</span></div>
+        ${lines}
+      </div>
+      <div class="inv-ocard-rail">
+        <div class="inv-rail-it"><span class="inv-rail-k">${escapeHtml(LIST_LBL.th_status)}</span>${statusMini(o.status)}</div>
+        <div class="inv-rail-it"><span class="inv-rail-k">${escapeHtml(LIST_LBL.inv_rail_total)}</span><span class="inv-rail-q">${escapeHtml(String(totalQty))} ${escapeHtml(LIST_LBL.unit_pcs)}</span></div>
+        <div class="inv-rail-it"><span class="inv-rail-k">${escapeHtml(LIST_LBL.th_sum)}</span><span class="inv-rail-sum">${escapeHtml(fmtPriceUzs(o.price))}</span></div>
+      </div>
+    </div>`;
   }
 
   function renderDetailBody(inv, orders){
@@ -1832,12 +2522,12 @@
     }
 
     const facts = [
-      fact(_IC_CLOCK, "Vaqt slot",   slotText),
-      fact(_IC_CAL,   "Yaratilgan",  createdAt),
-      fact(_IC_MONEY, "To'liq summa", fmtPriceUzs(inv.fullPrice), "is-primary"),
-      fact(_IC_BOX,   "Ombor",       stock.title),
-      acceptStarted ? fact(_IC_CLOCK, "Qabul boshlandi", acceptStarted) : "",
-      acceptDone    ? fact(_IC_CLOCK, "Qabul tugadi",   acceptDone)    : "",
+      fact(_IC_CLOCK, LIST_LBL.inv_fact_slot,    slotText),
+      fact(_IC_CAL,   LIST_LBL.inv_fact_created, createdAt),
+      fact(_IC_MONEY, LIST_LBL.inv_fact_fullsum, fmtPriceUzs(inv.fullPrice), "is-primary"),
+      fact(_IC_BOX,   LIST_LBL.th_stock,         stock.title),
+      acceptStarted ? fact(_IC_CLOCK, LIST_LBL.inv_fact_accept_start, acceptStarted) : "",
+      acceptDone    ? fact(_IC_CLOCK, LIST_LBL.inv_fact_accept_done,  acceptDone)    : "",
     ].filter(Boolean).join("");
 
     // ETTN — show only when populated, as an inline pill (no full section).
@@ -1846,23 +2536,30 @@
       : "";
 
     const ordersHtml = orders && orders.length
-      ? `<div class="inv-otable-wrap"><table class="inv-otable">
-          <thead><tr>
-            <th>№</th><th>Mahsulot</th><th>Status</th>
-            <th class="ta-c">Dona</th><th class="ta-r">Summa</th>
-          </tr></thead>
-          <tbody>${orders.map(renderOrderCard).join("")}</tbody>
-        </table></div>`
-      : '<div class="inv-empty">Bu накладная uchun buyurtmalar topilmadi (eski yoki sinxron qilinmagan bo\'lishi mumkin)</div>';
+      ? `<div class="inv-orders-v3">
+          <div class="inv-ord-head">
+            <span class="inv-ocard-chk"><span class="inv-ord-chk" data-ord-all role="checkbox" aria-checked="false" tabindex="0" title="${escapeHtml(LIST_LBL.inv_ord_selectall_title)}">${_IC_CHECK}</span></span>
+            <span class="inv-ord-head-l"><span class="inv-ord-th">${escapeHtml(LIST_LBL.th_num)}</span><span class="inv-ord-th">${escapeHtml(LIST_LBL.th_product)}</span><span class="inv-ord-grow"></span><span class="inv-ord-th inv-ord-th--dona">${escapeHtml(LIST_LBL.inv_th_dona)}</span></span>
+            <span class="inv-ord-head-r"></span>
+          </div>
+          ${orders.map(renderOrderCard).join("")}
+        </div>`
+      : `<div class="inv-empty">${escapeHtml(LIST_LBL.inv_orders_empty)}</div>`;
 
     return `<div class="inv-detail-v2">
       <div class="inv-detail-header">
         <div class="inv-detail-header-left">
-          <h3 class="inv-detail-h-title">Накладная №${escapeHtml(inv.number || inv.id)}</h3>
-          <div class="inv-detail-h-meta">${ettnPill}</div>
+          <div class="inv-detail-h-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="inv-detail-h-text">
+            <span class="inv-detail-h-kicker">${escapeHtml(LIST_LBL.iframe_invoice_title)}</span>
+            <h3 class="inv-detail-h-title">№${escapeHtml(inv.number || inv.id)}</h3>
+            <div class="inv-detail-h-meta">${ettnPill}</div>
+          </div>
         </div>
         ${hasAkt ? `<a href="${aktUrl}" target="_blank" rel="noopener" class="inv-akt-btn-v2">
-          ${_IC_PRINT}<span>Akt отправки</span>
+          ${_IC_PRINT}<span>${escapeHtml(LIST_LBL.inv_akt_short)}</span>
         </a>` : ""}
       </div>
 
@@ -1873,19 +2570,18 @@
       ${dop.address ? `<div class="inv-address-card">
         <div class="inv-address-icon">${_IC_PIN}</div>
         <div class="inv-address-body">
-          <div class="inv-address-label">Qabul punkti</div>
+          <div class="inv-address-label">${escapeHtml(LIST_LBL.inv_pickup)}</div>
           <div class="inv-address-value">${escapeHtml(dop.address)}</div>
         </div>
         ${(inv.status && (inv.status.value || inv.status)) === "CREATED"
-          ? `<button type="button" class="inv-pickup-edit-btn-v2" data-edit-pickup="${escapeHtml(inv.id)}" title="Qabul punkti va vaqt slotini o'zgartirish">
+          ? `<button type="button" class="inv-pickup-edit-btn-v2" data-edit-pickup="${escapeHtml(inv.id)}" title="${escapeHtml(LIST_LBL.inv_pickup_edit_title)}">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-               <span>Изменить</span>
+               <span>${escapeHtml(LIST_LBL.dropoff_change_btn)}</span>
              </button>`
           : ""}
       </div>` : ""}
 
       <div class="inv-orders-block">
-        <div class="inv-orders-block-title">Buyurtmalar <span class="inv-orders-count">${orders ? orders.length : 0}</span></div>
         ${ordersHtml}
       </div>
     </div>`;
@@ -1958,6 +2654,7 @@
     const cached = _invDetailCache.get(String(invoiceId));
     if (cached) {
       detailRow.querySelector("td").innerHTML = renderDetailBody(cached.invoice, cached.orders);
+      _preselectAllOrders();  // hammasi belgilangan holatda ochiladi
       return;
     }
 
@@ -1990,11 +2687,12 @@
       const orders = data.orders || [];
       _invDetailCache.set(String(invoiceId), { invoice: inv, orders });
       detailRow.querySelector("td").innerHTML = renderDetailBody(inv, orders);
+      _preselectAllOrders();  // hammasi belgilangan holatda ochiladi
     } catch (e) {
       if (String(_invExpandedId) !== String(invoiceId)) return;
       const msg = (e && e.name === "AbortError")
-        ? "Uzum javob bermadi (band). Birozdan keyin qayta urinib ko'ring."
-        : "Tarmoq xatosi: " + escapeHtml(e.message || "");
+        ? LIST_LBL.inv_busy_no_response
+        : LIST_LBL.net_err_prefix + " " + escapeHtml(e.message || "");
       detailRow.querySelector("td").innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>${msg}</strong></div></div>`;
       console.error("[invoices/detail] fetch failed:", e);
     } finally {
@@ -2089,11 +2787,12 @@
       const orders = data.orders || [];
       _invDetailCache.set(String(INV_DETAIL_ID), { invoice: inv, orders });
       _invDetailHost.innerHTML = renderDetailBody(inv, orders);
+      _preselectAllOrders();  // modal hammasi belgilangan holatda ochiladi → Yorliq/QR darhol tayyor
     } catch (e) {
       if (!header) {
         const msg = (e && e.name === "AbortError")
-          ? "Uzum javob bermadi (band). Birozdan keyin qayta urinib ko'ring."
-          : "Tarmoq xatosi: " + escapeHtml(e.message || "");
+          ? LIST_LBL.inv_busy_no_response
+          : LIST_LBL.net_err_prefix + " " + escapeHtml(e.message || "");
         _invDetailHost.innerHTML = `<div class="inv-detail-v2"><div class="inv-empty"><strong>${msg}</strong></div></div>`;
       }
       console.error("[invoices/detail-only] fetch failed:", e);
@@ -2137,43 +2836,42 @@
     updateBulkBar();
   });
 
-  // Open a PDF as an IN-PAGE overlay (NOT a separate tab) and auto-pop the
-  // print dialog. The PDF renders in Chrome's native viewer inside the
-  // overlay — so it carries its own print/save toolbar as a backup — over a
-  // dark backdrop with a ✕ (and Esc / backdrop-click) to close. Everything
-  // stays on the invoices page; nothing navigates away.
+  // Print a PDF by loading it into a HIDDEN iframe and popping ONLY the
+  // browser's native print dialog — which already shows a full page preview.
+  // We deliberately do NOT render a visible in-page PDF-viewer overlay: it was
+  // redundant with (and stacked on top of) the print dialog's own preview.
+  // Everything stays on the invoices page; nothing navigates away.
   function printPdf(srcUrl, { revoke = false } = {}) {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:24px;";
-
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "width:min(960px,100%);height:100%;border:0;border-radius:10px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4);";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;opacity:0;";
     iframe.src = srcUrl;
 
-    const close = document.createElement("button");
-    close.textContent = "✕";
-    close.setAttribute("aria-label", "Yopish");
-    close.style.cssText = "position:absolute;top:16px;right:20px;width:42px;height:42px;border:0;border-radius:50%;background:#111;color:#fff;font-size:20px;cursor:pointer;z-index:100001;";
-
+    let cleaned = false;
     const cleanup = () => {
-      try { document.body.removeChild(overlay); } catch (_) {}
-      document.removeEventListener("keydown", onKey);
+      if (cleaned) return;
+      cleaned = true;
+      window.removeEventListener("focus", onFocus);
+      try { document.body.removeChild(iframe); } catch (_) {}
       if (revoke) URL.revokeObjectURL(srcUrl);
     };
-    const onKey = (e) => { if (e.key === "Escape") cleanup(); };
-
-    close.onclick = cleanup;
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) cleanup(); });
-    document.addEventListener("keydown", onKey);
+    // The print dialog steals focus; when it closes focus returns to this
+    // window — our cue to tear down the iframe and free the blob URL. The
+    // short delay lets a queued print job spool before we revoke the source.
+    const onFocus = () => { setTimeout(cleanup, 1500); };
 
     // Auto-pop the print dialog once the PDF is ready.
     iframe.onload = () => {
-      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (_) {}
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        window.addEventListener("focus", onFocus, { once: true });
+      } catch (_) {
+        cleanup();
+      }
     };
 
-    overlay.appendChild(iframe);
-    overlay.appendChild(close);
-    document.body.appendChild(overlay);
+    document.body.appendChild(iframe);
   }
 
   // Single akt (detail panel «Akt отправки» button) — fetch FIRST, then show.
@@ -2196,59 +2894,332 @@
       if (!r.ok || !ct.includes("pdf")) {
         let msg = `HTTP ${r.status}`;
         try { const j = await r.json(); msg = j.error || j.uzum_message || msg; } catch (_) {}
-        alert("Akt mavjud emas yoki olishda xato:\n" + msg);
+        alert(LIST_LBL.akt_unavailable + "\n" + msg);
         return;
       }
       const blob = await r.blob();
       printPdf(URL.createObjectURL(blob), { revoke: true });  // in-page overlay + auto-pechat
     } catch (err) {
-      alert("Tarmoq xatosi: " + (err.message || err));
+      alert(LIST_LBL.net_err_prefix + " " + (err.message || err));
     } finally {
       a.style.pointerEvents = "";
       a.style.opacity = "";
     }
   });
 
-  // Merge the selected invoices' akts into one PDF (server-side), then open it
-  // as an IN-PAGE overlay with the print dialog (printPdf) — no separate tab.
-  // The merge can take a while (each akt is a paced Uzum call + 429 retries),
-  // so we show a button progress state while fetching. If the server had to
-  // skip any akt (X-Akt-Skipped) we warn so the result is never a
-  // silently-incomplete PDF.
-  bulkAkt.addEventListener("click", async () => {
+  // Накладна ichidagi buyurtma-checkbox'lari (vizual tanlov + «barchasini
+  // tanlash»). Hozircha tanlov ko'rinishni belgilaydi (qator ajraladi);
+  // amal (masalan tanlanganlarga bulk amal) keyin ulanadi. Delegatsiya —
+  // detal qayta render bo'lsa ham ishlaydi.
+  document.addEventListener("click", (e) => {
+    const allBox = e.target.closest("[data-ord-all]");
+    const oneBox = e.target.closest("[data-ord-chk]");
+    if (!allBox && !oneBox) return;
+    const root = (allBox || oneBox).closest(".inv-orders-v3");
+    if (!root) return;
+    const setChk = (el, on) => {
+      el.classList.toggle("is-on", on);
+      el.setAttribute("aria-checked", on ? "true" : "false");
+    };
+    if (allBox) {
+      const on = !allBox.classList.contains("is-on");
+      setChk(allBox, on);
+      root.querySelectorAll(".inv-ocard").forEach(card => {
+        card.classList.toggle("is-sel", on);
+        const c = card.querySelector("[data-ord-chk]");
+        if (c) setChk(c, on);
+      });
+      updateOrdBulkBar();
+      return;
+    }
+    const on = !oneBox.classList.contains("is-on");
+    setChk(oneBox, on);
+    const card = oneBox.closest(".inv-ocard");
+    if (card) card.classList.toggle("is-sel", on);
+    // «Barchasini tanlash» holatini sinxronlash.
+    const cards = Array.from(root.querySelectorAll(".inv-ocard"));
+    const every = cards.length > 0 && cards.every(c => c.classList.contains("is-sel"));
+    const head = root.querySelector("[data-ord-all]");
+    if (head) setChk(head, every);
+    updateOrdBulkBar();
+  });
+
+  // ── Накладна detalidagi tanlangan buyurtmalar → Yorliq / QR ──────────
+  // Buyurtma-kartalari tanlanганда pastdan «N ta tanlandi · Yorliq · QR»
+  // bari ko'tariladi (buyurtmalar sahifasidagi bulk-bar bilan bir xil ish).
+  // Tanlovni DOM'dan o'qiymiz — detal qayta render bo'lsa eskirib qolmaydi.
+  const _ordBulkBar   = document.getElementById("invOrdBulkBar");
+  const _ordBulkN     = document.getElementById("invOrdBulkN");
+  const _ordYorliqBtn = document.getElementById("invOrdYorliq");
+  const _ordQrBtn     = document.getElementById("invOrdQr");
+  const _ordBothBtn   = document.getElementById("invOrdBoth");
+
+  function _selectedOrderIds(){
+    return Array.from(document.querySelectorAll(".inv-ocard.is-sel"))
+      .map(card => {
+        const chk = card.querySelector("[data-ord-id]");
+        return chk ? chk.getAttribute("data-ord-id") : null;
+      })
+      .filter(Boolean);
+  }
+  function updateOrdBulkBar(){
+    if (!_ordBulkBar) return;
+    const n = _selectedOrderIds().length;
+    if (_ordBulkN) _ordBulkN.textContent = String(n);
+    const wasVisible = _ordBulkBar.classList.contains("is-visible");
+    _ordBulkBar.classList.toggle("is-visible", n > 0);
+    // Bar chiqsa/yo'qolsa body balandligi o'zgaradi (`padding-bottom`) —
+    // KENG MODAL ichidagi iframe'ni qayta o'lchaymiz, oxirgi karta to'silmasin.
+    if (wasVisible !== (n > 0)) postDetailHeight();
+  }
+
+  // Detal ochilganda BARCHA buyurtmalarni avtomatik belgilab qo'yamiz
+  // (galochka qo'yilgan holatda) — foydalanuvchi qo'lda belgilamasin,
+  // «N ta tanlandi · Yorliq · QR» bari darhol tayyor (Abdulaziz 2026-06-16).
+  // `function` deklaratsiyasi hoist bo'ladi → yuqoridagi render joylarida
+  // chaqirsa ham ishlaydi.
+  function _preselectAllOrders(){
+    const root = document.querySelector(".inv-orders-v3");
+    if (!root) return;
+    root.querySelectorAll(".inv-ocard").forEach(card => {
+      card.classList.add("is-sel");
+      const c = card.querySelector("[data-ord-chk]");
+      if (c) { c.classList.add("is-on"); c.setAttribute("aria-checked", "true"); }
+    });
+    const head = root.querySelector("[data-ord-all]");
+    if (head) { head.classList.add("is-on"); head.setAttribute("aria-checked", "true"); }
+    updateOrdBulkBar();
+  }
+
+  let _ordPrintBusy = false;
+  function setOrdPrintBusy(b){
+    _ordPrintBusy = b;
+    [_ordYorliqBtn, _ordQrBtn, _ordBothBtn].forEach(btn => {
+      if (!btn) return;
+      btn.classList.toggle("is-busy", b);
+      btn.disabled = b;
+    });
+  }
+  // Bitta merged PDF (server-side). mode "qr" → tovar QR-stikerlari; aks holda
+  // jo'natma yorlig'i.
+  //
+  // TO'G'RIDAN-TO'G'RI CHOP (Abdulaziz 2026-06-12: «PDF emas, srazu pechat
+  // oynasi ochilsin»): PDF yashirin iframe'ga yuklanadi va print() chaqiriladi —
+  // brauzerning chop oynasi DARHOL ochiladi. Yangi tab umuman ochilmaydi, demak
+  // popup-bloker bilan kurash ham butunlay yo'qoldi (eski tab-ochish/yuklab-olish
+  // sxemasi olib tashlandi). Iframe + blob-URL chop tugaguncha tirik turishi
+  // kerak — 2 daqiqadan keyin tozalanadi.
+  function printPdfBlobDirect(url){
+    const fr = document.createElement("iframe");
+    fr.style.cssText = "position:fixed;right:0;bottom:0;width:2px;height:2px;border:0;visibility:hidden;";
+    fr.src = url;
+    fr.onload = () => {
+      // PDF-ko'rsatkich render bo'lishiga ozgina vaqt beramiz, aks holda ba'zan
+      // bo'sh sahifa chop bo'ladi.
+      setTimeout(() => {
+        try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+        catch (e) {
+          // Juda kam holat (iframe-print qo'llanmasa) — oddiy tabga tushamiz.
+          try { window.open(url, "_blank"); } catch (_) {}
+        }
+      }, 250);
+    };
+    document.body.appendChild(fr);
+    setTimeout(() => { try { fr.remove(); } catch (e) {} URL.revokeObjectURL(url); }, 120000);
+  }
+
+  async function printSelectedOrderLabels(mode){
+    if (_ordPrintBusy) return;
+    const ids = _selectedOrderIds().map(s => Number(s)).filter(Number.isFinite);
+    if (!ids.length) { showListToast(LIST_LBL.pick_order_first, "error"); return; }
+    setOrdPrintBusy(true);
+    showListToast(LIST_LBL.labels_preparing.replace("{n}", ids.length), "success");
+    try {
+      // Ichki rejim → backend rejimi (buyurtmalar sahifasidagi bilan bir xil):
+      //   "qr"       → "qr"            (faqat tovar QR)
+      //   "label_qr" → "label_with_qr" (yorliq + har tovar QR, bitta PDF)
+      //   "label"    → "full"          (faqat jo'natma yorlig'i)
+      const backendMode = mode === "qr" ? "qr"
+                        : mode === "label_qr" ? "label_with_qr"
+                        : "full";
+      // QR stiker o'lchami (mm) — «QR» va «Yorliq + QR» uchun tovar-stiker
+      // sahifa o'lchami. «Yorliq» (faqat jo'natma yorlig'i) uchun e'tiborsiz.
+      const qrSize = (_ordQrSize && _ordQrSize.value) || "uzum";
+      const res = await fetch("/fbs/api/orders/bulk-labels", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ order_ids: ids, size: "LARGE", mode: backendMode, product_qr_size: qrSize }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        let msg = res.status;
+        try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
+        showListToast(LIST_LBL.labels_fetch_err + " " + msg, "error");
+        return;
+      }
+      const blob = await res.blob();
+      printPdfBlobDirect(URL.createObjectURL(blob));
+      const errs = Number(res.headers.get("X-Fbs-Bulk-Errors") || 0);
+      showListToast(errs > 0 ? LIST_LBL.labels_ready_some_err.replace("{n}", errs) : LIST_LBL.print_window_opening, errs > 0 ? "error" : "success");
+    } catch (e) {
+      showListToast(LIST_LBL.net_err_prefix + " " + (e.message || ""), "error");
+    } finally {
+      setOrdPrintBusy(false);
+    }
+  }
+  // «QR» — POS «QR Chop etish» bilan AYNAN bir xil HTML-chop (brauzer chop
+  // etadi, qrserver + image-rendering:pixelated → o'tkir QR). PDF emas → ko'ruvchi
+  // silliqlash (xiralik) muammosi yo'q. Bu sahifa KENG MODAL iframe'i ichida —
+  // chop-iframe'ni eng yuqori hujjatga qo'shamiz (chuqur ichma-ich bo'lmasin).
+  function printSelectedOrdersQrHtml(){
+    const ids = _selectedOrderIds().map(s => Number(s)).filter(Number.isFinite);
+    if (!ids.length) { showListToast(LIST_LBL.pick_order_first, "error"); return; }
+    const size = (_ordQrSize && _ordQrSize.value) || "40x30";
+    const url = `/fbs/print/qr?order_ids=${ids.join(",")}&size=${encodeURIComponent(size)}`;
+    showListToast(LIST_LBL.qr_print_opening, "success");
+    let doc = document;
+    try { if (window.top && window.top.document) doc = window.top.document; } catch (e) { /* cross-origin — joriy hujjat */ }
+    const fr = doc.createElement("iframe");
+    fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    fr.src = url;
+    doc.body.appendChild(fr);
+    setTimeout(() => { try { fr.remove(); } catch (e) {} }, 120000);
+  }
+  if (_ordYorliqBtn) _ordYorliqBtn.addEventListener("click", () => printSelectedOrderLabels("label"));
+  if (_ordQrBtn)     _ordQrBtn.addEventListener("click", printSelectedOrdersQrHtml);
+  if (_ordBothBtn)   _ordBothBtn.addEventListener("click", () => printSelectedOrderLabels("label_qr"));
+  // QR stiker o'lchami — maxsus dropdown. Tanlov localStorage (`fbsQrSize`) bilan
+  // sessiyalararo eslab qolinadi; buyurtmalar sahifasi bilan bir kalit → izchil.
+  function initQrSizeDropdown(rootId, storageKey){
+    const root = document.getElementById(rootId);
+    if (!root) return null;
+    const trigger = root.querySelector(".qrsz-trigger");
+    const valEl   = root.querySelector(".qrsz-val");
+    const opts    = Array.from(root.querySelectorAll(".qrsz-opt"));
+    if (!trigger || !valEl || !opts.length) return null;
+    const apply = (v, persist) => {
+      const opt = opts.find(o => o.dataset.val === v) || opts[opts.length - 1];
+      root.dataset.value = opt.dataset.val;
+      valEl.textContent = opt.textContent;
+      opts.forEach(o => o.classList.toggle("is-sel", o === opt));
+      if (persist) { try { localStorage.setItem(storageKey, opt.dataset.val); } catch (_) {} }
+    };
+    let init = "uzum";
+    try { const s = localStorage.getItem(storageKey); if (s) init = s; } catch (_) {}
+    apply(init, false);
+    const close = () => { root.classList.remove("is-open"); trigger.setAttribute("aria-expanded", "false"); };
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const willOpen = !root.classList.contains("is-open");
+      root.classList.toggle("is-open", willOpen);
+      trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+    opts.forEach(o => o.addEventListener("click", (e) => { e.stopPropagation(); apply(o.dataset.val, true); close(); }));
+    document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    return { get value(){ return root.dataset.value || "uzum"; } };
+  }
+  const _ordQrSize = initQrSizeDropdown("invOrdQrSizeDd", "fbsQrSize");
+
+  // Mahsulot rasmi ustiga sichqoncha kelganda — kattalashgan oynacha (zoom
+  // preview). document.body'ga qo'yiladi → karta `overflow:hidden`'i kesmaydi.
+  (function(){
+    let zoom = null;
+    function place(thumb){
+      if (!zoom) return;
+      const r = thumb.getBoundingClientRect();
+      const ZW = 240, ZH = 240, gap = 12;
+      let left = r.right + gap;
+      if (left + ZW > window.innerWidth - 8) left = r.left - ZW - gap; // chapga o'tkaz
+      if (left < 8) left = 8;
+      let top = r.top + r.height / 2 - ZH / 2;
+      if (top < 8) top = 8;
+      if (top + ZH > window.innerHeight - 8) top = window.innerHeight - ZH - 8;
+      zoom.style.left = left + "px";
+      zoom.style.top = top + "px";
+    }
+    function hide(){ if (zoom){ zoom.remove(); zoom = null; } }
+    document.addEventListener("mouseover", (e) => {
+      const thumb = e.target.closest(".inv-pl .inv-oprod-thumb");
+      const img = thumb && thumb.querySelector("img");
+      if (!img || !img.getAttribute("src")) return;
+      hide();
+      zoom = document.createElement("div");
+      zoom.className = "inv-img-zoom";
+      zoom.innerHTML = `<img src="${img.getAttribute("src")}" alt="">`;
+      document.body.appendChild(zoom);
+      place(thumb);
+    });
+    document.addEventListener("mouseout", (e) => {
+      if (e.target.closest(".inv-pl .inv-oprod-thumb")) hide();
+    });
+    window.addEventListener("scroll", hide, true);
+  })();
+
+  // Merge the selected invoices' akts into one PDF (server-side). The merge can
+  // take a while (each akt is a paced Uzum call + 429 retries), so callers show
+  // a button progress state while fetching. Returns the merged Blob, or throws
+  // with a user-facing message. If the server had to skip any akt
+  // (X-Akt-Skipped) we warn so the result is never a silently-incomplete PDF.
+  async function fetchMergedAktBlob(ids) {
+    const r = await fetch(`/fbs/api/invoices/akt-merged.pdf?ids=${encodeURIComponent(ids.join(","))}`, {credentials: "same-origin"});
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const j = await r.json(); msg = j.error || msg; } catch (_) {}
+      throw new Error(LIST_LBL.akt_fetch_err + " " + msg);
+    }
+    const skipped = r.headers.get("X-Akt-Skipped");
+    const blob = await r.blob();
+    if (skipped) {
+      alert(LIST_LBL.akt_some_skipped.replace("{ids}", skipped));
+    }
+    return blob;
+  }
+
+  // Shared guard for the two bulk-akt buttons: validate selection + cap, show a
+  // "Tayyorlanmoqda…" progress label, run the action, restore on finish.
+  async function runBulkAkt(btn, action) {
     const ids = Array.from(_invSelected);
     if (!ids.length) return;
     if (ids.length > BULK_AKT_MAX) {
-      alert(`Bir vaqtda ${BULK_AKT_MAX} tagacha akt birlashtiriladi. Kamroq tanlang.`);
+      alert(LIST_LBL.akt_bulk_cap.replace("{n}", BULK_AKT_MAX));
       return;
     }
-    bulkAkt.disabled = true;
-    const label = bulkAkt.querySelector("span");
+    btn.disabled = true;
+    const label = btn.querySelector("span");
     const prev = label ? label.textContent : "";
-    if (label) label.textContent = "Tayyorlanmoqda…";
+    if (label) label.textContent = LIST_LBL.inv_preparing;
+    const _embed = INV_EMBED && window.parent && window.parent !== window;
+    if (_embed) { try { window.parent.postMessage({ type: "fbs-postavka-akt-busy", busy: true }, "*"); } catch (_) {} }
     try {
-      const r = await fetch(`/fbs/api/invoices/akt-merged.pdf?ids=${encodeURIComponent(ids.join(","))}`, {credentials: "same-origin"});
-      if (!r.ok) {
-        let msg = `HTTP ${r.status}`;
-        try { const j = await r.json(); msg = j.error || msg; } catch (_) {}
-        alert("Akt olishda xato: " + msg);
-        return;
-      }
-      const skipped = r.headers.get("X-Akt-Skipped");
-      const blob = await r.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      if (skipped) {
-        alert(`Diqqat: ba'zi aktlar olinmadi (id: ${skipped}). Qolganlari PDFда. Birozdan keyin qayta urinib ko'ring.`);
-      }
-      // In-page overlay + auto-pechat on the merged PDF (no separate tab).
-      printPdf(blobUrl, { revoke: true });
+      await action(ids);
     } catch (e) {
-      alert("Tarmoq xatosi: " + (e.message || e));
+      alert(e.message || (LIST_LBL.net_err_prefix + " " + e));
     } finally {
-      bulkAkt.disabled = false;
+      btn.disabled = false;
       if (label) label.textContent = prev;
+      if (_embed) { try { window.parent.postMessage({ type: "fbs-postavka-akt-busy", busy: false }, "*"); } catch (_) {} }
     }
-  });
+  }
+
+  // «Akt отправки (PDF)» — merge + auto-pechat (in-page overlay, no separate tab).
+  bulkAkt.addEventListener("click", () => runBulkAkt(bulkAkt, async (ids) => {
+    const blob = await fetchMergedAktBlob(ids);
+    printPdf(URL.createObjectURL(blob), { revoke: true });  // in-page overlay + auto-pechat
+  }));
+
+  // «Yuklab olish» — same merged PDF, but SAVED to disk (no print dialog).
+  bulkAktDownload.addEventListener("click", () => runBulkAkt(bulkAktDownload, async (ids) => {
+    const blob = await fetchMergedAktBlob(ids);
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `aktlar_${ids.length}ta.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  }));
 
   // Status dropdown — load page 0 of the picked status (one paced call).
   statusSelect.addEventListener("change", () => {
@@ -2291,7 +3262,6 @@
   // 🧭 joylashuv, ★ sevimli, ∑ slot, manzil nusxalash, slot pill'lari.
   // YAGONA farq: slot bosilganda накладна yaratish o'rniga MAVJUD
   // накладна punkti /change-pickup orqali o'zgartiriladi.
-  const LIST_LBL = {{ list_labels|tojson }};
 
   // Minimal toast — ko'chirilgan funksiyalar showListToast() ni kutadi.
   const _toastHost = document.getElementById("fbsListToastHost");
@@ -2301,7 +3271,7 @@
     const div = document.createElement("div");
     div.className = "fbs-list-toast " + cls;
     div.innerHTML = `<div>${escapeHtml(message)}</div>`
-      + `<button type="button" class="close-btn" aria-label="Yopish">×</button>`;
+      + `<button type="button" class="close-btn" aria-label="${escapeHtml(LIST_LBL.aria_close)}">×</button>`;
     div.querySelector(".close-btn").onclick = () => div.remove();
     _toastHost.appendChild(div);
     // error → qo'lda yopiladi; warn → 3.5s; success → 2.4s.
@@ -2356,6 +3326,8 @@
   // ── Drop-off modal: DOM refs + holat ───────────────────────────────
   const dropoffModal       = document.getElementById("fbsDropoffModal");
   const dropoffBody        = document.getElementById("fbsDropoffBody");
+  const dropoffList        = document.getElementById("fbsDropoffList");
+  const dropoffPanel       = document.getElementById("fbsDropoffPanel");
   const dropoffSubtitle    = document.getElementById("fbsDropoffSubtitle");
   const dropoffGeoBtn      = document.getElementById("fbsDropoffGeoBtn");
   const dropoffGeoLabel    = document.getElementById("fbsDropoffGeoLabel");
@@ -2370,6 +3342,10 @@
   let _dropoffSource = "db";  // "db" (Mening punktlarim) | "uzum" (to'liq)
   let _dropoffQuery = "";
   let _dropoffPoints = [];
+  let _renderedPoints = [];   // joriy ko'rsatilgan (saralangan/filtrlangan) ro'yxat
+  let _selectedIdx = -1;      // o'ng panelda ochilgan punkt indeksi
+  let _selectedAddr = null;   // tanlangan punkt manzili (re-render'da saqlash uchun)
+  let _pickedSlot = null;     // tanlangan slot — footer «Tasdiqlash» yuboradi
   let _userLatLng = null;     // FAQAT real geolokatsiya (🧭 / kesh) bilan o'rnatiladi
   let _anchorLatLng = null;   // tahrirlanayotgan накладна punkti — har ochilishda yangilanadi
   const FAV_KEY = "fbs_dropoff_favorite_addr";
@@ -2459,9 +3435,25 @@
     return { filtered, terms };
   }
   function renderDropoffPoints(){
-    const points = _dropoffPoints.slice();
+    let points = _dropoffPoints.slice();
+    // «Faqat mos keladigan» ON (faqat «Uzum'dan to'liq» manbai uchun) →
+    // katalog/tarixiy overlay punktlarini (suitable=false) yashiramiz; faqat
+    // Uzum hozir shu seller buyurtmalariga MOS deb qaytargan punktlar qoladi.
+    // «Mening punktlarim» (db) manbaida filtrlamaymiz — u yerda suitable yo'q.
+    let _matchActive = _matchOnly && _editOrderIds.length > 0;
+    if (_matchActive) {
+      const _suit = points.filter(p => p && p.suitable === true);
+      // Mos punkt(lar) topilsa — faqat shularni ko'rsatamiz; bitta ham bo'lmasa
+      // ro'yxatni bo'm-bo'sh qoldirmaymiz (foydasiz) — hammasi ko'rinaveradi.
+      if (_suit.length) points = _suit;
+      else _matchActive = false;
+    }
     if (!points.length) {
-      dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${LIST_LBL.dropoff_empty}</div>`;
+      dropoffList.innerHTML = `<div class="fbs-dropoff-empty">${
+        _matchActive
+          ? LIST_LBL.dropoff_match_empty
+          : LIST_LBL.dropoff_empty}</div>`;
+      resetSlotPanel();
       updateSearchCount(0, 0);
       return;
     }
@@ -2489,11 +3481,12 @@
     const { filtered: shown, terms } = filterPointsByQuery(points);
     updateSearchCount(shown.length, points.length);
     if (!shown.length) {
-      dropoffBody.innerHTML = `
+      dropoffList.innerHTML = `
         <div class="fbs-dropoff-empty">
           ${LIST_LBL.dropoff_search_empty}
           <div style="margin-top:8px"><code>${escapeHtml(_dropoffQuery)}</code></div>
         </div>`;
+      resetSlotPanel();
       return;
     }
     const pointsToRender = shown;
@@ -2510,74 +3503,45 @@
     pointsToRender.forEach((p, i) => {
       if (p._distKm !== null && p._distKm < nearestDist) { nearestDist = p._distKm; nearestIdx = i; }
     });
-    dropoffBody.innerHTML = pointsToRender.map((p, idx) => {
+    _renderedPoints = pointsToRender;
+    const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const todayKey = WEEKDAYS[new Date().getDay()];
+    dropoffList.innerHTML = pointsToRender.map((p, idx) => {
       const shopsLine = (p.shops || []).length
-        ? `<div class="shops">${LIST_LBL.dropoff_shops_prefix} ${highlightMatch((p.shops || []).join(", "), terms)}</div>`
+        ? `<span class="shops">${highlightMatch((p.shops || []).join(", "), terms)}</span>`
         : "";
-      const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
-      const todayKey = WEEKDAYS[new Date().getDay()];
+      // Ish-vaqti faqat Uzum haqiqiy soat yuborgandagina ko'rsatiladi.
       const wh = (p.workingHours && p.workingHours[todayKey]) || null;
-      const hoursLine = wh
-        ? `<div class="shops">🕒 ${LIST_LBL.dropoff_hours_today}: ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</div>`
+      const hoursLine = (wh && (wh.start || wh.end))
+        ? `<span>🕒 ${escapeHtml(wh.start || "")}–${escapeHtml(wh.end || "")}</span>`
         : "";
-      const activeBadge = p.active
-        ? `<span class="badge-active" title="${LIST_LBL.dropoff_active_hint}">${p.active}</span>`
-        : "";
-      const distBadge = (p._distKm !== null)
-        ? `<span class="badge-dist" title="${LIST_LBL.dropoff_dist_hint}">${p._distKm.toFixed(1)} km</span>`
-        : "";
+      const distCircle = (p._distKm !== null)
+        ? `<span class="dist-circle" title="${LIST_LBL.dropoff_dist_hint}"><b>${p._distKm.toFixed(1)}</b><i>km</i></span>`
+        : `<span class="dist-circle is-nodist" aria-hidden="true">📍</span>`;
       const nearestBadge = (idx === nearestIdx)
-        ? `<span class="badge-nearest">${LIST_LBL.dropoff_nearest}</span>`
+        ? `<span class="badge-nearest">● ${LIST_LBL.dropoff_nearest}</span>`
         : "";
       const favOn = p._isFav ? "is-on" : "";
       const favTitle = p._isFav ? LIST_LBL.dropoff_fav_remove : LIST_LBL.dropoff_fav_add;
-      const slotsBtn = p.uuid
-        ? `<button type="button" class="btn-slots" data-slots-idx="${idx}"
-                  data-uuid="${escapeHtml(p.uuid)}">
-             🕒 ${LIST_LBL.dropoff_slots_btn}
-           </button>`
-        : "";
       return `
-        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}">
-          <div style="flex:1 1 280px; display:flex; align-items:flex-start;">
-            <button type="button" class="btn-fav ${favOn}"
-                    data-fav-idx="${idx}" title="${favTitle}">
-              ${p._isFav ? '★' : '☆'}
-            </button>
-            <div>
-              <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
-              ${shopsLine}
-              ${hoursLine}
-            </div>
+        <div class="fbs-dropoff-item ${p._isFav ? 'is-favorite' : ''}"
+             data-point-idx="${idx}" role="button" tabindex="0">
+          <button type="button" class="btn-fav ${favOn}"
+                  data-fav-idx="${idx}" title="${favTitle}">
+            ${p._isFav ? '★' : '☆'}
+          </button>
+          ${distCircle}
+          <div class="mid">
+            <div class="addr">${highlightMatch(p.address || "—", terms)}</div>
+            <div class="meta">${shopsLine}${nearestBadge}${hoursLine}</div>
           </div>
-          <div class="counts">
-            ${nearestBadge}
-            ${distBadge}
-            ${activeBadge}
-            <span class="badge-total" title="${LIST_LBL.dropoff_total_hint}">∑ ${Number(p.total) || 0}</span>
-            ${slotsBtn}
-            <button type="button" class="btn-copy" data-copy-idx="${idx}">
-              ${LIST_LBL.dropoff_copy}
-            </button>
-          </div>
-          <div class="fbs-dropoff-slots" data-slots-host="${idx}" hidden></div>
+          <span class="chev" aria-hidden="true">›</span>
         </div>`;
     }).join("");
-    dropoffBody.querySelectorAll(".btn-copy").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.copyIdx);
-        const addr = (pointsToRender[idx] || {}).address || "";
-        if (!addr) return;
-        navigator.clipboard.writeText(addr).then(() => {
-          btn.classList.add("copied");
-          const orig = btn.textContent;
-          btn.textContent = LIST_LBL.dropoff_copied;
-          setTimeout(() => { btn.classList.remove("copied"); btn.textContent = orig; }, 1500);
-        }).catch(() => showListToast(LIST_LBL.dropoff_copy_fail, "error"));
-      });
-    });
-    dropoffBody.querySelectorAll(".btn-fav").forEach(btn => {
-      btn.addEventListener("click", () => {
+    // Yulduzcha (sevimli) — qator tanlanishiga aralashmasin (stopPropagation).
+    dropoffList.querySelectorAll(".btn-fav").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const idx = Number(btn.dataset.favIdx);
         const p = pointsToRender[idx];
         if (!p) return;
@@ -2585,26 +3549,90 @@
         renderDropoffPoints();
       });
     });
-    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.slotsIdx);
-        const uuid = btn.dataset.uuid;
-        const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
-        if (!host) return;
-        if (!host.hidden) {
-          host.hidden = true;
-          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_btn}`;
-          return;
-        }
-        host.hidden = false;
-        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
-        btn.disabled = true;
-        loadTimeSlots(uuid, host).finally(() => {
-          btn.disabled = false;
-          btn.textContent = `🕒 ${LIST_LBL.dropoff_slots_hide}`;
-        });
+    // Qator bosilsa → o'ng panelda shu punkt slotlari ochiladi.
+    dropoffList.querySelectorAll(".fbs-dropoff-item").forEach(row => {
+      const act = () => selectPoint(Number(row.dataset.pointIdx));
+      row.addEventListener("click", act);
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); }
       });
     });
+    // Tanlovni saqlash: oldingi punkt hali ro'yxatda bo'lsa — qayta yuklamay
+    // faqat belgilaymiz; bo'lmasa birinchi punktni ochamiz.
+    const keep = _selectedAddr
+      ? pointsToRender.findIndex(p => p.address === _selectedAddr)
+      : -1;
+    if (keep >= 0) markSelectedRow(keep);
+    // Avto-tanlash faqat birinchi ochilishda (qidiruvsiz) — typing paytida
+    // har bosishda slot so'rab Uzum'ni 429 ga olib bormaslik uchun.
+    else if (_selectedIdx < 0 && !_dropoffQuery.trim()) selectPoint(0);
+    else resetSlotPanel();
+  }
+  // ── O'ng panel: punkt tanlash + slotlar ────────────────────────────
+  function markSelectedRow(idx){
+    _selectedIdx = idx;
+    const p = _renderedPoints[idx];
+    _selectedAddr = p ? p.address : null;
+    dropoffList.querySelectorAll(".fbs-dropoff-item").forEach(row => {
+      row.classList.toggle("is-selected", Number(row.dataset.pointIdx) === idx);
+    });
+  }
+  function resetSlotPanel(){
+    _selectedIdx = -1; _selectedAddr = null; _pickedSlot = null;
+    if (dropoffPanel) dropoffPanel.innerHTML =
+      `<div class="dp-panel-empty">${LIST_LBL.dropoff_panel_hint}</div>`;
+  }
+  function selectPoint(idx){
+    const p = _renderedPoints[idx];
+    if (!p) { resetSlotPanel(); return; }
+    markSelectedRow(idx);
+    _pickedSlot = null;
+    // Panel skeleti: sarlavha + slot konteyneri + footer.
+    const wh = p.workingHours || {};
+    const WEEKDAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+    const whToday = wh[WEEKDAYS[new Date().getDay()]] || null;
+    const hoursTxt = (whToday && (whToday.start || whToday.end))
+      ? `🕒 ${escapeHtml(whToday.start || "")}–${escapeHtml(whToday.end || "")}` : "";
+    dropoffPanel.innerHTML = `
+      <div class="dp-panel-head">
+        <div class="dp-panel-addr">${escapeHtml(p.address || "—")}</div>
+        ${hoursTxt ? `<div class="dp-panel-sub">${hoursTxt}</div>` : ""}
+      </div>
+      <div class="dp-slotwrap" id="fbsDropoffSlotWrap">
+        <div class="dp-slot-msg">${LIST_LBL.dropoff_slots_loading}</div>
+      </div>
+      <div class="dp-foot">
+        <span class="dp-foot-hint" id="fbsDropoffFootHint">${LIST_LBL.dropoff_pick_slot}</span>
+        <button type="button" class="dp-confirm" id="fbsDropoffConfirm" disabled>${LIST_LBL.dropoff_confirm_btn}</button>
+      </div>`;
+    const confirmBtn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+    if (confirmBtn) confirmBtn.addEventListener("click", () => {
+      if (!_pickedSlot) return;
+      changeInvoicePickup({
+        dopUuid: p.uuid,
+        pointAddr: p.address || "",
+        slotUuid: _pickedSlot.uuid || null,
+        slotFrom: _pickedSlot.from || null,
+        slotTo: _pickedSlot.to || null,
+        slotLabel: _pickedSlot.label || "",
+        skipConfirm: true,   // tanlangan slot + «Tasdiqlash» — tasdiqning o'zi
+      });
+    });
+    const wrap = dropoffPanel.querySelector("#fbsDropoffSlotWrap");
+    if (p.uuid) loadTimeSlots(p.uuid, wrap);
+    else wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_empty}</div>`;
+  }
+  // Slot tanlandi — footer'ni yangilaymiz (CTA yuboradi).
+  function pickSlot(slot, el){
+    _pickedSlot = slot;
+    if (dropoffPanel) {
+      dropoffPanel.querySelectorAll(".dp-slot").forEach(s => s.classList.remove("is-picked"));
+      if (el) el.classList.add("is-picked");
+      const hint = dropoffPanel.querySelector("#fbsDropoffFootHint");
+      if (hint) hint.textContent = slot.label || "";
+      const btn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+      if (btn) btn.disabled = false;
+    }
   }
   // Slot pill matni — ro'yxat sahifasidagi fmtSlot bilan bir xil, lekin
   // bu sahifadagi fmtSlot(slot) bilan to'qnashmaslik uchun boshqa nom.
@@ -2620,103 +3648,145 @@
       return sameDay ? `${date} ${tA}–${tB}` : `${date} ${tA} → ${pad(b.getDate())}.${pad(b.getMonth()+1)} ${tB}`;
     } catch (e) { return `${timeFrom} – ${timeTo}`; }
   }
-  // Slotlarni yuklash. change-pickup uchun order_ids KERAK EMAS —
-  // backend накладнаning buyurtmalarini DB'dan o'zi oladi (eski pp ham
-  // shunday qilardi). Slot bosilganda changeInvoicePickup chaqiriladi.
-  async function loadTimeSlots(uuid, host){
+  // ── Slot panel helper'lari ─────────────────────────────────────────
+  // Sana sarlavhasi — qo'lda nom (Intl uz-UZ ba'zi brauzerda «M06» fallback beradi).
+  const _DP_MON = {
+    uz: ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentyabr","oktyabr","noyabr","dekabr"],
+    ru: ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"],
+  };
+  const _DP_WD = {
+    uz: ["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"],
+    ru: ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"],
+  };
+  function _dpDayHeader(ms){
+    const d = new Date(Number(ms));
+    const L = (LIST_LBL._lang === "ru") ? "ru" : "uz";
+    const day = d.getDate(), mon = _DP_MON[L][d.getMonth()], wd = _DP_WD[L][d.getDay()];
+    return (L === "ru") ? `${day} ${mon}, ${wd}` : `${day}-${mon}, ${wd}`;
+  }
+  function _dpTimeRange(from, to){
     try {
-      // «Faqat mos keladigan» ON → shu накладна buyurtmalariga moslab
-      // (backend ularning deadline oynasini hisoblaydi). OFF → order_ids'siz
-      // → backend barcha aktiv buyurtmalar bo'yicha kengroq oyna beradi.
+      const a = new Date(Number(from)), b = new Date(Number(to));
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(a.getHours())}:${pad(a.getMinutes())} – ${pad(b.getHours())}:${pad(b.getMinutes())}`;
+    } catch (e) { return _doFmtSlot(from, to); }
+  }
+  // Sig'im rozetkasi: bo'sh/jami (remainingCapacity/capacity). Maydonlar
+  // bo'lmasa (rasmiy API bermasa) — yashiriladi. To'la (rem<=0) → qizil + bloklash.
+  function _dpCapBadge(s){
+    const cap = Number(s.capacity), rem = Number(s.remainingCapacity);
+    if (!Number.isFinite(cap) || cap <= 0 || !Number.isFinite(rem)) return { html: "", full: false };
+    const cls = rem <= 0 ? "full" : (rem / cap <= 0.15 ? "mid" : "ok");
+    return { html: `<span class="dp-cap ${cls}" title="${LIST_LBL.dropoff_cap_hint}">${rem}/${cap}</span>`, full: rem <= 0 };
+  }
+  // Slotlarni yuklash — o'ng panel `wrap` ichiga kun bo'yicha guruhlab.
+  // change-pickup uchun order_ids KERAK EMAS — backend накладнаning
+  // buyurtmalarini DB'dan o'zi oladi. Slot bosilganda pickSlot chaqiriladi.
+  async function loadTimeSlots(uuid, wrap){
+    try {
+      // «Faqat mos keladigan» ON → shu накладна buyurtmalariga moslab.
+      // OFF → order_ids'siz → backend barcha aktiv buyurtmalar bo'yicha kengroq oyna.
       let qs = "";
-      if (_matchOnly && _editOrderIds.length) {
-        qs = `?order_ids=${_editOrderIds.join(",")}`;
-      }
+      if (_matchOnly && _editOrderIds.length) qs = `?order_ids=${_editOrderIds.join(",")}`;
       const res = await fetch(`/fbs/api/dropoff-points/${encodeURIComponent(uuid)}/time-slots${qs}`,
                               {credentials: "same-origin"});
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // fbs-19: bu накладна buyurtmasining yetkazish muddati o'tgan →
-        // Uzum mos slot bermaydi. ON'da bu chiqsa, foydalanuvchiga BIR
-        // BOSISHDA «Faqat mos»ni o'chirib, hamma vaqtni ko'rsatadigan tugma
-        // beramiz — qo'rqinchli «xato» o'rniga aksiya. (Uzum kodi `fbs-19`
-        // eng ishonchli belgi; o'zbekcha matn regexga tushmaydi.)
+        // fbs-19: bu накладна buyurtmasining yetkazish muddati o'tgan → mos
+        // slot yo'q. ON'da chiqsa — bir bosishda «Faqat mos»ni o'chirib hamma
+        // vaqtni ko'rsatadigan tugma beramiz.
         const code = String(data.uzum_code || "");
         const em = String(data.error || data.uzum_message || "");
         const overdue = /fbs-19/i.test(code)
           || /time.?is.?up|muddati o'tib|deadline|муддат/i.test(em);
         if (overdue && _matchOnly) {
-          host.innerHTML =
-            `<div class="slot-error" style="display:flex;flex-direction:column;gap:8px;align-items:center;">`
-            + `<span>⏰ Bu buyurtma muddati o'tgan — unга mos slot yo'q.</span>`
-            + `<button type="button" class="pp-show-all" style="background:#3456b9;color:#fff;border:0;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem;">Hamma vaqtni ko'rsatish</button>`
+          wrap.innerHTML =
+            `<div class="dp-slot-msg is-error">`
+            + `<span>${escapeHtml(LIST_LBL.inv_overdue_no_slot)}</span>`
+            + `<button type="button" class="dp-show-all">${escapeHtml(LIST_LBL.inv_show_all_times)}</button>`
             + `</div>`;
-          const _b = host.querySelector(".pp-show-all");
+          const _b = wrap.querySelector(".dp-show-all");
           if (_b) _b.addEventListener("click", () => {
             _matchOnly = false;
             if (dropoffMatchOnly) dropoffMatchOnly.checked = false;
-            host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
-            loadTimeSlots(uuid, host);
+            wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_loading}</div>`;
+            loadTimeSlots(uuid, wrap);
           });
           return;
         }
-        host.innerHTML = `<div class="slot-error">${escapeHtml(overdue ? "⏰ Buyurtma muddati o'tgan." : (em || LIST_LBL.dropoff_slots_fail))}</div>`;
+        wrap.innerHTML = `<div class="dp-slot-msg is-error">${escapeHtml(overdue ? LIST_LBL.inv_overdue_short : (em || LIST_LBL.dropoff_slots_fail))}</div>`;
         return;
       }
       if (data.reason === "no_active_orders") {
-        host.innerHTML = `<div class="slot-empty">${escapeHtml(LIST_LBL.dropoff_slots_no_orders || "Aktiv buyurtma yo'q")}</div>`;
+        wrap.innerHTML = `<div class="dp-slot-msg">${escapeHtml(LIST_LBL.dropoff_slots_no_orders || LIST_LBL.inv_no_active_orders)}</div>`;
         return;
       }
-      const slots = data.slots || [];
+      const slots = (data.slots || []).filter(s => s && s.timeFrom);
       if (!slots.length) {
-        host.innerHTML = `<div class="slot-empty">${LIST_LBL.dropoff_slots_empty}</div>`;
+        wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_empty}</div>`;
         return;
       }
-      host.innerHTML = slots.map((s, i) =>
-        `<button type="button" class="slot-pill is-clickable"
-                 data-slot-idx="${i}"
-                 data-slot-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
-                 data-slot-from="${escapeHtml(s.timeFrom || '')}"
-                 data-slot-to="${escapeHtml(s.timeTo || '')}"
-                 title="${LIST_LBL.dropoff_slot_click_hint}">
-           ${escapeHtml(_doFmtSlot(s.timeFrom, s.timeTo))}
-         </button>`
-      ).join("");
-      const pointCard = host.closest(".fbs-dropoff-item");
-      const slotsBtn = pointCard ? pointCard.querySelector(".btn-slots") : null;
-      const dopUuid = slotsBtn ? slotsBtn.dataset.uuid : "";
-      const pointAddr = pointCard ? (pointCard.querySelector(".addr")?.textContent || "").trim() : "";
-      host.querySelectorAll(".slot-pill.is-clickable").forEach(pill => {
-        pill.addEventListener("click", () => {
-          changeInvoicePickup({
-            dopUuid: dopUuid,
-            pointAddr: pointAddr,
-            slotUuid: pill.dataset.slotUuid || null,
-            slotFrom: pill.dataset.slotFrom || null,
-            slotTo: pill.dataset.slotTo || null,
-            slotLabel: pill.textContent.trim(),
-          });
+      // Kun bo'yicha guruhlash (timeFrom sanasi), vaqt tartibida.
+      slots.sort((a, b) => Number(a.timeFrom) - Number(b.timeFrom));
+      const groups = [], byDay = {};
+      slots.forEach(s => {
+        const d = new Date(Number(s.timeFrom));
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        if (!byDay[key]) { byDay[key] = { header: _dpDayHeader(s.timeFrom), items: [] }; groups.push(byDay[key]); }
+        byDay[key].items.push(s);
+      });
+      wrap.innerHTML = groups.map(g => `
+        <div class="dp-daygrp">
+          <div class="dp-dayhd">${escapeHtml(g.header)}</div>
+          ${g.items.map(s => {
+            const cap = _dpCapBadge(s);
+            return `<div class="dp-slot ${cap.full ? 'is-full' : ''}"
+                 data-uuid="${escapeHtml(s.uuid || s.timeSlotUuid || '')}"
+                 data-from="${escapeHtml(String(s.timeFrom || ''))}"
+                 data-to="${escapeHtml(String(s.timeTo || ''))}"
+                 data-label="${escapeHtml(_doFmtSlot(s.timeFrom, s.timeTo))}">
+              <span class="dp-slot-time">${escapeHtml(_dpTimeRange(s.timeFrom, s.timeTo))}</span>
+              ${cap.html}
+            </div>`;
+          }).join("")}
+        </div>`).join("");
+      wrap.querySelectorAll(".dp-slot").forEach(el => {
+        if (el.classList.contains("is-full")) return;  // to'la — bosilmaydi
+        el.addEventListener("click", () => {
+          pickSlot({
+            uuid: el.dataset.uuid || null,
+            from: el.dataset.from || null,
+            to: el.dataset.to || null,
+            label: el.dataset.label || el.querySelector(".dp-slot-time").textContent.trim(),
+          }, el);
         });
       });
     } catch (e) {
-      host.innerHTML = `<div class="slot-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
+      wrap.innerHTML = `<div class="dp-slot-msg is-error">${escapeHtml(LIST_LBL.dropoff_slots_fail + ": " + (e.message || ""))}</div>`;
     }
   }
   // Mavjud накладна punkti+slotini o'zgartirish (createInvoiceForSlot
   // o'rniga). Avval seller'dan tasdiq so'raydi.
   async function changeInvoicePickup(opts){
-    if (!_editInvoiceId) { showListToast("Накладна tanlanmagan", "error"); return; }
-    if (!opts || !opts.dopUuid) { showListToast(LIST_LBL.invoice_no_dop || "Punkt tanlanmadi", "error"); return; }
-    if (!opts.slotUuid) { showListToast("Bu slot yaroqsiz (uuid yo'q) — boshqa slot tanlang", "error"); return; }
-    const msg = `Накладна №${_editInvoiceNum} qabul punktini «${opts.pointAddr || "—"}»`
-      + (opts.slotLabel ? ` (${opts.slotLabel})` : "") + " ga o'zgartirasizmi?";
-    if (!await fbsConfirm({
-      title: "Qabul punktini o'zgartirish",
-      message: msg,
-      okLabel: "O'zgartirish",
-      okVariant: "postavka",
-      icon: "📍",
-    })) return;
+    if (!_editInvoiceId) { showListToast(LIST_LBL.inv_no_invoice_selected, "error"); return; }
+    if (!opts || !opts.dopUuid) { showListToast(LIST_LBL.invoice_no_dop || LIST_LBL.inv_point_not_picked, "error"); return; }
+    if (!opts.slotUuid) { showListToast(LIST_LBL.inv_slot_invalid, "error"); return; }
+    // Yangi split-panel oqimida slot tanlanib «Tasdiqlash» bosiladi —
+    // bu o'zi aniq tasdiq, shuning uchun qo'sha dialog so'ramaymiz (skipConfirm).
+    if (!opts.skipConfirm) {
+      const slotPart = opts.slotLabel ? ` (${opts.slotLabel})` : "";
+      const msg = LIST_LBL.inv_change_confirm
+        .replace("{num}", _editInvoiceNum)
+        .replace("{point}", opts.pointAddr || "—")
+        .replace("{slot}", slotPart);
+      if (!await fbsConfirm({
+        title: LIST_LBL.dropoff_change_title,
+        message: msg,
+        okLabel: LIST_LBL.dropoff_change_btn,
+        okVariant: "postavka",
+        icon: "📍",
+      })) return;
+    }
     try {
       const res = await fetch(`/fbs/api/invoices/${encodeURIComponent(_editInvoiceId)}/change-pickup`, {
         method: "POST",
@@ -2734,42 +3804,55 @@
         // seller-order-53: tanlangan slot buyurtma yetkazish muddatidan kech
         // (ko'pincha «Faqat mos» OFF da kengroq, lekin yaroqsiz slot tanlanса).
         const code = String(data.uzum_code || "");
-        let emsg = data.uzum_message || data.error || "O'zgartirishda xato";
+        let emsg = data.uzum_message || data.error || LIST_LBL.inv_change_err;
         if (/seller-order-53/i.test(code) || /oldin yetkazilishi kerak|раньше/i.test(emsg)) {
-          emsg = "Tanlangan slot juda kech — bu накладна uchun ERTAROQ slot tanlang. (" + emsg + ")";
+          emsg = LIST_LBL.inv_slot_too_late + "(" + emsg + ")";
         } else if (res.status === 429 || /band|429/i.test(emsg)) {
-          emsg = "Uzum hozir band — bir-ikki soniyadan keyin qayta urinib ko'ring.";
+          emsg = LIST_LBL.inv_uzum_busy_retry;
         }
         showListToast(emsg, "error", 6000);
         return;
       }
-      showListToast("✅ Qabul punkti o'zgartirildi", "success");
+      showListToast(LIST_LBL.inv_pickup_changed, "success");
       closeDropoffModal();
       reloadInvoices();
     } catch (e) {
-      showListToast("Tarmoq xatosi: " + (e.message || ""), "error");
+      showListToast(LIST_LBL.net_err_prefix + " " + (e.message || ""), "error");
     }
   }
   async function loadDropoffPoints(){
-    const fresh = isPrefetchFresh(_dropoffSource);
+    // Ro'yxat almashmoqda (ochilish/manba) — tanlovni noldan boshlaymiz.
+    _selectedIdx = -1; _selectedAddr = null; _pickedSlot = null;
+    // Bu накладна order'lari bo'lsa — punktlarni aynan shu накладна'ga moslab
+    // so'raymiz (backend order_ids bilan Uzum'dan mos to'liq punktlar ro'yxatini
+    // qaytaradi, ~170+). order_ids'ni HAR doim uzatamiz: «Faqat mos keladigan»
+    // sof client-side filtr (renderDropoffPoints), shuning uchun toggle OFF
+    // ro'yxatni bo'shatmasligi kerak. Avval faqat ON'da uzatilardi → OFF'da
+    // tushib qolib backend 50-pool'ga o'tar va ro'yxat qisqarardi (bug).
+    const sendIds = _editOrderIds.length > 0;
+    const ckey = _dropoffSource + (sendIds ? ":m" : "");
+    const fresh = isPrefetchFresh(ckey);
     if (fresh) {
-      _dropoffPoints = _dropoffPrefetch[_dropoffSource].points;
+      _dropoffPoints = _dropoffPrefetch[ckey].points;
       renderDropoffPoints();
     } else {
-      dropoffBody.innerHTML = `<div class="fbs-dropoff-loading">${LIST_LBL.dropoff_loading}</div>`;
+      dropoffList.innerHTML = `<div class="fbs-dropoff-loading">${LIST_LBL.dropoff_loading}</div>`;
+      resetSlotPanel();
     }
     try {
-      const url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}`;
+      let url = `/fbs/api/dropoff-points?source=${encodeURIComponent(_dropoffSource)}`;
+      if (sendIds) url += `&order_ids=${encodeURIComponent(_editOrderIds.join(","))}`;
       const res = await fetch(url, {credentials: "same-origin"});
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (!fresh) {
-          dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(data.error || LIST_LBL.dropoff_load_fail)}</div>`;
+          dropoffList.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(data.error || LIST_LBL.dropoff_load_fail)}</div>`;
+          resetSlotPanel();
         }
         return;
       }
       _dropoffPoints = data.points || [];
-      _dropoffPrefetch[_dropoffSource] = { points: _dropoffPoints, ts: Date.now() };
+      _dropoffPrefetch[ckey] = { points: _dropoffPoints, ts: Date.now() };
       if (_dropoffSource === "uzum" && data.source === "db") {
         showListToast(LIST_LBL.dropoff_uzum_fallback, "warn");
         _dropoffSource = "db";
@@ -2778,7 +3861,8 @@
       renderDropoffPoints();
     } catch (e) {
       if (!fresh) {
-        dropoffBody.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(LIST_LBL.dropoff_load_fail + ": " + (e.message || ""))}</div>`;
+        dropoffList.innerHTML = `<div class="fbs-dropoff-empty">${escapeHtml(LIST_LBL.dropoff_load_fail + ": " + (e.message || ""))}</div>`;
+        resetSlotPanel();
       }
     }
   }
@@ -2879,7 +3963,7 @@
     dropoffSearchInput.value = "";
     dropoffSearchClear.hidden = true;
     dropoffSearchCount.hidden = true;
-    if (dropoffSubtitle) dropoffSubtitle.innerHTML = `Накладная <strong>№${escapeHtml(_editInvoiceNum)}</strong>`;
+    if (dropoffSubtitle) dropoffSubtitle.innerHTML = `${escapeHtml(LIST_LBL.iframe_invoice_title)} <strong>№${escapeHtml(_editInvoiceNum)}</strong>`;
     // Masofa langari: накладнаning joriy punkti HAR ochilishda yangi
     // o'rnatiladi (oldingi накладнаdan "yopishib" qolmaydi). Real
     // geolokatsiya bo'lsa renderda u ustun turadi (_userLatLng || _anchorLatLng).
@@ -2918,18 +4002,25 @@
   if (dropoffMatchOnly) {
     dropoffMatchOnly.addEventListener("change", () => {
       _matchOnly = dropoffMatchOnly.checked;
-      refreshOpenSlots();
+      // Punktlar ro'yxati rejimga qarab boshqacha (mos-only ↔ to'liq) —
+      // backend'dan qayta yuklaymiz; render + slot avtomatik tiklanadi.
+      loadDropoffPoints();
     });
   }
   function refreshOpenSlots(){
-    dropoffBody.querySelectorAll(".btn-slots").forEach(btn => {
-      const idx = Number(btn.dataset.slotsIdx);
-      const host = dropoffBody.querySelector(`[data-slots-host="${idx}"]`);
-      if (host && !host.hidden) {
-        host.innerHTML = `<div class="slot-loading">${LIST_LBL.dropoff_slots_loading}</div>`;
-        loadTimeSlots(btn.dataset.uuid, host);
-      }
-    });
+    // «Faqat mos» o'zgargach — o'ng paneldagi tanlangan punkt slotlarini
+    // qayta yuklaymiz (panel doim ochiq turadi).
+    if (_selectedIdx < 0) return;
+    const p = _renderedPoints[_selectedIdx];
+    const wrap = dropoffPanel ? dropoffPanel.querySelector("#fbsDropoffSlotWrap") : null;
+    if (!p || !p.uuid || !wrap) return;
+    _pickedSlot = null;
+    const hint = dropoffPanel.querySelector("#fbsDropoffFootHint");
+    if (hint) hint.textContent = LIST_LBL.dropoff_pick_slot;
+    const cbtn = dropoffPanel.querySelector("#fbsDropoffConfirm");
+    if (cbtn) cbtn.disabled = true;
+    wrap.innerHTML = `<div class="dp-slot-msg">${LIST_LBL.dropoff_slots_loading}</div>`;
+    loadTimeSlots(p.uuid, wrap);
   }
   dropoffSearchInput.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && dropoffSearchInput.value) { e.stopPropagation(); clearDropoffSearch(); }
@@ -2962,4 +4053,5 @@
     openEditPickupModal(invoiceId, invoiceNum, anchorPoint, orderIds);
   });
 </script>
+<script src="/static/fbs_select.js"></script>
 {% endblock %}

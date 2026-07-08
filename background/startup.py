@@ -78,5 +78,21 @@ def start_background_threads():
     if os.environ.get("PRODUCTS_SYNC_LOOP", "1").strip().lower() not in ("0", "false", "no"):
         threading.Thread(target=_app._products_sync_loop, daemon=True, name="products-sync").start()
         print("[Background] Started: products-sync loop (sinxro_2)")
+    # FBO slot-kuzatuvi (Faza 0 — premissa sinovi, read-only). «Slotlar vaqt
+    # o'tib o'zi bo'shaydimi?» savoliga isbot to'playdi; hech narsa
+    # yaratmaydi/o'zgartirmaydi. Off-switch via POSTAVKA_SLOT_WATCH_LOOP=0.
+    # Avto-slot ALLOKATOR konsumeri (Bosqich 4) — `bus`'dan event drain qiladi.
+    # Monitor publish'idan OLDIN ishga tushadi (navbat to'lib ketmasin).
+    # Off-switch via POSTAVKA_AUTOSLOT_LOOP=0.
+    if os.environ.get("POSTAVKA_AUTOSLOT_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._postavka_allocator_loop, daemon=True, name="postavka-allocator").start()
+        print("[Background] Started: postavka avto-slot allocator (consumer)")
+    if os.environ.get("POSTAVKA_SLOT_WATCH_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._postavka_slot_watch_loop, daemon=True, name="postavka-slot-watch").start()
+        print("[Background] Started: postavka slot watcher")
+    # Avto-slot grabber (Faza 2D — накладной-bo'yicha, cross-shop). Off: POSTAVKA_GRAB_LOOP=0.
+    if os.environ.get("POSTAVKA_GRAB_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._postavka_grab_loop, daemon=True, name="postavka-grab").start()
+        print("[Background] Started: postavka slot grabber")
     _app._start_auto_login_scheduler()
     print("[Background] Started: hourly finance, Telegram bot, auto-login")

@@ -22,6 +22,8 @@ import pytest
 
 from core.fbs_sync import (
     fbs_statuses_for_tick,
+    fbs_statuses_due,
+    FBS_STATUS_SYNC_INTERVAL_MIN,
     FBS_ALL_SYNC_STATUSES,
     FBS_ACTIVE_SYNC_STATUSES,
     FBS_SLOW_SYNC_STATUSES,
@@ -166,3 +168,85 @@ class TestCadence:
         # — otherwise the quota saving evaporates.
         active = fbs_statuses_for_tick(1, self.N)
         assert not (set(active) & set(FBS_SLOW_SYNC_STATUSES))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Per-status interval cadence (Abdulaziz 2026-06-16)
+# ─────────────────────────────────────────────────────────────────────
+#
+# The worker now wakes on a ~1-min heartbeat and syncs each status only when
+# its own FBS_STATUS_SYNC_INTERVAL_MIN has elapsed. fbs_statuses_due() is the
+# pure decision function — no DB, no clock, no globals (the caller owns the
+# clock + last-sync book-keeping), so the cadence is deterministic here.
+
+
+class TestStatusIntervalMap:
+    def test_pending_states_are_never_synced(self):
+        # PENDING_DELIVERY is shown only via the live Поставка/накладные view;
+        # PENDING_CANCELLATION is transient. Neither is background-synced, so
+        # both must be ABSENT from the interval map (the "never" contract).
+        assert "PENDING_DELIVERY" not in FBS_STATUS_SYNC_INTERVAL_MIN
+        assert "PENDING_CANCELLATION" not in FBS_STATUS_SYNC_INTERVAL_MIN
+
+    def test_configured_statuses_are_a_subset_of_all(self):
+        assert set(FBS_STATUS_SYNC_INTERVAL_MIN).issubset(set(FBS_ALL_SYNC_STATUSES))
+
+    def test_all_intervals_are_positive_minutes(self):
+        assert all(v > 0 for v in FBS_STATUS_SYNC_INTERVAL_MIN.values())
+
+
+class TestStatusesDue:
+    INTERVALS = {"CREATED": 23, "PACKING": 23, "DELIVERING": 63}
+
+    def test_first_run_forces_every_configured_status(self):
+        # A (re)start backfills the full configured set in one pass,
+        # regardless of last-sync state.
+        due = fbs_statuses_due(1000.0, {}, intervals=self.INTERVALS, first_run=True)
+        assert set(due) == set(self.INTERVALS)
+
+    def test_never_synced_status_is_due(self):
+        # A status with no last-sync entry is always due (cold start, no
+        # first_run flag).
+        due = fbs_statuses_due(1000.0, {}, intervals=self.INTERVALS)
+        assert set(due) == {"CREATED", "PACKING", "DELIVERING"}
+
+    def test_status_not_due_before_its_interval(self):
+        now = 10_000.0
+        # CREATED synced 10 min ago (< 23 min) → NOT due. DELIVERING synced
+        # 10 min ago (< 63 min) → NOT due.
+        last = {"CREATED": now - 10 * 60, "PACKING": now - 10 * 60,
+                "DELIVERING": now - 10 * 60}
+        due = fbs_statuses_due(now, last, intervals=self.INTERVALS)
+        assert due == ()
+
+    def test_status_due_exactly_at_its_interval(self):
+        now = 10_000.0
+        # CREATED synced 23 min ago → due (>=). DELIVERING 23 min ago → NOT
+        # due (needs 63). This is the whole point: independent cadences.
+        last = {"CREATED": now - 23 * 60, "PACKING": now - 5 * 60,
+                "DELIVERING": now - 23 * 60}
+        due = fbs_statuses_due(now, last, intervals=self.INTERVALS)
+        assert set(due) == {"CREATED"}
+
+    def test_each_status_keeps_its_own_clock(self):
+        now = 100_000.0
+        # CREATED overdue (30>23), PACKING fresh (1<23), DELIVERING overdue
+        # (70>63). Only the overdue ones come back.
+        last = {"CREATED": now - 30 * 60, "PACKING": now - 1 * 60,
+                "DELIVERING": now - 70 * 60}
+        due = fbs_statuses_due(now, last, intervals=self.INTERVALS)
+        assert set(due) == {"CREATED", "DELIVERING"}
+
+    def test_result_follows_all_status_order(self):
+        # Determinism: result is ordered by FBS_ALL_SYNC_STATUSES, not dict
+        # insertion or set iteration order.
+        due = fbs_statuses_due(1000.0, {}, first_run=True)
+        order = [s for s in FBS_ALL_SYNC_STATUSES if s in set(due)]
+        assert list(due) == order
+
+    def test_default_intervals_exclude_pending_states(self):
+        # With the REAL map, a first-run sweep must never include the
+        # never-sync statuses.
+        due = fbs_statuses_due(1000.0, {}, first_run=True)
+        assert "PENDING_DELIVERY" not in due
+        assert "PENDING_CANCELLATION" not in due

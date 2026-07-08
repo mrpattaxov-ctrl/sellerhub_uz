@@ -10,14 +10,14 @@
   <div class="fbs-shoppick-backdrop" data-shoppick-cancel="1"></div>
   <div class="fbs-shoppick-card" role="document">
     <button type="button" class="fbs-shoppick-x" data-shoppick-cancel="1"
-            aria-label="Yopish" title="Yopish">&times;</button>
+            aria-label="{{ list_labels.aria_close }}" title="{{ list_labels.aria_close }}">&times;</button>
     <div class="fbs-shoppick-icon" aria-hidden="true">📦</div>
-    <h3 class="fbs-shoppick-title" id="fbsShopPickTitle">Turli do'kondan buyurtma belgilandi</h3>
-    <p class="fbs-shoppick-msg">Bitta накладная — bitta do'kon uchun. Qaysi do'kon uchun yaratamiz?</p>
+    <h3 class="fbs-shoppick-title" id="fbsShopPickTitle">{{ list_labels.shoppick_title }}</h3>
+    <p class="fbs-shoppick-msg">{{ list_labels.shoppick_msg }}</p>
     <div class="fbs-shoppick-list" id="fbsShopPickList" role="radiogroup"></div>
     <div class="fbs-shoppick-actions">
-      <button type="button" class="fbs-shoppick-cancel" data-shoppick-cancel="1">Bekor</button>
-      <button type="button" class="fbs-shoppick-ok" id="fbsShopPickOk">Davom etish</button>
+      <button type="button" class="fbs-shoppick-cancel" data-shoppick-cancel="1">{{ list_labels.shoppick_cancel }}</button>
+      <button type="button" class="fbs-shoppick-ok" id="fbsShopPickOk">{{ list_labels.shoppick_ok }}</button>
     </div>
   </div>
 </div>

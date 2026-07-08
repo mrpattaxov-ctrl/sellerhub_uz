@@ -40,7 +40,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from datetime import datetime
 
-from sqlalchemy import select, update, func, and_, or_, cast, String
+from sqlalchemy import select, update, delete, func, and_, or_, cast, String
 from sqlalchemy.orm import defer
 
 from extensions import SessionLocal
@@ -51,8 +51,11 @@ from core.fbs_sync import (
     fetch_all_pages as _fbs_fetch_all_pages,
     upsert_orders as _fbs_upsert_orders,
     row_to_dict as _fbs_row_to_dict,
+    # The button-prune (Yangilash) and the worker reconcile must agree on
+    # which statuses are "active" — small queues whose JIT drain is
+    # authoritative enough to prune phantoms from. Single source of truth.
+    FBS_ACTIVE_SYNC_STATUSES as _FBS_ACTIVE_SYNC_STATUSES,
 )
-from core.fbs_locks import pace_uzum_call
 from core.uzum_openapi import (
     # Single-page fetch — JIT refresh path for the visible page of the
     # current chip; cheaper than draining all pages when the user just
@@ -109,12 +112,28 @@ def _ms_to_naive_utc(ms: int | None):
     return datetime.utcfromtimestamp(int(ms) / 1000.0)
 
 
+def _like_escape(s: str) -> str:
+    """Escape LIKE/ILIKE metacharacters so a raw user query matches LITERALLY.
+
+    Without this, a search for an SKU containing ``_`` or ``%`` (e.g. a seller
+    SKU code like ``ABC_01``) would treat ``_`` as "any single char" and ``%``
+    as "any run of chars", returning wrong rows. Pair with ``escape="\\"`` on
+    the ``ilike()`` call. Not a SQL-injection fix (the bind is parameterised) —
+    purely a correctness fix for the wildcard characters themselves.
+    """
+    return (
+        s.replace("\\", "\\\\")
+         .replace("%", "\\%")
+         .replace("_", "\\_")
+    )
+
+
 # N5 (HAR audit A.13) — most-urgent-first ordering for the active queue.
 # A seller racing a deadline needs the order about to breach its SLA at the
 # TOP, not the newest order. The relevant clock depends on status:
 #   CREATED                                   → accept_until (confirm before this)
 #   PACKING / PENDING_DELIVERY / DELIVERING   → deliver_until (ship before this)
-# Terminal/other statuses have no actionable deadline → keep newest-first.
+# Terminal/other statuses have no actionable deadline → see _EVENT_DATE_SORT_COLUMN.
 _DEADLINE_SORT_COLUMN = {
     "CREATED": FbsOrder.accept_until,
     "PACKING": FbsOrder.deliver_until,
@@ -122,14 +141,29 @@ _DEADLINE_SORT_COLUMN = {
     "DELIVERING": FbsOrder.deliver_until,
 }
 
+# Terminal statuses carry no live deadline, but the seller cares about RECENT
+# activity: the order most recently completed/cancelled/returned belongs at the
+# TOP, not the one most recently *created*. An order created in October but
+# completed yesterday should lead the COMPLETED tab — sorting by date_created
+# would bury it under newer-but-older-event rows. So sort by the terminal event
+# date DESC, with date_created DESC as the tiebreaker (covers legacy rows whose
+# event date was never backfilled — nulls_last keeps them below dated rows).
+_EVENT_DATE_SORT_COLUMN = {
+    "COMPLETED": FbsOrder.completed_date,
+    "CANCELED": FbsOrder.cancelled_date,
+    "RETURNED": FbsOrder.return_date,
+}
+
 
 def _fbs_list_order_by(status: str):
     """ORDER BY clause for a single-status list page.
 
     Deadline-bearing statuses sort by their deadline ASC (soonest first) so
-    the most-urgent order floats to the top; ``date_created DESC`` is the
-    tiebreaker (and the sole sort for every other status). ``nulls_last`` so
-    a missing deadline never jumps ahead of a real one.
+    the most-urgent order floats to the top. Terminal statuses
+    (COMPLETED/CANCELED/RETURNED) sort by their event date DESC (most recently
+    processed first). Every other status keeps ``date_created DESC``. In all
+    cases ``date_created DESC`` is the tiebreaker and ``nulls_last`` keeps a
+    missing date from jumping ahead of a real one.
 
     Note: this trades the composite-index sort order (shop_id, status,
     date_created DESC) for an explicit sort step, but a single-status page is
@@ -139,6 +173,11 @@ def _fbs_list_order_by(status: str):
     col = _DEADLINE_SORT_COLUMN.get(status)
     if col is not None:
         return [col.asc().nulls_last(),
+                FbsOrder.date_created.desc().nulls_last(),
+                FbsOrder.id.desc()]
+    event_col = _EVENT_DATE_SORT_COLUMN.get(status)
+    if event_col is not None:
+        return [event_col.desc().nulls_last(),
                 FbsOrder.date_created.desc().nulls_last(),
                 FbsOrder.id.desc()]
     return [FbsOrder.date_created.desc().nulls_last(), FbsOrder.id.desc()]
@@ -174,7 +213,9 @@ def _read_orders_from_db(
     if date_to_ms is not None:
         base_filters.append(FbsOrder.date_created <= _ms_to_naive_utc(date_to_ms))
     if q:
-        base_filters.append(cast(FbsOrder.items_json, String).ilike(f"%{q}%"))
+        base_filters.append(
+            cast(FbsOrder.items_json, String).ilike(f"%{_like_escape(q)}%", escape="\\")
+        )
 
     with SessionLocal() as db:
         total = int(db.execute(
@@ -238,6 +279,54 @@ def _read_count_from_db(
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _prune_departed_status_rows(
+    db, shop_uzum_ids, status: str, fresh_ids: set,
+) -> int:
+    """Delete ``fbs_orders`` rows for these shops still sitting in
+    ``status`` that Uzum's authoritative drain no longer returned — the
+    "arvox"/phantom orders that left the status out-of-band (the seller
+    cancelled in the Uzum app, or Uzum auto-cancelled an order whose
+    deadline lapsed). Either way the order just stops appearing in the
+    status list, and an UPSERT-only sync can never clear it — it freezes
+    on the list forever. This is the interactive twin of the background
+    worker's reconcile step (``app.py::_fbs_sync_one_token``), so a seller
+    pressing "Yangilash" clears the phantom immediately instead of waiting
+    up to ~10 min for the next worker tick.
+
+    SAFETY MODEL — two guards make this incapable of deleting a live order:
+
+      1. Caller restricts this to ACTIVE statuses only, whose queues are
+         tiny so the drained set is reliably COMPLETE. A terminal status
+         (COMPLETED/CANCELED) can exceed the paginator's page cap, so a
+         prune there could delete real history — never call it for those.
+
+      2. TARGETED prune only (``order_id NOT IN fresh_ids``): when
+         ``fresh_ids`` is EMPTY we do NOTHING. An empty drain means "Uzum
+         reports zero orders in this status" — trusting that to wipe the
+         whole status would let a single fluke empty-200 nuke live orders.
+         The all-phantom case is deliberately left to the unattended
+         worker, which guards it with a 2-strike (two consecutive empties)
+         confirmation. The interactive press only ever removes phantoms
+         that sit ALONGSIDE at least one still-present order.
+
+    Returns the number of rows deleted.
+    """
+    ids = [str(s) for s in shop_uzum_ids if s is not None and str(s).strip()]
+    if not ids or not fresh_ids:
+        return 0
+    res = db.execute(
+        delete(FbsOrder)
+        .where(FbsOrder.shop_id.in_(ids))
+        .where(FbsOrder.status == status)
+        .where(~FbsOrder.order_id.in_({str(i) for i in fresh_ids}))
+    )
+    pruned = res.rowcount or 0
+    if pruned:
+        print(f"[fbs_data] Yangilash-prune: removed {pruned} phantom "
+              f"{status} row(s) shops={','.join(ids)}")
+    return pruned
+
+
 def _refresh_shop_status(token: str, shop_uzum_id: str | int, status: str) -> int:
     """Fetch ``(shop, status)`` fresh from Uzum and UPSERT into
     ``fbs_orders``. Returns the number of orders upserted.
@@ -268,6 +357,14 @@ def _refresh_shop_status(token: str, shop_uzum_id: str | int, status: str) -> in
     orders = _fbs_fetch_all_pages(token, shop_uzum_id, status=status, fail_fast=True)
     with SessionLocal() as db:
         n = _fbs_upsert_orders(db, shop_uzum_id, orders=orders)
+        # Yangilash-prune (active statuses only): the drain above is the
+        # COMPLETE authoritative set for this (shop, status), so any local
+        # row still in this status that Uzum no longer returns is a phantom
+        # — remove it now instead of waiting for the worker's reconcile.
+        # See _prune_departed_status_rows for why this can't drop a live row.
+        if status in _FBS_ACTIVE_SYNC_STATUSES:
+            fresh_ids = {str(o.get("id")) for o in orders if o.get("id") is not None}
+            _prune_departed_status_rows(db, [shop_uzum_id], status, fresh_ids)
         db.commit()
     return n
 
@@ -304,6 +401,12 @@ def _refresh_shops_status(
     orders = _fbs_fetch_all_pages(token, ids, status=status, fail_fast=True)
     with SessionLocal() as db:
         n = _fbs_upsert_orders(db, ids[0], orders=orders)
+        # Yangilash-prune across the shop group: same authoritative-drain
+        # reasoning as the single-shop path. Each order routes back to its
+        # own shop by id, so a phantom on any shop in the group is removed.
+        if status in _FBS_ACTIVE_SYNC_STATUSES:
+            fresh_ids = {str(o.get("id")) for o in orders if o.get("id") is not None}
+            _prune_departed_status_rows(db, ids, status, fresh_ids)
         db.commit()
     return n
 
@@ -372,11 +475,10 @@ def _refresh_shops_status_first_page(
     ids = [str(s).strip() for s in shop_uzum_ids if s is not None and str(s).strip()]
     if not ids:
         return 0
-    # Bosqich A.6 — this path calls fetch_fbs_orders_page DIRECTLY (not via
-    # fetch_all_pages), so it paces the single Uzum /orders call through
-    # the shared per-token gate here. No coarse lock / skip: it interleaves
-    # with the worker, >=1s apart, under Uzum's burst threshold.
-    pace_uzum_call(token)
+    # Bosqich A.11 — pacing is now handled centrally by the shared per-token
+    # bucket inside _fbs_orders_request_with_auth (see uzum_openapi), so this
+    # path no longer needs its own gate; the bucket interleaves it with the
+    # worker + finance/products across all processes.
     # Bosqich A.9 (#5) — interactive first-page refresh: fail fast (~2-3s).
     body, _ = fetch_fbs_orders_page(
         token, ids, status=status, page=0, size=size,
@@ -385,8 +487,19 @@ def _refresh_shops_status_first_page(
     orders, _ = extract_fbs_orders_list(body)
     if not orders:
         return 0
+    # Yangilash-prune guard: this path fetches only ONE page, so the set is
+    # authoritative-COMPLETE only when the page wasn't full. A full page
+    # (== size) means page 1+ may hold orders we never fetched, and pruning
+    # off a partial set could delete a real order → only prune on a short
+    # page. Active queues are tiny (< size), so in practice this fires for
+    # exactly the statuses where phantoms occur, and defers to the worker
+    # for the rare full-page active status.
+    page_is_complete = len(orders) < size
     with SessionLocal() as db:
         n = _fbs_upsert_orders(db, ids[0], orders=orders)
+        if page_is_complete and status in _FBS_ACTIVE_SYNC_STATUSES:
+            fresh_ids = {str(o.get("id")) for o in orders if o.get("id") is not None}
+            _prune_departed_status_rows(db, ids, status, fresh_ids)
         db.commit()
     return n
 
@@ -571,7 +684,9 @@ def get_fbs_orders_for_shops(
     if date_to_ms is not None:
         base_filters.append(FbsOrder.date_created <= _ms_to_naive_utc(date_to_ms))
     if q:
-        base_filters.append(cast(FbsOrder.items_json, String).ilike(f"%{q}%"))
+        base_filters.append(
+            cast(FbsOrder.items_json, String).ilike(f"%{_like_escape(q)}%", escape="\\")
+        )
 
     with SessionLocal() as db:
         total = int(db.execute(
@@ -614,6 +729,29 @@ def get_fbs_counts_for_shops(shop_uzum_ids: list[str]) -> dict[str, int]:
         if status in counts:
             counts[status] = int(n or 0)
     return counts
+
+
+def get_owned_invoice_numbers(shop_uzum_ids: list[str]) -> set[str]:
+    """Distinct ``fbs_orders.invoice_number`` for the given shops.
+
+    The shop-scope source of truth for FBS invoices: Uzum's invoice payload
+    carries no ``shopId``, but every order carries its ``invoiceNumber`` and
+    the order-sync writes only registered shops — so this set is exactly the
+    invoices those shops own. Used by the накладные list filter, the by-id
+    ownership guards (fbs/routes) and the worker's akt prefetch (app.py).
+    Empty set for an empty shop list (callers treat that as "owns nothing").
+    """
+    sids = [str(s) for s in (shop_uzum_ids or []) if s is not None and str(s).strip()]
+    if not sids:
+        return set()
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(FbsOrder.invoice_number)
+            .where(FbsOrder.shop_id.in_(sids))
+            .where(FbsOrder.invoice_number.isnot(None))
+            .distinct()
+        ).all()
+    return {str(r[0]) for r in rows if r[0] is not None}
 
 
 def get_last_synced_at_for_shops(shop_uzum_ids: list[str]) -> str | None:
@@ -843,7 +981,7 @@ def cancel_order(
     t1 = time.perf_counter()
     try:
         with SessionLocal() as db:
-            db.execute(
+            res = db.execute(
                 update(FbsOrder)
                 .where(FbsOrder.order_id == str(order_id))
                 .values(
@@ -853,6 +991,15 @@ def cancel_order(
                 )
             )
             db.commit()
+            # rowcount==0 ⇒ the order isn't in our DB yet (not synced). The
+            # cancel DID succeed on Uzum, but it left no local trace, so the
+            # row stays uncancelled until the next worker tick. Surface it so
+            # a "cancelled on Uzum but still shows active locally" report is
+            # diagnosable from the log instead of looking like a silent no-op.
+            if (res.rowcount or 0) == 0:
+                print(f"[fbs.cancel] manual-update order={order_id!r} "
+                      f"matched 0 rows (not yet synced) — relying on worker "
+                      f"refetch to create the row", flush=True)
     except Exception as e:
         print(f"[fbs.cancel] manual-update order={order_id!r} ERROR: {e!r}",
               flush=True)
@@ -946,8 +1093,13 @@ def _get_label_pdfs_cached(token: str, order_id, size: str, *, fail_fast: bool =
     # Cache miss / stale → real Uzum call (outside the lock so concurrent
     # misses on different orders don't serialise).
     pdfs, used_url = download_fbs_label(token, order_id, size=size, fail_fast=fail_fast)
+    # Stamp the entry with the time the download FINISHED, not when the
+    # function started. The Uzum call (with its 429 retries) can take several
+    # seconds; using the pre-call ``now`` would shorten the 300s TTL window by
+    # that duration, expiring the cache early.
+    stored_at = time.time()
     with _label_cache_lock:
-        _label_cache[key] = (now, pdfs, used_url)
+        _label_cache[key] = (stored_at, pdfs, used_url)
         if len(_label_cache) > _LABEL_CACHE_MAX:
             # Drop the single oldest entry. Not strictly LRU but close
             # enough — we just need to keep the dict from growing without
@@ -1040,27 +1192,51 @@ def get_label_pdfs(
 # Dimensions are in mm; ``tcol`` is the side-column width holding the
 # rotated SKU / barcode-number text; ``qr`` is the QR square side.
 _PRODUCT_LABEL_SIZES = {
-    "30x20":  {"w": 30,  "h": 20,  "tcol": 6,  "qr": 16,  "sku_fs": 5.4, "num_fs": 6,  "num_last4_fs": 8},
+    # NOTE: these MUST stay identical to fbs/routes.py `_QR_PRINT_SIZES` (the
+    # standalone «QR» button's HTML print) so a «Yorliq + QR» merge renders the
+    # product QR at the EXACT same proportions as «QR» (Abdulaziz 2026-06-17:
+    # "QR pechat joyini QR+yorliq joyiga nusxala"). 30×20 va 40×30 oldin
+    # kattaroq qr/tcol ishlatardi → endi tugma bilan bir xil.
+    "30x20":  {"w": 30,  "h": 20,  "tcol": 7,  "qr": 14,  "sku_fs": 5.4, "num_fs": 6,  "num_last4_fs": 8},
     "43x25":  {"w": 43,  "h": 25,  "tcol": 8,  "qr": 20,  "sku_fs": 6,   "num_fs": 7,  "num_last4_fs": 9},
-    "40x30":  {"w": 40,  "h": 30,  "tcol": 7,  "qr": 24,  "sku_fs": 6.5, "num_fs": 7,  "num_last4_fs": 9},
+    "40x30":  {"w": 40,  "h": 30,  "tcol": 9,  "qr": 20,  "sku_fs": 6.5, "num_fs": 7,  "num_last4_fs": 9},
     "60x60":  {"w": 60,  "h": 60,  "tcol": 12, "qr": 34,  "sku_fs": 8,   "num_fs": 8,  "num_last4_fs": 11},
     "70x37":  {"w": 70,  "h": 37,  "tcol": 12, "qr": 40,  "sku_fs": 8,   "num_fs": 8,  "num_last4_fs": 11},
-    # ``uzum`` = same physical page size as the Uzum shipping label
-    # (685×472pt landscape ≈ 242×166mm) so the merged PDF has every
-    # page the same dimensions — no "tiny sticker squished between huge
-    # pages". Layout values are the 43×25mm preset scaled ~6× so the
-    # QR and text fill the page proportionally instead of floating in
-    # empty space.
-    "uzum":   {"w": 242, "h": 166, "tcol": 48, "qr": 130, "sku_fs": 36,  "num_fs": 42, "num_last4_fs": 54},
+    # ``uzum`` = same physical PAGE size as the Uzum shipping label
+    # (685×472pt landscape ≈ 242×166mm) so the merged «Yorliq + QR» PDF has
+    # every page the same dimensions — no "tiny sticker squished between huge
+    # pages". The QR/text PROPORTIONS mirror the standalone «QR» print's 40×30
+    # preset (qr/h = 20/30 = 0.667, tcol/w = 9/40 = 0.225, fonts scaled by
+    # h-ratio 166/30) so the merged QR prints the SAME relative size as the
+    # «QR» button output — earlier qr=130 (qr/h=0.78) printed noticeably bigger
+    # (Abdulaziz 2026-06-17: "sal kattaroq bo'lib di"). 111 ≈ 0.667×166,
+    # 54 ≈ 0.225×242, 39 ≈ 7×166/30, 50 ≈ 9×166/30.
+    "uzum":   {"w": 242, "h": 166, "tcol": 54, "qr": 111, "sku_fs": 36,  "num_fs": 39, "num_last4_fs": 50},
 }
 # Default = uzum so the merged "label + product QR" PDF has consistent
 # page sizes across all pages.
 _DEFAULT_PRODUCT_LABEL_SIZE = "uzum"
 _MM_TO_PT = 72.0 / 25.4
 
+# Process-level cache of fetched qrserver PNGs, keyed by (content, px). The same
+# SKU/barcode appears across many orders in a bulk print; caching avoids
+# re-hitting api.qrserver.com for an identical QR. Bounded by content variety
+# (a few hundred SKUs at most) so a plain dict is fine.
+_QR_PNG_CACHE: dict = {}
 
-def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -> bytes:
+
+def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE,
+                          *, match_uzum_label: bool = False) -> bytes:
     """Render a single product-QR sticker PDF matching the FBO format.
+
+    ``match_uzum_label`` — when True, the page is emitted PORTRAIT-mediabox
+    + ``/Rotate 90`` so it has the SAME geometry as Uzum's LARGE shipping
+    label (472×685pt portrait + /Rotate 90). Used by the merged «Yorliq + QR»
+    PDF: if the QR page stayed landscape-mediabox while the label page is
+    portrait+rotate, the browser fits the mixed orientations to the FIRST
+    page's portrait sheet → the QR shrank with whitespace (Abdulaziz
+    2026-06-17). Matching the geometry makes every merged page print
+    identically. Standalone QR prints (all-landscape) leave this False.
 
     Layout — identical to the existing FBO product-labels sheet
     (``templates/print_labels.html``) so warehouse staff see the same
@@ -1108,11 +1284,16 @@ def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -
     # Auto-fit: clamp QR side so it never overflows the page. The
     # preset's ``qr`` mm value is a TARGET — for 70×37mm the preset
     # says qr=40 but the page is only 37mm tall, so the QR has to
-    # shrink to fit. We also subtract a small inner margin and avoid
-    # overlapping the side text columns.
+    # shrink to fit. Width limit = page minus the two text columns ONLY
+    # (no extra inner margin) so the QR reaches the SAME size as the HTML
+    # «QR» print (templates/fbs_qr_print.html), whose flex layout is just
+    # [tcol][qr][tcol]. Subtracting an extra margin here shrank the merged
+    # QR ~1 module below the «QR» button → seller saw a size diff
+    # (Abdulaziz 2026-06-17: "QR bilan bir xil qil"). Height keeps a tiny
+    # margin (the QR is centred with vertical slack anyway).
     inner_margin_px = max(1, int(round(1.5 * _MM_TO_PT * SCALE)))  # ~1.5mm
     max_qr_h = H_px - 2 * inner_margin_px
-    max_qr_w = W_px - 2 * tcol_px - 2 * inner_margin_px
+    max_qr_w = W_px - 2 * tcol_px
     qr_side_target = max(20, min(qr_side_target, max_qr_h, max_qr_w))
 
     def _font(size_pt: float, bold: bool = False):
@@ -1181,14 +1362,16 @@ def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -
         text. Matches the FBO `print_labels.html` overflow-wrap style.
         """
         # Try the nominal font first, then a couple smaller steps, with
-        # automatic line-wrap. The "tight" check uses col_h (= eventual
-        # vertical strip height after rotation) as the wrap target.
+        # automatic line-wrap. Wrap target = FULL col_h (the strip's long
+        # side), matching the HTML «QR» print's `.sku-top { width: lbl.h }`.
+        # An earlier 0.92 margin made the SKU wrap one line MORE than the
+        # button (3 lines vs 2, sitting high) — Abdulaziz 2026-06-17.
         chosen = None
         for ratio in (1.0, 0.9, 0.8):
             f = _font(font_pt * ratio, bold=bold)
             tmp = Image.new("RGB", (10, 10), "white")
             d = ImageDraw.Draw(tmp)
-            lines = _wrap_text_to_lines(d, text, f, int(col_h * 0.92))
+            lines = _wrap_text_to_lines(d, text, f, col_h)
             # Estimate total height = num_lines * line-height. If it
             # fits in col_w (= eventual strip width), keep it.
             ascent, descent = f.getmetrics()
@@ -1202,7 +1385,7 @@ def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -
             f = _font(font_pt * 0.7, bold=bold)
             tmp = Image.new("RGB", (10, 10), "white")
             d = ImageDraw.Draw(tmp)
-            lines = _wrap_text_to_lines(d, text, f, int(col_h * 0.92))
+            lines = _wrap_text_to_lines(d, text, f, col_h)
             ascent, descent = f.getmetrics()
             chosen = (f, lines, ascent + descent + 2, ascent)
         f, lines, line_h, ascent = chosen
@@ -1273,22 +1456,83 @@ def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -
 
     try:
         # ─── QR code ─────────────────────────────────────────────
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10, border=1,
-        )
-        qr.add_data(qr_content)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-        qr_img = qr_img.resize((qr_side_target, qr_side_target), Image.NEAREST)
-        # NEAREST keeps the QR modules crisp (no anti-aliasing blur that
-        # would confuse some bargain-bin scanners).
+        # PRIMARY: api.qrserver.com — the EXACT service the FBO «QR Chop etish»
+        # page (templates/print_labels.html) uses. The seller confirmed its QR
+        # prints crisp, so we generate the FBS sticker QR the same way instead of
+        # the local raster. Request it at the target pixel size (qrserver caps at
+        # 1000px) so no resampling is needed → clean modules. margin=0 matches the
+        # FBO page (the white sticker around the QR is the quiet zone).
+        # Cached per (content, px) for bulk prints; falls back to the local
+        # qrcode lib if the network call fails so printing never breaks
+        # (Abdulaziz 2026-06-16).
+        qr_px = qr_side_target
+        qr_img = None
+        # INTEGER-upscale plan. qrserver caps the PNG at 1000px and we upscale by
+        # an INTEGER factor (even modules → razor-sharp). When the target slot is
+        # BIGGER than 1000px (the "uzum" preset: target≈1474) we must request a
+        # SMALLER clean grid and multiply it back up — otherwise the old code
+        # requested min(1000, target)=1000, then factor=round(1474/1000)=1 left
+        # the QR at 1000px (~88mm) inside a 130mm slot → it printed ~60% too small
+        # with a huge quiet zone (Abdulaziz 2026-06-17). ceil(target/1000) picks
+        # the factor; target/factor is the source size to fetch.
+        _qr_factor = max(1, (qr_side_target + 999) // 1000)
+        _px = max(160, min(1000, int(round(qr_side_target / _qr_factor))))
+        _ckey = (qr_content, _px)
+        try:
+            _raw = _QR_PNG_CACHE.get(_ckey)
+            if _raw is None:
+                import requests as _rq
+                from urllib.parse import quote as _quote
+                _url = (
+                    "https://api.qrserver.com/v1/create-qr-code/"
+                    "?ecc=M&margin=0&size=%dx%d&data=%s"
+                    % (_px, _px, _quote(qr_content))
+                )
+                _resp = _rq.get(_url, timeout=8)
+                if _resp.ok and _resp.content:
+                    _raw = _resp.content
+                    if len(_QR_PNG_CACHE) < 2000:
+                        _QR_PNG_CACHE[_ckey] = _raw
+            if _raw:
+                qr_img = Image.open(io.BytesIO(_raw)).convert("L")
+        except Exception as _qe:
+            print(f"[fbs_data] qrserver fetch failed ({_qe!r}) — local QR fallback")
+        if qr_img is not None:
+            # qrserver gives a clean grid at `_px`. Scale to the target slot by an
+            # INTEGER factor ONLY — a fractional NEAREST resize makes modules 1px
+            # uneven again (the "uzum" preset, target≈1474 > qrserver's 1000px cap,
+            # showed exactly this wobble). factor≥1 upscales evenly; when the source
+            # already covers the slot we keep it and just centre it (slightly
+            # smaller = larger quiet zone, still razor-sharp).
+            src = qr_img.size[0]
+            factor = max(1, int(round(qr_side_target / src)))
+            if factor > 1:
+                qr_img = qr_img.resize((src * factor, src * factor), Image.NEAREST)
+            qr_px = qr_img.size[0]
+            # Safety: never overflow the slot (rare tiny presets where src > target).
+            if qr_px > qr_side_target:
+                qr_img = qr_img.resize((qr_side_target, qr_side_target), Image.NEAREST)
+                qr_px = qr_side_target
+        else:
+            # FALLBACK (offline / API down): local qrcode lib, scaled to an EVEN
+            # multiple of the module grid so every module is the same px size.
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=10, border=1,
+            )
+            qr.add_data(qr_content)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white").convert("L")
+            total_mod = qr.modules_count + 2 * qr.border
+            box = max(1, qr_side_target // total_mod)
+            qr_px = box * total_mod
+            qr_img = qr_img.resize((qr_px, qr_px), Image.NEAREST)
 
         # ─── Compose ─────────────────────────────────────────────
         page = Image.new("RGB", (W_px, H_px), "white")
-        page.paste(qr_img, ((W_px - qr_side_target) // 2,
-                            (H_px - qr_side_target) // 2))
+        page.paste(qr_img.convert("RGB"), ((W_px - qr_px) // 2,
+                                           (H_px - qr_px) // 2))
 
         # SKU on left column, rotated -90°.
         sku_strip = _vertical_text_strip(sku or qr_content,
@@ -1307,9 +1551,41 @@ def render_product_qr_pdf(item: dict, size: str = _DEFAULT_PRODUCT_LABEL_SIZE) -
 
         # Save as PDF. resolution=72*SCALE so the page becomes exactly
         # W_pt × H_pt regardless of the pixel count.
+        #
+        # LOSSLESS — PIL's default PDF encoder stores RGB images as JPEG
+        # (DCTDecode), which smears the QR's sharp black/white edges into grey
+        # fuzz → THE "past sifat / xira" QR the seller saw (the even-module fix
+        # above wasn't enough on its own). Convert to 1-bit with NO dither so PIL
+        # stores it CCITT-lossless: every module stays a clean square, exactly
+        # like the FBO «QR Chop etish» PNG. The page is pure B/W (black QR + text
+        # on white), so 1-bit loses nothing (Abdulaziz 2026-06-16).
+        bw = page.convert("1", dither=Image.NONE)
+        if match_uzum_label:
+            # PDF /Rotate 90 = ko'rsatishda 90° SOAT STRELKASI bo'yicha aylantiradi.
+            # To'g'ri landshaft ko'rinishni olish uchun kontentni 90° CCW aylantirib
+            # PORTRET qilib saqlaymiz; keyin /Rotate 90 qo'ysak ko'rsatishda yana
+            # landshaftga qaytadi — Uzum yorlig'i (portret + /Rotate 90) bilan
+            # bir xil tuzilish → birlashtirilgan PDF har sahifani bir xil bosadi.
+            bw = bw.rotate(90, expand=True)
         buf = io.BytesIO()
-        page.save(buf, format="PDF", resolution=72 * SCALE)
-        return buf.getvalue()
+        bw.save(buf, format="PDF", resolution=72 * SCALE)
+        data = buf.getvalue()
+        if match_uzum_label:
+            try:
+                from pypdf import PdfReader, PdfWriter
+                reader = PdfReader(io.BytesIO(data))
+                writer = PdfWriter()
+                for p in reader.pages:
+                    p.rotate(90)   # /Rotate 0 → 90 (soat strelkasi bo'yicha)
+                    writer.add_page(p)
+                obuf = io.BytesIO()
+                writer.write(obuf)
+                data = obuf.getvalue()
+            except Exception as _re:
+                # Aylantirish chiqmasa — landshaft variantni qaytaramiz (chop
+                # baribir ishlaydi, faqat eski xatti-harakat).
+                print(f"[fbs_data] QR portrait-rotate failed (using landscape): {_re!r}")
+        return data
     except Exception as e:
         print(f"[fbs_data] product QR render failed for sku={sku!r}: {e!r}")
         return b""

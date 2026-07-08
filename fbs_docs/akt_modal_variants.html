@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Накладная detal modali — 5 zamonaviy variant</title>
+<style>
+  :root{
+    --bg:#eef0f7; --card:#ffffff; --card2:#fafbff;
+    --ink:#101828; --ink2:#475467; --mut:#8a93a6; --faint:#aab2c4;
+    --line:#eef0f4; --line2:#e6e9f1;
+    --brand:#6938ef; --brand-2:#8b5cf6; --brand-d:#5524d6;
+    --brand-soft:rgba(105,56,239,.10); --brand-soft2:rgba(105,56,239,.16);
+    --ok:#047857; --ok-bg:#ecfdf3; --danger:#b91c1c; --warn:#b45309;
+    --r-card:18px; --r-sm:12px; --r-pill:999px;
+    --sh-sm:0 1px 3px rgba(105,56,239,.07), 0 1px 2px rgba(16,24,40,.05);
+    --sh-md:0 12px 34px rgba(16,24,40,.12);
+    --sh-lg:0 30px 80px -20px rgba(50,30,120,.45);
+  }
+  [data-theme="dark"]{
+    --bg:#0e1016; --card:#181b24; --card2:#1d212c;
+    --ink:#e8edf6; --ink2:#aeb6c7; --mut:#7a849a; --faint:#5a647a;
+    --line:#262b39; --line2:#2e3447;
+    --brand:#8b6dff; --brand-2:#a78bfa; --brand-d:#7b4eff;
+    --brand-soft:rgba(139,109,255,.14); --brand-soft2:rgba(139,109,255,.22);
+    --ok:#34d399; --ok-bg:rgba(16,185,129,.14); --danger:#f87171; --warn:#fbbf24;
+    --sh-sm:0 1px 3px rgba(0,0,0,.4); --sh-md:0 12px 34px rgba(0,0,0,.55);
+    --sh-lg:0 30px 80px -20px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;font-family:-apple-system,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 82% -8%, rgba(105,56,239,.14), transparent 60%),
+      radial-gradient(900px 520px at -10% 108%, rgba(139,92,246,.12), transparent 55%),
+      var(--bg);
+    color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased;
+    padding-bottom:5rem;
+  }
+  [data-theme="dark"] body{background:
+    radial-gradient(1200px 600px at 82% -8%, rgba(139,109,255,.16), transparent 60%),
+    radial-gradient(900px 520px at -10% 108%, rgba(139,109,255,.08), transparent 55%),
+    linear-gradient(160deg,#0b0d13,#101219 56%,#0d0f16)}
+
+  /* Top bar */
+  .bar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+    padding:.7rem 1.2rem;background:color-mix(in srgb,var(--card) 80%,transparent);
+    backdrop-filter:blur(16px) saturate(140%);border-bottom:1px solid var(--line2)}
+  .bar h1{font-size:.95rem;margin:0 1rem 0 0;font-weight:800;letter-spacing:-.01em}
+  .bar .sp{flex:1}
+  .jump{display:flex;gap:.35rem;flex-wrap:wrap}
+  .jump a{font-size:.76rem;font-weight:700;text-decoration:none;color:var(--ink2);
+    border:1px solid var(--line2);background:var(--card);padding:.36rem .7rem;border-radius:var(--r-pill);
+    transition:.16s}
+  .jump a:hover{color:#fff;background:var(--brand);border-color:var(--brand)}
+  .tgl{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--line2);
+    background:var(--card);color:var(--ink);padding:.4rem .8rem;border-radius:var(--r-pill);
+    font-size:.78rem;font-weight:700;cursor:pointer}
+
+  /* Layout */
+  .wrap{max-width:880px;margin:0 auto;padding:2rem 1.2rem 0}
+  .vtag{display:flex;align-items:center;gap:.7rem;margin:2.6rem 0 1rem;scroll-margin-top:5rem}
+  .vtag .n{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:var(--brand);color:#fff;font-weight:800;font-size:.92rem;box-shadow:var(--sh-sm)}
+  .vtag h2{margin:0;font-size:1.06rem;font-weight:800;letter-spacing:-.01em}
+  .vtag p{margin:.1rem 0 0;font-size:.8rem;color:var(--mut);font-weight:600}
+  .vtag .meta{flex:1}
+
+  /* ===== shared modal shell ===== */
+  .modal{border-radius:var(--r-card);background:var(--card);box-shadow:var(--sh-lg);
+    overflow:hidden;position:relative}
+  .x{flex:none;width:34px;height:34px;border-radius:10px;border:1px solid transparent;
+    display:grid;place-items:center;cursor:pointer;color:inherit;background:rgba(255,255,255,.18);
+    transition:.16s}
+  .x:hover{background:rgba(255,255,255,.34)}
+  .x svg{width:17px;height:17px}
+
+  .lbl{font-size:.64rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+  .pill{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:var(--r-pill);
+    font-size:.7rem;font-weight:800;line-height:1}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .icn{flex:none;display:grid;place-items:center}
+  .icn svg{width:17px;height:17px}
+
+  /* product row shared */
+  .prod{display:flex;gap:.7rem;align-items:center;min-width:0}
+  .prod .img{flex:none;width:42px;height:42px;border-radius:10px;object-fit:cover;
+    background:linear-gradient(135deg,#dfe3ee,#c9cfdf);display:grid;place-items:center;font-size:1.1rem}
+  [data-theme="dark"] .prod .img{background:linear-gradient(135deg,#2a3042,#222738)}
+  .prod .nm{font-size:.84rem;font-weight:650;color:var(--ink);line-height:1.32;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+  .prod .sub{font-size:.7rem;color:var(--mut);font-weight:600;margin-top:.12rem;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prod .sub b{color:var(--ink2);font-weight:700}
+
+  /* ================= V1 — AURORA GLASS ================= */
+  .v1 .head{position:relative;padding:1.3rem 1.4rem 1.5rem;
+    background:linear-gradient(135deg,#6d3bf5 0%,#8b5cf6 48%,#a855f7 100%);overflow:hidden}
+  .v1 .head::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(420px 200px at 12% -40%,rgba(255,255,255,.45),transparent 60%),
+      radial-gradient(360px 220px at 96% 140%,rgba(56,189,248,.4),transparent 55%);
+    mix-blend-mode:screen;pointer-events:none}
+  .v1 .head .row{position:relative;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+  .v1 .head .glabel{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+  .v1 .head h3{margin:.25rem 0 0;color:#fff;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums}
+  .v1 .head .akt{margin-top:1rem;display:inline-flex;align-items:center;gap:.5rem;
+    padding:.6rem 1.05rem;border-radius:12px;background:rgba(255,255,255,.95);color:#5524d6;
+    font-weight:800;font-size:.84rem;text-decoration:none;box-shadow:0 8px 22px rgba(40,15,90,.35);
+    position:relative;z-index:2;transition:.16s}
+  .v1 .head .akt:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(40,15,90,.45)}
+  .v1 .body{padding:1.1rem 1.2rem 1.3rem;display:flex;flex-direction:column;gap:.85rem;
+    margin-top:-1rem;position:relative;z-index:3}
+  .v1 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem}
+  .v1 .glass{background:color-mix(in srgb,var(--card) 70%,transparent);
+    border:1px solid color-mix(in srgb,var(--brand) 18%,transparent);
+    backdrop-filter:blur(8px);border-radius:14px;padding:.7rem .8rem;box-shadow:var(--sh-sm)}
+  .v1 .fact{display:flex;gap:.55rem;align-items:center}
+  .v1 .fact .icn{width:30px;height:30px;border-radius:9px;background:var(--brand-soft);color:var(--brand)}
+  .v1 .fact .v{font-size:.9rem;font-weight:750;color:var(--ink);margin-top:.12rem}
+  .v1 .fact.prim .v{color:var(--brand)}
+  .v1 .addr{display:flex;gap:.7rem;align-items:center}
+  .v1 .addr .icn{width:38px;height:38px;border-radius:11px;background:var(--brand-soft);color:var(--brand)}
+  .v1 .addr .av{font-size:.92rem;font-weight:700;color:var(--ink);margin-top:.12rem}
+  .v1 .edit{flex:none;display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .85rem;border-radius:11px;
+    border:1px solid color-mix(in srgb,var(--brand) 38%,transparent);background:var(--brand-soft);color:var(--brand);
+    font-weight:750;font-size:.8rem;cursor:pointer;transition:.16s}
+  .v1 .edit:hover{background:var(--brand);color:#fff}
+  .v1 .ord-h{display:flex;align-items:center;gap:.5rem;margin:.3rem 0 .1rem}
+  .v1 .ord-h .t{font-size:.92rem;font-weight:800}
+  .v1 .cnt{min-width:22px;height:22px;padding:0 .4rem;border-radius:999px;display:grid;place-items:center;
+    background:var(--brand-soft);color:var(--brand);font-size:.72rem;font-weight:800}
+  .v1 .ord{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--card)}
+  .v1 .ord .top{display:flex;justify-content:space-between;align-items:center;padding:.55rem .85rem;
+    border-bottom:1px dashed var(--line2)}
+  .v1 .ord .no{font-size:.82rem;font-weight:800;color:var(--ink)}
+  .v1 .line{display:flex;align-items:center;gap:.7rem;padding:.55rem .85rem}
+  .v1 .line+.line{border-top:1px solid var(--line)}
+  .v1 .line .r{margin-left:auto;text-align:right;flex:none}
+  .v1 .qty{font-size:.78rem;color:var(--ink2);font-weight:700}
+  .v1 .sum{font-size:.86rem;font-weight:800;color:var(--ink)}
+
+  /* ================= V2 — SOFT MINIMAL (refined current) ================= */
+  .v2 .head{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+    padding:1.1rem 1.3rem;border-bottom:1px solid var(--line2)}
+  .v2 .head h3{margin:0;font-size:1.12rem;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .v2 .head .sub{font-size:.74rem;color:var(--mut);font-weight:600;margin-top:.15rem}
+  .v2 .head .x{background:var(--card2);border-color:var(--line2);color:var(--ink2)}
+  .v2 .head .x:hover{background:var(--brand-soft);color:var(--brand)}
+  .v2 .akt{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem 1rem;border-radius:12px;
+    background:var(--brand);color:#fff;font-weight:750;font-size:.83rem;text-decoration:none;
+    box-shadow:0 6px 16px rgba(105,56,239,.32);transition:.16s}
+  .v2 .akt:hover{background:var(--brand-d);transform:translateY(-1px)}
+  .v2 .body{padding:1.1rem 1.3rem 1.3rem;display:flex;flex-direction:column;gap:.9rem}
+  .v2 .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    background:var(--card2);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
+  .v2 .fact{padding:.85rem 1rem;display:flex;flex-direction:column;gap:.35rem;position:relative}
+  .v2 .fact:not(:last-child)::after{content:"";position:absolute;right:0;top:18%;height:64%;width:1px;background:var(--line2)}
+  .v2 .fact .v{font-size:.92rem;font-weight:750;color:var(--ink)}
+  .v2 .fact.prim .v{color:var(--brand);font-size:1rem}
+  .v2 .addr{display:flex;gap:.75rem;align-items:center;padding:.9rem 1rem;border:1px solid var(--line2);
+    border-radius:16px;background:var(--card2)}
+  .v2 .addr .icn{width:36px;height:36px;border-radius:10px;background:var(--brand-soft);color:var(--brand)}
+  .v2 .addr .av{font-size:.93rem;font-weight:700;margin-top:.12rem}
+  .v2 .edit{flex:none;display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .85rem;border-radius:10px;
+    border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);background:var(--brand-soft);color:var(--brand);
+    font-weight:700;font-size:.8rem;cursor:pointer;transition:.16s}
+  .v2 .edit:hover{background:var(--brand);color:#fff}
+  .v2 .ord-h{display:flex;align-items:center;gap:.5rem}
+  .v2 .ord-h .t{font-size:.9rem;font-weight:800}
+  .v2 .cnt{min-width:22px;height:22px;padding:0 .4rem;border-radius:999px;display:grid;place-items:center;
+    background:var(--line);color:var(--ink2);font-size:.72rem;font-weight:800}
+  .v2 table{width:100%;border-collapse:separate;border-spacing:0 .45rem}
+  .v2 thead th{font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);
+    text-align:left;padding:0 .9rem .1rem}
+  .v2 thead th.c{text-align:center}.v2 thead th.r{text-align:right}
+  .v2 tbody td{background:var(--card);border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);
+    padding:.6rem .9rem;vertical-align:middle}
+  .v2 tbody td:first-child{border-left:1px solid var(--line2);border-radius:12px 0 0 12px;font-weight:800;font-size:.82rem}
+  .v2 tbody td:last-child{border-right:1px solid var(--line2);border-radius:0 12px 12px 0}
+  .v2 td.c{text-align:center;color:var(--ink2);font-weight:700;font-size:.8rem}
+  .v2 td.r{text-align:right;font-weight:800;font-size:.85rem}
+  .v2 .pstack{display:flex;flex-direction:column;gap:.45rem}
+
+  /* ================= V3 — SPLIT RAIL ================= */
+  .v3 .grid{display:grid;grid-template-columns:248px 1fr}
+  .v3 .rail{background:linear-gradient(165deg,#5e2fe6,#7c4dff 60%,#9061ff);color:#fff;
+    padding:1.3rem 1.2rem;display:flex;flex-direction:column;gap:1.1rem;position:relative;overflow:hidden}
+  .v3 .rail::after{content:"";position:absolute;width:200px;height:200px;right:-70px;bottom:-60px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%)}
+  .v3 .rail .glabel{font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.65)}
+  .v3 .rail h3{margin:.25rem 0 0;font-size:1.28rem;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .v3 .rail .tot{margin-top:.2rem}
+  .v3 .rail .tot .lbl{color:rgba(255,255,255,.6)}
+  .v3 .rail .tot .big{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-top:.1rem}
+  .v3 .rinfo{display:flex;flex-direction:column;gap:.85rem;position:relative;z-index:2}
+  .v3 .rinfo .it .lbl{color:rgba(255,255,255,.6)}
+  .v3 .rinfo .it .v{font-size:.9rem;font-weight:700;margin-top:.15rem}
+  .v3 .rail .akt{margin-top:auto;display:inline-flex;justify-content:center;align-items:center;gap:.5rem;
+    padding:.7rem 1rem;border-radius:12px;background:#fff;color:#5524d6;font-weight:800;font-size:.84rem;
+    text-decoration:none;position:relative;z-index:2;box-shadow:0 10px 24px rgba(30,10,80,.4);transition:.16s}
+  .v3 .rail .akt:hover{transform:translateY(-1px)}
+  .v3 .main{padding:1.2rem 1.3rem 1.35rem;display:flex;flex-direction:column;gap:.85rem}
+  .v3 .main .top{display:flex;align-items:center;justify-content:space-between}
+  .v3 .main .x{background:var(--card2);border-color:var(--line2);color:var(--ink2)}
+  .v3 .main .x:hover{background:var(--brand-soft);color:var(--brand)}
+  .v3 .addr{display:flex;gap:.7rem;align-items:center;padding:.85rem .95rem;border:1px solid var(--line2);
+    border-radius:14px;background:var(--card2)}
+  .v3 .addr .icn{width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand)}
+  .v3 .addr .av{font-size:.9rem;font-weight:700;margin-top:.1rem}
+  .v3 .edit{flex:none;display:inline-flex;align-items:center;gap:.3rem;padding:.45rem .75rem;border-radius:10px;
+    border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);background:var(--brand-soft);color:var(--brand);
+    font-weight:700;font-size:.78rem;cursor:pointer;transition:.16s}
+  .v3 .edit:hover{background:var(--brand);color:#fff}
+  .v3 .ord-h{display:flex;align-items:center;gap:.5rem}
+  .v3 .ord-h .t{font-size:.9rem;font-weight:800}
+  .v3 .cnt{min-width:22px;height:22px;padding:0 .4rem;border-radius:999px;display:grid;place-items:center;
+    background:var(--brand-soft);color:var(--brand);font-size:.72rem;font-weight:800}
+  .v3 .ord{border:1px solid var(--line2);border-radius:14px;background:var(--card);overflow:hidden}
+  .v3 .ord .top2{display:flex;justify-content:space-between;align-items:center;padding:.5rem .85rem;
+    background:var(--card2);border-bottom:1px solid var(--line2)}
+  .v3 .ord .no{font-size:.8rem;font-weight:800}
+  .v3 .line{display:flex;align-items:center;gap:.7rem;padding:.55rem .85rem}
+  .v3 .line+.line{border-top:1px solid var(--line)}
+  .v3 .line .r{margin-left:auto;text-align:right;flex:none}
+  .v3 .sum{font-size:.85rem;font-weight:800}
+  .v3 .qty{font-size:.76rem;color:var(--ink2);font-weight:700}
+
+  /* ================= V4 — TICKET / RECEIPT ================= */
+  .v4{filter:drop-shadow(var(--sh-lg))}
+  .v4 .ticket{background:var(--card);position:relative;
+    border-radius:var(--r-card);
+    -webkit-mask:radial-gradient(11px at 11px 50%,transparent 98%,#000) -11px;
+  }
+  .v4 .head{padding:1.2rem 1.4rem;background:
+    linear-gradient(135deg,#6938ef,#8b5cf6);color:#fff;
+    border-radius:var(--r-card) var(--r-card) 0 0;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+    position:relative}
+  .v4 .head .glabel{font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+  .v4 .head h3{margin:.2rem 0 0;font-size:1.34rem;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+  .v4 .perf{height:0;border-top:2px dashed var(--line2);margin:0 1rem;position:relative}
+  .v4 .perf::before,.v4 .perf::after{content:"";position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;
+    background:var(--bg)}
+  .v4 .perf::before{left:-22px}.v4 .perf::after{right:-22px}
+  .v4 .body{padding:1.15rem 1.4rem 1.3rem;display:flex;flex-direction:column;gap:.5rem}
+  .v4 .kv{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px dotted var(--line2)}
+  .v4 .kv .k{font-size:.74rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--mut);
+    display:flex;align-items:center;gap:.5rem}
+  .v4 .kv .k .icn{color:var(--brand)}
+  .v4 .kv .val{font-size:.92rem;font-weight:750;color:var(--ink);font-variant-numeric:tabular-nums}
+  .v4 .kv.tot .val{color:var(--brand);font-size:1.05rem;font-weight:800}
+  .v4 .addr{display:flex;gap:.6rem;align-items:flex-start;padding:.7rem 0}
+  .v4 .addr .icn{color:var(--brand);margin-top:.1rem}
+  .v4 .addr .av{font-size:.9rem;font-weight:700;line-height:1.35}
+  .v4 .addr .edit{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:.3rem;padding:.4rem .7rem;
+    border-radius:9px;border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);background:var(--brand-soft);
+    color:var(--brand);font-weight:700;font-size:.76rem;cursor:pointer;transition:.16s}
+  .v4 .addr .edit:hover{background:var(--brand);color:#fff}
+  .v4 .items{margin-top:.3rem;border-top:2px dashed var(--line2);padding-top:.7rem;display:flex;flex-direction:column;gap:.55rem}
+  .v4 .items .cap{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);
+    display:flex;align-items:center;gap:.45rem}
+  .v4 .line{display:flex;align-items:center;gap:.7rem}
+  .v4 .line .r{margin-left:auto;text-align:right;flex:none}
+  .v4 .sum{font-size:.85rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .v4 .qty{font-size:.76rem;color:var(--ink2);font-weight:700}
+  .v4 .akt{margin-top:.4rem;display:inline-flex;justify-content:center;align-items:center;gap:.5rem;
+    padding:.75rem 1rem;border-radius:12px;background:var(--brand);color:#fff;font-weight:800;font-size:.86rem;
+    text-decoration:none;box-shadow:0 8px 20px rgba(105,56,239,.32);transition:.16s}
+  .v4 .akt:hover{background:var(--brand-d);transform:translateY(-1px)}
+  .v4 .head .x{background:rgba(255,255,255,.2)}
+
+  /* ================= V5 — BOLD PREMIUM ================= */
+  .v5 .head{padding:1.4rem 1.5rem 1.2rem;position:relative;
+    background:
+      radial-gradient(500px 180px at 100% 0%, rgba(139,92,246,.18), transparent 60%),
+      var(--card2);border-bottom:1px solid var(--line2)}
+  .v5 .head .row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+  .v5 .head .glabel{display:inline-flex;align-items:center;gap:.4rem;font-size:.64rem;font-weight:800;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);
+    padding:.28rem .6rem;border-radius:999px}
+  .v5 .head h3{margin:.55rem 0 0;font-size:1.9rem;font-weight:850;letter-spacing:-.025em;
+    font-variant-numeric:tabular-nums;line-height:1}
+  .v5 .head .x{background:var(--card);border:1px solid var(--line2);color:var(--ink2)}
+  .v5 .head .x:hover{background:var(--brand-soft);color:var(--brand)}
+  .v5 .akt{margin-top:1rem;display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.15rem;border-radius:12px;
+    background:linear-gradient(135deg,#6938ef,#8b5cf6);color:#fff;font-weight:800;font-size:.85rem;text-decoration:none;
+    box-shadow:0 10px 24px rgba(105,56,239,.4);transition:.16s}
+  .v5 .akt:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(105,56,239,.5)}
+  .v5 .body{padding:1.2rem 1.5rem 1.4rem;display:flex;flex-direction:column;gap:1rem}
+  .v5 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem}
+  .v5 .fact{padding:.85rem .95rem;border-radius:14px;background:var(--card2);border:1px solid var(--line2);
+    position:relative;overflow:hidden}
+  .v5 .fact::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);opacity:.55}
+  .v5 .fact .v{font-size:1.02rem;font-weight:800;color:var(--ink);margin-top:.3rem;letter-spacing:-.01em}
+  .v5 .fact.prim{background:var(--brand-soft);border-color:transparent}
+  .v5 .fact.prim .v{color:var(--brand)}
+  .v5 .addr{display:flex;gap:.8rem;align-items:center;padding:1rem 1.1rem;border-radius:16px;
+    background:var(--card2);border:1px solid var(--line2)}
+  .v5 .addr .icn{width:42px;height:42px;border-radius:12px;background:var(--brand);color:#fff}
+  .v5 .addr .av{font-size:1rem;font-weight:750;margin-top:.15rem;letter-spacing:-.01em}
+  .v5 .edit{flex:none;display:inline-flex;align-items:center;gap:.4rem;padding:.6rem .95rem;border-radius:11px;
+    border:0;background:var(--brand);color:#fff;font-weight:750;font-size:.82rem;cursor:pointer;
+    box-shadow:0 6px 16px rgba(105,56,239,.3);transition:.16s}
+  .v5 .edit:hover{transform:translateY(-1px)}
+  .v5 .ord-h{display:flex;align-items:center;gap:.5rem}
+  .v5 .ord-h .t{font-size:1rem;font-weight:850;letter-spacing:-.01em}
+  .v5 .cnt{min-width:24px;height:24px;padding:0 .45rem;border-radius:999px;display:grid;place-items:center;
+    background:var(--brand);color:#fff;font-size:.74rem;font-weight:800}
+  .v5 .ord{border:1px solid var(--line2);border-radius:16px;background:var(--card2);overflow:hidden}
+  .v5 .ord .top2{display:flex;justify-content:space-between;align-items:center;padding:.65rem 1rem;
+    border-bottom:1px solid var(--line2)}
+  .v5 .ord .no{font-size:.84rem;font-weight:850}
+  .v5 .line{display:flex;align-items:center;gap:.8rem;padding:.7rem 1rem;background:var(--card)}
+  .v5 .line+.line{border-top:1px solid var(--line)}
+  .v5 .line .r{margin-left:auto;text-align:right;flex:none}
+  .v5 .sum{font-size:.9rem;font-weight:850}
+  .v5 .qty{font-size:.78rem;color:var(--ink2);font-weight:700}
+  .v5 .prod .img{width:46px;height:46px}
+
+  .foot{max-width:880px;margin:3rem auto 0;padding:1.2rem;text-align:center;color:var(--mut);font-size:.8rem}
+  @media(max-width:640px){
+    .v2 .facts{grid-template-columns:repeat(2,1fr)}
+    .v2 .fact:nth-child(2)::after{display:none}
+    .v3 .grid{grid-template-columns:1fr}
+    .v3 .rail .akt{margin-top:1rem}
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>Накладная modali · 5 variant</h1>
+  <nav class="jump">
+    <a href="#v1">1 Aurora</a>
+    <a href="#v2">2 Soft</a>
+    <a href="#v3">3 Rail</a>
+    <a href="#v4">4 Ticket</a>
+    <a href="#v5">5 Bold</a>
+  </nav>
+  <span class="sp"></span>
+  <button class="tgl" id="themeBtn">🌙 Tungi</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ V1 ============ -->
+  <div class="vtag" id="v1">
+    <div class="n">1</div>
+    <div class="meta"><h2>Aurora Glass</h2><p>Gradient aurora header · shisha (glass) kartalar · havodor</p></div>
+  </div>
+  <div class="modal v1">
+    <div class="head">
+      <div class="row">
+        <div>
+          <div class="glabel">Накладная</div>
+          <h3>№120000997273</h3>
+        </div>
+        <button class="x"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <a class="akt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg> Акт отправки</a>
+    </div>
+    <div class="body">
+      <div class="facts">
+        <div class="glass fact"><div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="lbl">Vaqt slot</div><div class="v">10.06 · 11:00–16:00</div></div></div>
+        <div class="glass fact"><div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><div class="lbl">Yaratilgan</div><div class="v">09.06.2026, 19:25</div></div></div>
+        <div class="glass fact prim"><div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div><div class="lbl">To'liq summa</div><div class="v">37 950 UZS</div></div></div>
+        <div class="glass fact"><div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div><div><div class="lbl">Ombor</div><div class="v">Sergeli</div></div></div>
+      </div>
+      <div class="glass addr">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div style="flex:1;min-width:0"><div class="lbl">Qabul punkti</div><div class="av">Toshkent sh., Yunusobod tumani, 3-kvartal, 23-uy</div></div>
+        <button class="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+      </div>
+      <div class="ord-h"><span class="t">Buyurtmalar</span><span class="cnt">1</span></div>
+      <div class="ord">
+        <div class="top"><span class="no">№110744298</span><span class="pill ok">Jo'natishga tayyor</span></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (O'lcham: 2.5sm)</div><div class="sub">BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div></div></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (O'lcham: 3.5sm)</div><div class="sub">BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div></div><div class="r"><div class="qty">3 dona</div><div class="sum">37 950 UZS</div></div></div>
+        <div class="line"><div class="prod"><div class="img">📿</div><div style="min-width:0"><div class="nm">Ayollar zanjiri — nafis aksessuar (Rang: Malla)</div><div class="sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ V2 ============ -->
+  <div class="vtag" id="v2">
+    <div class="n">2</div>
+    <div class="meta"><h2>Soft Minimal</h2><p>Hozirgi uslubning sayqallangan, toza versiyasi · ajratuvchi panel</p></div>
+  </div>
+  <div class="modal v2">
+    <div class="head">
+      <div><h3>Накладная №120000997273</h3><div class="sub">FBS jo'natma · 1 buyurtma</div></div>
+      <div style="display:flex;align-items:center;gap:.6rem">
+        <a class="akt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg> Акт отправки</a>
+        <button class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="facts">
+        <div class="fact"><span class="lbl">Vaqt slot</span><span class="v">10.06 · 11:00–16:00</span></div>
+        <div class="fact"><span class="lbl">Yaratilgan</span><span class="v">09.06.2026, 19:25</span></div>
+        <div class="fact prim"><span class="lbl">To'liq summa</span><span class="v">37 950 UZS</span></div>
+        <div class="fact"><span class="lbl">Ombor</span><span class="v">Sergeli</span></div>
+      </div>
+      <div class="addr">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div style="flex:1;min-width:0"><span class="lbl">Qabul punkti</span><div class="av">Toshkent sh., Yunusobod tumani, 3-kvartal, 23-uy</div></div>
+        <button class="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+      </div>
+      <div class="ord-h"><span class="t">Buyurtmalar</span><span class="cnt">1</span></div>
+      <table>
+        <thead><tr><th>№</th><th>Mahsulot</th><th class="c">Status</th><th class="c">Dona</th><th class="r">Summa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>№110744298</td>
+            <td>
+              <div class="pstack">
+                <div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit (2.5sm)</div><div class="sub">BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div></div>
+                <div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit (3.5sm)</div><div class="sub">BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div></div>
+                <div class="prod"><div class="img">📿</div><div style="min-width:0"><div class="nm">Ayollar zanjiri (Rang: Malla)</div><div class="sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div></div>
+              </div>
+            </td>
+            <td class="c"><span class="pill ok">Tayyor</span></td>
+            <td class="c">3</td>
+            <td class="r">37 950</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ V3 ============ -->
+  <div class="vtag" id="v3">
+    <div class="n">3</div>
+    <div class="meta"><h2>Split Rail</h2><p>Chap binafsha panel (xulosa + summa + Akt) · o'ng kontent</p></div>
+  </div>
+  <div class="modal v3">
+    <div class="grid">
+      <aside class="rail">
+        <div>
+          <div class="glabel">Накладная</div>
+          <h3>№120000997273</h3>
+        </div>
+        <div class="tot"><div class="lbl">To'liq summa</div><div class="big">37 950 <span style="font-size:.9rem;opacity:.7">UZS</span></div></div>
+        <div class="rinfo">
+          <div class="it"><div class="lbl">Vaqt slot</div><div class="v">10.06 · 11:00–16:00</div></div>
+          <div class="it"><div class="lbl">Yaratilgan</div><div class="v">09.06.2026, 19:25</div></div>
+          <div class="it"><div class="lbl">Ombor</div><div class="v">Sergeli</div></div>
+        </div>
+        <a class="akt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg> Акт отправки</a>
+      </aside>
+      <div class="main">
+        <div class="top">
+          <div class="ord-h"><span class="t">Buyurtmalar</span><span class="cnt">1</span></div>
+          <button class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="addr">
+          <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div style="flex:1;min-width:0"><span class="lbl">Qabul punkti</span><div class="av">Toshkent sh., Yunusobod t., 3-kvartal, 23-uy</div></div>
+          <button class="edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+        </div>
+        <div class="ord">
+          <div class="top2"><span class="no">№110744298</span><span class="pill ok">Jo'natishga tayyor</span></div>
+          <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (2.5sm)</div><div class="sub">BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div></div></div>
+          <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (3.5sm)</div><div class="sub">BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div></div><div class="r"><div class="qty">3 dona</div><div class="sum">37 950 UZS</div></div></div>
+          <div class="line"><div class="prod"><div class="img">📿</div><div style="min-width:0"><div class="nm">Ayollar zanjiri (Rang: Malla)</div><div class="sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ V4 ============ -->
+  <div class="vtag" id="v4">
+    <div class="n">4</div>
+    <div class="meta"><h2>Ticket / Chek</h2><p>Накладная = chek metaforasi · perforatsiya · raqamlar tabular</p></div>
+  </div>
+  <div class="v4">
+  <div class="modal ticket">
+    <div class="head">
+      <div>
+        <div class="glabel">Накладная</div>
+        <h3>№120000997273</h3>
+      </div>
+      <button class="x"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="perf"></div>
+    <div class="body">
+      <div class="kv"><span class="k"><span class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> Vaqt slot</span><span class="val">10.06 · 11:00–16:00</span></div>
+      <div class="kv"><span class="k"><span class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span> Yaratilgan</span><span class="val">09.06.2026, 19:25</span></div>
+      <div class="kv"><span class="k"><span class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/></svg></span> Ombor</span><span class="val">Sergeli</span></div>
+      <div class="addr">
+        <span class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <div style="flex:1;min-width:0"><span class="lbl">Qabul punkti</span><div class="av">Toshkent sh., Yunusobod tumani, 3-kvartal, 23-uy</div></div>
+        <button class="edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+      </div>
+      <div class="items">
+        <div class="cap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg> Buyurtma №110744298 · <span class="pill ok">Tayyor</span></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit (2.5sm)</div><div class="sub">BLUMMY-MAGNIT2-25 · ШК …7150</div></div></div></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit (3.5sm)</div><div class="sub">BLUMMY-MAGNIT2-35 · ШК …7167</div></div></div><div class="r"><div class="qty">3 dona</div><div class="sum">37 950</div></div></div>
+        <div class="line"><div class="prod"><div class="img">📿</div><div style="min-width:0"><div class="nm">Ayollar zanjiri (Malla)</div><div class="sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК …9447</div></div></div></div>
+      </div>
+      <div class="kv tot" style="border-bottom:0;margin-top:.3rem"><span class="k" style="color:var(--ink)">Jami</span><span class="val">37 950 UZS</span></div>
+      <a class="akt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg> Акт отправки чоп этиш</a>
+    </div>
+  </div>
+  </div>
+
+  <!-- ============ V5 ============ -->
+  <div class="vtag" id="v5">
+    <div class="n">5</div>
+    <div class="meta"><h2>Bold Premium</h2><p>Yirik tipografiya · gradient akt tugma · qalin va dadil</p></div>
+  </div>
+  <div class="modal v5">
+    <div class="head">
+      <div class="row">
+        <div>
+          <span class="glabel"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> FBS jo'natma</span>
+          <h3>№120000997273</h3>
+        </div>
+        <button class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <a class="akt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg> Акт отправки</a>
+    </div>
+    <div class="body">
+      <div class="facts">
+        <div class="fact"><span class="lbl">Vaqt slot</span><div class="v">10.06 · 11:00–16:00</div></div>
+        <div class="fact"><span class="lbl">Yaratilgan</span><div class="v">09.06.2026, 19:25</div></div>
+        <div class="fact prim"><span class="lbl">To'liq summa</span><div class="v">37 950 UZS</div></div>
+        <div class="fact"><span class="lbl">Ombor</span><div class="v">Sergeli</div></div>
+      </div>
+      <div class="addr">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div style="flex:1;min-width:0"><span class="lbl">Qabul punkti</span><div class="av">Toshkent sh., Yunusobod tumani, 3-kvartal, 23-uy</div></div>
+        <button class="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+      </div>
+      <div class="ord-h"><span class="t">Buyurtmalar</span><span class="cnt">1</span></div>
+      <div class="ord">
+        <div class="top2"><span class="no">№110744298</span><span class="pill ok">Jo'natishga tayyor</span></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (O'lcham: 2.5sm)</div><div class="sub">BLUMMY-MAGNIT2-25 · ШК 1000007817150</div></div></div></div>
+        <div class="line"><div class="prod"><div class="img">🧲</div><div style="min-width:0"><div class="nm">Stresga qarshi magnit, 2 dona (O'lcham: 3.5sm)</div><div class="sub">BLUMMY-MAGNIT2-35 · ШК 1000007817167</div></div></div><div class="r"><div class="qty">3 dona</div><div class="sum">37 950 UZS</div></div></div>
+        <div class="line"><div class="prod"><div class="img">📿</div><div style="min-width:0"><div class="nm">Ayollar zanjiri — nafis aksessuar (Rang: Malla)</div><div class="sub">BLUMMY-ЦЕПОЧКА-РЫЖИЙ · ШК 1000103129447</div></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">5 ta variant · bittasini tanlang (raqamini ayting), keyin haqiqiy modalga (fbs_invoices.html · renderDetailBody) ko'chiramiz.</div>
+</div>
+
+<script>
+  const btn = document.getElementById('themeBtn');
+  btn.addEventListener('click', ()=>{
+    const h = document.documentElement;
+    const dark = h.getAttribute('data-theme') === 'dark';
+    h.setAttribute('data-theme', dark ? 'light' : 'dark');
+    btn.textContent = dark ? '🌙 Tungi' : '☀️ Kunduzgi';
+  });
+</script>
+</body>
+</html>

@@ -21,31 +21,44 @@
   <link rel="stylesheet" href="/static/styles.css">
   <style>
     html, body { background: transparent; }
-    body { margin: 0; padding: 1.3rem 1.4rem 1.4rem; }
+    /* V3 hero modal kartasining chetiga yopishadi — padding yo'q. */
+    body { margin: 0; padding: 0; }
     [data-bs-theme="dark"] body { color: #e2e8f0; }
+
+    /* ── Zamonaviy ingichka scrollbar ──────────────────────────────
+       Default qo'pol kulrang slayder o'rniga: ingichka (7px), yumaloq,
+       yarim-shaffof Royal-Blue thumb — track ko'rinmas. Ko'k hero ustida
+       ham, oq tana ustida ham nozik turadi; chetdan 2px nafas oladi. */
+    html { scrollbar-width: thin; scrollbar-color: rgba(65,105,225,.4) transparent; }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(65,105,225,.38); border-radius: 999px;
+      border: 2px solid transparent; background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(65,105,225,.6); background-clip: padding-box;
+    }
+    [data-bs-theme="dark"] html { scrollbar-color: rgba(147,180,255,.4) transparent; }
+    [data-bs-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(147,180,255,.32); background-clip: padding-box; }
+    [data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(147,180,255,.55); background-clip: padding-box; }
     /* Modal owns the close affordance, so the in-page back link is noise. */
     .fbs-detail-back { display: none !important; }
     /* Fill the modal card edge-to-edge instead of the standalone max-width. */
     .fbs-od { max-width: 100%; margin: 0; }
 
-    /* Sticky action footer (Uzum-style): the two main buttons stay pinned to
-       the bottom-right while the order content scrolls. The iframe is capped
-       at 88vh by the parent; once content overflows, this footer sticks to
-       the viewport bottom. An opaque bg + full-width top divider (negative
-       margins bleed it to the card edges) keep scrolling content from
-       showing through. For short orders it just sits flush at the bottom. */
+    /* Sticky action footer (Uzum-style): the main buttons stay pinned while
+       the order content scrolls. The iframe is capped at 88vh by the parent;
+       once content overflows, this footer sticks to the viewport bottom. An
+       opaque bg keeps scrolling content from showing through. For short
+       orders it just sits flush at the bottom. */
     body.fbs-embed #fbsActionsHost {
       position: sticky; bottom: 0; z-index: 5;
-      background: #fff; border-top: 1px solid #eaecf0;
-      margin: .4rem -1.4rem -1.4rem; padding: 0 1.4rem;
+      background: #fff;
     }
     body.fbs-embed #fbsActionsHost:empty { display: none; }
-    body.fbs-embed #fbsActionsHost .fbs-actions-bar {
-      border-top: none; margin-top: 0; padding: .75rem 0;
-    }
-    [data-bs-theme="dark"] body.fbs-embed #fbsActionsHost {
-      background: #1a1d27; border-top-color: #2d3148;
-    }
+    body.fbs-embed #fbsActionsHost .fbs-actions-bar { padding: 14px 32px 22px; }
+    [data-bs-theme="dark"] body.fbs-embed #fbsActionsHost { background: #1a1d27; }
 </style>
   {% block extra_css %}{% endblock %}
 </head>

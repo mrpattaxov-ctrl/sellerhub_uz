@@ -31,14 +31,29 @@ def test_pending_delivery_and_delivering_use_deliver_until():
     assert "deliver_until" in _first_sql("DELIVERING")
 
 
-def test_terminal_status_keeps_date_created_desc():
-    # COMPLETED/CANCELED/RETURNED have no actionable deadline → newest first.
-    for status in ("COMPLETED", "CANCELED", "RETURNED"):
+def test_terminal_status_sorts_by_event_date_desc():
+    # COMPLETED/CANCELED/RETURNED have no live deadline → most-recently-
+    # processed first (sort by the terminal event date DESC), never the
+    # confirm/ship deadlines.
+    expected = {
+        "COMPLETED": "completed_date",
+        "CANCELED": "cancelled_date",
+        "RETURNED": "return_date",
+    }
+    for status, col in expected.items():
         sql = _first_sql(status)
-        assert "date_created" in sql
+        assert col in sql
         assert "desc" in sql
         assert "accept_until" not in sql
         assert "deliver_until" not in sql
+
+
+def test_terminal_status_keeps_date_created_as_tiebreaker():
+    # Event date leads; ties (or missing event dates) fall back to newest-created.
+    for status in ("COMPLETED", "CANCELED", "RETURNED"):
+        clauses = _fbs_list_order_by(status)
+        assert len(clauses) >= 2
+        assert "date_created" in str(clauses[1]).lower()
 
 
 def test_deadline_statuses_keep_date_created_as_tiebreaker():

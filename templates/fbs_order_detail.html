@@ -21,9 +21,9 @@
     padding: .25rem 0 .1rem;
   }
   .fbs-detail-head h1 {
-    margin: 0; font-size: 1.2rem; font-weight: 700; color: #101828;
+    margin: 0; font-size: 1.45rem; font-weight: 850; color: #101828;
     display: inline-flex; align-items: center; gap: .55rem; flex-wrap: wrap;
-    letter-spacing: -.01em;
+    letter-spacing: -.02em;
   }
   .fbs-detail-head .meta { color: #94a3b8; font-size: .76rem; }
 
@@ -60,10 +60,10 @@
   /* ── Header pills ────────────────────────────────────────────── */
   .fbs-status-pill {
     display: inline-block; padding: 3px 12px; border-radius: 999px;
-    font-size: .76rem; font-weight: 700;
+    font-size: .76rem; font-weight: 800;
     border: 1px solid transparent; white-space: nowrap;
   }
-  .fbs-status-CREATED                              { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .fbs-status-CREATED                              { background: #fff; border-color: #c7d6fb; color: #1d4ed8; }
   .fbs-status-PACKING                              { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
   .fbs-status-PENDING_DELIVERY                     { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
   .fbs-status-DELIVERING                           { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
@@ -76,8 +76,8 @@
   .fbs-status-RETURNED                             { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
 
   .fbs-scheme-badge {
-    display: inline-block; padding: 2px 10px; border-radius: 6px;
-    font-size: .72rem; font-weight: 700;
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: .74rem; font-weight: 800;
     background: #e0e7ff; color: #3730a3;
   }
   .fbs-scheme-badge.dbs { background: #fef3c7; color: #92400e; }
@@ -132,34 +132,129 @@
   .fbs-totals-row .total-label { color: #667085; }
   .fbs-totals-row .total-value { font-weight: 700; color: #101828; }
 
-  /* ── Minimal flat detail (Uzum-style) ──────────────────────── */
-  .fbs-od { max-width: 860px; margin: 0 auto; }
+  /* ── V3 «Bold header» detail (fbs_docs V3 varianti) ──────────
+     Tekis to'q slate (#1e293b) hero + shisha info-kartalar + karta-qatorli
+     mahsulotlar + slate «Jami summa» paneli + teng kenglikdagi tugmalar.
+     Aksent накладная modali bilan bir xil (to'q slate, ko'k emas). */
+  .fbs-od { max-width: 760px; margin: 0 auto; }
+  .fbs-od-card {
+    background: #fff; border-radius: 26px; overflow: hidden;
+    box-shadow: 0 32px 80px -24px rgba(24,30,60,.4), 0 2px 8px rgba(24,30,60,.06);
+  }
+  /* Embedda chrome'ni (radius/soya/×) parent modal kartasi beradi; sticky
+     footer ishlashi uchun overflow ham ochiq qoladi. */
+  body.fbs-embed .fbs-od-card { border-radius: 0; box-shadow: none; overflow: visible; }
+  /* Embedda kontent parent modal kengligini TO'LIQ egallasin — aks holda
+     760px'da qotib, keng modal ichida yon-yonда xunuk bo'sh oraliq qoladi. */
+  body.fbs-embed .fbs-od { max-width: none; margin: 0; }
+  body.fbs-embed .fbs-detail-back { display: none; }
+
+  /* Hero — ingichka to'q-slate band (накладная uslubi): badge + eyebrow +
+     title + pillar. Eski «hero-cards» (to'q shisha kartalar) OLIB TASHLANDI —
+     endi ular oq tanada «fact» kartalar bo'lib turadi. */
+  .fbs-od-hero {
+    position: relative; background: #1e293b; color: #fff;
+    padding: 20px 56px 20px 22px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .fbs-od-hero::after {
+    content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, #7b4eff 0%, #22d3ee 58%, transparent 100%);
+  }
+  .fbs-od-badge {
+    flex: none; width: 50px; height: 50px; border-radius: 50%;
+    background: #fff; color: #1e293b; display: grid; place-items: center;
+  }
+  .fbs-od-badge svg { width: 26px; height: 26px; }
+  .fbs-od-htext { min-width: 0; flex: 1; }
+  .fbs-od-hero .hero-created {
+    font-size: 12px; font-weight: 700; letter-spacing: .13em;
+    text-transform: uppercase; color: #94a3b8; line-height: 1;
+  }
+  .fbs-od-hero h1 {
+    margin: 4px 0 0; font-size: 28px; font-weight: 800;
+    letter-spacing: -.02em; color: #fff; line-height: 1.15;
+  }
+  .fbs-od-hero .hero-pills { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; margin-top: 8px; }
+  .fbs-od-hero .hero-pills:empty { display: none; }
+  .fbs-od-hero .fbs-status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border: 0; font-size: 12px; font-weight: 700; line-height: 1;
+  }
+  .fbs-od-hero .fbs-status-pill::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  }
+  .fbs-od-hero .fbs-scheme-badge {
+    background: rgba(255,255,255,.2); color: #fff; backdrop-filter: blur(4px);
+    padding: 6px 12px; font-size: 12px; font-weight: 700; line-height: 1;
+  }
+  .fbs-od-hero .fbs-flag {
+    background: #ffe39b; color: #7a5300; border: 0; border-radius: 999px;
+    padding: 6px 12px; font-size: 12px; font-weight: 700; line-height: 1;
+  }
+
+  /* Fact kartalar — oq, ikon + label + value (накладная fact-strip uslubi) */
+  .fbs-od-facts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 10px; margin-bottom: 12px;
+  }
+  .fbs-od-fact {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: #fff; border: 1px solid #e6e9ef; border-radius: 14px; padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  .fbs-od-fact .ic {
+    flex: none; width: 34px; height: 34px; border-radius: 10px;
+    background: #eef1f6; color: #334155; display: grid; place-items: center;
+  }
+  .fbs-od-fact .ic svg { width: 18px; height: 18px; }
+  .fbs-od-fact .k { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #667085; }
+  .fbs-od-fact .v { font-size: 16px; font-weight: 800; color: #101828; margin-top: 3px; line-height: 1.25; }
+  .fbs-od-fact .sub { font-size: 13px; font-weight: 700; margin-top: 3px; color: #334155; }
+  .fbs-od-fact .sub.is-urgent { color: #b45309; }
+  .fbs-od-fact .sub.is-over { color: #dc2626; }
+
+  /* Body */
+  .fbs-od-main { padding: 22px 32px 6px; }
   .fbs-od-sub { color: #94a3b8; font-size: .82rem; margin-top: .1rem; }
   .fbs-od-divider { height: 1px; background: #eaecf0; margin: .95rem 0; }
   .fbs-od-info {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 1rem 1.4rem;
+    gap: .9rem 1.3rem; margin-bottom: 1.1rem;
   }
   .fbs-od-field .k {
-    font-size: .8rem; color: #94a3b8; margin-bottom: .15rem; font-weight: 500;
+    font-size: 11px; color: #a9adbd; margin-bottom: .15rem;
+    font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
   }
   .fbs-od-field .v {
-    font-size: .98rem; color: #101828; font-weight: 600; line-height: 1.3;
+    font-size: .95rem; color: #16182b; font-weight: 700; line-height: 1.3;
     word-break: break-word;
   }
-  .fbs-od-field .sub { font-size: .8rem; color: #94a3b8; margin-top: .12rem; font-weight: 500; }
-  .fbs-od-field .sub.is-urgent { color: #d97706; }
-  .fbs-od-field .sub.is-over { color: #dc2626; font-weight: 600; }
+  /* TARKIB bo'lim sarlavhasi + dona-badge */
+  .fbs-od-sec {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: 12px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: #a9adbd; margin-bottom: .7rem;
+  }
+  .fbs-od-sec .cnt {
+    background: #eef1f6; color: #1e293b; border-radius: 999px;
+    padding: 2px 9px; font-size: 11px; font-weight: 700;
+  }
+  /* Countdown: muddat ko'k (brend), shoshilinch/tasdiqlash jigarrang, o'tib ketgan qizil. */
+  .fbs-od-field .sub { font-size: .8rem; color: #334155; margin-top: .12rem; font-weight: 700; }
+  .fbs-od-field .sub.is-urgent { color: #b45309; }
+  .fbs-od-field .sub.is-over { color: #dc2626; font-weight: 700; }
   .fbs-od-field.wide { grid-column: 1 / -1; }
 
   /* Product card */
   .fbs-od-product {
-    border: 1px solid #eaecf0; border-radius: 14px; padding: 1rem 1.1rem;
-    margin-top: .9rem; background: #fff;
+    border: 1px solid #eaecf0; border-radius: 16px; padding: 1.1rem;
+    margin-top: .9rem; background: #f9fafc;
   }
   .fbs-od-product .p-main { display: flex; gap: .9rem; align-items: flex-start; }
-  .fbs-od-product .p-title { font-weight: 600; color: #101828; font-size: .98rem; line-height: 1.35; }
+  .fbs-od-product .p-title { font-weight: 700; color: #101828; font-size: .98rem; line-height: 1.35; }
   .fbs-od-product .p-meta { font-size: .82rem; color: #667085; margin-top: .28rem; line-height: 1.45; }
   .fbs-od-product .p-thumb { position: relative; display: inline-block; line-height: 0; flex: none; }
   .fbs-od-product .p-thumb img.thumb {
@@ -181,49 +276,192 @@
   .fbs-od-product .p-grid .k { font-size: .76rem; color: #94a3b8; margin-bottom: .12rem; }
   .fbs-od-product .p-grid .v { font-size: .92rem; color: #101828; font-weight: 600; }
 
+  /* ── Ixcham bir-qatorli mahsulot ro'yxati (Soft Pro · "bir qatorli") ──
+     Bir nechta mahsulot bo'lganda modal scrollsiz sig'sin: har mahsulot
+     bitta qatorda — rasm · nom/SKU · narx×soni · jami. */
+  .fbs-od-lines { display: flex; flex-direction: column; gap: 10px; }
+  .fbs-od-line {
+    display: flex; align-items: center; gap: 15px; padding: 13px 15px;
+    border: 1px solid #ebedf3; border-radius: 16px;
+  }
+  .fbs-od-line .li-thumb { position: relative; display: inline-block; line-height: 0; flex: none; }
+  .fbs-od-line .li-thumb img.thumb {
+    width: 56px; height: 56px; object-fit: cover; border-radius: 14px;
+    border: 1px solid #eaecf0; background: #f1f5f9;
+  }
+  .fbs-od-line .li-thumb img.zoom {
+    display: none; position: absolute; left: 66px; top: -90px;
+    width: 300px; height: 300px; object-fit: cover; z-index: 100;
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.25);
+    border: 1px solid #d0d5dd; background: #fff; pointer-events: none;
+  }
+  .fbs-od-line .li-thumb:hover img.zoom { display: block; }
+  .fbs-od-line .li-mid { flex: 1; min-width: 0; }
+  .fbs-od-line .li-title { font-weight: 700; color: #16182b; font-size: 15px; line-height: 1.3; }
+  .fbs-od-line .li-sub { font-size: 12px; color: #8b90a3; font-weight: 500; margin-top: .15rem; line-height: 1.4; }
+  .fbs-od-line .li-right { text-align: right; white-space: nowrap; flex: none; }
+  .fbs-od-line .li-qty { font-size: 12px; color: #8b90a3; font-weight: 600; }
+  .fbs-od-line .li-sum { font-size: 16px; font-weight: 800; color: #16182b; }
+
+  /* ── Rail order-kartasi (tanlangan dizayn): mahsulotlar chap tomonda
+     (rasm · nom/SKU · dona-pill), o'ngdagi panel Status/Jami/Summa'ni
+     ko'rsatadi (накладная order-kartasi bilan bir oila). ── */
+  .fbs-od-rail-card {
+    display: grid; grid-template-columns: minmax(0,1fr) 198px;
+    border: 1px solid #eaecf0; border-radius: 16px; overflow: hidden; background: #fff;
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+  }
+  .fbs-od-rail-left { padding: 8px 18px; }
+  .fbs-od-rl { display: flex; align-items: center; gap: 15px; padding: 13px 0; min-width: 0; }
+  .fbs-od-rl + .fbs-od-rl { border-top: 1px solid #f2f4f7; }
+  .fbs-od-rl .li-thumb {
+    flex: none; width: 66px; height: 66px; border-radius: 15px; background: #eef1f6;
+    border: 1px solid #e6e9ef; display: grid; place-items: center; color: #aab1c2;
+    line-height: 0; cursor: zoom-in;
+  }
+  .fbs-od-rl .li-thumb img.thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 15px; }
+  .fbs-od-rl .li-thumb svg { width: 30px; height: 30px; }
+  /* Hover-zoom — markazda suzuvchi yirik ko'rinish (position:fixed → iframe
+     viewport'ga nisbatan, overflow:hidden qirqmaydi). */
+  .fbs-od-rl .li-thumb img.zoom {
+    display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 340px; height: 340px; object-fit: cover; z-index: 9999;
+    border-radius: 18px; box-shadow: 0 28px 70px -14px rgba(20,20,50,.55);
+    border: 1px solid #e6e9ef; background: #fff; pointer-events: none;
+  }
+  .fbs-od-rl .li-thumb:hover img.zoom { display: block; }
+  .fbs-od-rl .li-mid { flex: 1; min-width: 0; }
+  .fbs-od-rl .li-title { font-weight: 700; font-size: 15.5px; color: #16182b; line-height: 1.35; }
+  .fbs-od-rl .li-sub { font-size: 12.5px; color: #8b90a3; font-weight: 500; margin-top: 4px; word-break: break-word; }
+  .fbs-od-rl .li-dpill {
+    flex: none; min-width: 64px; text-align: center; padding: 6px 12px; border-radius: 999px;
+    background: #eef1f6; color: #334155; font-weight: 800; font-size: 13.5px; white-space: nowrap;
+  }
+  .fbs-od-rail-side {
+    background: #f8f9fc; box-shadow: inset 1px 0 0 #eaecf0; padding: 20px;
+    display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  }
+  .fbs-od-rail-side .rk { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #98a2b3; }
+  .fbs-od-rail-side .rv { font-size: 16.5px; font-weight: 800; color: #16182b; margin-top: 3px; }
+  .fbs-od-rail-side .rv.sum { font-size: 22px; }
+  /* Status — fonsiz rangli matn + nuqta (railda pill emas) */
+  .fbs-od-rail-side .fbs-status-pill {
+    background: transparent; border: 0; padding: 0; margin-top: 3px;
+    font-size: 15px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .fbs-od-rail-side .fbs-status-pill::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  }
+  @media (max-width: 560px) {
+    .fbs-od-rail-card { grid-template-columns: 1fr; }
+    .fbs-od-rail-side {
+      box-shadow: none; border-top: 1px solid #eaecf0;
+      flex-direction: row; flex-wrap: wrap; gap: 10px 24px;
+    }
+  }
+
+  /* Jami summa — ko'k panel (V3) */
   .fbs-od-total {
-    display: flex; justify-content: flex-end; align-items: baseline; gap: .7rem;
-    margin-top: 1.1rem; font-size: 1rem;
+    display: flex; justify-content: space-between; align-items: center;
+    background: #eef1f6; border-radius: 16px; padding: 16px 18px;
+    margin: 16px 0 4px;
   }
-  .fbs-od-total .lbl { color: #667085; }
-  .fbs-od-total .val { font-weight: 700; font-size: 1.15rem; color: #101828; }
+  .fbs-od-total .lbl { color: #334155; font-size: 14px; font-weight: 700; }
+  .fbs-od-total .val { color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
 
-  /* Bottom action bar — right aligned, top divider, no box */
-  .fbs-od .fbs-actions-bar {
-    justify-content: flex-end; border: none; border-top: 1px solid #eaecf0;
-    border-radius: 0; background: transparent; margin-top: 1.3rem;
-    padding: 1rem 0 0;
-  }
-  .fbs-od .fbs-actions-bar .fbs-action-btn { padding: .55rem 1.3rem; font-size: .9rem; border-radius: 10px; }
-
-  /* ── Action bar ─────────────────────────────────────────────── */
+  /* ── Action bar — bulk-bar tugma SHAKLI (konturli/outline), OQ fonda
+     (Abdulaziz 2026-06-15). Pastki to'q panel YO'Q. Tugmalar oq + ingichka
+     ramka, hover'da o'z rangiga to'ladi. «Bekor» = qizil. Ikonlarga
+     TEGILMADI (16px, currentColor → matn rangiga ergashadi). ────────── */
   .fbs-actions-bar {
-    display: flex; flex-wrap: wrap; gap: .4rem;
-    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
-    padding: .55rem .7rem;
+    display: flex; flex-wrap: wrap; gap: 12px;
+    padding: 18px 32px 26px; background: transparent;
   }
   .fbs-actions-bar .fbs-action-btn {
-    display: inline-flex; align-items: center; gap: .35rem;
-    padding: .4rem .8rem;
-    border-radius: 8px;
-    font-size: .82rem; font-weight: 600;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: filter .12s, transform .08s;
+    flex: 1 1 150px; display: inline-flex; align-items: center; justify-content: center;
+    gap: 9px; height: 52px; padding: 0 16px;
+    border-radius: 12px; font-size: 15px; font-weight: 600;
+    background: #fff; color: #1e293b; border: 1.5px solid #d9dee8;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s, border-color .15s, box-shadow .18s ease, transform .12s ease;
   }
-  .fbs-actions-bar .fbs-action-btn:active:not(:disabled) { transform: translateY(1px); }
-  .fbs-actions-bar .fbs-action-btn:hover:not(:disabled) { filter: brightness(.94); }
-  .fbs-actions-bar .fbs-action-btn:disabled { opacity: .55; cursor: not-allowed; }
-  .fbs-action-btn-primary  { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
-  .fbs-action-btn-success  { background: #047857; color: #fff; border-color: #047857; }
-  .fbs-action-btn-warning  { background: #6d28d9; color: #fff; border-color: #6d28d9; }
-  .fbs-action-btn-danger   { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+  .fbs-actions-bar .fbs-action-btn:hover:not(:disabled) {
+    background: #1e293b; color: #fff; border-color: #1e293b;
+    transform: translateY(-2px); box-shadow: 0 8px 22px -6px rgba(30,41,59,.4);
+  }
+  .fbs-actions-bar .fbs-action-btn:active:not(:disabled) { transform: translateY(0); }
+  .fbs-actions-bar .fbs-action-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Chop qilinгach yopilгan holat — :hover'ni bekor qiladi (kursor hali ustida
+     bo'lsa ham menyu yashirin qoladi; kursor ketгач JS qaytaradi). */
+  /* ─── QR/Yorliq o'lcham tanlagich — tugma ustiga kelganda variantlar
+     ro'yxati tepaga slide bilan chiqadi. ─── */
+  .qr-pick { position: relative; flex: 1 1 150px; display: flex; }
+  .qr-pick > .fbs-action-btn { flex: 1 1 auto; width: 100%; }
+  .qr-pick-menu {
+    position: absolute; left: 50%; bottom: calc(100% + 9px);
+    transform: translateX(-50%) translateY(6px);
+    margin: 0; padding: 6px; list-style: none;
+    width: max-content; min-width: 0;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; z-index: 40;
+    transition: opacity .16s ease, transform .2s cubic-bezier(.22,1,.36,1);
+  }
+  .qr-pick-menu::before { content: ""; position: absolute; top: 100%; left: 0; right: 0; height: 13px; }
+  .qr-pick-menu::after {
+    content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: #0f172a;
+  }
+  .qr-pick:hover .qr-pick-menu,
+  .qr-pick:focus-within .qr-pick-menu,
+  .qr-pick-menu:hover {
+    opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0);
+  }
+  .qr-pick.is-dismissed .qr-pick-menu {
+    opacity: 0 !important; pointer-events: none !important;
+    transform: translateX(-50%) translateY(6px) !important;
+  }
+  .qr-pick-opt {
+    padding: .5rem .7rem; border-radius: 9px; font-size: .9rem; font-weight: 600;
+    color: #e2e8f0; cursor: pointer; white-space: nowrap;
+    transition: background .12s, color .12s;
+  }
+  .qr-pick-opt:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .qr-pick-opt.is-sel { background: #4169E1; color: #fff; }
+  @media (prefers-reduced-motion: reduce) {
+    .qr-pick-menu { transition: opacity .15s ease; transform: translateX(-50%); }
+    .qr-pick:hover .qr-pick-menu, .qr-pick-menu:hover { transform: translateX(-50%); }
+  }
+  .fbs-actions-bar .fbs-dbs-code-input { height: 52px; border-radius: 12px; }
+  /* «Etiketka» (asosiy) — to'q-slate kontur ajralib tursin */
+  .fbs-action-btn-primary  { border-color: #1e293b; color: #1e293b; }
+  .fbs-action-btn-primary:hover:not(:disabled)  { background: #1e293b; color: #fff; border-color: #1e293b; }
+  /* «QR» (yumshoq) — neytral kulrang kontur */
+  .fbs-action-btn-soft     { border-color: #d9dee8; color: #475467; }
+  .fbs-action-btn-soft:hover:not(:disabled)     { background: #475467; color: #fff; border-color: #475467; }
+  /* «Tasdiqlash» — yashil kontur → yashil to'ladi */
+  .fbs-action-btn-success  { border-color: #9fd9c2; color: #0b8a60; }
+  .fbs-action-btn-success:hover:not(:disabled)  { background: #0d9f6e; color: #fff; border-color: #0d9f6e; box-shadow: 0 8px 22px -6px rgba(13,159,110,.5); }
+  /* IMEI — binafsha kontur */
+  .fbs-action-btn-warning  { border-color: #d9cdf5; color: #6d28d9; }
+  .fbs-action-btn-warning:hover:not(:disabled)  { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+  /* «Bekor qilish» — qizil kontur → hover'da TO'LIQ qizil */
+  .fbs-action-btn-danger   { border-color: #f3b4b4; color: #e23b3b; }
+  .fbs-action-btn-danger:hover:not(:disabled)   { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 8px 22px -6px rgba(239,68,68,.5); }
   .fbs-action-empty {
     color: #94a3b8; font-size: .86rem; font-style: italic; padding: .3rem;
+  }
+  @media (max-width: 560px) {
+    .fbs-od-hero { padding: 22px 20px 20px; }
+    .fbs-od-main { padding: 18px 20px 4px; }
+    .fbs-actions-bar { padding: 14px 20px 20px; }
   }
   .fbs-action-btn .spinner-border-sm {
     width: 14px; height: 14px; border-width: 2px;
   }
+  .fbs-action-btn .icon { display: inline-flex; align-items: center; }
+  .fbs-action-btn .icon svg { width: 16px; height: 16px; }
 
   /* IMEI modal — per-item input row */
   .fbs-imei-item { border-top: 1px solid #eaecf0; padding-top: .85rem; margin-top: .85rem; }
@@ -318,37 +556,74 @@
   [data-bs-theme="dark"] .fbs-status-PENDING_CANCELLATION                 { background: rgba(220,38,38,.10); border-color: #991b1b; color: #f87171; }
   [data-bs-theme="dark"] .fbs-status-RETURNED                             { background: rgba(159,18,57,.12); border-color: #9f1239; color: #fda4af; }
 
-  /* Action bar — dark */
-  [data-bs-theme="dark"] .fbs-actions-bar { background: #1a1d27; border-color: #2d3148; }
-  [data-bs-theme="dark"] .fbs-action-btn-primary { background: #3b82f6; border-color: #3b82f6; }
-  [data-bs-theme="dark"] .fbs-action-btn-success { background: #10b981; border-color: #10b981; }
-  [data-bs-theme="dark"] .fbs-action-btn-warning { background: #8b5cf6; border-color: #8b5cf6; }
-  [data-bs-theme="dark"] .fbs-action-btn-danger  { background: #ef4444; border-color: #ef4444; }
+  /* Action bar — dark (konturli, shaffof fonda) */
+  [data-bs-theme="dark"] .fbs-actions-bar .fbs-action-btn { background: transparent; color: #cbd5e1; border-color: #3a4258; }
+  [data-bs-theme="dark"] .fbs-actions-bar .fbs-action-btn:hover:not(:disabled) { background: #e2e8f0; color: #1e293b; border-color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-action-btn-primary { border-color: #64748b; color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-action-btn-primary:hover:not(:disabled) { background: #e2e8f0; color: #1e293b; border-color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-action-btn-soft    { border-color: #3a4258; color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-action-btn-soft:hover:not(:disabled)    { background: #475467; color: #fff; border-color: #475467; }
+  [data-bs-theme="dark"] .fbs-action-btn-success { border-color: #1f6b50; color: #34d399; }
+  [data-bs-theme="dark"] .fbs-action-btn-success:hover:not(:disabled) { background: #0d9f6e; color: #fff; border-color: #0d9f6e; }
+  [data-bs-theme="dark"] .fbs-action-btn-warning { border-color: #4c3a7a; color: #c4b5fd; }
+  [data-bs-theme="dark"] .fbs-action-btn-warning:hover:not(:disabled) { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+  [data-bs-theme="dark"] .fbs-action-btn-danger  { border-color: #7f3a3a; color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-action-btn-danger:hover:not(:disabled)  { background: #ef4444; color: #fff; border-color: #ef4444; }
   [data-bs-theme="dark"] .fbs-action-empty { color: #64748b; }
   [data-bs-theme="dark"] .fbs-imei-item { border-top-color: #2d3148; }
   [data-bs-theme="dark"] .fbs-imei-item .item-sub { color: #94a3b8; }
   [data-bs-theme="dark"] .fbs-toast-success { background: #052e23; color: #6ee7b7; border-color: #064e3b; }
   [data-bs-theme="dark"] .fbs-toast-error { background: #2a0e0e; color: #fca5a5; border-color: #7f1d1d; }
 
-  /* Minimal flat detail — dark */
+  /* V3 detail — dark */
+  [data-bs-theme="dark"] .fbs-od-card { background: #1a1d27; box-shadow: 0 32px 80px -24px rgba(0,0,0,.7); }
+  [data-bs-theme="dark"] .fbs-od-hero { background: #11141d; }
   [data-bs-theme="dark"] .fbs-od-sub { color: #94a3b8; }
   [data-bs-theme="dark"] .fbs-od-divider { background: #2d3148; }
   [data-bs-theme="dark"] .fbs-od-field .k { color: #64748b; }
   [data-bs-theme="dark"] .fbs-od-field .v { color: #e2e8f0; }
-  [data-bs-theme="dark"] .fbs-od-field .sub { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-field .sub { color: #aeb6c7; }
   [data-bs-theme="dark"] .fbs-od-field .sub.is-urgent { color: #fbbf24; }
   [data-bs-theme="dark"] .fbs-od-field .sub.is-over { color: #fca5a5; }
-  [data-bs-theme="dark"] .fbs-od-product { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-sec { color: #64748b; }
+  [data-bs-theme="dark"] .fbs-od-sec .cnt { background: #232a3a; color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-od-product { background: #1e2233; border-color: #2d3148; }
   [data-bs-theme="dark"] .fbs-od-product .p-title { color: #e2e8f0; }
   [data-bs-theme="dark"] .fbs-od-product .p-meta { color: #94a3b8; }
   [data-bs-theme="dark"] .fbs-od-product .p-grid { border-top-color: #252a3f; }
   [data-bs-theme="dark"] .fbs-od-product .p-grid .k { color: #64748b; }
   [data-bs-theme="dark"] .fbs-od-product .p-grid .v { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-line { border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-line .li-thumb img.thumb { background: #1e2130; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-line .li-thumb img.zoom { background: #1a1d27; border-color: #2d3148; box-shadow: 0 12px 32px rgba(0,0,0,.7); }
+  [data-bs-theme="dark"] .fbs-od-line .li-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-line .li-sub { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-line .li-qty { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-line .li-sum { color: #e2e8f0; }
   [data-bs-theme="dark"] .fbs-od-product .p-thumb img.thumb { background: #1e2130; border-color: #2d3148; }
   [data-bs-theme="dark"] .fbs-od-product .p-thumb img.zoom { background: #1a1d27; border-color: #2d3148; box-shadow: 0 12px 32px rgba(0,0,0,.7); }
-  [data-bs-theme="dark"] .fbs-od-total .lbl { color: #94a3b8; }
-  [data-bs-theme="dark"] .fbs-od-total .val { color: #e2e8f0; }
-  [data-bs-theme="dark"] .fbs-od .fbs-actions-bar { border-top-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-total { background: #232a3a; }
+  [data-bs-theme="dark"] .fbs-od-total .lbl { color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-od-total .val { color: #f1f5f9; }
+
+  /* Rail dizayn — dark */
+  [data-bs-theme="dark"] .fbs-od-badge { background: #e2e8f0; color: #1e293b; }
+  [data-bs-theme="dark"] .fbs-od-fact { background: #1e2233; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-fact .ic { background: #232a3a; color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-od-fact .k { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-fact .v { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-fact .sub { color: #aeb6c7; }
+  [data-bs-theme="dark"] .fbs-od-fact .sub.is-urgent { color: #fbbf24; }
+  [data-bs-theme="dark"] .fbs-od-fact .sub.is-over { color: #fca5a5; }
+  [data-bs-theme="dark"] .fbs-od-rail-card { background: #1a1d27; border-color: #2d3148; }
+  [data-bs-theme="dark"] .fbs-od-rl + .fbs-od-rl { border-top-color: #252a3f; }
+  [data-bs-theme="dark"] .fbs-od-rl .li-thumb { background: #1e2130; border-color: #2d3148; color: #5b6680; }
+  [data-bs-theme="dark"] .fbs-od-rl .li-title { color: #e2e8f0; }
+  [data-bs-theme="dark"] .fbs-od-rl .li-sub { color: #94a3b8; }
+  [data-bs-theme="dark"] .fbs-od-rl .li-dpill { background: #232a3a; color: #cbd5e1; }
+  [data-bs-theme="dark"] .fbs-od-rail-side { background: #161b27; box-shadow: inset 1px 0 0 #2b3346; }
+  [data-bs-theme="dark"] .fbs-od-rail-side .rk { color: #7a849a; }
+  [data-bs-theme="dark"] .fbs-od-rail-side .rv { color: #e8edf5; }
 </style>
 {% endblock %}
 
@@ -356,18 +631,26 @@
 <div class="fbs-od">
   <a class="fbs-detail-back" href="/fbs">{{ labels.back_to_list }}</a>
 
-  <div class="fbs-detail-head" style="display:block">
-    <h1 id="fbsDetailTitle">
-      <span>{{ labels.order_no }}{{ order_id }}</span>
-    </h1>
-    <div class="fbs-od-sub" id="fbsDetailMeta">{{ labels.loading_meta }}</div>
-  </div>
+  <div class="fbs-od-card">
+    <div class="fbs-od-hero">
+      <div class="fbs-od-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </div>
+      <div class="fbs-od-htext">
+        <div class="hero-created" id="fbsDetailMeta">{{ labels.loading_meta }}</div>
+        <h1 id="fbsDetailTitle">
+          <span>{{ labels.order_no }}{{ order_id }}</span>
+        </h1>
+        <div class="hero-pills" id="fbsHeroPills"></div>
+      </div>
+    </div>
 
-  <div id="fbsDetailBody">
-    <div class="fbs-detail-loading">{{ labels.loading_body }}</div>
-  </div>
+    <div class="fbs-od-main" id="fbsDetailBody">
+      <div class="fbs-detail-loading">{{ labels.loading_body }}</div>
+    </div>
 
-  <div id="fbsActionsHost"></div>
+    <div id="fbsActionsHost"></div>
+  </div>
 </div>
 
 <!-- ── Cancel modal ────────────────────────────────────────────── -->
@@ -445,6 +728,7 @@
   const body = document.getElementById("fbsDetailBody");
   const titleEl = document.getElementById("fbsDetailTitle");
   const metaEl = document.getElementById("fbsDetailMeta");
+  const heroPills = document.getElementById("fbsHeroPills");
   const actionsHost = document.getElementById("fbsActionsHost");
   const toastContainer = document.getElementById("fbsToastContainer");
 
@@ -525,6 +809,22 @@
       .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
 
+  // SVG ikonkalar — ro'yxat sahifasi (bulk-bar) bilan bir xil chiziqli uslub.
+  // Emoji o'rniga (Abdulaziz 2026-06-15): toza, theme-mos, bir oilada.
+  const _SVG = (body) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  const IC = {
+    box:     _SVG('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/>'),
+    clock:   _SVG('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+    truck:   _SVG('<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'),
+    hash:    _SVG('<line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>'),
+    x:       _SVG('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+    check:   _SVG('<polyline points="20 6 9 17 4 12"/>'),
+    printer: _SVG('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>'),
+    qr:      _SVG('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="17" x2="21" y2="21"/><line x1="17" y1="21" x2="14" y2="21"/>'),
+    refund:  _SVG('<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>'),
+  };
+
   function formatDate(value){
     if (!value) return null;
     const d = new Date(value);
@@ -535,6 +835,11 @@
   function formatMoney(n){
     if (n == null) return "—";
     return Number(n).toLocaleString("ru-RU") + " UZS";
+  }
+
+  // Ixcham qatorlar uchun — "UZS"siz raqam (jami summa pastda UZS bilan turadi).
+  function formatNum(n){
+    return Number(n || 0).toLocaleString("ru-RU");
   }
 
   // Human countdown to an ISO deadline: "2 kun 5 soat", "37 daqiqa", or
@@ -633,69 +938,60 @@
     return `<span class="${cls}">${escapeHtml(s)}</span>`;
   }
 
-  // Each order item as a clean bordered card (Uzum-style): thumbnail +
-  // title + "SKU · ШК" meta line, then a small price/qty/marking grid.
-  function renderProducts(orderItems){
+  // Rail ko'rinishi (tanlangan dizayn): har mahsulot bir qatorda — rasm ·
+  // nom (+variant) / SKU·ШК · dona-pill. O'ngdagi panel Status / Jami /
+  // Summa'ni ko'rsatadi (накладная order-kartasi bilan bir oila). Narx/dona
+  // endi qatorda emas — umumiy summa o'ng railда turadi.
+  function renderItemsRail(order, orderItems, totalQty){
     if (!Array.isArray(orderItems) || orderItems.length === 0) {
       return `<div class="fbs-od-field"><div class="v">${escapeHtml(LBL.no_items)}</div></div>`;
     }
-    return orderItems.map(it => {
+    const rows = orderItems.map(it => {
       // Uzum /v2/fbs/orders item shape (confirmed 2026-05-22):
       //   { id, title, skuTitle, amount, price, photo: {photoKey, photo:{...}}, ... }
-      // productTitle/productImage/sellerPrice are legacy fallbacks only.
       const photoSrc = it.photo || it.productImage;
       const img = extractImageUrl(photoSrc);
-      const imgLarge = extractImageUrl(photoSrc, true);
-      const title = it.title || it.productTitle || it.skuTitle || "—";
+      const imgLarge = extractImageUrl(photoSrc, true) || img;
+      let title = it.title || it.productTitle || it.skuTitle || "—";
       const sku = it.skuTitle && it.skuTitle !== title ? it.skuTitle : "";
       const barcode = it.barcode || it.skuBarcode || "";
       const charValue = it.skuCharValue ? `${it.skuCharTitle || ""}: ${it.skuCharValue}`.trim() : "";
       const qty = Number(it.amount || 0);
-      const unit = Number(it.price || it.sellerPrice || 0);
-      const line = qty * unit;
-      // Bosqich A.14 (HAR audit A1) — gabarit/og'irlik (qadoqlash uchun).
-      const d = it.skuDimension || {};
-      const dimsParts = [d.length, d.width, d.height].filter(v => Number(v) > 0);
-      const dimsStr = dimsParts.length === 3 ? dimsParts.join("×") + " mm" : "";
-      const weightStr = Number(it.weight) > 0 ? `${it.weight} g` : "";
-      const idLine = [
+      // Variantni (masalan "O'lcham: 3.5sm") sarlavhaga qo'shamiz, agar u
+      // hali sarlavhada ko'rsatilmagan bo'lsa — bir xil nomli SKU'larni ajratish.
+      if (charValue && it.skuCharValue && title.indexOf(it.skuCharValue) === -1) {
+        title = `${title} (${charValue})`;
+      }
+      // Ostki qator: SKU · ШК (+ markirovka, agar identifikator talab qilinsa).
+      const subParts = [
         sku ? `SKU: ${escapeHtml(sku)}` : "",
         barcode ? `${escapeHtml(LBL.f_barcode)} ${escapeHtml(barcode)}` : "",
-      ].filter(Boolean).join(" · ");
-      const dimLine = [
-        dimsStr ? `${escapeHtml(LBL.item_dims)}: ${escapeHtml(dimsStr)}` : "",
-        weightStr ? `${escapeHtml(LBL.item_weight)}: ${escapeHtml(weightStr)}` : "",
-      ].filter(Boolean).join(" · ");
-      // Marking only when the order requires identifiers AND the item
-      // actually carries an identifiers array — otherwise omit it rather
-      // than show a misleading 0/N.
-      const markingCell = Array.isArray(it.identifiers)
-        ? `<div><div class="k">${escapeHtml(LBL.f_marking)}</div><div class="v">${it.identifiers.length} / ${qty}</div></div>`
-        : "";
+      ];
+      if (Array.isArray(it.identifiers)) {
+        subParts.push(`${escapeHtml(LBL.f_marking)} ${it.identifiers.length}/${qty}`);
+      }
+      const sub = subParts.filter(Boolean).join(" · ");
       return `
-        <div class="fbs-od-product">
-          <div class="p-main">
-            <span class="p-thumb">
-              ${img ? `<img class="thumb" src="${escapeHtml(img)}" alt="">
-                ${imgLarge ? `<img class="zoom" src="${escapeHtml(imgLarge)}" alt="">` : ""}`
-                : `<span class="thumb" style="display:inline-block"></span>`}
-            </span>
-            <div>
-              <div class="p-title">${escapeHtml(title)}</div>
-              ${idLine ? `<div class="p-meta">${idLine}</div>` : ""}
-              ${charValue ? `<div class="p-meta">${escapeHtml(charValue)}</div>` : ""}
-              ${dimLine ? `<div class="p-meta">${dimLine}</div>` : ""}
-              ${it.comment ? `<div class="p-meta">${escapeHtml(it.comment)}</div>` : ""}
-            </div>
+        <div class="fbs-od-rl">
+          <span class="li-thumb">${img
+            ? `<img class="thumb" src="${escapeHtml(img)}" alt="">${imgLarge ? `<img class="zoom" src="${escapeHtml(imgLarge)}" alt="">` : ""}`
+            : IC.box}</span>
+          <div class="li-mid">
+            <div class="li-title">${escapeHtml(title)}</div>
+            ${sub ? `<div class="li-sub">${sub}</div>` : ""}
           </div>
-          <div class="p-grid">
-            <div><div class="k">${escapeHtml(LBL.f_unit_price)}</div><div class="v">${escapeHtml(formatMoney(unit))}</div></div>
-            <div><div class="k">${escapeHtml(LBL.th_qty)}</div><div class="v">${qty} ${escapeHtml(LBL.comp_unit)}</div></div>
-            ${markingCell}
-            <div><div class="k">${escapeHtml(LBL.th_total)}</div><div class="v">${escapeHtml(formatMoney(line))}</div></div>
-          </div>
+          <span class="li-dpill">${qty} ${escapeHtml(LBL.comp_unit)}</span>
         </div>`;
     }).join("");
+    return `
+      <div class="fbs-od-rail-card">
+        <div class="fbs-od-rail-left">${rows}</div>
+        <div class="fbs-od-rail-side">
+          <div><div class="rk">${escapeHtml(LBL.rail_status)}</div>${statusPill(order.status)}</div>
+          <div><div class="rk">${escapeHtml(LBL.rail_qty)}</div><div class="rv">${totalQty} ${escapeHtml(LBL.comp_unit)}</div></div>
+          <div><div class="rk">${escapeHtml(LBL.rail_sum)}</div><div class="rv sum">${escapeHtml(formatMoney(order.price))}</div></div>
+        </div>
+      </div>`;
   }
 
   // ─── Toast ────────────────────────────────────────────────────
@@ -733,17 +1029,19 @@
     const idRequired = !!order.identifierRequired;
     const buttons = [];
 
+    // Tartib (Abdulaziz tanlovi): «Bekor» chapda, asosiy amal o'ngda, QR
+    // o'rtada — standart «Bekor | … | Asosiy» naqsh.
     if (status === "CREATED") {
-      buttons.push({key: "confirm", label: LBL.act_confirm, cls: "fbs-action-btn-success", icon: "✓"});
-      buttons.push({key: "cancel",  label: LBL.act_cancel,  cls: "fbs-action-btn-danger",  icon: "✕"});
+      buttons.push({key: "cancel",  label: LBL.act_cancel,  cls: "fbs-action-btn-danger",  icon: IC.x});
+      buttons.push({key: "confirm", label: LBL.act_confirm, cls: "fbs-action-btn-success", icon: IC.check});
     }
     if (status === "PACKING" || status === "PENDING_DELIVERY") {
-      buttons.push({key: "label",          label: LBL.act_print,           cls: "fbs-action-btn-primary", icon: "🖨"});
-      buttons.push({key: "label-qr",       label: LBL.act_print_qr,        cls: "fbs-action-btn-primary", icon: "▦"});
-      buttons.push({key: "cancel",         label: LBL.act_cancel,          cls: "fbs-action-btn-danger",  icon: "✕"});
+      buttons.push({key: "cancel",         label: LBL.act_cancel,          cls: "fbs-action-btn-danger",  icon: IC.x});
+      buttons.push({key: "label-qr",       label: LBL.act_print_qr,        cls: "fbs-action-btn-soft",    icon: IC.qr});
+      buttons.push({key: "label",          label: LBL.act_print,           cls: "fbs-action-btn-primary", icon: IC.printer});
     }
     if (idRequired && (status === "CREATED" || status === "PACKING")) {
-      buttons.push({key: "imei", label: LBL.act_imei, cls: "fbs-action-btn-warning", icon: "#"});
+      buttons.push({key: "imei", label: LBL.act_imei, cls: "fbs-action-btn-warning", icon: IC.hash});
     }
 
     if (buttons.length === 0) {
@@ -757,19 +1055,35 @@
 
     actionsHost.innerHTML = `
       <div class="fbs-actions-bar">
-        ${buttons.map(b => `
-          <button type="button" class="fbs-action-btn ${b.cls}" data-action="${b.key}">
+        ${buttons.map(b => {
+          // «QR chop etish» va «Yorliq chop etish» — O'LCHAM TANLAGICH bilan
+          // (hover'da variantlar ro'yxati tepaga chiqadi; bir xil localStorage
+          // `fbsQrSize`). Variant tanlansa — o'sha o'lchamda chop etiladi.
+          if (b.key === "label-qr" || b.key === "label") {
+            return `<div class="qr-pick" data-qr-pick>
+              <button type="button" class="fbs-action-btn ${b.cls}" data-action="${b.key}">
+                <span class="icon">${b.icon}</span>
+                <span class="label">${escapeHtml(b.label)}</span>
+                <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+              </button>
+              <ul class="qr-pick-menu" role="listbox" aria-label="O'lcham">
+                ${QR_PICK_OPTS.map(o => `<li class="qr-pick-opt" role="option" data-qr-val="${o.val}">${escapeHtml(o.label)}</li>`).join("")}
+              </ul>
+            </div>`;
+          }
+          return `<button type="button" class="fbs-action-btn ${b.cls}" data-action="${b.key}">
             <span class="icon">${b.icon}</span>
             <span class="label">${escapeHtml(b.label)}</span>
             <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
-          </button>
-        `).join("")}
+          </button>`;
+        }).join("")}
       </div>
     `;
 
     actionsHost.querySelectorAll(".fbs-action-btn").forEach(btn => {
       btn.addEventListener("click", () => handleAction(btn));
     });
+    _initQrPick();
   }
 
   // ─── DBS action row ───────────────────────────────────────────
@@ -788,22 +1102,23 @@
       // (/v1/fbs/order/{id}/confirm|cancel) are status-gated (CREATED),
       // NOT scheme-gated, so the same two actions apply to DBS. After
       // confirm the order moves to PACKING and the branch below takes over.
+      // «Bekor» chapda, asosiy «Tasdiqlash» o'ngda (FBS bilan izchil).
       inner = `
-        <button type="button" class="fbs-action-btn fbs-action-btn-success" data-action="confirm">
-          <span class="icon">✓</span>
-          <span class="label">${escapeHtml(LBL.act_confirm)}</span>
+        <button type="button" class="fbs-action-btn fbs-action-btn-danger" data-action="cancel">
+          <span class="icon">${IC.x}</span>
+          <span class="label">${escapeHtml(LBL.act_cancel)}</span>
           <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
-        <button type="button" class="fbs-action-btn fbs-action-btn-danger" data-action="cancel">
-          <span class="icon">✕</span>
-          <span class="label">${escapeHtml(LBL.act_cancel)}</span>
+        <button type="button" class="fbs-action-btn fbs-action-btn-success" data-action="confirm">
+          <span class="icon">${IC.check}</span>
+          <span class="label">${escapeHtml(LBL.act_confirm)}</span>
           <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
       `;
     } else if (status === "PACKING") {
       inner = `
         <button type="button" class="fbs-action-btn fbs-action-btn-primary" data-action="dbs-delivering">
-          <span class="icon">🚚</span>
+          <span class="icon">${IC.truck}</span>
           <span class="label">${escapeHtml(LBL.dbs_act_delivering)}</span>
           <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
@@ -827,7 +1142,7 @@
                autocomplete="off"
                style="max-width:240px;flex:0 0 auto;">
         <button type="button" class="fbs-action-btn fbs-action-btn-success" data-action="dbs-completed">
-          <span class="icon">✓</span>
+          <span class="icon">${IC.check}</span>
           <span class="label">${escapeHtml(LBL.dbs_act_completed)}</span>
           <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
@@ -836,7 +1151,7 @@
     } else if (status === "COMPLETED") {
       inner = `
         <button type="button" class="fbs-action-btn fbs-action-btn-danger" data-action="dbs-refund">
-          <span class="icon">↩</span>
+          <span class="icon">${IC.refund}</span>
           <span class="label">${escapeHtml(LBL.dbs_act_refund)}</span>
           <span class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
@@ -867,8 +1182,8 @@
     if (key === "confirm")        return doConfirm(btn);
     if (key === "cancel")         return openCancelModal();
     if (key === "imei")           return openImeiModal();
-    if (key === "label")          return doDownloadLabel(btn, "full");
-    if (key === "label-qr")       return doDownloadLabel(btn, "qr");
+    if (key === "label")          return doPrintLabel(btn);
+    if (key === "label-qr")       return doPrintQr(btn);
     if (key === "dbs-delivering") return doDbsDelivering(btn);
     if (key === "dbs-completed")  return doDbsCompleted(btn);
     if (key === "dbs-refund")     return doDbsRefund(btn);
@@ -1163,13 +1478,103 @@
     }
   });
 
+  // ─── QR/Yorliq o'lcham tanlagich (faqat termal o'lchamlar) ───────────
+  const QR_PICK_OPTS = [
+    {val: "30x20", label: "30 × 20 mm"},
+    {val: "43x25", label: "43 × 25 mm"},
+    {val: "40x30", label: "40 × 30 mm"},
+    {val: "60x60", label: "60 × 60 mm"},
+    {val: "70x37", label: "70 × 37 mm"},
+  ];
+  const QR_DEFAULT = "40x30";
+  // localStorage `fbsQrSize` butun ilova bilan umumiy — ruxsat etilmagan
+  // qiymat (masalan «uzum») bo'lsa default'ga tushiramiz.
+  function _qrCurrentSize(){
+    let v = QR_DEFAULT;
+    try { v = localStorage.getItem("fbsQrSize") || QR_DEFAULT; } catch (_) {}
+    return QR_PICK_OPTS.some(o => o.val === v) ? v : QR_DEFAULT;
+  }
+  // QR — mahsulot QR stikeri, tanlangan o'lchamda (/fbs/print/qr, POS bilan bir xil).
+  function doPrintQr(btn, sizeOverride){
+    _printOrderQrHtml(sizeOverride || _qrCurrentSize());
+  }
+  // Yorliq — Uzum shipping yorlig'i; Uzum faqat 2 o'lcham beradi: katta
+  // variantlar → BIG, qolgani → LARGE.
+  function _qrToUzumSize(val){
+    return (val === "60x60" || val === "70x37") ? "BIG" : "LARGE";
+  }
+  function doPrintLabel(btn){
+    doDownloadLabel(btn, "full", _qrToUzumSize(_qrCurrentSize()));
+  }
+  // /fbs/print/qr — brauzer chop etadi (o'tkir QR). Ko'rinmas iframe'ni ENG
+  // YUQORI hujjatga qo'shamiz (oyna iframe ichida bo'lsa ham).
+  function _printOrderQrHtml(size){
+    const url = `/fbs/print/qr?order_ids=${encodeURIComponent(ORDER_ID)}&size=${encodeURIComponent(size)}`;
+    let doc = document;
+    try { if (window.top && window.top.document) doc = window.top.document; } catch (e) { /* cross-origin */ }
+    const fr = doc.createElement("iframe");
+    fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    fr.src = url;
+    doc.body.appendChild(fr);
+    setTimeout(() => { try { fr.remove(); } catch (e) {} }, 120000);
+  }
+  // Render'dan keyin: tanlangan variantni belgilash + variant bosilganda chop.
+  // QR + Yorliq pickerlari shu funksiya bilan jonlanadi (umumiy `fbsQrSize`).
+  function _initQrPick(){
+    const allOpts = Array.from(actionsHost.querySelectorAll(".qr-pick-opt"));
+    if (!allOpts.length) return;
+    const mark = (val) => allOpts.forEach(o => o.classList.toggle("is-sel", o.dataset.qrVal === val));
+    mark(_qrCurrentSize());
+    allOpts.forEach(o => o.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const val = o.dataset.qrVal;
+      try { localStorage.setItem("fbsQrSize", val); } catch (_) {}
+      mark(val);
+      const root = o.closest("[data-qr-pick]");
+      const btn  = root && root.querySelector(".fbs-action-btn");
+      // Chop qilingach menyuni yopamiz. MUHIM: `mouseleave` emas, `mouseenter`
+      // bilan tozalaymiz — tanlangach menyu yashirinib kursor pastdagi kartaga
+      // "tushadi" va darrov mouseleave chiqarib, print oynasi yopilгач menyu
+      // qayta ochilib qolardi (bag). Endi faqat foydalanuvchi tugmaga QAYTA
+      // kelganда (mouseenter) menyu yana ishlaydi.
+      if (root) {
+        root.classList.add("is-dismissed");
+        const onMove = () => {
+          if (!root.matches(":hover")) {
+            root.classList.remove("is-dismissed");
+            document.removeEventListener("mousemove", onMove, true);
+          }
+        };
+        document.addEventListener("mousemove", onMove, true);
+      }
+      if (btn && btn.dataset.action === "label") doPrintLabel(btn);
+      else doPrintQr(btn, val);
+    }));
+  }
+
+  // Yorliq PDF'ini DARHOL chop oynasi bilan ochadi: ko'rinmas iframe'ga blob'ни
+  // yuklab, load bo'lгач contentWindow.print() chaqiramiz (yangi tabда qo'lда
+  // print bosish o'rniga). Iframe ENG YUQORI hujjatда — oyna iframe ичида bo'lsa ham.
+  function _printPdfDirect(url){
+    let doc = document;
+    try { if (window.top && window.top.document) doc = window.top.document; } catch (e) { /* cross-origin */ }
+    const fr = doc.createElement("iframe");
+    fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    fr.src = url;
+    fr.onload = () => {
+      try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+      catch (e) { try { window.open(url, "_blank", "noopener"); } catch (_) {} }
+    };
+    doc.body.appendChild(fr);
+    setTimeout(() => { try { fr.remove(); URL.revokeObjectURL(url); } catch (e) {} }, 120000);
+  }
   // ─── Label download ───────────────────────────────────────────
   // mode="full" (default) → full Uzum label
   // mode="qr"             → cropped to right column (date + QR + tracking)
-  async function doDownloadLabel(btn, mode){
+  async function doDownloadLabel(btn, mode, uzumSize){
     setButtonLoading(btn, true);
     try {
-      const qs = `size=LARGE${mode === "qr" ? "&mode=qr" : ""}`;
+      const qs = `size=${uzumSize || "LARGE"}${mode === "qr" ? "&mode=qr" : ""}`;
       const res = await fetch(`/fbs/api/order/${ORDER_ID}/label?${qs}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
@@ -1183,17 +1588,11 @@
         setButtonLoading(btn, false);
         return;
       }
-      list.forEach((b64, i) => {
-        // base64 → bytes → Blob → new tab. Doing this fully client-side
-        // means the browser opens PDFs in its native viewer (Chrome/Edge
-        // show a Print button right in the toolbar).
+      list.forEach((b64) => {
+        // base64 → bytes → Blob → ko'rinmas iframe → DARHOL chop oynasi.
         const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
         const blob = new Blob([bytes], {type: "application/pdf"});
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank", "noopener");
-        // Release the object URL after a moment — the open() call has
-        // already loaded the bytes into the new tab.
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        _printPdfDirect(URL.createObjectURL(blob));
       });
       showToast(`${list.length} ${LBL.toast_label_opened_suffix}`, "success");
     } catch (e) {
@@ -1212,26 +1611,23 @@
     const slot = order.timeSlot || {};
     const status = String(order.status || "");
 
-    // Header — title gets the status + scheme inline pills.
-    // Bosqich A.14 (HAR audit B1) — sotuvchi taniydigan qisqa raqamni
-    // (publicId, masalan "856114-0035") ko'rsatamiz; bo'lmasa ichki id.
-    const orderNo = order.publicId || order.id;
-    titleEl.innerHTML = `
-      <span>${escapeHtml(LBL.order_no)}${escapeHtml(orderNo)}</span>
+    // Hero — sarlavhada Uzum kabi RAQAMLI buyurtma raqami
+    // («Заказ №111061839» uslubi) — bu /fbs/<id> URL'idagi raqam (order.id).
+    // publicId ("856114-0048") hero-kartada «Buyurtma ID» bo'lib turadi.
+    const orderNo = order.id || ORDER_ID;
+    titleEl.innerHTML = `<span>${escapeHtml(LBL.order_no)}${escapeHtml(orderNo)}</span>`;
+    heroPills.innerHTML = `
       ${statusPill(order.status)}
       ${schemeBadge(order.scheme)}
       ${order.identifierRequired ? `<span class="fbs-flag">${escapeHtml(LBL.identifier_required_flag)}</span>` : ""}
     `;
-    // Subtitle = creation date (replaces the old dev "Endpoint" line).
+    // Sarlavha usti = yaratilgan sana (V3: "Yaratildi 10.06.2026, 17:39").
     const created = formatDate(order.dateCreated);
     metaEl.textContent = created ? `${LBL.f_created} ${created}` : "";
 
-    // "N dona, SUM" summary, mirroring Uzum's «Состав и сумма».
+    // Umumiy dona soni — TARKIB yonidagi badge uchun (V3).
     const items = Array.isArray(order.orderItems) ? order.orderItems : [];
     const totalQty = items.reduce((s, it) => s + Number(it.amount || 0), 0);
-    const composition = totalQty
-      ? `${totalQty} ${LBL.comp_unit}, ${formatMoney(order.price)}`
-      : null;
 
     // Live countdown under the deadlines — only while the order is still
     // actionable for that deadline (accept → CREATED, deliver → until
@@ -1239,17 +1635,39 @@
     const acceptCd  = status === "CREATED" ? countdownTo(order.acceptUntil) : null;
     const deliverCd = ["CREATED", "PACKING", "PENDING_DELIVERY"].includes(status)
       ? countdownTo(order.deliverUntil) : null;
+    // Tasdiqlash — sotuvchining bajarilishi kerak bo'lgan amali, shuning uchun
+    // uni jigarrang (is-urgent) bilan ajratamiz; yetkazish muddati ko'k qoladi
+    // (Soft Pro dizayni). O'tib ketgan bo'lsa countdownTo allaqachon is-over (qizil) beradi.
+    if (acceptCd && !acceptCd.cls) acceptCd.cls = "is-urgent";
 
     // Pickup address only when a real drop-off is chosen — a brand-new
     // order has none, so we skip it rather than show a placeholder.
     const pickup = drop.address || null;
 
+    // Fact kartalar (oq tanada): Tasdiqlash muddati · Yetkazib berish ·
+    // Buyurtma ID. Yetkazish kartasida countdown «2 kun 4 soat» ostki qator.
+    function factCard(label, value, icon, sub){
+      if (value == null || value === "") return "";
+      return `
+        <div class="fbs-od-fact">
+          <div class="ic">${icon}</div>
+          <div>
+            <div class="k">${escapeHtml(label)}</div>
+            <div class="v">${escapeHtml(value)}</div>
+            ${sub ? `<div class="sub ${sub.cls || ""}">${escapeHtml(sub.text)}</div>` : ""}
+          </div>
+        </div>`;
+    }
+    const facts = [
+      factCard(LBL.f_accept_until, formatDate(order.acceptUntil), IC.clock, acceptCd),
+      factCard(LBL.card_delivery, formatDate(order.deliverUntil), IC.truck, deliverCd),
+      factCard(LBL.f_order_id, order.publicId, IC.hash),
+    ].join("");
+
+    // Qolgan (hero'ga sig'magan) maydonlar — oq tanadagi ikkilamchi grid.
+    // Tarkib/summa endi TARKIB badge + Jami panelda — gridda takrorlanmaydi.
     const info = [
-      infoField(LBL.f_accept_until, formatDate(order.acceptUntil), acceptCd),
-      infoField(LBL.f_deliver_until, formatDate(order.deliverUntil), deliverCd),
-      infoField(LBL.f_order_id, order.publicId),
       infoField(LBL.f_shop, order.shopTitle || order.shopName),
-      infoField(LBL.f_composition, composition),
       infoField(LBL.f_pickup, pickup, null, true),
       infoField(LBL.f_slot_from, formatDate(slot.timeFrom)),
       infoField(LBL.f_slot_to, formatDate(slot.timeTo)),
@@ -1271,14 +1689,13 @@
     ].join("");
 
     body.innerHTML = `
-      <div class="fbs-od-divider"></div>
-      <div class="fbs-od-info">${info}</div>
-      <div class="fbs-od-divider"></div>
-      ${renderProducts(items)}
-      <div class="fbs-od-total">
-        <span class="lbl">${escapeHtml(LBL.order_total)}</span>
-        <span class="val">${escapeHtml(formatMoney(order.price))}</span>
+      ${facts ? `<div class="fbs-od-facts">${facts}</div>` : ""}
+      ${info ? `<div class="fbs-od-info">${info}</div>` : ""}
+      <div class="fbs-od-sec">
+        <span>${escapeHtml(LBL.sec_items)}</span>
+        ${totalQty ? `<span class="cnt">${totalQty} ${escapeHtml(LBL.comp_unit)}</span>` : ""}
       </div>
+      ${renderItemsRail(order, items, totalQty)}
     `;
   }
 

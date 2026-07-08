@@ -123,6 +123,64 @@ services:
       # (PgBouncer transaction-mode would break them across conn reuse).
       DB_PREPARE_THRESHOLD: "none"
       ONBOARD_MAX_CONCURRENT_SYNCS: "20"
+      # Uzum FBS OpenAPI token bucket. Refill 1→2 matches Uzum's REAL
+      # advertised replenish-rate=2 (measured from prod 2026-06-17 via the
+      # RATELIMIT log tag). Capacity kept at 1 (NOT Uzum's burst-capacity=2):
+      # a burst of 2 let two writes fire sub-second, and when the live
+      # list-poll + bg worker had just drained Uzum's bucket in the same
+      # second, the 2nd confirm hit `remaining=0` → 429 (seen 2026-06-17).
+      # Capacity=1 paces strictly one-at-a-time (~0.5s apart) with zero burst,
+      # so we never overshoot at the boundary; refill=2 keeps full 2/s
+      # throughput. Shared per-token across FBS + finance + products.
+      UZUM_OPENAPI_BUCKET_CAPACITY: "1"
+      UZUM_OPENAPI_BUCKET_REFILL_PER_SEC: "2.0"
+      # Avto-slot LIVE switchover (Abdulaziz 2026-06-30): yangi decoupled
+      # allokator (monitor→bus→allocator) endi ROSTDAN band qiladi; eski
+      # per-invoice grabber o'chiriladi (ikkalasi live bo'lib urishmasin).
+      # Qaytarish: MODE=dry (yoki off) + GRAB_LOOP=1.
+      # OBSERVE (Abdulaziz 2026-07-08): detektorni yoqamiz, lekin allokator
+      # BAND QILMAYDI (dry) — Telegramda «qancha slot topilyapti»ni ko'rish uchun.
+      # Real booking'ga o'tish: MODE=live. (Ilgari live edi; 2026-07-06 pauza.)
+      POSTAVKA_AUTOSLOT_MODE: "dry"
+      POSTAVKA_GRAB_LOOP: "0"
+      # Slot-kuzatuv poll oralig'i. 1s × 15-pog'ona narvon = ~15 so'rov/s (eng
+      # tez aniqlash). ⚠️ Bu HAJM 2026-07-03'da Uzum WAF IP-blokini (403) keltirgan
+      # edi — app.py'dagi 403-cooldown himoya qiladi, lekin yana 403 kelsa intervalni
+      # oshiring (masalan 5-15s) yoki narvon-pog'onasini kamaytiring.
+      POSTAVKA_SLOT_WATCH_INTERVAL_SEC: "1"
+      # POYGA RADARI (Abdulaziz 2026-07-06): tez detekt + parallel o'lchov.
+      # =1 → har poll FAQAT 1 yengil so'rov; slot chiqsa 15-narvon PARALLEL o'lchaydi.
+      # HOZIR O'CHIQ (=0): CHUQUR-PARALLEL sinovi ustun (pastga qara). Radar 2.5/s
+      # tizimini qaytarish: FAST_RADAR=1 + DEEP_PARALLEL=0.
+      POSTAVKA_FAST_RADAR: "1"
+      # _SEC = TSIKL nishoni (fixed-rate, Abdulaziz 2026-07-06): har tekshiruv AYNAN
+      # shu oraliqda takrorlanadi. So'rov vaqti tsikldan ayriladi → tezlik nishondan
+      # OSHMAYDI. Chuqur rejimda 0.4s tsikl × 15 so'rov ≈ 37.5 so'rov/s.
+      POSTAVKA_FAST_RADAR_SEC: "0.3"
+      # STRAGGLER cutoff (Abdulaziz 2026-07-08): detektor ISSIQ so'rovlari
+      # retry'siz, shu timeout bilan — >600ms cho'zilgan so'rov TASHLANADI va
+      # o'sha sikl jimgina o'tkaziladi (90s qotish yo'q; keyingi sikl 300ms da).
+      POSTAVKA_DETECT_TIMEOUT_SEC: "0.6"
+      # AKT-O'LCHAM RADAR: hozir O'CHIQ (=1 → hamma slot). Chuqur-parallel rejimda
+      # ishlatilmaydi. Faqat FAST_RADAR=1 bo'lganda ta'sir qiladi.
+      POSTAVKA_DETECT_Q: "1"
+      # ⚠️ CHUQUR-PARALLEL SINOV (Abdulaziz 2026-07-06): har poll 15-narvonni
+      # PARALLEL o'lchaydi (detekt-darvozasiz) → «mavjud slot kattalashди» (o'sish)
+      # ham tutiladi (radar buni o'tkazib yuborardi). NARX: ~37.5 so'rov/s — bu
+      # 2026-07-03 IP-blok tezligidan ~10× baland! FAQAT SINOV: 403 kelsa app.py
+      # cooldown (60s→5daq→15daq) IPni himoya qiladi. Qaytarish: =0.
+      POSTAVKA_DEEP_PARALLEL: "1"
+      # ⚠️ PIPELINE-RADAR SINOV (Abdulaziz 2026-07-06): eng USTUN rejim. Har
+      # _INTERVAL_SEC'da YANGI 15-narvon o'lchov SUBMIT qiladi (oldingisini
+      # KUTMASDAN, ustma-ust) → ~0.2s resolution → oraliqda o'tkazilgan
+      # freeinglarni ham ko'radi. 0.2s × 15 = ~75 so'rov/s — FAQAT SINOV
+      # (75/s uzoq ketsa BAN; 403-cooldown himoya qiladi). Qaytarish: =0.
+      POSTAVKA_PIPELINE_RADAR: "0"
+      POSTAVKA_PIPELINE_INTERVAL_SEC: "0.2"
+      # YOQILDI (Abdulaziz 2026-07-08): ISSIQ ulanish + 600ms straggler-cutoff +
+      # 300ms sikl bilan qayta yoqildi (validatsiya: 266ms burst, 0 xato, 0 qotish).
+      # Allokator dry → OBSERVE (band qilmaydi). To'xtatish: =1.
+      POSTAVKA_SLOT_WATCH_PAUSED: "0"
     command:
       - gunicorn
       - --bind

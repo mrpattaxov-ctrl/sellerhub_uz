@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Status-chiplar — bekitish variantlari</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0c12;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}
+.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 14px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1080px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}
+.note b{color:#dcdce4}
+.frame{display:none;padding:24px 22px 80px}.frame.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.stage{max-width:1080px;margin:0 auto}
+
+/* ---- Clean base (oq) ---- */
+.panel{background:#fff;border:1px solid #ECECF0;border-radius:20px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 8px 22px rgba(20,16,40,.05);padding:18px 20px}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font:700 .68rem 'Inter';text-transform:uppercase;letter-spacing:.05em;color:#8E8B97}
+.fld select{border:1px solid #E2E2E8;background:#fff;color:#1A1A22;border-radius:9px;padding:9px 12px;font:500 .84rem 'Inter';min-width:140px}
+.btn{border:0;border-radius:10px;padding:10px 18px;font:600 .86rem 'Inter';cursor:pointer}
+.btn-d{background:#1A1A22;color:#fff}.btn-o{background:#fff;color:#4169E1;border:1px solid #E2E2E8}
+.chiprow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:15px;padding-top:14px;border-top:1px solid #ECECF0}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;font:600 .8rem 'Inter';background:#F4F5F8;color:#5A5762;border:1px solid transparent;cursor:pointer;transition:.15s;white-space:nowrap}
+.chip:hover{color:#1A1A22}
+.chip.on{background:#1A1A22;color:#fff}
+.chip .n{min-width:18px;padding:0 6px;border-radius:999px;background:#fff;color:#5A5762;font:700 .67rem/18px 'Inter';text-align:center}
+.chip.on .n{background:rgba(255,255,255,.22);color:#fff}
+.chip.nav{background:#F0EAFF;color:#7C3AED;font-weight:700}
+.chip.nav svg{width:14px;height:14px}
+.tbl-hint{margin-top:16px;padding:24px;border:1px dashed #E2E2E8;border-radius:14px;text-align:center;color:#A6A2AE;font-size:.85rem}
+
+/* ===== A · "Ko'proq ▾" dropdown ===== */
+.more-wrap{position:relative}
+.chip.more{background:#fff;border:1px solid #E2E2E8;color:#1A1A22}
+.chip.more svg{width:14px;height:14px;transition:transform .2s}
+.more-wrap.open .chip.more svg{transform:rotate(180deg)}
+.more-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:30;min-width:230px;background:#fff;border:1px solid #ECECF0;border-radius:14px;box-shadow:0 18px 44px rgba(20,16,40,.16);padding:7px;display:none;flex-direction:column;gap:2px}
+.more-wrap.open .more-pop{display:flex;animation:pop .16s ease}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1}}
+.more-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 11px;border-radius:9px;font:600 .84rem 'Inter';color:#3A3A44;cursor:pointer}
+.more-item:hover{background:#F4F5F8}
+.more-item .n{padding:1px 8px;border-radius:999px;background:#EEF0F4;color:#5A5762;font:700 .7rem 'Inter'}
+
+/* ===== B · gorizontal scroll ===== */
+.scroller{position:relative;margin-top:15px;padding-top:14px;border-top:1px solid #ECECF0}
+.scroll-track{display:flex;gap:7px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:2px;scrollbar-width:none}
+.scroll-track::-webkit-scrollbar{display:none}
+.scroll-track .chip{flex:none}
+.scroll-fade{position:absolute;top:14px;bottom:0;width:46px;pointer-events:none}
+.scroll-fade.l{left:0;background:linear-gradient(90deg,#fff,transparent)}
+.scroll-fade.r{right:0;background:linear-gradient(270deg,#fff,transparent)}
+.scroll-arrow{position:absolute;top:50%;transform:translateY(-30%);z-index:5;width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid #E2E2E8;box-shadow:0 4px 12px rgba(20,16,40,.12);display:grid;place-items:center;cursor:pointer;color:#5A5762}
+.scroll-arrow svg{width:15px;height:15px}.scroll-arrow.l{left:-6px}.scroll-arrow.r{right:-6px}
+
+/* ===== C · primary + select dropdown ===== */
+.statsel{position:relative;display:inline-flex;align-items:center}
+.statsel select{appearance:none;-webkit-appearance:none;border:1px solid #E2E2E8;background:#fff;color:#3A3A44;border-radius:9px;padding:8px 34px 8px 13px;font:600 .8rem 'Inter';cursor:pointer}
+.statsel svg{position:absolute;right:11px;width:14px;height:14px;color:#8E8B97;pointer-events:none}
+
+/* ===== D · expand inline (•••) ===== */
+.chip.dots{background:#fff;border:1px solid #E2E2E8;color:#5A5762;font-weight:800;letter-spacing:1px}
+.extra-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;max-height:0;overflow:hidden;opacity:0;transition:max-height .28s ease,opacity .2s ease,margin .2s ease,padding .2s ease;margin-top:0;padding-top:0;border-top:1px dashed transparent}
+.extra-row.open{max-height:160px;opacity:1;margin-top:9px;padding-top:11px;border-top-color:#ECECF0}
+</style>
+</head>
+<body>
+
+<div class="pvbar">
+  <h1>Status-chiplar — bekitish</h1>
+  <span class="sub">4 usul · ishlaydi (bosib/scroll qilib ko'ring)</span>
+  <div class="seg" id="seg">
+    <button data-v="a" class="on">A · «Ko'proq ▾»</button>
+    <button data-v="b">B · Scroll</button>
+    <button data-v="c">C · Dropdown select</button>
+    <button data-v="d">D · «•••» yoyish</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<!-- shared toolbar template injected by JS into each frame -->
+<div class="frame on" id="f-a"><div class="stage"><div class="panel" id="p-a"></div></div></div>
+<div class="frame" id="f-b"><div class="stage"><div class="panel" id="p-b"></div></div></div>
+<div class="frame" id="f-c"><div class="stage"><div class="panel" id="p-c"></div></div></div>
+<div class="frame" id="f-d"><div class="stage"><div class="panel" id="p-d"></div></div></div>
+
+<script>
+const TRUCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const ARR_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+const ARR_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+// Asosiy (doim ko'rinadi) + ikkilamchi (bekitiladi)
+const PRIMARY=[['Новый',0],['Сборка',2,'on'],['__nav__'],['В пути',0]];
+const SECONDARY=[['Доставлен',5],['В пункте приёма',0],['В пункте выдачи',0],['Завершён',235],['Отменён',268],['Возврат',183]];
+
+const chip=c=>c[0]==='__nav__'
+  ? `<span class="chip nav">${TRUCK}Поставка</span>`
+  : `<span class="chip ${c[2]||''}">${c[0]} <span class="n">${c[1]}</span></span>`;
+
+const TOOLBAR=`<div class="bar">
+  <div class="fld"><label>Do'kon</label><select><option>Hammasi</option></select></div>
+  <div class="fld"><label>Sxema</label><select><option>FBS + DBS (hammasi)</option></select></div>
+  <div class="fld"><label>Sahifada</label><select><option>20</option></select></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn btn-d">Обновить</button></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn btn-o">📍 Пункт приёма</button></div>
+</div>`;
+const HINT=`<div class="tbl-hint">— jadval shu yerda (buyurtmalar ro'yxati) —</div>`;
+
+/* A · "Ko'proq ▾" */
+document.getElementById('p-a').innerHTML=TOOLBAR+`
+  <div class="chiprow">
+    ${PRIMARY.map(chip).join('')}
+    <div class="more-wrap" id="moreWrap">
+      <span class="chip more" id="moreBtn">Ko'proq <span class="n">${SECONDARY.length}</span> ${CHEV}</span>
+      <div class="more-pop">
+        ${SECONDARY.map(c=>`<div class="more-item">${c[0]}<span class="n">${c[1]}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>`+HINT;
+
+/* B · scroll */
+document.getElementById('p-b').innerHTML=TOOLBAR+`
+  <div class="scroller">
+    <div class="scroll-fade l"></div><div class="scroll-fade r"></div>
+    <div class="scroll-arrow l" id="arrL">${ARR_L}</div><div class="scroll-arrow r" id="arrR">${ARR_R}</div>
+    <div class="scroll-track" id="track" style="padding:0 40px">
+      ${[...PRIMARY,...SECONDARY].map(chip).join('')}
+    </div>
+  </div>`+HINT;
+
+/* C · primary + dropdown select */
+document.getElementById('p-c').innerHTML=TOOLBAR+`
+  <div class="chiprow">
+    ${PRIMARY.map(chip).join('')}
+    <div class="statsel">
+      <select id="statSel">
+        <option value="">Boshqa holatlar…</option>
+        ${SECONDARY.map(c=>`<option>${c[0]} (${c[1]})</option>`).join('')}
+      </select>${CHEV}
+    </div>
+  </div>`+HINT;
+
+/* D · "•••" yoyish */
+document.getElementById('p-d').innerHTML=TOOLBAR+`
+  <div class="chiprow" style="flex-wrap:wrap">
+    ${PRIMARY.map(chip).join('')}
+    <span class="chip dots" id="dotsBtn">•••</span>
+    <div class="extra-row" id="extraRow" style="flex-basis:100%">
+      ${SECONDARY.map(chip).join('')}
+    </div>
+  </div>`+HINT;
+
+// interactions
+const mw=document.getElementById('moreWrap');
+document.getElementById('moreBtn').onclick=e=>{e.stopPropagation();mw.classList.toggle('open')};
+document.addEventListener('click',()=>mw&&mw.classList.remove('open'));
+
+const track=document.getElementById('track');
+document.getElementById('arrL').onclick=()=>track.scrollBy({left:-220,behavior:'smooth'});
+document.getElementById('arrR').onclick=()=>track.scrollBy({left:220,behavior:'smooth'});
+
+const extra=document.getElementById('extraRow'),dots=document.getElementById('dotsBtn');
+dots.onclick=()=>{extra.classList.toggle('open');dots.textContent=extra.classList.contains('open')?'×':'•••'};
+
+const NOTES={
+ a:'<b>A · «Ko\'proq ▾»</b> — faqat asosiy 4 ta (Новый · Сборка · Поставка · В пути) ko\'rinadi. Qolgan 6 tasi «Ko\'proq» tugmasi ostida dropdown\'da. <b>Eng ixcham</b>, bir qatorda turadi. Tugmani bosing.',
+ b:'<b>B · Gorizontal scroll</b> — hamma chip bitta qatorda, yon tomonga surib (swipe / strelka) ko\'riladi. Hech narsa yo\'qolmaydi, qator o\'ralmaydi. Chetdagi strelkalarni bosing.',
+ c:'<b>C · Dropdown select</b> — asosiylar chip, qolganlari ixcham «Boshqa holatlar…» ro\'yxatida. Soddasi, kam joy oladi.',
+ d:'<b>D · «•••» yoyish</b> — asosiylar + «•••» tugma. Bosilsa pastda qolgan chiplar yoyiladi (akkordeon). Kerak bo\'lganda chiqadi, aks holda bekik.'
+};
+const note=document.getElementById('note');note.innerHTML=NOTES.a;
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.frame').forEach(f=>f.classList.toggle('on',f.id==='f-'+b.dataset.v));
+ note.innerHTML=NOTES[b.dataset.v];});
+</script>
+</body>
+</html>

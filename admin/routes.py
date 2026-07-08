@@ -116,6 +116,50 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
         except Exception as e:
             print(f"[AdminShop] sku-list image refresh failed for shop {uzum_id}: {e}")
 
+    def _run_fbs_seed(uzum_id=uzum_id, shop_pk=shop_pk):
+        """Initial FBS order backfill for THIS freshly-added shop only.
+
+        The накладные list is scope-filtered by the local set of
+        ``fbs_orders.invoice_number`` (see ``fbs.routes._filter_invoices_to_owned``),
+        which the order-sync worker populates. Without seeding, a newly added
+        shop's EXISTING накладные stay hidden until the worker's next full
+        sweep (~10 min). This pulls the new shop's orders across ALL statuses
+        NOW — including orders already on an invoice (PENDING_DELIVERY) and
+        terminal ones (ACCEPTED/CANCELLED invoices) — so its накладные appear
+        on the very next list reload.
+
+        Scoped to ``[uzum_id]`` — never re-syncs the user's other shops. Each
+        status is one paced ``/v2/fbs/orders`` call through the shared
+        per-token gate, so this never bursts Uzum's per-token rate limit.
+        """
+        owner_token = ""
+        try:
+            with SessionLocal() as db:
+                shop_row = db.get(Shop, shop_pk)
+                if shop_row and shop_row.owner_id:
+                    owner = db.get(User, int(shop_row.owner_id))
+                    if owner:
+                        owner_token = (owner.uzum_openapi_token or "").strip()
+        except Exception as e:
+            print(f"[AdminShop] FBS seed owner-token lookup failed for {uzum_id}: {e}")
+            return
+        if not owner_token:
+            print(f"[AdminShop] FBS seed skipped for shop {uzum_id}: owner has no OpenAPI token")
+            return
+        try:
+            from core.fbs_data import _refresh_shops_status
+            from core.fbs_sync import FBS_ALL_SYNC_STATUSES
+        except Exception as e:
+            print(f"[AdminShop] FBS seed import failed for shop {uzum_id}: {e}")
+            return
+        total = 0
+        for status in FBS_ALL_SYNC_STATUSES:
+            try:
+                total += _refresh_shops_status(owner_token, [uzum_id], status)
+            except Exception as e:
+                print(f"[AdminShop] FBS seed status={status} failed for shop {uzum_id}: {e}")
+        print(f"[AdminShop] FBS seed done shop={uzum_id}: {total} order(s) synced")
+
     def _orchestrate(uzum_id=uzum_id, shop_pk=shop_pk):
         t_sales = threading.Thread(
             target=lambda: _safe_call(_app._run_full_backfill_for_shop,
@@ -134,12 +178,21 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
             daemon=True,
             name=f"backfill-products-{uzum_id}",
         )
+        # FBS order seed — scoped to THIS shop, so its накладные show up on the
+        # next list reload instead of waiting for the worker's ~10-min sweep.
+        t_fbs = threading.Thread(
+            target=_run_fbs_seed,
+            daemon=True,
+            name=f"backfill-fbs-{uzum_id}",
+        )
         t_sales.start()
         t_expenses.start()
         t_products.start()
+        t_fbs.start()
         t_sales.join()
         t_expenses.join()
         t_products.join()
+        t_fbs.join()
         _safe_call(_app._send_post_backfill_summary,
                    "post-backfill summary", uzum_id, shop_pk)
 

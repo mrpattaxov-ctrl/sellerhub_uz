@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>«Sahifada» joyini ko'chirish — variantlar</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b11;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.pvbar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:#15151c;border-bottom:1px solid #26262f;color:#fff}
+.pvbar h1{font-size:14px;margin:0;font-weight:800}.pvbar .sub{font-size:12px;color:#8b8b97}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0d0d12;border:1px solid #26262f;border-radius:12px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#9a9aa6;font:700 13px/1 'Inter';padding:9px 13px;border-radius:9px;cursor:pointer}
+.seg button.on{background:#fff;color:#111}
+.note{max-width:1080px;margin:0 auto;padding:14px 22px 0;color:#9a9aa6;font-size:12.5px}.note b{color:#dcdce4}
+.wrap{padding:26px 22px 90px}.stage{max-width:1080px;margin:0 auto}
+.shell{background:#F3F4F8;border-radius:24px;padding:24px}
+.panel{background:#fff;border:1px solid #EBEBF1;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 16px 40px -12px rgba(20,16,40,.12)}
+
+/* toolbar (SAHIFADA OLIB TASHLANGAN) */
+.bar{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld label{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.07em;color:#9B98A5}
+.sel{position:relative}
+.sel select{appearance:none;-webkit-appearance:none;border:1px solid #E6E6EC;background:#FBFBFD;color:#1A1A22;border-radius:12px;padding:11px 38px 11px 14px;font:600 .86rem 'Inter';min-width:160px;cursor:pointer}
+.sel .cv{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#9B98A5;pointer-events:none}
+.btn-refresh{border:0;border-radius:12px;padding:12px 22px;font:700 .88rem 'Inter';cursor:pointer;color:#fff;background:linear-gradient(135deg,#4169E1,#7C3AED);box-shadow:0 8px 20px -6px rgba(96,60,200,.55);display:inline-flex;align-items:center;gap:8px}
+.btn-refresh svg{width:16px;height:16px}
+.btn-pin{border:1px solid #E6E6EC;background:#fff;color:#7C3AED;border-radius:12px;padding:12px 18px;font:600 .86rem 'Inter';cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid #F0F0F4}
+.segtrack{display:inline-flex;align-items:center;gap:5px;padding:6px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:14px}
+.st{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font:700 .84rem 'Inter';color:#5A5762}
+.st .n{min-width:18px;padding:0 6px;border-radius:999px;background:#fff;color:#7A7684;font:700 .68rem/18px 'Inter';text-align:center}
+.st.on{background:#4169E1;color:#fff;box-shadow:0 6px 14px -5px rgba(65,105,225,.6)}
+.st.on .n{background:rgba(255,255,255,.26);color:#fff}
+
+/* table mini */
+table{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:14px}
+thead th{font:700 .66rem 'Inter';text-transform:uppercase;letter-spacing:.06em;color:#A6A2AE;text-align:left;padding:0 16px 4px}
+thead th.r{text-align:right}
+tbody td{background:#FBFBFD;padding:13px 16px;font-size:.84rem;border-top:1px solid #EFEFF3;border-bottom:1px solid #EFEFF3;color:#1A1A22}
+tbody td:first-child{border-left:1px solid #EFEFF3;border-radius:14px 0 0 14px}
+tbody td:last-child{border-right:1px solid #EFEFF3;border-radius:0 14px 14px 0;text-align:right;font-weight:800}
+.tag{display:inline-block;padding:3px 10px;border-radius:7px;font:700 .67rem 'Inter'}
+.tag.fbs{background:#EEF1FF;color:#3D5CCB}.tag.dbs{background:#FFF4D6;color:#9A6207}
+
+/* ── footer + page-size control ── */
+.foot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:16px;padding-top:16px;border-top:1px solid #F0F0F4;font-size:.8rem;color:#8E8B97}
+.foot code{font-family:'JetBrains Mono';background:#F3F4F8;color:#5A5762;padding:2px 7px;border-radius:6px}
+.psize{display:inline-flex;align-items:center;gap:8px;font:700 .8rem 'Inter';color:#56535F}
+.psize .sel select{min-width:74px;padding:8px 32px 8px 12px;border-radius:10px;font:700 .82rem 'Inter'}
+.psize .sel .cv{width:14px;height:14px;right:11px}
+/* segment 10/20/50 */
+.psize-seg{display:inline-flex;gap:3px;padding:4px;background:#F3F4F8;border:1px solid #ECECF2;border-radius:11px}
+.psize-seg button{border:0;background:transparent;color:#5A5762;font:700 .8rem 'Inter';padding:7px 13px;border-radius:8px;cursor:pointer}
+.psize-seg button.on{background:#fff;color:#1A1A22;box-shadow:0 2px 6px rgba(20,16,40,.1)}
+/* pagination */
+.pager{display:inline-flex;align-items:center;gap:8px}
+.pgbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid #E6E6EC;background:#fff;color:#3A3A44;border-radius:10px;padding:8px 14px;font:700 .8rem 'Inter';cursor:pointer}
+.pgbtn:disabled{opacity:.45;cursor:default}
+.pgbtn svg{width:14px;height:14px}
+.pgnum{font:700 .82rem 'Inter';color:#56535F;padding:0 4px}
+.controls{display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap}
+.metaline{font-size:.8rem;color:#8E8B97}
+.metaline b{color:#1A1A22}
+</style>
+</head>
+<body>
+<div class="pvbar">
+  <h1>«Sahifada»ni pastga ko'chirish</h1>
+  <span class="sub">toolbar tozalandi · 4 variant</span>
+  <div class="seg" id="seg">
+    <button data-v="a" class="on">A · Pastda o'ngda</button>
+    <button data-v="b">B · Pagination markazida</button>
+    <button data-v="c">C · Segment (10/20/50)</button>
+    <button data-v="d">D · Chapda, meta yonida</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="wrap"><div class="stage"><div class="shell"><div class="panel">
+  <!-- TOOLBAR (SAHIFADA yo'q) -->
+  <div class="bar" id="bar"></div>
+  <div class="filters">
+    <div class="segtrack">
+      <span class="st">Новый <span class="n">0</span></span>
+      <span class="st on">Сборка <span class="n">2</span></span>
+      <span class="st">Поставка <span class="n">5</span></span>
+      <span class="st">В пути <span class="n">0</span></span>
+    </div>
+  </div>
+  <table><thead><tr><th>№</th><th>Mahsulot</th><th>Sxema</th><th>Do'kon</th><th class="r">Summa</th></tr></thead>
+  <tbody>
+    <tr><td>№110388551</td><td>SKU: KROSSFT-SHALVAR5-СЕРЫЙ-L</td><td><span class="tag fbs">FBS</span></td><td>KrossFit</td><td>59 900 UZS</td></tr>
+    <tr><td>№110373473</td><td>SKU: BLUMMY-ЦЕПОЧКАЛАР-РЫЖИЙ</td><td><span class="tag dbs">DBS</span></td><td>BLUMMY</td><td>7 950 UZS</td></tr>
+  </tbody></table>
+  <!-- FOOTER (variant) -->
+  <div id="foot"></div>
+</div></div></div></div>
+
+<script>
+const CV='<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const REF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const PREV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+const NEXT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+// toolbar — SAHIFADA olib tashlangan
+document.getElementById('bar').innerHTML=`
+  <div class="fld"><label>Do'kon</label><div class="sel"><select><option>Hammasi</option></select>${CV}</div></div>
+  <div class="fld"><label>Sxema</label><div class="sel"><select><option>FBS + DBS (hammasi)</option></select>${CV}</div></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn-refresh">${REF}Обновить</button></div>
+  <div class="fld"><label>&nbsp;</label><button class="btn-pin">${PIN}Пункт приёма</button></div>`;
+
+const META=`<span class="metaline">Topildi: <b>2</b> · Sahifa: <b>1</b> · Status: <b>PACKING</b> · <code>db://fbs_orders</code></span>`;
+const PSIZE_DD=`<span class="psize">Sahifada <span class="sel"><select><option>20</option><option>10</option><option>50</option></select>${CV}</span></span>`;
+const PSIZE_SEG=`<span class="psize">Sahifada <span class="psize-seg"><button>10</button><button class="on">20</button><button>50</button></span></span>`;
+const PAGER=`<span class="pager"><button class="pgbtn" disabled>${PREV}Oldingi</button><span class="pgnum">1</span><button class="pgbtn">Keyingi ${NEXT}</button></span>`;
+
+const FOOTS={
+ // A · pastda o'ngda: meta chap, o'ngda [Sahifada dd] + pager
+ a:`<div class="foot">${META}<span class="controls">${PSIZE_DD}${PAGER}</span></div>`,
+ // B · pagination markazida: pager markazda, sahifada ichida
+ b:`<div class="foot" style="justify-content:center">
+      <span class="pager"><button class="pgbtn" disabled>${PREV}Oldingi</button>
+      ${PSIZE_DD}
+      <button class="pgbtn">Keyingi ${NEXT}</button></span>
+    </div>
+    <div class="foot" style="justify-content:center;border-top:0;padding-top:6px;margin-top:0">${META}</div>`,
+ // C · segment 10/20/50 o'ngda
+ c:`<div class="foot">${META}<span class="controls">${PSIZE_SEG}${PAGER}</span></div>`,
+ // D · chapda meta yonida, pager o'ngda
+ d:`<div class="foot"><span class="controls">${META}${PSIZE_DD}</span>${PAGER}</div>`,
+};
+const NOTES={
+ a:'<b>A · Pastda o\'ngda</b> — toolbar toza qoladi. Pastda: chapda meta, o\'ngda «Sahifada [20▾]» + Oldingi/Keyingi. Eng tabiiy joylashuv.',
+ b:'<b>B · Pagination markazida</b> — «Sahifada» pagination ICHIDA, markazda: ◀ Oldingi · [20▾] · Keyingi ▶. Ixcham, markazlashgan.',
+ c:'<b>C · Segment (10/20/50)</b> — dropdown o\'rniga 3 ta tugma (10 · 20 · 50), bir bosishda. Tezroq, lekin ko\'proq joy.',
+ d:'<b>D · Chapda, meta yonida</b> — «Sahifada [20▾]» chap tomonda meta bilan birga, pagination o\'ngda. Mantiqiy guruh.'
+};
+const foot=document.getElementById('foot'),note=document.getElementById('note');
+function render(v){foot.innerHTML=FOOTS[v];note.innerHTML=NOTES[v];}
+render('a');
+document.getElementById('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+ render(b.dataset.v);});
+</script>
+</body>
+</html>

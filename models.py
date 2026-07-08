@@ -21,6 +21,117 @@ class Shop(Base):
     owner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
 
+# --- FBO slot-kuzatuvi (Faza 0 — premissa sinovi, read-only) ---
+class PostavkaSlotWatch(Base):
+    """Har qator = bitta o'lchov: ma'lum tovar-miqdori uchun o'sha lahzada
+    Uzum FBO'da eng erta bo'sh slot qachon edi. Worker har N daqiqada yozadi
+    — «slotlar vaqt o'tib o'zi bo'shaydimi?» savoliga isbot to'playdi.
+    HECH NARSA yaratmaydi/o'zgartirmaydi (faqat time-slot o'qiydi).
+    """
+    __tablename__ = "postavka_slot_watch"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Bitta poll = bitta measured_at (10 miqdor shu vaqt bilan guruhlanadi).
+    measured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    shop_uzum_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sku_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    dim_group: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    pool_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Eng erta bo'sh slot (epoch ms). None = o'sha miqdor uchun slot yo'q edi.
+    earliest_slot_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    slot_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Eng erta ~24 ta slot boshlanishi (JSON massiv, ms) — xulosa uchun.
+    slots_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PostavkaVolumeEvent(Base):
+    """Har qator = bitta «hajm bo'shashi» hodisasi: ma'lum timeslotning bo'sh
+    HAJMI (sig'imi) oshgan lahza. Worker har daqiqada narvon (probe) bilan
+    har slotning hajm-braketini o'lchaydi, oldingi snapshot bilan solishtiradi
+    va hajm OSHGANDA shu yerga yozadi (dedup — o'zgarmasa yozilmaydi).
+    «Slotlar qachon/qancha bo'shaydi?» analitikasi uchun. READ-ONLY (faqat
+    time-slot o'qiydi, hech narsa yaratmaydi/bron qilmaydi).
+    """
+    __tablename__ = "postavka_volume_event"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    shop_uzum_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Qaysi timeslot (yetkazib berish vaqti, epoch ms) — aniq slot, kun emas.
+    slot_from_ms: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    slot_to_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Shu lahzada bo'shagan hajm (delta) va o'zgarishdan keyingi umumiy hajm.
+    freed_volume: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_volume: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class PostavkaGrabPlan(Base):
+    """Har qator = bitta «avto-band» rejasi: user TANLANGAN KUNga slot olishini
+    xohlagan slotsiz draft накладной. Slot-watcher o'sha kunda yetarli sig'imli
+    slot bo'shaganini sezganda, shu draftni o'sha slotga biriktiradi
+    (set_time_slot). Bir slot = bir накладной; kunda bir nechta draft bo'lsa
+    har biri alohida bo'shagan slotni kutadi (eng katta mosi birinchi).
+    """
+    __tablename__ = "postavka_grab_plan"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    shop_uzum_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Band qilinadigan slotsiz draft.
+    invoice_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Draft hajmi (totalToStock) — slot sig'imiga moslashda ishlatamiz (snapshot).
+    draft_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # TANLANGAN kun (Toshkent). Slot shu kunga tushsa band qilamiz.
+    target_day: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    pool_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    stock_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    dim_group: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # waiting (kutyapti) | booked (band bo'ldi) | canceled | failed.
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="waiting", index=True)
+    # Band bo'lgan slot boshlanishi (epoch ms) + sabab (fail bo'lsa).
+    booked_slot_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    booked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # ── Avto-slot QUEUE kengaytmasi (Bosqich 1) ───────────────────────
+    # Bir umumiy jadval = barcha user/do'kon avto-slot aktlari. Quyidagilar
+    # «vaqt + hajm» navbat logikasi va atomic-claim'ni quvvatlaydi. Hammasi
+    # NULLABLE/additive — eski grabber (target_day bo'yicha) buzilmaydi.
+    # Egasi (kim avto-slotni yoqdi) — ko'p-ijarali navbat uchun.
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # Avto-slot YOQILGAN lahza — navbat prioriteti (kim oldin yoqsa yuqori).
+    enabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    # MUDDAT (deadline): slot shu kungacha (shu kun ham) qidiriladi — har qaysi
+    # day <= max_date mos. target_day (aniq kun) o'rniga keladi; eski qatorlar NULL.
+    max_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    # PASTKI chegara: slot shu kundan OLDIN bo'lsa OLINMAYDI (day >= min_date).
+    # Oraliq [min_date .. max_date] beradi. NULL = pastki chegarasiz (eski
+    # xatti-harakat: «muddatgача istalgan»). Sabab: tovar shu kungacha tayyor emas.
+    min_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    # Atomic-claim ijara: allokator qatorni «booking»ga olganda now()+N sek.
+    # Ikki event bir aktni urishtirmasligi uchun; o'tib ketsa qayta olinadi.
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Booking urinishlari (qayta urinish/diagnostika).
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Akt avto-slot yoqilganda QAYSI slotда edi (epoch ms) — re-booking uchun.
+    # NULL = slotsiz draft (har qanday slot mos). To'lgan bo'lsa — faqat undan
+    # ERTAROQ slot bo'shasa ko'chiramiz (bir marta; «yaxshilash» rejimi).
+    current_slot_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # NAVBAT PRIORITETI (faqat admin qo'yadi): yuqori = oldin. Default 0. Teng
+    # bo'lsa enabled_at (kim oldin yoqsa) hal qiladi. Global navbatда adolat
+    # uchun sellerlar o'zi o'zgartira olmaydi — faqat SellerHub operatori.
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0", index=True)
+
+    __table_args__ = (
+        # Hot-path: event kelganda nomzodlarni bitta range-scan bilan topish —
+        # WHERE status=? AND pool_source=? AND dim_group=? AND max_date>=?
+        Index("ix_grab_plan_hotpath", "status", "pool_source", "dim_group", "max_date"),
+    )
+
+
 # --- New Uzum-aware tables ---
 class ProductGroup(Base):
     __tablename__ = "product_groups"
@@ -807,3 +918,79 @@ class FbsInvoiceAkt(Base):
         DateTime, nullable=False,
         default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
     )
+
+
+class PostavkiInvoiceAkt(Base):
+    """Cached «Акт отправки» PDF per FBO поставка (postavki moduli).
+
+    FBS'dagi ``FbsInvoiceAkt`` bilan bir xil g'oya, lekin FBO поставка'lar
+    uchun (portal API, browser token). Uzum portal ``invoice/printInvoice``
+    aktni jonli beradi; ko'p akt birato'la bosilganда sekin/429. Background
+    worker har CREATED поставка aktini oldindan (paced) shu yerga tortib
+    qo'yadi → bulk «Акт отправки» ONIY, 0 ta Uzum chaqiruvisiz.
+
+    Freshness: ``invoice_id`` (Uzum global-unique) PK; ``date_updated``
+    (поставка ``dateUpdated`` epoch-ms) versiya-shtampi. Slot/qabul-punkt
+    o'zgarса akt ham o'zgaradi → prefetch farqni sezsa qayta tortadi, set-slot
+    route esa qatorni o'chiradi. ``shop_uzum_id`` o'qishni do'konga biriktiradi
+    (boshqa do'kon aktini taxmin bilan tortib bo'lmaydi).
+    """
+
+    __tablename__ = "postavki_invoice_akts"
+
+    invoice_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    shop_uzum_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    date_updated: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False,
+        default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
+    )
+
+
+class FbsOrderLabel(Base):
+    """Cached Uzum shipping-label (jo'natma yorlig'i) PDF per FBS order.
+
+    Why cache: Uzum's ``/v1/fbs/order/{id}/labels/print`` is a PER-ORDER call
+    paced 1s/token (burst → HTTP 429). Bulk-printing 50 fresh labels therefore
+    costs ~50s. The background sync worker PRE-FETCHES each active FBS order's
+    label here (paced, no burst), so the seller's bulk "Yorliq"/"Yorliq + QR"
+    print reads straight from the DB — instant, zero Uzum calls, never 429.
+
+    Immutability (verified 2026-06-12, order 11105-4237): the label is fixed
+    from the moment the order is confirmed (CREATED→PACKING) and does NOT change
+    when the накладна is created or the drop-off point is edited — it encodes the
+    CUSTOMER destination, not the seller's hand-off point. So a cached label is
+    never stale while the order is active; no version stamp is needed (unlike
+    ``FbsInvoiceAkt`` whose akt can change with the slot). ``user_id`` scopes
+    reads so one seller can't pull another's label by guessing an order id.
+
+    Bounded: only PACKING / PENDING_DELIVERY FBS orders are warmed; once an
+    order ships (DELIVERING+) its label is never reprinted and the prefetch
+    prunes the row. Only ``size="LARGE"`` (what bulk print uses) is cached.
+    """
+
+    __tablename__ = "fbs_order_labels"
+
+    # Uzum's orderId is globally unique → natural primary key. String(64) to
+    # match FbsOrder.order_id (Uzum int64 stored as string for headroom).
+    order_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # Label size the cached PDF was rendered at ("LARGE" | "BIG"). Reads require
+    # a match so a BIG request never gets served a LARGE cache entry.
+    size: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="LARGE", server_default=sql_text("'LARGE'"),
+    )
+    # The order's label PDF(s) merged into one document (most FBS orders are a
+    # single package → a single PDF; multi-package orders are concatenated).
+    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    synced_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False,
+        default=datetime.utcnow, server_default=sql_text("CURRENT_TIMESTAMP"),
+    )
+
+
+# NOTE (2026-07-03): FbsSkuStockCache («Ombor» per-user SWR snapshot) was
+# removed — the stock page is live-only now (one /v3 drain per open, browser
+# filters in memory). The orphan ``fbs_sku_stock_cache`` table may still
+# exist in older databases; it is unused and safe to drop manually.

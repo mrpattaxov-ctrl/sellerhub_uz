@@ -12,8 +12,12 @@
      aria-modal="true" aria-hidden="true" aria-labelledby="fbsConfirmTitle">
   <div class="fbs-confirm-backdrop" data-confirm-cancel="1"></div>
   <div class="fbs-confirm-card" role="document">
+    {# «Yopish» — partial 3 ta sahifada include qilinadi: orders/invoices'da
+       `list_labels`, detal sahifasida `labels` (DETAIL_LABELS) mavjud; ikkalasida
+       ham `aria_close` kaliti bor. Qaysi biri tarjima berilsa, o'shani olamiz. #}
+    {% set _close = (list_labels.aria_close if list_labels is defined else labels.aria_close) %}
     <button type="button" class="fbs-confirm-x" data-confirm-cancel="1"
-            aria-label="Yopish" title="Yopish">×</button>
+            aria-label="{{ _close }}" title="{{ _close }}">×</button>
     <div class="fbs-confirm-icon" id="fbsConfirmIcon" aria-hidden="true">✓</div>
     <h3 class="fbs-confirm-title" id="fbsConfirmTitle"></h3>
     <p class="fbs-confirm-msg" id="fbsConfirmMsg"></p>
@@ -26,7 +30,10 @@
 </div>
 
 <style>
-  .fbs-confirm-modal { position: fixed; inset: 0; z-index: 2090; display: none;
+  /* 2098 — dropoff modal (2090) USTIDA: slot bosilganda chiqadigan
+     tasdiqlash dialogi modal ortida qolib ketmasin (DOM'da undan oldin
+     turadi, teng z-index'da keyingi element yutardi). Toast 2100 tepada. */
+  .fbs-confirm-modal { position: fixed; inset: 0; z-index: 2098; display: none;
     align-items: center; justify-content: center; padding: 1rem; }
   .fbs-confirm-modal.is-open { display: flex; }
   .fbs-confirm-backdrop { position: absolute; inset: 0;

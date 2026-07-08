@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyurtma modali — aurora uslubida, 5 variant</title>
+<style>
+  :root{
+    --bg:#eef0f7; --card:#ffffff; --card2:#fafbff;
+    --ink:#101828; --ink2:#475467; --mut:#8a93a6;
+    --line:#eef0f4; --line2:#e6e9f1;
+    --brand:#6938ef; --brand-2:#8b5cf6; --brand-d:#5524d6;
+    --brand-soft:rgba(105,56,239,.10); --brand-soft2:rgba(105,56,239,.16);
+    --rail:#faf9ff;
+    --ok:#047857; --ok-bg:#ecfdf3; --amber:#b54708; --amber-bg:#fffaeb;
+    --red:#b42318; --red-bg:#fef3f2;
+    --r-card:18px; --r-pill:999px;
+    --sh-sm:0 1px 3px rgba(105,56,239,.07), 0 1px 2px rgba(16,24,40,.05);
+    --sh-md:0 8px 24px rgba(16,24,40,.08);
+    --sh-lg:0 30px 80px -20px rgba(50,30,120,.45);
+  }
+  [data-theme="dark"]{
+    --bg:#0e1016; --card:#181b24; --card2:#1d212c;
+    --ink:#e8edf6; --ink2:#aeb6c7; --mut:#7a849a;
+    --line:#262b39; --line2:#2e3447;
+    --brand:#8b6dff; --brand-2:#a78bfa; --brand-d:#7b4eff;
+    --brand-soft:rgba(139,109,255,.14); --brand-soft2:rgba(139,109,255,.22);
+    --rail:#1f2433;
+    --ok:#34d399; --ok-bg:rgba(16,185,129,.14); --amber:#fbbf24; --amber-bg:rgba(247,144,9,.16);
+    --red:#f87171; --red-bg:rgba(240,68,56,.15);
+    --sh-sm:0 1px 3px rgba(0,0,0,.4); --sh-md:0 8px 24px rgba(0,0,0,.45); --sh-lg:0 30px 80px -20px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 82% -8%, rgba(105,56,239,.14), transparent 60%),
+      radial-gradient(900px 520px at -10% 108%, rgba(139,92,246,.12), transparent 55%),
+      var(--bg);
+    color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:5rem}
+  [data-theme="dark"] body{background:
+    radial-gradient(1200px 600px at 82% -8%, rgba(139,109,255,.16), transparent 60%),
+    radial-gradient(900px 520px at -10% 108%, rgba(139,109,255,.08), transparent 55%),
+    linear-gradient(160deg,#0b0d13,#101219 56%,#0d0f16)}
+
+  .bar{position:sticky;top:0;z-index:80;display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+    padding:.7rem 1.2rem;background:color-mix(in srgb,var(--card) 80%,transparent);
+    backdrop-filter:blur(16px) saturate(140%);border-bottom:1px solid var(--line2)}
+  .bar h1{font-size:.95rem;margin:0 1rem 0 0;font-weight:800;letter-spacing:-.01em}
+  .bar .sp{flex:1}
+  .jump{display:flex;gap:.35rem;flex-wrap:wrap}
+  .jump a{font-size:.76rem;font-weight:700;text-decoration:none;color:var(--ink2);
+    border:1px solid var(--line2);background:var(--card);padding:.36rem .7rem;border-radius:var(--r-pill);transition:.16s}
+  .jump a:hover{color:#fff;background:var(--brand);border-color:var(--brand)}
+  .tgl{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--line2);
+    background:var(--card);color:var(--ink);padding:.4rem .8rem;border-radius:var(--r-pill);font-size:.78rem;font-weight:700;cursor:pointer}
+
+  .wrap{max-width:760px;margin:0 auto;padding:2rem 1.2rem 0}
+  .vtag{display:flex;align-items:center;gap:.7rem;margin:2.6rem 0 1rem;scroll-margin-top:5rem}
+  .vtag .n{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:var(--brand);color:#fff;font-weight:800;font-size:.92rem;box-shadow:var(--sh-sm)}
+  .vtag h2{margin:0;font-size:1.06rem;font-weight:800;letter-spacing:-.01em}
+  .vtag p{margin:.1rem 0 0;font-size:.8rem;color:var(--mut);font-weight:600}
+  .vtag .meta{flex:1}
+
+  .modal{border-radius:var(--r-card);background:var(--card);box-shadow:var(--sh-lg);overflow:hidden;position:relative}
+  .lbl{font-size:.64rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+  .pill{display:inline-flex;align-items:center;gap:.32rem;padding:.3rem .65rem;border-radius:var(--r-pill);
+    font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
+  .pill.amber{background:var(--amber-bg);color:var(--amber)}
+  .pill.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill.ghost{background:rgba(255,255,255,.22);color:#fff}
+  .pill.soft{background:var(--brand-soft);color:var(--brand)}
+  .icn{flex:none;display:grid;place-items:center}.icn svg{width:17px;height:17px}
+
+  /* ===== AURORA HEADER ===== */
+  .head{position:relative;padding:1.3rem 1.4rem 1.5rem;
+    background:linear-gradient(135deg,#6d3bf5 0%,#8b5cf6 48%,#a855f7 100%);overflow:hidden}
+  .head::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(420px 200px at 12% -40%,rgba(255,255,255,.45),transparent 60%),
+      radial-gradient(360px 220px at 96% 140%,rgba(56,189,248,.4),transparent 55%);mix-blend-mode:screen;pointer-events:none}
+  .head .top{position:relative;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+  .head .kick{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.78)}
+  .head h3{margin:.25rem 0 0;color:#fff;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .head .onum-box{background:rgba(255,255,255,.95);color:#5524d6;padding:.05rem .42rem;border-radius:8px;margin-left:.15rem}
+  .head .pills{position:relative;z-index:2;display:flex;gap:.45rem;margin-top:.7rem;flex-wrap:wrap}
+  .x{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;cursor:pointer;
+    background:rgba(255,255,255,.18);transition:.16s}.x:hover{background:rgba(255,255,255,.34)}.x svg{width:17px;height:17px}
+
+  /* facts in header (glass on purple) */
+  .head .hfacts{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:1rem}
+  .head .hf{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:13px;padding:.65rem .8rem;backdrop-filter:blur(6px)}
+  .head .hf .k{font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+  .head .hf .v{font-size:.92rem;font-weight:800;color:#fff;margin-top:.25rem;font-variant-numeric:tabular-nums}
+  .head .hf .chip{margin-top:.35rem;display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .45rem;border-radius:999px;
+    background:rgba(255,255,255,.2);color:#fff;font-size:.66rem;font-weight:800}
+
+  .body{padding:1.2rem 1.3rem 1.3rem;display:flex;flex-direction:column;gap:1rem}
+
+  /* glass fact cards (light area) */
+  .gcard{background:var(--card2);border:1px solid var(--line2);border-radius:14px;padding:.8rem .9rem}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+  .gk{font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+  .gv{font-size:.92rem;font-weight:800;color:var(--ink);margin-top:.25rem;font-variant-numeric:tabular-nums}
+  .gv.brand{color:var(--brand)}
+
+  /* customer */
+  .cust{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .cust .gcard{display:flex;gap:.6rem;align-items:center}
+  .cust .icn{width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand)}
+
+  /* tarkib */
+  .sec-h{display:flex;align-items:center;gap:.5rem}
+  .sec-h .t{font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+  .prod{display:flex;gap:.8rem;align-items:center;border:1px solid var(--line2);border-radius:14px;padding:.8rem .9rem;background:var(--card)}
+  .prod .img{flex:none;width:68px;height:68px;border-radius:13px;object-fit:cover;background:linear-gradient(135deg,#dfe3ee,#c9cfdf);
+    display:grid;place-items:center;font-size:1.7rem}
+  [data-theme="dark"] .prod .img{background:linear-gradient(135deg,#2a3042,#222738)}
+  .prod .info{min-width:0;flex:1}
+  .prod .nm{font-size:.9rem;font-weight:750;color:var(--ink);line-height:1.32;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .prod .meta{font-size:.72rem;color:var(--mut);font-weight:600;margin-top:.2rem}
+  .prod .money{flex:none;text-align:right}
+  .prod .money .u{font-size:.72rem;color:var(--mut);font-weight:700;font-variant-numeric:tabular-nums}
+  .prod .money .s{font-size:.98rem;font-weight:850;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:.15rem}
+
+  /* total */
+  .total{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.1rem;border-radius:16px;
+    background:linear-gradient(135deg,var(--brand-soft),var(--card2));border:1px solid var(--line2)}
+  .total .k{font-size:.86rem;font-weight:800;color:var(--brand)}
+  .total .s{font-size:1.4rem;font-weight:850;color:var(--brand);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+  /* actions */
+  .acts{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:.6rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.8rem 1rem;border-radius:13px;
+    font-weight:800;font-size:.86rem;cursor:pointer;border:1px solid transparent;transition:.16s}
+  .btn svg{width:17px;height:17px}
+  .btn-cancel{background:var(--red-bg);color:var(--red);border-color:color-mix(in srgb,var(--red) 25%,transparent)}
+  .btn-cancel:hover{background:var(--red);color:#fff}
+  .btn-ghost{background:var(--card2);color:var(--ink2);border-color:var(--line2)}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
+  .btn-primary{background:linear-gradient(135deg,#6938ef,#8b5cf6);color:#fff;box-shadow:0 10px 24px rgba(105,56,239,.38)}
+  .btn-primary:hover{transform:translateY(-1px)}
+
+  /* ===== V2 — rail ===== */
+  .v2 .body{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:1rem;align-items:start}
+  .v2 .main{display:flex;flex-direction:column;gap:1rem;min-width:0}
+  .v2 .side{display:flex;flex-direction:column;gap:.7rem;position:sticky;top:1rem}
+  .v2 .side .total{flex-direction:column;align-items:stretch;gap:.3rem;text-align:center}
+  .v2 .side .acts{grid-template-columns:1fr}
+  .v2 .grid3{grid-template-columns:1fr}
+
+  /* ===== V3 — sections cards ===== */
+  .v3 .block{border:1px solid var(--line2);border-radius:16px;padding:.95rem 1rem;background:var(--card2)}
+  .v3 .block+.block{margin-top:0}
+  .v3 .block .bh{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);margin-bottom:.6rem}
+  .v3 .prod{background:var(--card)}
+
+  /* ===== V4 — bold ===== */
+  .v4 .head h3{font-size:1.85rem}
+  .v4 .total{background:linear-gradient(135deg,#6938ef,#8b5cf6);border:0}
+  .v4 .total .k,.v4 .total .s{color:#fff}
+  .v4 .total .s{font-size:1.7rem}
+  .v4 .prod .img{width:80px;height:80px}
+
+  /* ===== V5 — compact ===== */
+  .v5 .body{gap:.7rem;padding:1rem 1.1rem 1.1rem}
+  .v5 .grid3{gap:.5rem}
+  .v5 .gcard{padding:.6rem .7rem}
+  .v5 .prod{padding:.6rem .7rem}
+  .v5 .prod .img{width:54px;height:54px;font-size:1.3rem}
+  .v5 .prod .nm{font-size:.84rem}
+  .v5 .total{padding:.75rem .9rem}
+  .v5 .total .s{font-size:1.2rem}
+  .v5 .acts{grid-template-columns:auto auto 1fr}
+  .v5 .btn{padding:.65rem .85rem;font-size:.82rem}
+
+  .foot{max-width:760px;margin:3rem auto 0;padding:1.2rem;text-align:center;color:var(--mut);font-size:.8rem;line-height:1.6}
+  @media(max-width:680px){.cust{grid-template-columns:1fr}.acts{grid-template-columns:1fr}.head .hfacts,.grid3{grid-template-columns:1fr}
+    .v2 .body{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>Buyurtma modali · aurora · 5 variant</h1>
+  <nav class="jump">
+    <a href="#v1">1 Aurora</a>
+    <a href="#v2">2 Rail</a>
+    <a href="#v3">3 Bo'limlar</a>
+    <a href="#v4">4 Bold</a>
+    <a href="#v5">5 Ixcham</a>
+  </nav>
+  <span class="sp"></span>
+  <button class="tgl" id="themeBtn">🌙 Tungi</button>
+</div>
+
+<div class="wrap" id="app"></div>
+
+<script>
+  const I = {
+    close:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+    pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
+    cancel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    qr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M17 21h.01M21 21v-4"/></svg>',
+    label:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>',
+    fbs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+  };
+
+  const D = {
+    kick:"Yaratildi 10.06.2026, 16:50",
+    pre:"11105", box:"4237",
+    tasdiq:"11.06.2026, 08:50",
+    deliver:"13.06.2026, 16:00", left:"2 kun 0 soat",
+    id:"856114-0048",
+    name:"Sanayev Anvar", addr:"Ташкент",
+    prod:{emoji:"🧲", nm:"Stresga qarshi magnit, 2 dona (O'lcham: 3.5sm)", meta:"SKU: BLUMMY-MAGNIT2-35 · Barkod 1000007817167", price:"15 000", qty:1},
+    total:"15 000 UZS",
+  };
+
+  const headerHF = `
+    <div class="hfacts">
+      <div class="hf"><div class="k">Tasdiqlash muddati</div><div class="v">${D.tasdiq}</div></div>
+      <div class="hf"><div class="k">Yetkazib berish</div><div class="v">${D.deliver}</div><span class="chip">${I.timer} ${D.left}</span></div>
+      <div class="hf"><div class="k">Buyurtma ID</div><div class="v">${D.id}</div></div>
+    </div>`;
+
+  const HEAD = (withFacts) => `
+    <div class="head">
+      <div class="top">
+        <div>
+          <div class="kick">${D.kick}</div>
+          <h3>Buyurtma №${D.pre}<span class="onum-box">${D.box}</span></h3>
+          <div class="pills">
+            <span class="pill amber dot">Yig'ilmoqda</span>
+            <span class="pill ghost">${I.fbs} FBS</span>
+          </div>
+        </div>
+        <button class="x">${I.close}</button>
+      </div>
+      ${withFacts ? headerHF : ""}
+    </div>`;
+
+  const FACTS3 = `
+    <div class="grid3">
+      <div class="gcard"><div class="gk">Tasdiqlash muddati</div><div class="gv">${D.tasdiq}</div></div>
+      <div class="gcard"><div class="gk">Yetkazib berish</div><div class="gv">${D.deliver}</div></div>
+      <div class="gcard"><div class="gk">Buyurtma ID</div><div class="gv">${D.id}</div></div>
+    </div>`;
+
+  const CUST = `
+    <div class="cust">
+      <div class="gcard"><div class="icn">${I.user}</div><div><div class="gk">Ism-familiya</div><div class="gv">${D.name}</div></div></div>
+      <div class="gcard"><div class="icn">${I.pin}</div><div><div class="gk">Manzil</div><div class="gv">${D.addr}</div></div></div>
+    </div>`;
+
+  const PROD = `
+    <div>
+      <div class="sec-h" style="margin-bottom:.5rem"><span class="t">Tarkib</span><span class="pill soft">${D.prod.qty} dona</span></div>
+      <div class="prod">
+        <div class="img">${D.prod.emoji}</div>
+        <div class="info"><div class="nm">${D.prod.nm}</div><div class="meta">${D.prod.meta}</div></div>
+        <div class="money"><div class="u">${D.prod.price} × ${D.prod.qty}</div><div class="s">${D.prod.price}</div></div>
+      </div>
+    </div>`;
+
+  const TOTAL = `<div class="total"><span class="k">Jami summa</span><span class="s">${D.total}</span></div>`;
+
+  const ACTS = `
+    <div class="acts">
+      <button class="btn btn-cancel">${I.cancel} Bekor qilish</button>
+      <button class="btn btn-ghost">${I.qr} QR chop etish</button>
+      <button class="btn btn-primary">${I.label} Etiketka chop etish</button>
+    </div>`;
+
+  const B = {};
+
+  // V1 — Aurora (facts in header, classic)
+  B.v1 = `${HEAD(true)}<div class="body">${CUST}${PROD}${TOTAL}${ACTS}</div>`;
+
+  // V2 — Rail (left content / right sticky summary+actions)
+  B.v2 = `<div class="v2">${HEAD(false)}<div class="body">
+      <div class="main">${FACTS3}${CUST}${PROD}</div>
+      <aside class="side">${TOTAL}${ACTS}</aside>
+    </div></div>`;
+
+  // V3 — Sections as cards
+  B.v3 = `<div class="v3">${HEAD(false)}<div class="body">
+      <div class="block"><div class="bh">Muddatlar</div>${FACTS3}</div>
+      <div class="block"><div class="bh">Mijoz</div>${CUST}</div>
+      <div class="block"><div class="bh">Tarkib · ${D.prod.qty} dona</div>
+        <div class="prod"><div class="img">${D.prod.emoji}</div>
+          <div class="info"><div class="nm">${D.prod.nm}</div><div class="meta">${D.prod.meta}</div></div>
+          <div class="money"><div class="u">${D.prod.price} × ${D.prod.qty}</div><div class="s">${D.prod.price}</div></div></div>
+      </div>
+      ${TOTAL}${ACTS}</div></div>`;
+
+  // V4 — Bold (gradient total, big)
+  B.v4 = `<div class="v4">${HEAD(true)}<div class="body">${CUST}${PROD}${TOTAL}${ACTS}</div></div>`;
+
+  // V5 — Compact
+  B.v5 = `<div class="v5">${HEAD(true)}<div class="body">${CUST}${PROD}${TOTAL}${ACTS}</div></div>`;
+
+  const META = {
+    v1:["Aurora","Muddatlar header'da shisha kartalar · mijoz + tarkib + jami + 3 tugma (asosiy)"],
+    v2:["Rail","Chapda kontent · o'ngda yopishqoq summa + tugmalar paneli (checkout hissi)"],
+    v3:["Bo'limlar","Har bo'lim (Muddatlar/Mijoz/Tarkib) alohida sarlavhali karta · tartibli"],
+    v4:["Bold","Yirik sarlavha · gradient «Jami summa» bloki · kattaroq rasm"],
+    v5:["Ixcham","Zich oraliq · kichikroq kartalar · ko'p buyurtmani tez ko'rish uchun"],
+  };
+
+  const app = document.getElementById('app');
+  app.innerHTML = Object.keys(B).map(k=>`
+    <div class="vtag" id="${k}"><div class="n">${k[1]}</div>
+      <div class="meta"><h2>${META[k][0]}</h2><p>${META[k][1]}</p></div></div>
+    <div class="modal">${B[k]}</div>`).join("");
+
+  app.insertAdjacentHTML('beforeend',
+    `<div class="foot">Buyurtma detali modali · bizning aurora dizaynda · 5 variant.<br>
+     Накладна modali bilan bir oilada: aurora header · shisha kartalar · binafsha brend · quticha-raqam. Bittasini tanlang.</div>`);
+
+  const btn=document.getElementById('themeBtn');
+  btn.addEventListener('click',()=>{const h=document.documentElement;const d=h.getAttribute('data-theme')==='dark';
+    h.setAttribute('data-theme',d?'light':'dark');btn.textContent=d?'🌙 Tungi':'☀️ Kunduzgi';});
+</script>
+</body>
+</html>

@@ -38,6 +38,8 @@ def radar(monkeypatch):
     slot_volume._SNAPSHOT.clear()
     slot_volume._FAST_SNAPSHOT.clear()
     slot_volume._PIPELINE_LAST_APPLIED.clear()
+    slot_volume._DETECT_ONLY_SNAP.clear()
+    slot_volume._DETECT_ONLY_APPLIED.clear()
     monkeypatch.setattr(slot_volume.slot_watch, "_get_sku_context",
                         lambda shop, force=False: (_BASE, "SMALL", "FULLFILMENT"))
     recorded: list[dict] = []
@@ -233,5 +235,100 @@ class TestPollPipelineMeasure:
     def test_probe_403_returns_error(self, monkeypatch, radar):
         monkeypatch.setattr(slot_volume.client, "get_time_slots", _boom)
         n, err = slot_volume.poll_pipeline_measure("51948", started_at=1.0)
+        assert n == 0 and err and "403" in err
+        assert radar == []
+
+
+# ── poll_detect_only(): qty-checker detects, ON A HIT the ladder measures ─────
+# DETECT-ONLY mode fires ONE request at DETECT_Q every ~10ms. A timeFrom that
+# newly fits DETECT_Q = a freed slot → the 15-probe ladder then measures its REAL
+# max capacity (freed/total = measured bracket). Unchanged slots skip the ladder
+# (cheap path). Measurement failure falls back to freed=DETECT_Q (never lose a hit).
+
+
+def _capfake(state):
+    """A get_time_slots mock keyed on a {timeFrom: capacity} dict: a slot is
+    returned for quantity q only when its capacity >= q (so the ladder brackets it)."""
+    def fake(shop, lines, pool):
+        q = lines[0]["quantityToStock"]
+        return [{"timeFrom": tf, "timeTo": tf + 1000}
+                for tf, cap in state["cap"].items() if cap >= q]
+    return fake
+
+
+class TestPollDetectOnly:
+    def test_seed_then_new_slot_measures_real_capacity(self, monkeypatch, radar):
+        monkeypatch.setattr(slot_volume, "_DETECT_MEASURE", True)
+        state = {"cap": {1000: 9999}}
+        calls = []
+        def fake(shop, lines, pool):
+            calls.append(lines[0]["quantityToStock"])
+            return _capfake(state)(shop, lines, pool)
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", fake)
+
+        assert slot_volume.poll_detect_only("51948", started_at=1.0) == (0, None)   # seed
+        assert radar == []
+        assert calls[0] == slot_volume._DETECT_Q          # detect probes at DETECT_Q
+        state["cap"][2000] = 500                          # NEW slot, real capacity 500
+        n, err = slot_volume.poll_detect_only("51948", started_at=2.0)
+        assert err is None and n == 1
+        # freed/total is the MEASURED bracket (500), not the flat DETECT_Q.
+        assert any(e["slot_from"] == 2000 and e["freed"] == 500 and e["total"] == 500
+                   for e in radar)
+
+    def test_unchanged_slot_skips_ladder(self, monkeypatch, radar):
+        # No new timeFrom → the expensive ladder never fires (one request per poll).
+        calls = []
+        def fake(shop, lines, pool):
+            calls.append(1); return _slots(1000)
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", fake)
+        slot_volume.poll_detect_only("51948", started_at=1.0)
+        slot_volume.poll_detect_only("51948", started_at=2.0)
+        assert len(calls) == 2                            # ONE request each poll — NO 15-ladder
+
+    def test_measure_failure_falls_back_to_detect_q(self, monkeypatch, radar):
+        # A new slot is detected but the ladder blows up → the hit is still
+        # recorded with freed=DETECT_Q so a detection is never dropped.
+        monkeypatch.setattr(slot_volume, "_DETECT_MEASURE", True)
+        state = {"slots": _slots(1000)}
+        def fake(shop, lines, pool):
+            return list(state["slots"])
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", fake)
+        monkeypatch.setattr(slot_volume, "_measure_slot_volumes",
+                            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        slot_volume.poll_detect_only("51948", started_at=1.0)      # seed
+        state["slots"] = _slots(1000, 2000)
+        n, err = slot_volume.poll_detect_only("51948", started_at=2.0)
+        assert err is None and n == 1
+        assert any(e["slot_from"] == 2000 and e["freed"] == slot_volume._DETECT_Q for e in radar)
+
+    def test_measure_disabled_uses_detect_q(self, monkeypatch, radar):
+        # Kill-switch: POSTAVKA_DETECT_MEASURE=0 → no ladder, flat DETECT_Q volume.
+        monkeypatch.setattr(slot_volume, "_DETECT_MEASURE", False)
+        state = {"cap": {1000: 9999}}
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", _capfake(state))
+        slot_volume.poll_detect_only("51948", started_at=1.0)      # seed
+        state["cap"][2000] = 500                                   # cap 500, but measure OFF
+        n, err = slot_volume.poll_detect_only("51948", started_at=2.0)
+        assert err is None and n == 1
+        assert any(e["slot_from"] == 2000 and e["freed"] == slot_volume._DETECT_Q for e in radar)
+
+    def test_stale_measure_dropped(self, monkeypatch, radar):
+        state = {"slots": _slots(1000)}
+        def fake(shop, lines, pool):
+            return list(state["slots"])
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", fake)
+        slot_volume.poll_detect_only("51948", started_at=1.0)   # seed
+        state["slots"] = _slots(1000, 2000)
+        slot_volume.poll_detect_only("51948", started_at=3.0)   # newest → event
+        radar.clear()
+        state["slots"] = _slots(1000, 2000, 3000)
+        n, err = slot_volume.poll_detect_only("51948", started_at=2.0)  # older → dropped
+        assert n == 0 and err is None
+        assert radar == []
+
+    def test_error_returns_msg(self, monkeypatch, radar):
+        monkeypatch.setattr(slot_volume.client, "get_time_slots", _boom)
+        n, err = slot_volume.poll_detect_only("51948", started_at=1.0)
         assert n == 0 and err and "403" in err
         assert radar == []

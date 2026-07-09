@@ -114,9 +114,10 @@ def main() -> None:
          "Accept": "application/json", "Content-Type": "application/json",
          "Origin": "https://seller.uzum.uz", "Referer": "https://seller.uzum.uz/"}
 
-    # Ishchilar zaxira bilan — sekin so'rov bo'lsa ham pacing 100/sek buzilmasin.
-    workers = args.per_sec * 3
-    sess = _make_session(pool_size=args.per_sec + 20)
+    # Ishchilar zaxira bilan — sekin so'rov bo'lsa ham pacing buzilmasin. LEKIN
+    # cheklaymiz (OOM/thread-portlash): juda baland per-sec'da ham xavfsiz qoladi.
+    workers = min(args.per_sec * 3, 400)
+    sess = _make_session(pool_size=min(args.per_sec + 20, 420))
 
     print(f"[probe] BARQAROR: {args.per_sec}/sek × {args.seconds}s "
           f"(~{args.per_sec * args.seconds} so'rov), pooled Session, "
@@ -179,6 +180,23 @@ def main() -> None:
         okv = by["http-200"]
         print(f"\n  200 latency: p50={_pctl(okv,0.5):.2f}s  p95={_pctl(okv,0.95):.2f}s  "
               f"p99={_pctl(okv,0.99):.2f}s  max={max(okv):.2f}s")
+        print(f"\n  HAR BITTA 200-OK SO'ROV (ms):")
+        print(f"     ⚡ ENG TEZ  (best) : {min(okv)*1000:.0f}ms")
+        print(f"     odatda     (p50)  : {_pctl(okv,0.5)*1000:.0f}ms")
+        print(f"     p95               : {_pctl(okv,0.95)*1000:.0f}ms")
+        print(f"     p99               : {_pctl(okv,0.99)*1000:.0f}ms")
+        print(f"     🐌 ENG SEKIN(worst): {max(okv)*1000:.0f}ms")
+        edges = [0, .2, .3, .5, 1, 2, 5, 10, 1e9]
+        labels = ["<200", "200-300", "300-500", "500ms-1s", "1-2s", "2-5s", "5-10s", "10s+"]
+        counts = [0]*(len(edges)-1)
+        for v in okv:
+            for i in range(len(edges)-1):
+                if edges[i] <= v < edges[i+1]:
+                    counts[i] += 1; break
+        print(f"\n  TAQSIMOT (200-OK so'rovlar; {n_timeout} timeout ALOHIDA — pastda):")
+        for lab, c in zip(labels, counts):
+            pct = 100.0*c/len(okv)
+            print(f"     {lab:>9}  {c:>6}  {pct:5.1f}%  {'█'*int(pct/2)}")
     if n_timeout:
         allt = [v for vals in timeouts.values() for v in vals]
         print(f"  TIMEOUT vaqti: min={min(allt):.1f}s med={statistics.median(allt):.1f}s "

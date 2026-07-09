@@ -124,6 +124,20 @@ def _post_fast(url: str, body: dict, timeout: float) -> dict:
     return json.loads(raw) if raw.strip() else {}
 
 
+def _post2(url: str, body: dict) -> dict | list:
+    """POST that respects the calling thread's fast-read mode.
+
+    Booking-processor threads call `enable_fast_read(timeout)` → this routes
+    `invoice_time_slots` (GET) and `set_time_slot` (SET) through the warm,
+    no-retry, HARD-TIMEOUT session (`_post_fast`) so a stuck request is
+    abandoned at the 1s limit instead of hanging 90s on the retrying path.
+    Every other thread (UI, create flow) keeps the normal `_post` (60s+retry).
+    A read-timeout raises `requests.Timeout`; the caller decides requeue/verify.
+    """
+    _to = _fast_read_timeout()
+    return _post_fast(url, body, _to) if _to is not None else _post(url, body)
+
+
 def list_invoices(
     shop_uzum_id: str, page: int = 0, size: int = 20, statuses: str = ""
 ) -> list[dict]:
@@ -264,7 +278,8 @@ def invoice_time_slots(
     tf = int(time_from) if time_from else int(time.time() * 1000) + _TIMEFROM_LEAD_MS
     url = f"{_BASE}/{shop_uzum_id}/v2/invoice/time-slot/get"
     body = {"invoiceIds": [int(invoice_id)], "poolSource": pool_source, "timeFrom": tf}
-    data = _post(url, body)
+    # Booking-processor thread → warm/hard-timeout; UI/create → normal retrying.
+    data = _post2(url, body)
     if isinstance(data, dict):
         return ((data.get("payload") or {}).get("timeSlots")) or []
     return []
@@ -289,7 +304,10 @@ def set_time_slot(
         "stockId": int(stock_id),
         "poolSource": pool_source,
     }
-    data = _post(url, body)
+    # Booking-processor thread → warm/hard-timeout (1s); UI/change → normal retrying.
+    # ⚠️ MUTATSION + 3× budjet: chaqiruvchi bir invoice uchun SET'ni FAQAT BIR
+    # marta otishi shart (booker.attempt_booking shuni kafolatlaydi).
+    data = _post2(url, body)
     if isinstance(data, dict):
         payload = data.get("payload")
         if isinstance(payload, list) and payload:

@@ -94,5 +94,10 @@ def start_background_threads():
     if os.environ.get("POSTAVKA_GRAB_LOOP", "1").strip().lower() not in ("0", "false", "no"):
         threading.Thread(target=_app._postavka_grab_loop, daemon=True, name="postavka-grab").start()
         print("[Background] Started: postavka slot grabber")
+    # Avto-band PROTSESSORI (yakuniy reja — detektorsiz, 10ms non-blocking).
+    # Har invoice o'zi slotini so'rab o'zini band qiladi. Off: POSTAVKA_BOOKING_LOOP=0.
+    if os.environ.get("POSTAVKA_BOOKING_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+        threading.Thread(target=_app._postavka_booking_loop, daemon=True, name="postavka-booking").start()
+        print("[Background] Started: postavka avto-band processor")
     _app._start_auto_login_scheduler()
     print("[Background] Started: hourly finance, Telegram bot, auto-login")

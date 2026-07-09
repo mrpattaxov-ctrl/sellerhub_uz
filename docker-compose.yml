@@ -143,6 +143,16 @@ services:
       # Real booking'ga o'tish: MODE=live. (Ilgari live edi; 2026-07-06 pauza.)
       POSTAVKA_AUTOSLOT_MODE: "dry"
       POSTAVKA_GRAB_LOOP: "0"
+      # ═══ YAKUNIY REJA (Abdulaziz 2026-07-09): DETEKTORSIZ avto-band ═══
+      # Booking endi mustaqil `_postavka_booking_loop` (har invoice o'zi slotini
+      # so'rab o'zini band qiladi). Eski event-allokator (monitor→bus→allocator)
+      # RETIRE qilinadi — ikki tizim bir invoice'ni band qilib urishmasin:
+      #   • AUTOSLOT_LOOP=0  → allokator konsumeri ishga tushmaydi.
+      #   • AUTOSLOT_PUBLISH=0 → detektor bus'ga event chiqarmaydi (konsumersiz
+      #     navbat to'lib memory-leak bo'lmasin). Detektor observe (digest) QOLADI.
+      # Qaytarish (eski event-arxitektura): AUTOSLOT_LOOP=1 + AUTOSLOT_PUBLISH=1.
+      POSTAVKA_AUTOSLOT_LOOP: "0"
+      POSTAVKA_AUTOSLOT_PUBLISH: "0"
       # Slot-kuzatuv poll oralig'i. 1s × 15-pog'ona narvon = ~15 so'rov/s (eng
       # tez aniqlash). ⚠️ Bu HAJM 2026-07-03'da Uzum WAF IP-blokini (403) keltirgan
       # edi — app.py'dagi 403-cooldown himoya qiladi, lekin yana 403 kelsa intervalni
@@ -161,9 +171,9 @@ services:
       # retry'siz, shu timeout bilan — >600ms cho'zilgan so'rov TASHLANADI va
       # o'sha sikl jimgina o'tkaziladi (90s qotish yo'q; keyingi sikl 300ms da).
       POSTAVKA_DETECT_TIMEOUT_SEC: "0.6"
-      # AKT-O'LCHAM RADAR: hozir O'CHIQ (=1 → hamma slot). Chuqur-parallel rejimda
-      # ishlatilmaydi. Faqat FAST_RADAR=1 bo'lganda ta'sir qiladi.
-      POSTAVKA_DETECT_Q: "1"
+      # DETECT-ONLY checker miqdori (Abdulaziz 2026-07-08): faqat 50 dona sig'adigan
+      # slotlarni tekshiradi. Yangi timeFrom (yoki 50'gacha kattalashish) = bo'shash.
+      POSTAVKA_DETECT_Q: "50"
       # ⚠️ CHUQUR-PARALLEL SINOV (Abdulaziz 2026-07-06): har poll 15-narvonni
       # PARALLEL o'lchaydi (detekt-darvozasiz) → «mavjud slot kattalashди» (o'sish)
       # ham tutiladi (radar buni o'tkazib yuborardi). NARX: ~37.5 so'rov/s — bu
@@ -177,10 +187,43 @@ services:
       # (75/s uzoq ketsa BAN; 403-cooldown himoya qiladi). Qaytarish: =0.
       POSTAVKA_PIPELINE_RADAR: "0"
       POSTAVKA_PIPELINE_INTERVAL_SEC: "0.2"
-      # YOQILDI (Abdulaziz 2026-07-08): ISSIQ ulanish + 600ms straggler-cutoff +
-      # 300ms sikl bilan qayta yoqildi (validatsiya: 266ms burst, 0 xato, 0 qotish).
-      # Allokator dry → OBSERVE (band qilmaydi). To'xtatish: =1.
+      # ═══ DETECT-ONLY rejim (Abdulaziz 2026-07-08) — HAMMA yuqoridagidan USTUN ═══
+      # Bitta qty=50 checker, har 10ms SUBMIT (kutmasdan) → ~100/s uzluksiz. 15-narvon
+      # YO'Q. 600ms kesish YO'Q — so'rov erkin, 15s'da reap; >10s osilsa → Telegram
+      # ALERT. Yangi 50-sig'ar slot = bo'shash → event → digest (odatdagidek).
+      POSTAVKA_DETECT_ONLY: "1"
+      POSTAVKA_DETECT_ONLY_INTERVAL_SEC: "0.01"
+      POSTAVKA_DETECT_ONLY_TIMEOUT_SEC: "15"
+      POSTAVKA_DETECT_WATCHDOG_SEC: "10"
+      # YOQILDI (Abdulaziz 2026-07-08): DETECT-ONLY qty=50 @ 100/s, observe (dry).
+      # To'xtatish: =1.
       POSTAVKA_SLOT_WATCH_PAUSED: "0"
+      # ⛔ DETEKTOR O'CHIRILDI (Abdulaziz 2026-07-09): yangi avto-band protsessori
+      # har invoice slotini O'ZI so'raydi — detektor KERAK EMAS. Butun slot-watch
+      # loop'ni to'xtatadi (~100/s Uzum so'rovlari + detektor Telegram digesti
+      # ham to'xtaydi). Qayta yoqish: =1.
+      POSTAVKA_SLOT_WATCH_LOOP: "0"
+      # ═══ AVTO-BAND PROTSESSORI (Abdulaziz 2026-07-09) — 10ms non-blocking ═══
+      # Har invoice o'zi slotini so'rab (`time-slot/get`) topilsa o'zini band
+      # qiladi (`time-slot/set`). Detektor ISHTIROK ETMAYDI. Navbat = waiting
+      # avto-slot rejalari (postavka_grab_plan). LIVE = real band qiladi.
+      #   • GET cheksiz (slot chiqquncha / muddat o'tguncha) — read-only, xavfsiz.
+      #   • SET har invoice uchun FAQAT BIR MARTA → Uzum 3× budjet portlamaydi.
+      # O'chirish: BOOKING_LOOP=0 yoki BOOKING_MODE=off. Sinov: BOOKING_MODE=dry.
+      # Avto-band Telegram chat (30-daq xulosa + watchdog + kelajakdagi «band
+      # qilardik» ping). Abdulaziz 2026-07-09: 8109426704 ga yo'naltirildi.
+      POSTAVKA_SLOT_WATCH_TG_CHAT: "8109426704"
+      POSTAVKA_BOOKING_LOOP: "1"
+      POSTAVKA_BOOKING_MODE: "dry"
+      # Scheduler: har 10ms bitta invoice SUBMIT (non-blocking). Hard 1s timeout.
+      POSTAVKA_BOOKING_INTERVAL_SEC: "0.01"
+      POSTAVKA_BOOKING_TIMEOUT_SEC: "1.0"
+      # Pile-up guard (uchayotgan so'rov shundan oshsa SUBMIT to'xtaydi) + navbatni
+      # DB'dan qayta yuklash oralig'i + >Ns osilsa Telegram watchdog + soatlik digest.
+      POSTAVKA_BOOKING_MAX_INFLIGHT: "100"
+      POSTAVKA_BOOKING_REFRESH_SEC: "5"
+      POSTAVKA_BOOKING_WATCHDOG_SEC: "10"
+      POSTAVKA_BOOKING_DIGEST_MIN: "30"
     command:
       - gunicorn
       - --bind

@@ -81,6 +81,14 @@ if os.environ.get("POSTAVKA_GRAB_LOOP", "1").strip().lower() not in ("0", "false
     threads.append(t10)
     print("[Worker] Started: postavka slot grabber")
 
+# Avto-band PROTSESSORI (yakuniy reja — detektorsiz, 10ms non-blocking). Har
+# invoice o'zi slotini so'rab o'zini band qiladi. Off: POSTAVKA_BOOKING_LOOP=0.
+if os.environ.get("POSTAVKA_BOOKING_LOOP", "1").strip().lower() not in ("0", "false", "no"):
+    t11 = threading.Thread(target=_app._postavka_booking_loop, daemon=True, name="postavka-booking")
+    t11.start()
+    threads.append(t11)
+    print("[Worker] Started: postavka avto-band processor")
+
 _app._start_auto_login_scheduler()
 print("[Worker] Started: auto-login scheduler")
 

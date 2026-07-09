@@ -466,6 +466,121 @@ def poll_pipeline_measure(shop_uzum_id, on_events=None, started_at=None) -> tupl
     return len(events), None
 
 
+# ── DETECT-ONLY (Abdulaziz 2026-07-08): bitta qty-checker, ~100/s, narvonsiz ─────
+# Muammo: 15-narvon (deep-parallel) har slotning HAJMINI o'lchaydi — sekin, ko'p
+# so'rov. Ehtiyoj: faqat «shu qty (masalan 50) sig'adigan slot BORmi?» — bitta
+# so'rov, uzluksiz 100/s (har 10ms), don't-wait. Yangi timeFrom (yoki mavjud slot
+# DETECT_Q'gacha kattalashsa) = bo'shash → event → digest (odatdagidek).
+# 15-narvon YO'Q → digest «hajm»i taxminiy (freed=DETECT_Q), «slot» soni ANIQ.
+_DETECT_ONLY_SNAP: dict[str, dict] = {}      # shop -> {timeFrom: timeTo}
+_DETECT_ONLY_APPLIED: dict[str, float] = {}  # shop -> qo'llangan eng oxirgi started_at
+_DETECT_ONLY_LOCK = threading.Lock()
+
+# YANGI slot topilganda uning REAL sig'imini 15-narvon PARALLEL o'lchaymizmi?
+# =1 (default, Abdulaziz 2026-07-09): detektsiya paytida (kamdan-kam) narvon
+# ishga tushib slotning haqiqiy maksimal hajmini beradi → event/digest real
+# hajm bilan. =0 → freed=DETECT_Q (tez, o'lchovsiz — eski detect-only xulqi).
+_DETECT_MEASURE = os.environ.get("POSTAVKA_DETECT_MEASURE", "1").strip().lower() not in ("0", "false", "no")
+
+
+def _measure_slot_volumes(shop_uzum_id, base: dict, pool, ladder: list[int]) -> dict:
+    """DETECT-ONLY o'lchovi: narvonni PARALLEL ISSIQ pool orqali o'lchaydi, LEKIN
+    per-pog'ona straggler/xatoni YUTADI (butun o'lchovni tashlamaydi) — detektsiya
+    real sig'imni imkon boricha ko'p oladi (bitta sekin pog'ona hammasini
+    barbod qilmaydi). -> {timeFrom: {"vol","to"}} (chiqqan eng katta narvon-qiymat).
+
+    `_measure_parallel`dan farqi: u bitta straggler'da butun siklni tashlaydi
+    (deep/pipeline uchun to'g'ri — ular har sikl qayta o'lchaydi); bu yerda
+    detektsiya BIR MARTALIK, shuning uchun qisman natija ham qimmatli."""
+    ex = _warm_executor()
+
+    def _probe(q):
+        try:
+            slots = client.get_time_slots(shop_uzum_id, [{**base, "quantityToStock": int(q)}], pool)
+            return int(q), (slots or [])
+        except Exception:
+            return int(q), None   # straggler/tranzient — shu pog'ona hisobga olinmaydi
+
+    snap: dict[int, dict] = {}
+    for q, slots in ex.map(_probe, sorted(ladder)):
+        if slots is None:
+            continue
+        for s in slots:
+            sf = s.get("timeFrom") if isinstance(s, dict) else None
+            if not sf:
+                continue
+            sf = int(sf)
+            cur = snap.get(sf)
+            if cur is None or q > cur["vol"]:
+                snap[sf] = {"vol": int(q), "to": int(s.get("timeTo") or 0)}
+    return snap
+
+
+def poll_detect_only(shop_uzum_id, on_events=None, started_at=None) -> tuple[int, str | None]:
+    """Bitta DETECT_Q-checker (masalan qty=50): shu miqdor sig'adigan slotlarni
+    o'qiydi; oldingi snapshotda YO'Q timeFrom = yangi bo'shagan slot → event.
+    Ustma-ust (pipeline) chaqiriladi → tartip-guard (started_at). Sekin so'rov
+    (Timeout/ConnectionError) → (0, None) jimgina (loop watchdog >10s'ni tutadi).
+
+    YANGI slot topilsa va `_DETECT_MEASURE` (=1) bo'lsa → 15-narvon PARALLEL
+    o'lchov shu lahzada ishga tushib slotning REAL maksimal hajmini beradi
+    (event freed/total = o'lchangan sig'im, flat DETECT_Q emas). O'lchov
+    muvaffaqiyatsiz → fallback freed=DETECT_Q.
+
+    -> (yangi bo'shagan slot soni, xato|None). Restartdan keyingi 1-poll = seed.
+    """
+    if started_at is None:
+        started_at = time.monotonic()
+    base, dim, pool = slot_watch._get_sku_context(shop_uzum_id)
+    if not base:
+        return 0, "SKU topilmadi (token/ombor muammosi?)"
+    key = str(shop_uzum_id)
+    try:
+        slots = client.get_time_slots(shop_uzum_id, [{**base, "quantityToStock": _DETECT_Q}], pool)
+    except (requests.Timeout, requests.ConnectionError):
+        return 0, None   # straggler/tranzient — jimgina o'tkaz (watchdog alert qiladi)
+    except Exception as ex:
+        slot_watch._SKU_CACHE.pop(key, None)
+        return 0, f"{type(ex).__name__}: {ex}"[:120]
+    curr = {int(s["timeFrom"]): int(s.get("timeTo") or 0)
+            for s in (slots or []) if isinstance(s, dict) and s.get("timeFrom")}
+    with _DETECT_ONLY_LOCK:
+        # Tartip-guard: kech tugagan ESKI o'lchov yangisini bosib ketmasin.
+        if started_at <= _DETECT_ONLY_APPLIED.get(key, 0.0):
+            return 0, None
+        _DETECT_ONLY_APPLIED[key] = started_at
+        prev = _DETECT_ONLY_SNAP.get(key)
+        _DETECT_ONLY_SNAP[key] = curr
+        if prev is None:
+            return 0, None   # seed — soxta to'lqin yo'q
+        new_from = [sf for sf in curr if sf not in prev]
+    if not new_from:
+        return 0, None
+
+    # YANGI slot(lar) topildi → REAL sig'imni 15-narvon PARALLEL o'lchaymiz (faqat
+    # SHU LAHZADA — bo'shash kamdan-kam, shuning uchun arzon). O'lchov detektsiya
+    # thread'ida bajariladi (don't-wait): qty=50 poll'lari boshqa thread'larda har
+    # 10ms davom etadi → detekt kadensiyasi buzilmaydi. O'lchov muvaffaqiyatsiz
+    # (straggler/xato/o'chiq) bo'lsa → fallback freed=DETECT_Q (detektsiya
+    # YO'QOLMASIN — hajmsiz bo'lsa ham signal boradi).
+    vol_map = {}
+    if _DETECT_MEASURE:
+        try:
+            vol_map = _measure_slot_volumes(shop_uzum_id, base, pool, LADDER)
+        except Exception as _me:
+            print(f"[SlotVolume] detect-o'lchov xato (fallback {_DETECT_Q}): {_me!r}")
+            vol_map = {}
+
+    events = []
+    for sf in new_from:
+        info = vol_map.get(sf)
+        vol = info["vol"] if info else _DETECT_Q
+        to = info["to"] if info else curr[sf]
+        events.append({"slot_from": sf, "slot_to": to, "freed": vol, "total": vol})
+    _persist_events(key, events, pool, dim, on_events)
+    return len(events), None
+
+
 def _day_key(ms: int) -> date:
     return datetime.fromtimestamp(int(ms) / 1000, _TZ).date()
 

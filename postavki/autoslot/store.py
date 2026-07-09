@@ -107,6 +107,57 @@ def candidates_for(day: date, slot_from_ms: int | None = None) -> list[dict]:
     return [_to_item(r) for r in rows]
 
 
+# ── BOOKING-PROCESSOR (10ms non-blocking loop) — navbat + metrikalar ─────────
+
+
+def booking_candidates(today: date) -> list[dict]:
+    """Booking-loop uchun navbat: hali band bo'lmagan (`waiting`) va MUDDATI
+    o'tmagan (`max_date >= today`) invoice'lar — navbat tartibida.
+
+    `candidates_for`dan farqi: (1) `min_date <= today` FILTRLAMAYDI — invoice
+    muddat oynasida bo'lsa ERTA ham poll qilinadi (slot-kuni filtri
+    `booker.pick_slot_in_window`da qo'llanadi, bu yerda emas); (2) `attempts`
+    bo'yicha FILTRLAMAYDI — GET cheksiz takrorlanadi (SET bir marta, o'zi terminal
+    qiladi). -> [item dict, ...] (prioritet↓, enabled_at↑, id↑).
+    """
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(PostavkaGrabPlan)
+            .where(PostavkaGrabPlan.status == "waiting")
+            .where(or_(PostavkaGrabPlan.max_date.is_(None),
+                       PostavkaGrabPlan.max_date >= today))
+            .order_by(PostavkaGrabPlan.priority.desc(),
+                      PostavkaGrabPlan.enabled_at.asc(), PostavkaGrabPlan.id.asc())
+        ).scalars().all()
+    return [_to_item(r) for r in rows]
+
+
+def save_metrics(rows: list[dict]) -> int:
+    """Booking-loop metrikalarini DB'ga BATCH yozadi (davriy flush — har tick
+    emas, DB'ni bosmaslik uchun). rows: [{"id","timeout_count","failure_count",
+    "last_attempt_at","last_error"}, ...]. Faqat MAVJUD (o'chmagan) qatorlar
+    yangilanadi. -> yangilangan qator soni."""
+    if not rows:
+        return 0
+    n = 0
+    with SessionLocal() as db:
+        for m in rows:
+            r = db.get(PostavkaGrabPlan, int(m["id"]))
+            if not r:
+                continue
+            if m.get("timeout_count") is not None:
+                r.timeout_count = int(m["timeout_count"])
+            if m.get("failure_count") is not None:
+                r.failure_count = int(m["failure_count"])
+            if m.get("last_attempt_at") is not None:
+                r.last_attempt_at = m["last_attempt_at"]
+            if m.get("last_error") is not None:
+                r.error = (m["last_error"] or "")[:255]
+            n += 1
+        db.commit()
+    return n
+
+
 # ── Quyidagilar keyingi bosqichlarda to'ldiriladi (shartnoma signaturlari) ──
 
 

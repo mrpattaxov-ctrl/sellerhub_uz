@@ -124,6 +124,15 @@ class PostavkaGrabPlan(Base):
     # bo'lsa enabled_at (kim oldin yoqsa) hal qiladi. Global navbatда adolat
     # uchun sellerlar o'zi o'zgartira olmaydi — faqat SellerHub operatori.
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0", index=True)
+    # ── Booking-processor metrikalari (10ms non-blocking loop) ────────────
+    # Har invoice bo'yicha diagnostika: soatlik Telegram muammo-digesti va
+    # keyingi tahlil uchun. Hammasi additive/default — eski oqim buzilmaydi.
+    # Timeout (1s hard-limit yoki tarmoq) va oddiy xato (bo'sh javob/API) alohida
+    # sanaladi — «нега band bo'lmadi» aniq ko'rinsin. last_attempt_at = oxirgi
+    # urinish (GET yoki SET) lahzasi.
+    timeout_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         # Hot-path: event kelganda nomzodlarni bitta range-scan bilan topish —

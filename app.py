@@ -159,6 +159,10 @@ def _ensure_postgres_runtime_schema():
         "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS current_slot_ms BIGINT NULL",
         "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 0",
+        # Booking-processor metrikalari (10ms non-blocking loop) — additive.
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS timeout_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS failure_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE postavka_grab_plan ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP NULL",
         # Eski qatorlarni navbatga moslab to'ldirish (faqat NULL bo'lganlar —
         # bir martalik; yangi qatorlar bu maydonlarni doim o'zi to'ldiradi).
         "UPDATE postavka_grab_plan SET max_date = target_day WHERE max_date IS NULL",
@@ -3494,7 +3498,31 @@ def _postavka_slot_watch_loop():
         radar_sec = max(0.1, float(os.environ.get("POSTAVKA_FAST_RADAR_SEC", "0.4").strip() or "0.4"))
     except Exception:
         radar_sec = 0.4
-    if pipeline_radar:
+    # DETECT-ONLY (Abdulaziz 2026-07-08): bitta qty-checker (DETECT_Q, masalan 50),
+    # har _INTERVAL_SEC (10ms)'da SUBMIT (kutmasdan) → ~100/s uzluksiz. 15-narvon YO'Q.
+    # 600ms KESISH YO'Q — so'rov erkin ishlaydi, _TIMEOUT_SEC (15s)'da reap; agar
+    # _WATCHDOG_SEC (10s)'dan uzoq osilsa → Telegramга ALERT (bir marta).
+    detect_only = os.environ.get("POSTAVKA_DETECT_ONLY", "0").strip().lower() not in ("0", "false", "no", "")
+    try:
+        detect_interval = max(0.005, float(os.environ.get("POSTAVKA_DETECT_ONLY_INTERVAL_SEC", "0.01").strip() or "0.01"))
+    except Exception:
+        detect_interval = 0.01
+    try:
+        detect_watchdog = max(1.0, float(os.environ.get("POSTAVKA_DETECT_WATCHDOG_SEC", "10").strip() or "10"))
+    except Exception:
+        detect_watchdog = 10.0
+    try:
+        detect_reap = max(detect_watchdog + 2, float(os.environ.get("POSTAVKA_DETECT_ONLY_TIMEOUT_SEC", "15").strip() or "15"))
+    except Exception:
+        detect_reap = 15.0
+    detect_max_inflight = 400   # pile-up guard: shundan ko'p uchsa yangi SUBMIT o'tkaziladi
+
+    if detect_only:
+        _poll_once = None
+        _poll_nap = detect_interval
+        mode_label = (f"DETECT-ONLY qty={slot_volume._DETECT_Q} "
+                      f"({detect_interval}s≈{1/detect_interval:.0f}/s, reap {detect_reap:.0f}s, alert {detect_watchdog:.0f}s)")
+    elif pipeline_radar:
         _poll_once = None  # pipeline shoxobchasi SUBMIT qiladi (sync chaqirmaydi)
         _poll_nap = pipeline_interval
         mode_label = f"PIPELINE ({pipeline_interval}s = ~{15 / pipeline_interval:.0f} so'rov/s)"
@@ -3510,15 +3538,23 @@ def _postavka_slot_watch_loop():
         _poll_once = slot_volume.poll_volume_once
         _poll_nap = interval_sec
         mode_label = "ladder"
-    # Fixed-rate pacing (tsikl aynan _poll_nap): radar/chuqur/pipeline rejimlarda
-    # so'rov/submit vaqti tsikldan ayriladi → tezlik nishondan OSHMAYDI (ban-cheklov).
+    # Fixed-rate pacing (tsikl aynan _poll_nap): so'rov/submit vaqti tsikldan
+    # ayriladi → tezlik nishondan OSHMAYDI (ban-cheklov).
     _fixed_rate = deep_parallel or fast_radar
-    # Pipeline uchun: ustma-ust o'lchovlar (~3 ta × 15 = ~45 thread) + zaxira.
+    _submit_mode = pipeline_radar or detect_only   # don't-wait SUBMIT shoxobchasi
+    # Pipeline/detect-only pool. detect-only → ISSIQ (fast-read) thread'lar, reap
+    # timeout bilan (600ms YO'Q); pipeline → oddiy 64-pool.
     _pipeline_pool = None
-    _pending = []  # uchayotgan o'lchov future'lari
-    if pipeline_radar:
+    _pending = []  # (future, submit_monotonic, shop) — watchdog + tartib uchun
+    if _submit_mode:
         from concurrent.futures import ThreadPoolExecutor as _TPE
-        _pipeline_pool = _TPE(max_workers=64)
+        if detect_only:
+            _pipeline_pool = _TPE(max_workers=min(detect_max_inflight, 128),
+                                  thread_name_prefix="detectonly",
+                                  initializer=slot_volume.client.enable_fast_read,
+                                  initargs=(detect_reap,))
+        else:
+            _pipeline_pool = _TPE(max_workers=64)
 
     print(f"[SlotWatch] loop started — mode={mode_label}, "
           f"every {_poll_nap}s, digest every {digest_min} min, shops={shops}, tg={tg_chat or 'admin'}")
@@ -3548,32 +3584,47 @@ def _postavka_slot_watch_loop():
         iter_error = False
         cycle_start = _t.monotonic()   # fixed-rate pacing (FAST-RADAR aniq 2.5/s)
         try:
-            if pipeline_radar:
-                # Har tsiklda har do'kon uchun YANGI o'lchov SUBMIT (kutmaymiz —
-                # ustma-ust). started_at = tartib-guard uchun monotonic vaqt.
-                for s in shops:
-                    def _pub(evs, pool, dim, _shop=s):
-                        autoslot_monitor.publish_freed(
-                            evs, pool_source=pool, dim_group=dim, source_shop_id=_shop)
-                    _pending.append(_pipeline_pool.submit(
-                        slot_volume.poll_pipeline_measure, s,
-                        (_pub if autoslot_publish else None), _t.monotonic()))
-                # Tugagan o'lchovlarni yig'ib xato/eventni tekshiramiz (bloklanmaymiz).
-                done = [f for f in _pending if f.done()]
-                _pending = [f for f in _pending if not f.done()]
+            if _submit_mode:
+                _submit_fn = (slot_volume.poll_detect_only if detect_only
+                              else slot_volume.poll_pipeline_measure)
+                # Pile-up guard: juda ko'p uchayotgan bo'lsa yangi SUBMIT qilmaymiz
+                # (osilib qolgan so'rovlar thread/xotirani bosmasin).
+                if len(_pending) < detect_max_inflight:
+                    for s in shops:
+                        def _pub(evs, pool, dim, _shop=s):
+                            autoslot_monitor.publish_freed(
+                                evs, pool_source=pool, dim_group=dim, source_shop_id=_shop)
+                        _now_m = _t.monotonic()
+                        _fut = _pipeline_pool.submit(
+                            _submit_fn, s, (_pub if autoslot_publish else None), _now_m)
+                        _pending.append((_fut, _now_m, s))
+                elif detect_only:
+                    print(f"[SlotWatch] pile-up guard: {len(_pending)} so'rov uchmoqda — SUBMIT o'tkazildi")
+                # WATCHDOG (detect-only): _watchdog (10s) dan uzoq osilgan so'rov →
+                # Telegram alert (har so'rovga BIR marta) = «nimadir jiddiy buzildi».
+                if detect_only:
+                    _now_m = _t.monotonic()
+                    for _fut, _t0, _sh in _pending:
+                        if (not _fut.done()) and (_now_m - _t0) >= detect_watchdog and not getattr(_fut, "_wd_alerted", False):
+                            _fut._wd_alerted = True
+                            _alert(f"⚠️ Slot-so'rov {_now_m - _t0:.0f}s dan beri javob bermayapti "
+                                   f"(do'kon {_sh}). Odatda ~0.2s — nimadir sekinlashgan/qotgan.")
+                # Tugaganlarni yig'ib event/xatoni tekshiramiz (bloklanmaymiz).
+                done = [it for it in _pending if it[0].done()]
+                _pending = [it for it in _pending if not it[0].done()]
                 nev = 0
-                for f in done:
+                for _fut, _t0, _sh in done:
                     try:
-                        n, err_msg = f.result()
+                        n, err_msg = _fut.result()
                         if err_msg:
                             iter_error = True
-                            print(f"[SlotWatch] pipeline o'lchov XATO: {err_msg}")
+                            print(f"[SlotWatch] detect o'lchov XATO: {err_msg}")
                         else:
                             nev += n
                     except Exception as e:
-                        print(f"[SlotWatch] pipeline future ERROR: {e!r}")
+                        print(f"[SlotWatch] detect future ERROR: {e!r}")
                 if nev:
-                    print(f"[SlotWatch] pipeline — {nev} ta yangi event ({len(_pending)} uchmoqda)")
+                    print(f"[SlotWatch] {nev} ta yangi bo'shagan slot ({len(_pending)} uchmoqda)")
             else:
                 for s in shops:
                     err_msg = None
@@ -3631,10 +3682,10 @@ def _postavka_slot_watch_loop():
             if consec_err:
                 print(f"[SlotWatch] tiklandi — normal interval {_poll_nap}s")
             consec_err = 0
-            if pipeline_radar or _fixed_rate:
+            if _submit_mode or _fixed_rate:
                 # Fixed-rate: bir TSIKL aynan _poll_nap bo'lsin. So'rov/submit qancha
-                # vaqt olsa, shuncha kam uxlaymiz → aniq nishon-tezlik. Pipeline'da
-                # SUBMIT deyarli oniy (o'lchov async) → nap ≈ pipeline_interval (0.2s).
+                # vaqt olsa, shuncha kam uxlaymiz → aniq nishon-tezlik. Submit rejimda
+                # (pipeline/detect-only) SUBMIT deyarli oniy → nap ≈ interval.
                 nap = max(0.0, _poll_nap - (_t.monotonic() - cycle_start))
             else:
                 nap = _poll_nap
@@ -3690,6 +3741,323 @@ def _postavka_grab_loop():
         except Exception as e:
             print(f"[SlotGrab] cycle ERROR: {e!r}")
         _t.sleep(interval)
+
+
+def _postavka_booking_loop():
+    """Avto-band PROTSESSORI (yakuniy reja, Abdulaziz 2026-07-09) — DETEKTORSIZ.
+
+    Har invoice O'ZI slotini so'rab (`time-slot/get`) va topilsa O'ZINI band
+    qiladi (`time-slot/set`). Detektor/allokator (monitor→bus) BU YERDA ISHTIROK
+    ETMAYDI. Navbat = `postavka_grab_plan` (status='waiting', muddati o'tmagan).
+
+    SCHEDULER (non-blocking, 10ms):
+      • Har POSTAVKA_BOOKING_INTERVAL_SEC (10ms) da navbatdagi BITTA invoice uchun
+        `booker.attempt_booking`ni WARM pool'ga SUBMIT qiladi — oldingi so'rovni
+        KUTMAYDI (invoice 1 → 0ms, invoice 2 → 10ms, ...). Round-robin.
+      • Har invoice bir vaqtda BITTA faol so'rov (`inflight` to'plami — dubl yo'q).
+      • Hard 1s timeout: pool thread'lari `enable_fast_read(1s)` → GET/SET warm,
+        retry'siz, 1s da tashlanadi.
+      • Pile-up guard: uchayotgan so'rov POSTAVKA_BOOKING_MAX_INFLIGHT dan oshsa
+        yangi SUBMIT to'xtaydi (nazoratsiz concurrency yo'q).
+      • Watchdog: >POSTAVKA_BOOKING_WATCHDOG_SEC (10s) osilgan so'rov → Telegram (1 marta).
+
+    HOLAT/queue (natijaga qarab):
+      • booked      → mark_booked + akt-kesh + navbatdan OLIB TASHLA (terminal).
+      • no_slot     → navbatда QOLADI (keyingi raundда yana GET).
+      • get_timeout/get_error → navbatда qoladi (tranzient; SET otilmadi, budjet toza).
+      • expired/set_timeout/set_failed/no_stock → terminal fail, navbatdan OLIB TASHLA.
+      SET har invoice uchun FAQAT BIR MARTA (booker kafolatlaydi) → 3× budjet toza.
+
+    Har soatda muammo-digesti Telegramga (attempted/booked/failed/timeout +
+    muammoli invoice'lar ro'yxati). O'chirish: POSTAVKA_BOOKING_LOOP=0 yoki
+    POSTAVKA_BOOKING_MODE=off.
+    """
+    import time as _t
+    from datetime import datetime, timezone, timedelta
+    from concurrent.futures import ThreadPoolExecutor
+    from postavki import client
+    from postavki.autoslot import booker, store
+
+    if os.environ.get("POSTAVKA_BOOKING_LOOP", "1").strip().lower() in ("0", "false", "no"):
+        print("[Booking] loop o'chiq (POSTAVKA_BOOKING_LOOP=0)")
+        return
+    mode = booker.booking_mode()
+    if mode == "off":
+        print("[Booking] loop o'chiq (POSTAVKA_BOOKING_MODE=off)")
+        return
+
+    _TZ = timezone(timedelta(hours=5))
+
+    def _f(env, dflt):
+        try:
+            return max(0.0, float(os.environ.get(env, str(dflt)).strip() or dflt))
+        except Exception:
+            return dflt
+
+    interval = max(0.001, _f("POSTAVKA_BOOKING_INTERVAL_SEC", 0.01))   # 10ms
+    timeout = max(0.2, _f("POSTAVKA_BOOKING_TIMEOUT_SEC", 1.0))         # hard 1s
+    watchdog = max(1.0, _f("POSTAVKA_BOOKING_WATCHDOG_SEC", 10.0))
+    refresh = max(1.0, _f("POSTAVKA_BOOKING_REFRESH_SEC", 5.0))         # navbat reload + metrics flush
+    try:
+        max_inflight = max(1, int(os.environ.get("POSTAVKA_BOOKING_MAX_INFLIGHT", "100").strip() or "100"))
+    except Exception:
+        max_inflight = 100
+    try:
+        digest_min = max(1, int(os.environ.get("POSTAVKA_BOOKING_DIGEST_MIN", "60").strip() or "60"))
+    except Exception:
+        digest_min = 60
+    tg_chat = os.environ.get("POSTAVKA_SLOT_WATCH_TG_CHAT", "110575962").strip()
+
+    pool = ThreadPoolExecutor(max_workers=min(max_inflight, 128),
+                              thread_name_prefix="booking",
+                              initializer=client.enable_fast_read, initargs=(timeout,))
+
+    # ── Ishchi navbat (xotirada) — DB'dan davriy yangilanadi ──
+    plans: dict[int, dict] = {}     # plan_id -> item dict
+    order: list[int] = []            # round-robin tartibi
+    inflight: set[int] = set()       # hozir faol so'rovi bor plan_id (dubl-guard)
+    states: dict[int, dict] = {}     # plan_id -> {attempts,timeouts,failures,last_error,last_attempt_at,dirty}
+    pending: list = []               # (future, submit_monotonic, plan)
+    dry_notified: dict[int, int] = {}  # plan_id -> oxirgi «band qilardim» xabar bergan slot (dedup)
+    rr = 0                           # round-robin ko'rsatkichi
+
+    # Soatlik akkumulyator (muammo-digesti uchun) — bucket o'zgarganda yuboriladi.
+    hour = {"attempted": set(), "booked": 0, "failed": 0, "timed_out": 0}
+    last_digest_bucket = None
+
+    def _alert(msg: str):
+        try:
+            (_send_telegram_chat(tg_chat, msg) if tg_chat else _send_admin_telegram(msg))
+        except Exception as _te:
+            print(f"[Booking] signal yuborilmadi: {_te!r}")
+
+    def _st(pid: int) -> dict:
+        s = states.get(pid)
+        if s is None:
+            s = {"attempts": 0, "timeouts": 0, "failures": 0, "last_error": None,
+                 "last_attempt_at": None, "dirty": False}
+            states[pid] = s
+        return s
+
+    def _reload():
+        """DB'dan waiting navbatni oladi: yangi invoice qo'shiladi, band bo'lgan/
+        yo'qolgan olib tashlanadi. Mavjud states/ SAQLANADI (metrikalar yo'qolmasin)."""
+        today = datetime.now(_TZ).date()
+        try:
+            cands = store.booking_candidates(today)
+        except Exception as e:
+            print(f"[Booking] navbat reload xato: {e!r}")
+            return
+        fresh = {int(c["id"]): c for c in cands}
+        for pid, c in fresh.items():
+            if pid not in plans:
+                order.append(pid)
+                print(f"[Booking] navbatga qo'shildi: plan#{pid} №{c.get('invoice_number') or c['invoice_id']}")
+            plans[pid] = c   # yangilangan min/max/stock saqlab qo'yamiz
+        # Endi waiting bo'lmaganlarni (boshqa yo'l band qildi / bekor) tozalaymiz —
+        # inflight bo'lganini tegmaymiz (reap tugatadi).
+        for pid in list(plans.keys()):
+            if pid not in fresh and pid not in inflight:
+                _drop(pid)
+
+    def _drop(pid: int):
+        plans.pop(pid, None)
+        states.pop(pid, None)
+        dry_notified.pop(pid, None)
+        try:
+            order.remove(pid)
+        except ValueError:
+            pass
+
+    def _flush_metrics():
+        rows = [{"id": pid, "timeout_count": s["timeouts"], "failure_count": s["failures"],
+                 "last_attempt_at": s["last_attempt_at"], "last_error": s["last_error"]}
+                for pid, s in states.items() if s.get("dirty")]
+        if not rows:
+            return
+        try:
+            store.save_metrics(rows)
+            for r in rows:
+                st = states.get(r["id"])
+                if st:
+                    st["dirty"] = False
+        except Exception as e:
+            print(f"[Booking] metrics flush xato: {e!r}")
+
+    def _next_plan():
+        """Round-robin: navbatdagi INFLIGHT bo'lmagan keyingi plan_id."""
+        nonlocal rr
+        n = len(order)
+        if n == 0:
+            return None
+        for _ in range(n):
+            pid = order[rr % n]
+            rr = (rr + 1) % n if n else 0
+            if pid in inflight:
+                continue
+            p = plans.get(pid)
+            if p is not None:
+                return p
+        return None
+
+    def _reap():
+        """Tugagan future'larni yig'ib holat/metrika/queue'ni yangilaydi."""
+        nonlocal pending
+        done = [it for it in pending if it[0].done()]
+        pending = [it for it in pending if not it[0].done()]
+        for fut, _t0, plan in done:
+            pid = int(plan["id"])
+            inflight.discard(pid)
+            try:
+                res = fut.result()
+            except Exception as e:
+                # attempt_booking exception otmasligi kerak — himoya sifatida.
+                s = _st(pid); s["failures"] += 1; s["last_error"] = f"loop: {e!r}"[:200]; s["dirty"] = True
+                print(f"[Booking] attempt future ERROR plan#{pid}: {e!r}")
+                continue
+            outcome = res.get("outcome")
+            num = plan.get("invoice_number") or plan.get("invoice_id")
+            s = _st(pid)
+            s["attempts"] += 1
+            s["last_attempt_at"] = datetime.utcnow()
+            s["dirty"] = True
+            hour["attempted"].add(pid)
+            # Klassifikatsiya MUTUALLY EXCLUSIVE: bir natija = booked YOKI timeout
+            # YOKI failure (yoki hech biri — no_slot/dry). SET_TIMEOUT terminal
+            # bo'lsa ham FAQAT timeout sifatida sanaladi (failure sifatida EMAS).
+            timed = booker.is_timeout(outcome)
+            if timed:
+                s["timeouts"] += 1
+                hour["timed_out"] += 1
+                s["last_error"] = res.get("error")
+                print(f"[Booking] ⏱ TIMEOUT plan#{pid} №{num}: {res.get('error')}")
+            if outcome == booker.BOOKED:
+                slot_ms = res.get("slot_from_ms")
+                hour["booked"] += 1
+                try:
+                    store.mark_booked(pid, int(slot_ms))
+                except Exception as e:
+                    print(f"[Booking] mark_booked xato plan#{pid}: {e!r}")
+                # Slot o'zgardi → «Акт отправки» PDF keshini yangilaymiz (UI bilan simmetrik).
+                try:
+                    from postavki import akt_cache
+                    inv = res.get("inv") or {}
+                    akt_cache.warm_one_async(plan["shop_uzum_id"], int(plan["invoice_id"]),
+                                             date_updated=inv.get("dateUpdated"))
+                except Exception as e:
+                    print(f"[Booking] akt-kesh yangilash xato plan#{pid}: {e!r}")
+                print(f"[Booking] ✅ BOOKED plan#{pid} №{num} → slot {slot_ms}")
+                _drop(pid)
+            elif booker.is_failed_terminal(outcome):
+                # SET_TIMEOUT allaqachon timeout sifatida sanaldi — qayta failure
+                # qilib qo'shmaymiz; boshqa terminal-fail (expired/set_failed/
+                # no_stock) esa failure.
+                if not timed:
+                    s["failures"] += 1
+                    hour["failed"] += 1
+                s["last_error"] = res.get("error")
+                try:
+                    store.mark_failed(pid, res.get("error") or outcome, requeue=False)
+                except Exception as e:
+                    print(f"[Booking] mark_failed xato plan#{pid}: {e!r}")
+                print(f"[Booking] ❌ {outcome.upper()} plan#{pid} №{num}: {res.get('error')}")
+                # Metrikani terminal qatorga oxirgi marta yozamiz (drop'dan oldin).
+                try:
+                    store.save_metrics([{"id": pid, "timeout_count": s["timeouts"],
+                                         "failure_count": s["failures"],
+                                         "last_attempt_at": s["last_attempt_at"],
+                                         "last_error": s["last_error"]}])
+                except Exception:
+                    pass
+                _drop(pid)
+            elif outcome == booker.GET_ERROR:
+                s["failures"] += 1
+                hour["failed"] += 1
+                s["last_error"] = res.get("error")
+                # tranzient — navbatда qoladi
+            elif outcome == booker.DRY:
+                # Sinov: slot topildi, band QILINMADI. Tanlangan slot O'ZGARGANDA
+                # (birinchi marta ham) bir marta Telegram «band qilardim» — dedup
+                # bilan (aks holda har ~0.5s ayni xabar). navbatда qoladi.
+                slot_ms = res.get("slot_from_ms")
+                if slot_ms and dry_notified.get(pid) != slot_ms:
+                    dry_notified[pid] = slot_ms
+                    print(f"[Booking] 🧪 DRY band qilardik plan#{pid} №{num} → slot {slot_ms}")
+                    try:
+                        _alert(booker.format_would_book(plan, slot_ms))
+                    except Exception as e:
+                        print(f"[Booking] dry-notify xato plan#{pid}: {e!r}")
+
+    print(f"[Booking] loop started — mode={mode}, interval={interval*1000:.0f}ms, "
+          f"timeout={timeout*1000:.0f}ms, max_inflight={max_inflight}, "
+          f"digest {digest_min}min, tg={tg_chat or 'admin'}")
+
+    last_reload = 0.0
+    consec_err = 0
+    while True:
+        cycle_start = _t.monotonic()
+        try:
+            # 1. Navbatni davriy yangilash + metrikalarni flush.
+            if cycle_start - last_reload >= refresh:
+                last_reload = cycle_start
+                _reload()
+                _flush_metrics()
+
+            # 2. SCHEDULE — pile-up guard ichida navbatdagi bitta invoice'ni SUBMIT.
+            if len(inflight) < max_inflight:
+                plan = _next_plan()
+                if plan is not None:
+                    pid = int(plan["id"])
+                    inflight.add(pid)
+                    t0 = _t.monotonic()
+                    fut = pool.submit(booker.attempt_booking, plan, mode=mode)
+                    pending.append((fut, t0, plan))
+
+            # 3. WATCHDOG — uzoq osilgan so'rov (har biriga 1 marta).
+            now_m = _t.monotonic()
+            for fut, t0, plan in pending:
+                if (not fut.done()) and (now_m - t0) >= watchdog and not getattr(fut, "_wd", False):
+                    fut._wd = True
+                    num = plan.get("invoice_number") or plan.get("invoice_id")
+                    _alert(f"⚠️ Avto-band so'rovi {now_m - t0:.0f}s javob bermayapti "
+                           f"(№{num}). Odatda ~0.3s — nimadir qotgan.")
+
+            # 4. REAP — tugaganlarni qayta ishlash.
+            _reap()
+
+            # 5. Soatlik digest (bucket chegarasi).
+            bucket = int(_t.time() // (digest_min * 60))
+            if last_digest_bucket is None:
+                last_digest_bucket = bucket
+            elif bucket != last_digest_bucket:
+                last_digest_bucket = bucket
+                problems = [{
+                    "invoice_id": plans.get(pid, {}).get("invoice_id", pid),
+                    "invoice_number": plans.get(pid, {}).get("invoice_number"),
+                    "attempts": s["attempts"], "timeouts": s["timeouts"],
+                    "failures": s["failures"], "last_error": s["last_error"],
+                } for pid, s in states.items() if s["timeouts"] or s["failures"]]
+                totals = {"attempted": len(hour["attempted"]), "booked": hour["booked"],
+                          "failed": hour["failed"], "timed_out": hour["timed_out"]}
+                if totals["attempted"] or problems:
+                    try:
+                        text = booker.format_booking_digest(int(_t.time() * 1000), totals, problems, digest_min)
+                        _alert(text)
+                        print(f"[Booking] soatlik digest yuborildi — {totals}")
+                    except Exception as e:
+                        print(f"[Booking] digest xato: {e!r}")
+                hour = {"attempted": set(), "booked": 0, "failed": 0, "timed_out": 0}
+            consec_err = 0
+        except Exception as e:
+            consec_err += 1
+            print(f"[Booking] loop xato ({consec_err}): {e!r}")
+            if consec_err == 1:
+                _alert(f"⚠️ Avto-band loop xato: {e!r}"[:200])
+        # Fixed-rate: bir tsikl aynan `interval` (10ms). Submit deyarli oniy →
+        # nap ≈ interval. Xatoda biroz sekinlashtiramiz (bo'sh aylanmasin).
+        elapsed = _t.monotonic() - cycle_start
+        nap = max(0.0, (interval if not consec_err else max(interval, 1.0)) - elapsed)
+        _t.sleep(nap)
 
 
 def _hourly_finance_loop():

@@ -24,12 +24,23 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 
-from config import HTTP_ACCEPT_LANGUAGE, HTTP_USER_AGENT
+from config import HTTP_USER_AGENT
 from core.auth_helpers import _get_admin_token
 from core.http_client import _get_http_session
 
 _BASE = "https://api-seller.uzum.uz/api/seller/shop"
 _UPLOAD_URL = "https://images-uploader.uzum.uz/upload"
+
+# ⚠️ MUHIM — product-modul Accept-Language'ga QATTIQ bog'liq. Uzum'ning
+# `/product/*` portal endpointlari faqat `uz`/`ru` locale'ni tushunadi;
+# app-wide `HTTP_ACCEPT_LANGUAGE` (`en-US,en;q=0.9,ru;q=0.8`) yuborilsa
+# `internal-server-error-001` (HTTP 500) qaytadi — FBO/postavki esa xuddi
+# shu qiymatni bemalol qabul qiladi (live probe 2026-07-11 tasdiqladi:
+# en-US→500, uz-UZ→200 «Hayvonlar», ru→200 «Животные»). Shu sababli bu
+# modul HAR chaqiruvda `uz-UZ` majburlaydi (o'zbekcha-birinchi konvensiya,
+# [[project-fbs-language-uzbek-first]]). Xato token/rol EMAS edi — aynan
+# shu bitta header. Bilib turib global config qiymatiga qaytarmang.
+_PRODUCT_ACCEPT_LANGUAGE = "uz-UZ"
 
 # Rasm hajmi cheklovi (proxy orqali o'tadigan multipart) — portal o'zi ham
 # ~10MB atrofida cheklaydi; biz 15MB da kesamiz (xotira himoyasi).
@@ -51,7 +62,9 @@ def _headers(content_type: str | None = None) -> dict:
     h = {
         "Accept": "application/json, text/plain, */*",
         "User-Agent": HTTP_USER_AGENT,
-        "Accept-Language": HTTP_ACCEPT_LANGUAGE,
+        # product-modul faqat uz/ru locale'ni qabul qiladi — global
+        # en-US config'i 500 beradi (yuqoridagi _PRODUCT_ACCEPT_LANGUAGE izohi).
+        "Accept-Language": _PRODUCT_ACCEPT_LANGUAGE,
     }
     if content_type:
         h["Content-Type"] = content_type

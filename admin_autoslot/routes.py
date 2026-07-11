@@ -19,6 +19,7 @@ from sqlalchemy import select
 from extensions import SessionLocal
 from models import Shop, User
 from postavki.autoslot import store
+from postavki import autoslot_client
 
 admin_autoslot_bp = Blueprint("admin_autoslot_bp", __name__)
 
@@ -45,7 +46,15 @@ def autoslot_list():
     if not _is_admin():
         return jsonify({"error": "Admin only"}), 403
     status = (request.args.get("status") or "").strip() or None
-    plans = store.list_for_admin(status=status)
+    # AUTOSLOT_URL qo'yilgan → navbat autoslot servisidan; enrichment (nom/ega)
+    # baribir SellerHub'da (Shop/User jadvallari shu yerда).
+    if autoslot_client.enabled():
+        try:
+            plans = autoslot_client.admin_list(status)
+        except Exception as e:
+            return jsonify({"error": f"autoslot servisi: {e}"}), 502
+    else:
+        plans = store.list_for_admin(status=status)
     # Do'kon nomi + egasi (username) — bitta so'rov bilan mapping.
     shop_ids = {p["shop_uzum_id"] for p in plans if p.get("shop_uzum_id")}
     user_ids = {p["user_id"] for p in plans if p.get("user_id")}
@@ -79,7 +88,13 @@ def autoslot_set_priority():
         return jsonify({"error": "planId/priority butun son bo'lsin"}), 400
     if not (0 <= priority <= 1_000_000):
         return jsonify({"error": "priority 0..1000000 oralig'ida"}), 400
-    val = store.set_priority(plan_id, priority)
+    if autoslot_client.enabled():
+        try:
+            val = autoslot_client.set_priority(plan_id, priority)
+        except Exception as e:
+            return jsonify({"error": f"autoslot servisi: {e}"}), 502
+    else:
+        val = store.set_priority(plan_id, priority)
     if val is None:
         return jsonify({"error": "Reja topilmadi"}), 404
     return jsonify({"ok": True, "planId": plan_id, "priority": val})

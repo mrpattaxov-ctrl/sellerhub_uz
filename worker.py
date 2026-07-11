@@ -89,6 +89,16 @@ if os.environ.get("POSTAVKA_BOOKING_LOOP", "1").strip().lower() not in ("0", "fa
     threads.append(t11)
     print("[Worker] Started: postavka avto-band processor")
 
+# Auto-slot alohida servisiga TOKEN PUSH (AUTOSLOT_URL qo'yilgan bo'lsa) — Uzum
+# token rotatsiya qilinganda alohida autoslot servisi ham yangisini olsin.
+# AUTOSLOT_URL bo'sh (hozirgi prod) → loop darhol chiqadi (no-op).
+if os.environ.get("AUTOSLOT_URL", "").strip():
+    from postavki import autoslot_client
+    t12 = threading.Thread(target=autoslot_client.token_push_loop, daemon=True, name="autoslot-token-push")
+    t12.start()
+    threads.append(t12)
+    print("[Worker] Started: autoslot token-push")
+
 _app._start_auto_login_scheduler()
 print("[Worker] Started: auto-login scheduler")
 

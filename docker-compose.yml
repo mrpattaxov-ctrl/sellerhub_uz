@@ -213,7 +213,9 @@ services:
       # Avto-band Telegram chat (30-daq xulosa + watchdog + kelajakdagi «band
       # qilardik» ping). Abdulaziz 2026-07-09: 8109426704 ga yo'naltirildi.
       POSTAVKA_SLOT_WATCH_TG_CHAT: "8109426704"
-      POSTAVKA_BOOKING_LOOP: "1"
+      # AUTOSLOT_URL qo'yilgani uchun band qilishни autoslot servisi bajaradi —
+      # SellerHub'ning O'Z loop'i O'CHIQ (ikki tomon bir slotni urmasin).
+      POSTAVKA_BOOKING_LOOP: "0"
       POSTAVKA_BOOKING_MODE: "dry"
       # Scheduler: har 10ms bitta invoice SUBMIT (non-blocking). Hard 1s timeout.
       POSTAVKA_BOOKING_INTERVAL_SEC: "0.01"

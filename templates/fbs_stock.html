@@ -739,6 +739,38 @@
     }
   }
 
+  // ── Sxemasiz qatorga miqdor kiritilsa → FBS'ni avto-yoqadi ────────────
+  // Uzum sxemaga (FBS/DBS) bog'lanmagan SKU'ga qoldiq YOZMAYDI: so'rov 200
+  // qaytadi-yu, amount jimgina 0 bo'lib qoladi (Abdulaziz 2026-07-10, jonli
+  // log bilan tasdiqlangan). Shuning uchun musbat miqdor kiritilib hech
+  // qaysi sxema belgilanmagan bo'lsa, avtomatik FBS'ni yoqamiz (mumkin
+  // bo'lmasa DBS'ga tushamiz) va checkbox'ni jonli moslaymiz.
+  function autoLinkScheme(sid, tr) {
+    const row = _byId.get(sid);
+    if (!row) return;
+    const st = stateOf(row);
+    if ((Number(st.amount) || 0) <= 0) return;   // faqat musbat miqdorda
+    if (st.fbsLinked || st.dbsLinked) return;     // allaqachon sxema bor
+    const field = (row.fbsAllowed !== false) ? "fbsLinked"
+                : (row.dbsAllowed !== false) ? "dbsLinked" : null;
+    if (!field) return;                           // ikkovi ham mumkin emas
+    setField(sid, field, true);
+    syncSchemeUI(sid, tr);
+  }
+  // _edited holatiga qarab qatordagi FBS/DBS checkbox'larini jonli moslaydi.
+  function syncSchemeUI(sid, tr) {
+    if (!tr) return;
+    const row = _byId.get(sid);
+    if (!row) return;
+    const st = stateOf(row);
+    tr.querySelectorAll(".stk-scheme-cb").forEach((cb) => {
+      const on = cb.getAttribute("data-scheme") === "fbs" ? st.fbsLinked : st.dbsLinked;
+      cb.checked = !!on;
+      const lbl = cb.closest(".stk-scheme-toggle");
+      if (lbl) lbl.classList.toggle("is-off", !on);
+    });
+  }
+
   function schemeToggles(row, st) {
     const sid = String(row.skuId);
     function one(scheme, on, allowed) {
@@ -866,6 +898,7 @@
     if (!isFinite(val) || val < 0) val = 0;
     setField(sid, "amount", val);
     const tr = input.closest("tr");
+    autoLinkScheme(sid, tr);
     if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
     updateSaveBar();
     updateSummary();
@@ -902,6 +935,7 @@
     input.value = String(val);   // programmatik — "input" event fire qilmaydi
     setField(sid, "amount", val);
     const tr = input.closest("tr");
+    autoLinkScheme(sid, tr);
     if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
     updateSaveBar();
     updateSummary();

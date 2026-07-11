@@ -18,7 +18,7 @@ from datetime import date
 from extensions import SessionLocal
 from models import Shop, Variant, PostavkaGrabPlan
 from core.auth_helpers import _user_shop_ids
-from postavki import client, akt_cache, slot_grabber
+from postavki import client, akt_cache, slot_grabber, autoslot_client
 from postavki.autoslot import store
 
 postavki_bp = Blueprint("postavki_bp", __name__)
@@ -368,6 +368,9 @@ def postavki_grab_plan_create():
     uid = int(current_user.get_id())
     created, updated, skipped = 0, 0, []
     out = []
+    # AUTOSLOT_URL qo'yilgan bo'lsa navbatga yozishni autoslot servisiga
+    # o'tkazamiz (HTTP); aks holda BUGUNGIDEK mahalliy `store.enqueue`.
+    use_remote = autoslot_client.enabled()
     with SessionLocal() as db:
         for raw in inv_ids:
             inv_id = _int_or_none(raw)
@@ -380,24 +383,45 @@ def postavki_grab_plan_create():
             # faqat undan ertaroq slot bo'shasa ko'chiriladi). Slotsiz → None.
             ts = inv.get("timeSlotReservation") or {}
             current_slot_ms = ts.get("timeFrom") or ts.get("from")
-            _, action = store.enqueue(
-                db,
-                user_id=uid,
-                shop_uzum_id=shop,
-                invoice_id=inv_id,
-                invoice_number=str(inv.get("invoiceNumber") or ""),
-                volume=int(inv.get("totalToStock") or 0),
-                dim_group=_dim_of(inv),
-                pool_source=stock.get("poolSource"),
-                stock_id=stock.get("id"),
-                max_date=max_date,
-                min_date=min_date,
-                current_slot_ms=int(current_slot_ms) if current_slot_ms else None,
-            )
+            csm = int(current_slot_ms) if current_slot_ms else None
+            if use_remote:
+                try:
+                    resp = autoslot_client.post_plan({
+                        "user_id": uid,
+                        "shop_uzum_id": shop,
+                        "invoice_id": inv_id,
+                        "invoice_number": str(inv.get("invoiceNumber") or ""),
+                        "volume": int(inv.get("totalToStock") or 0),
+                        "dim_group": _dim_of(inv),
+                        "pool_source": stock.get("poolSource"),
+                        "stock_id": stock.get("id"),
+                        "max_date": max_date.isoformat(),
+                        "min_date": min_date.isoformat() if min_date else None,
+                        "current_slot_ms": csm,
+                    })
+                    action = resp.get("action")
+                except Exception as e:
+                    return jsonify({"error": f"autoslot servisi: {e}"}), 502
+            else:
+                _, action = store.enqueue(
+                    db,
+                    user_id=uid,
+                    shop_uzum_id=shop,
+                    invoice_id=inv_id,
+                    invoice_number=str(inv.get("invoiceNumber") or ""),
+                    volume=int(inv.get("totalToStock") or 0),
+                    dim_group=_dim_of(inv),
+                    pool_source=stock.get("poolSource"),
+                    stock_id=stock.get("id"),
+                    max_date=max_date,
+                    min_date=min_date,
+                    current_slot_ms=csm,
+                )
             created += (action == "created")
             updated += (action == "updated")
             out.append({"invoice_id": inv_id, "size": int(inv.get("totalToStock") or 0)})
-        db.commit()
+        if not use_remote:
+            db.commit()
     return jsonify({"created": created, "updated": updated, "skipped": skipped,
                     "maxDate": day_s, "plans": out})
 
@@ -412,6 +436,12 @@ def postavki_grab_plan_list():
     if not _can_access(shop):
         return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
     status = (request.args.get("status") or "").strip()
+    if autoslot_client.enabled():
+        try:
+            plans = autoslot_client.list_for_shop(shop, status or None)
+        except Exception as e:
+            return jsonify({"error": f"autoslot servisi: {e}"}), 502
+        return jsonify({"plans": plans})
     with SessionLocal() as db:
         q = (select(PostavkaGrabPlan)
              .where(PostavkaGrabPlan.shop_uzum_id == shop)
@@ -446,6 +476,12 @@ def postavki_grab_plan_all():
         names = {r.uzum_id: r.name for r in shop_rows}
         if not names:
             return jsonify({"plans": []})
+        if autoslot_client.enabled():
+            try:
+                plans = autoslot_client.list_for_shops(names, status or None)
+            except Exception as e:
+                return jsonify({"error": f"autoslot servisi: {e}"}), 502
+            return jsonify({"plans": plans})
         q = select(PostavkaGrabPlan).where(PostavkaGrabPlan.shop_uzum_id.in_(list(names.keys())))
         if status:
             q = q.where(PostavkaGrabPlan.status == status)
@@ -473,6 +509,16 @@ def postavki_grab_plan_cancel():
         return jsonify({"error": "shop/planId kerak"}), 400
     if not _can_access(shop):
         return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    if autoslot_client.enabled():
+        try:
+            p = autoslot_client.get_plan(plan_id)
+            # Egalik SellerHub tomonida tekshiriladi (autoslot'da shop-egalik yo'q).
+            if not p or str(p.get("shop_uzum_id")) != shop:
+                return jsonify({"error": "Reja topilmadi"}), 404
+            autoslot_client.cancel(plan_id)
+        except Exception as e:
+            return jsonify({"error": f"autoslot servisi: {e}"}), 502
+        return jsonify({"ok": True})
     with SessionLocal() as db:
         row = db.get(PostavkaGrabPlan, plan_id)
         if not row or row.shop_uzum_id != shop:

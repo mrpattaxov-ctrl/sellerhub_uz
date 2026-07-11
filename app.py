@@ -3866,6 +3866,13 @@ def _postavka_booking_loop():
         for pid in list(plans.keys()):
             if pid not in fresh and pid not in inflight:
                 _drop(pid)
+        # SELF-HEAL: pending'da future'i YO'Q, lekin inflight'da qolib ketgan
+        # plan — leak. Har reload'da tozalab, navbatga qaytaramiz (>5s yashamaydi).
+        _live = {int(p["id"]) for _f, _t0, p in pending}
+        for _pid in list(inflight):
+            if _pid not in _live:
+                inflight.discard(_pid)
+                print(f"[Booking] inflight leak tuzatildi plan#{_pid}")
 
     def _drop(pid: int):
         plans.pop(pid, None)
@@ -3910,8 +3917,13 @@ def _postavka_booking_loop():
     def _reap():
         """Tugagan future'larni yig'ib holat/metrika/queue'ni yangilaydi."""
         nonlocal pending
-        done = [it for it in pending if it[0].done()]
-        pending = [it for it in pending if not it[0].done()]
+        # done() FAQAT BIR MARTA baholanadi — aks holda ikki tekshiruv orasida
+        # tugagan future na done'ga na still'ga tushib qoladi (inflight.discard
+        # ishlamaydi → plan abadiy «band» qolib, navbatdan tushib ketadi).
+        done, still = [], []
+        for it in pending:
+            (done if it[0].done() else still).append(it)
+        pending = still
         for fut, _t0, plan in done:
             pid = int(plan["id"])
             inflight.discard(pid)
@@ -4020,14 +4032,26 @@ def _postavka_booking_loop():
                     fut = pool.submit(booker.attempt_booking, plan, mode=mode)
                     pending.append((fut, t0, plan))
 
-            # 3. WATCHDOG — uzoq osilgan so'rov (har biriga 1 marta).
+            # 3. WATCHDOG — uzoq osilgan so'rov: alert + ABANDON (plan ozod).
             now_m = _t.monotonic()
+            _still = []
             for fut, t0, plan in pending:
-                if (not fut.done()) and (now_m - t0) >= watchdog and not getattr(fut, "_wd", False):
-                    fut._wd = True
-                    num = plan.get("invoice_number") or plan.get("invoice_id")
-                    _alert(f"⚠️ Avto-band so'rovi {now_m - t0:.0f}s javob bermayapti "
-                           f"(№{num}). Odatda ~0.3s — nimadir qotgan.")
+                if (not fut.done()) and (now_m - t0) >= watchdog:
+                    _pid = int(plan["id"])
+                    _num = plan.get("invoice_number") or plan.get("invoice_id")
+                    fut.cancel()
+                    inflight.discard(_pid)
+                    _s = _st(_pid)
+                    _s["timeouts"] += 1
+                    _s["last_error"] = f"hang >{watchdog:.0f}s (abandoned)"
+                    _s["dirty"] = True
+                    hour["timed_out"] += 1
+                    print(f"[Booking] HANG abandoned plan#{_pid} №{_num} ({now_m - t0:.0f}s)")
+                    _alert(f"⚠️ Avto-band so'rovi {now_m - t0:.0f}s qotdi — tashlab "
+                           f"yuborildi (№{_num}); plan navbatga qaytdi.")
+                    continue
+                _still.append((fut, t0, plan))
+            pending = _still
 
             # 4. REAP — tugaganlarni qayta ishlash.
             _reap()

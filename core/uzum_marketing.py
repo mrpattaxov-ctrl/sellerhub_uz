@@ -488,6 +488,29 @@ def add_products_to_sale(
     return {"ok": True, "payload": (resp or {}).get("payload")}
 
 
+def remove_product_from_sale(
+    shop_uzum_id: str | int,
+    sale_id: int,
+    product_id: int,
+    *,
+    token: str | None = None,
+) -> dict:
+    """Remove a product from a sale (WRITE — drops its live discount).
+
+    Captured contract (seller.uzum.uz HAR, 2026-07-07):
+
+        DELETE /marketing/sales/{saleId}/products/{productId}
+        (no body — the product is identified entirely by the URL path)
+        → 200 {"payload":null}
+
+    Removal is product-level: all of the product's SKUs leave the sale at once,
+    mirroring how enrollment works.
+    """
+    url = f"{_BASE}/{shop_uzum_id}/marketing/sales/{sale_id}/products/{product_id}"
+    resp = http_json(url, method="DELETE", headers=_headers(token))
+    return {"ok": True, "payload": (resp or {}).get("payload")}
+
+
 def discounted_price(current_price: int, discount_percent: float) -> int:
     """Sale price = current price minus discount, floored to the nearest 10.
 

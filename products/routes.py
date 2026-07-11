@@ -111,10 +111,30 @@ def groups_page():
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
 
-    # Default shop selection: on first visit (no shop_id param) auto-pick the
-    # first shop instead of showing every shop. The user can still choose
-    # "Все магазины" explicitly — that arrives as the sentinel shop_id=all.
+    # Default shop selection: on first visit (no shop_id param) reuse the shop
+    # picked on other pages (sh_shop cookie, holds Shop.uzum_id or the sentinel
+    # 'all'), falling back to the first shop. An explicit "Все магазины" pick
+    # arrives as shop_id=all and is likewise remembered via the cookie.
     if shop_filter == "" and allowed_shop_ids:
+        saved = (request.cookies.get("sh_shop") or "").strip()
+        if saved == "all":
+            shop_filter = "all"
+        elif saved:
+            with SessionLocal() as db:
+                sid = db.execute(
+                    select(Shop.id).where(
+                        Shop.uzum_id == saved, Shop.id.in_(allowed_shop_ids)
+                    )
+                ).scalar_one_or_none()
+            if sid is not None:
+                shop_filter = str(sid)
+        if shop_filter == "":
+            shop_filter = str(sorted(allowed_shop_ids)[0])
+
+    # The groups page has no "Все магазины" (all shops) option in its picker, so
+    # coerce the 'all' sentinel — which may arrive from the shop cookie shared
+    # with other pages, or from an old ?shop_id=all link — to the first shop.
+    if shop_filter == "all" and allowed_shop_ids:
         shop_filter = str(sorted(allowed_shop_ids)[0])
 
     with SessionLocal() as db:
@@ -170,12 +190,33 @@ def groups_page():
                 func.coalesce(func.sum(Variant.quantity_fbs), 0),
                 func.coalesce(func.sum(Variant.warehouse_quantity), 0),
                 func.min(Variant.sku),
+                # Extra metrics for the detailed ("stats") card view
+                func.coalesce(func.sum(Variant.views_30d), 0),
+                func.coalesce(func.sum(Variant.quantity_sold), 0),
+                func.coalesce(func.sum(Variant.quantity_returned), 0),
+                func.coalesce(func.sum(Variant.quantity_defected), 0),
+                func.min(func.nullif(Variant.price_sum, 0)),      # "от" price (cheapest variant)
+                func.avg(func.nullif(Variant.sell_price_uzum, 0)),
+                func.avg(func.nullif(Variant.purchase_price, 0)),
             )
             .where(Variant.group_id.in_(group_ids) if group_ids else False)
             .group_by(Variant.group_id)
         )
-        agg = {
-            gid: {
+        agg = {}
+        for (gid, c, u, fbs, w, s, views, sold, ret, defect,
+             price_from, avg_sell, avg_purchase) in db.execute(vstmt).all():
+            sold_i = int(sold or 0)
+            views_i = int(views or 0)
+            # Конверсия = orders ÷ views (real metric from synced data)
+            conv = (sold_i / views_i * 100.0) if views_i else 0.0
+            # ROI proxy = markup over purchase cost. Prefer the realized sell
+            # price; fall back to the listing price when finance data isn't
+            # synced. None when there's no purchase cost to divide by.
+            roi = None
+            sell_basis = float(avg_sell) if avg_sell else (float(price_from) if price_from else None)
+            if avg_purchase and float(avg_purchase) > 0 and sell_basis:
+                roi = (sell_basis - float(avg_purchase)) / float(avg_purchase) * 100.0
+            agg[gid] = {
                 "variants": c,
                 "fbo": int(u),
                 "fbs": int(fbs),
@@ -183,9 +224,14 @@ def groups_page():
                 "uzum_qty": int(u),  # kept for backward compat with other templates/JS
                 "wh_qty": int(w),
                 "sku": "-".join(str(s).split("-")[:2]) if s else "",
+                "views": views_i,
+                "sold": sold_i,
+                "returned": int(ret or 0),
+                "defected": int(defect or 0),
+                "conversion": conv,
+                "roi": roi,
+                "price_from": int(price_from or 0),
             }
-            for (gid, c, u, fbs, w, s) in db.execute(vstmt).all()
-        }
 
         # Fetch shops for the picker (with name lookup used by the cards).
         # Ordered by id so the first listed shop matches the auto-selected
@@ -244,10 +290,18 @@ def expenses_page():
     allowed_shop_ids = _user_shop_ids(uid)
 
     with SessionLocal() as db:
-        # Base WHERE — shop scope + non-archived. (Search is applied as a
-        # group-id restriction below so a SKU match still surfaces the WHOLE
-        # group, not just the matching variant.)
-        conds = [(ProductGroup.is_archived == False) | (ProductGroup.is_archived == None)]
+        # Base WHERE — shop scope only. (Search is applied as a group-id
+        # restriction below so a SKU match still surfaces the WHOLE group, not
+        # just the matching variant.)
+        #
+        # NOTE: archived products are deliberately NOT excluded here. An
+        # archived Uzum listing can still have stock physically sitting in the
+        # warehouse racking up paid-storage ("Платное хранение") charges — a
+        # real cash cost. We keep every non-archived group plus any archived
+        # group that STILL has storage or warehouse qty (enforced by the HAVING
+        # on the aggregate below). Archived-but-empty groups contribute 0 to the
+        # storage total, so `total_storage` needs no archived filter either.
+        conds = []
         if allowed_shop_ids:
             conds.append(ProductGroup.shop_id.in_(allowed_shop_ids))
         else:
@@ -273,6 +327,17 @@ def expenses_page():
         storage_col = func.coalesce(func.sum(func.coalesce(Variant.paid_storage_amount, 0)), 0)
         qty_col = func.coalesce(func.sum(func.coalesce(Variant.uzum_quantity, 0)), 0)
 
+        # Keep non-archived groups always; keep archived groups only while they
+        # still cost money to store (storage > 0) or still hold warehouse stock
+        # (qty > 0). Archived + empty groups are dropped so the list isn't
+        # cluttered with dead listings that no longer incur storage.
+        archived_ok = (
+            (ProductGroup.is_archived == False)
+            | (ProductGroup.is_archived == None)
+            | (storage_col > 0)
+            | (qty_col > 0)
+        )
+
         # Per-group aggregate (inner join → only groups that have variants).
         agg = (
             select(
@@ -281,6 +346,7 @@ def expenses_page():
                 ProductGroup.image_url.label("image_url"),
                 ProductGroup.shop_id.label("shop_id"),
                 ProductGroup.uzum_product_id.label("uzum_product_id"),
+                ProductGroup.is_archived.label("is_archived"),
                 storage_col.label("storage"),
                 qty_col.label("qty"),
                 func.count(Variant.id).label("vcount"),
@@ -291,15 +357,19 @@ def expenses_page():
             .group_by(
                 ProductGroup.id, ProductGroup.name,
                 ProductGroup.image_url, ProductGroup.shop_id,
-                ProductGroup.uzum_product_id,
+                ProductGroup.uzum_product_id, ProductGroup.is_archived,
             )
+            .having(archived_ok)
         )
 
         total_count = db.execute(
             select(func.count()).select_from(agg.subquery())
         ).scalar() or 0
-        total_pages = max(1, (total_count + per_page - 1) // per_page)
-        page = min(page, total_pages)
+        # Single-page view: all matching groups are rendered at once (no
+        # pagination). `page`/`total_pages` are kept only so the template's
+        # existing bindings stay valid.
+        total_pages = 1
+        page = 1
 
         # Grand total storage across all matching groups (every page).
         total_storage = db.execute(
@@ -310,7 +380,7 @@ def expenses_page():
         ).scalar() or 0
 
         agg = agg.order_by(storage_col.desc(), ProductGroup.id.asc())
-        rows = db.execute(agg.offset((page - 1) * per_page).limit(per_page)).all()
+        rows = db.execute(agg).all()
         group_ids = [r.gid for r in rows]
 
         # Fetch all variants for the page's groups (for the expand dropdown),
@@ -344,6 +414,7 @@ def expenses_page():
                 "shop_id": r.shop_id,
                 "uzum_product_id": r.uzum_product_id or "",
                 "short_sku": short_sku,
+                "is_archived": bool(r.is_archived),
                 "vcount": int(r.vcount or 0),
                 "storage": int(r.storage or 0),
                 "qty": int(r.qty or 0),
@@ -902,6 +973,45 @@ def api_sale_add(sale_id: int):
         "skipped": skipped,
         **(result or {}),
     })
+
+
+@products_bp.post("/api/sales/<int:sale_id>/remove")
+@login_required
+def api_sale_remove(sale_id: int):
+    """Remove a product from a sale (all its SKUs — removal is product-level).
+
+    Request: {"shop_id": str, "product_id": int}. Mirrors api_sale_add: same
+    ownership guard, same cache invalidation after the Uzum write."""
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_shop = str(payload.get("shop_id") or "").strip()
+    try:
+        product_id = int(payload.get("product_id"))
+    except (TypeError, ValueError):
+        return _json_response({"error": "Некорректный товар."}, 400)
+    uid = int(current_user.get_id())
+
+    from core.uzum_marketing import (
+        remove_product_from_sale, invalidate_shop_sales_cache,
+        invalidate_product_sku_limits, UzumMarketingError,
+    )
+
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    try:
+        remove_product_from_sale(raw_shop, sale_id, product_id)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e}"}, 502)
+
+    # Product moved enrolled → suitable; drop the stale caches (same as add).
+    invalidate_shop_sales_cache(raw_shop)
+    invalidate_product_sku_limits(raw_shop, product_id)
+
+    return _json_response({"ok": True})
 
 
 @products_bp.get("/api/product/<int:product_id>/eligible-sales")

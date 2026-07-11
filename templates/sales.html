@@ -33,6 +33,8 @@
 .sl-store-menu { position:absolute; top:calc(100% + 6px); left:0; background:var(--sl-surface); border:1px solid var(--sl-border);
   border-radius:12px; box-shadow:var(--sl-shadow); min-width:220px; padding:6px; z-index:25; display:none; }
 .sl-store-picker.open .sl-store-menu { display:block; }
+/* Detail-header picker sits on the right — drop its menu right-aligned so it stays on-screen. */
+#slStorePicker2 .sl-store-menu { left:auto; right:0; }
 .sl-store-item { padding:9px 12px; font-size:14px; font-weight:500; border-radius:8px; cursor:pointer; }
 .sl-store-item:hover { background:var(--sl-hover); }
 .sl-store-item.selected { background:var(--sl-active); font-weight:600; }
@@ -76,10 +78,14 @@
 .sl-card-open { margin-top:auto; padding-top:4px; font-size:13px; font-weight:600; color:var(--sl-accent); display:inline-flex; align-items:center; gap:5px; }
 
 /* detail */
-.sl-back { display:inline-flex; align-items:center; gap:8px; background:none; border:0; color:var(--sl-text-2); font-size:14px; font-weight:600; cursor:pointer; padding:6px 0; margin-bottom:8px; }
+.sl-back { display:inline-flex; align-items:center; gap:8px; background:none; border:0; color:var(--sl-text-2); font-size:14px; font-weight:600; cursor:pointer; padding:6px 0; white-space:nowrap; flex-shrink:0; }
 .sl-back:hover { color:var(--sl-text); }
-.sl-detail-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
-.sl-rule { font-size:13px; color:var(--sl-muted); margin-top:6px; }
+/* One-line detail header: back link · title · min-discount · shop picker (right). */
+.sl-detail-head { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.sl-detail-head .sl-back { padding-right:16px; border-right:1px solid var(--sl-border); }
+.sl-detail-title { font-size:22px; margin:0; }
+.sl-detail-head .sl-store-picker { margin-left:auto; }
+.sl-rule { font-size:13px; color:var(--sl-muted); margin:0; white-space:nowrap; }
 .sl-rule b { color:var(--sl-warn-fg); }
 
 /* two-panel layout (left suitable | right selected-SKU table) */
@@ -90,7 +96,7 @@
 .sl-panel-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; }
 .sl-count-pill { font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; background:var(--sl-active); color:var(--sl-text-2); }
 .sl-panel-sub { padding:12px 16px; border-bottom:1px solid var(--sl-border); }
-.sl-panel-body { overflow-y:auto; max-height:64vh; }
+.sl-panel-body { overflow-y:auto; max-height:70vh; }
 @media (max-width:980px){ .sl-panel-body{ max-height:none; } }
 
 /* LEFT: suitable products */
@@ -127,6 +133,24 @@
 .sl-gdisc { width:52px; height:30px; border:1px solid var(--sl-border-strong); border-radius:8px; background:var(--sl-surface); color:var(--sl-text); text-align:center; font-size:13px; font-weight:700; }
 .sl-gdisc:focus { outline:0; border-color:var(--sl-accent); }
 .sl-gdisc-apply { height:30px; padding:0 12px; border:0; border-radius:8px; background:var(--sl-accent); color:var(--sl-accent-fg); font-size:12px; font-weight:600; cursor:pointer; }
+.sl-grouphdr-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
+.sl-group-del { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:8px; background:transparent; color:var(--sl-muted); cursor:pointer; transition:color .15s, background .15s; }
+.sl-group-del:hover { color:var(--sl-danger-fg); background:var(--sl-danger-bg); }
+.sl-group-del:focus-visible { outline:2px solid var(--sl-danger-fg); outline-offset:1px; color:var(--sl-danger-fg); }
+.sl-group-del svg { width:15px; height:15px; }
+/* Inline removal confirm: the group header itself becomes the dialog. */
+.sl-grouphdr.sl-confirming { background:var(--sl-danger-bg); box-shadow:inset 3px 0 0 var(--sl-danger-fg); }
+.sl-confirm { display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap; animation:slConfIn .18s ease; }
+@keyframes slConfIn { from { opacity:0; transform:translateX(6px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .sl-confirm { animation:none; } }
+.sl-confirm-msg { font-size:12px; font-weight:600; color:var(--sl-danger-fg); }
+.sl-confirm-no { height:30px; padding:0 12px; border:1px solid var(--sl-border-strong); border-radius:8px; background:var(--sl-surface); color:var(--sl-text-2); font-size:12px; font-weight:600; cursor:pointer; }
+.sl-confirm-no:focus-visible, .sl-confirm-yes:focus-visible { outline:2px solid var(--sl-danger-fg); outline-offset:1px; }
+.sl-confirm-yes { height:30px; padding:0 14px; border:0; border-radius:8px; background:#C43025; color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+.sl-confirm-yes:hover { background:#A82A20; }
+[data-bs-theme="dark"] .sl-page .sl-confirm-yes { background:#E5484D; }
+[data-bs-theme="dark"] .sl-page .sl-confirm-yes:hover { background:#D93C41; }
+.sl-confirm button:disabled { opacity:.6; cursor:default; }
 .sl-srow { padding:12px 16px; border-bottom:1px solid var(--sl-border); }
 .sl-srow:last-child { border-bottom:0; }
 .sl-srow-prod { display:flex; align-items:center; gap:10px; min-width:0; }
@@ -179,8 +203,10 @@
 <div class="sl-page"
      data-shops='{{ shops | tojson }}'
      data-lang="{{ lang }}">
-  <h1 class="sl-h1">{{ 'Aksiyalar' if is_uz else 'Акции' }}</h1>
-  <p class="sl-meta">{{ 'Mahsulotlaringizni Uzum aksiyalariga qo\'shing' if is_uz else 'Добавляйте свои товары в акции Uzum' }}</p>
+  <div id="slPageHead">
+    <h1 class="sl-h1">{{ 'Aksiyalar' if is_uz else 'Акции' }}</h1>
+    <p class="sl-meta">{{ 'Mahsulotlaringizni Uzum aksiyalariga qo\'shing' if is_uz else 'Добавляйте свои товары в акции Uzum' }}</p>
+  </div>
 
   <div id="slError" class="sl-error" style="display:none"></div>
 
@@ -200,7 +226,7 @@
       </div>
 
       {% if shops | length > 1 %}
-      <div class="sl-store-picker" id="slStorePicker" style="margin-left:auto">
+      <div class="sl-store-picker" id="slStorePicker">
         <button type="button" class="sl-store-trigger" id="slStoreTrigger">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           <span id="slStoreLabel"></span>
@@ -217,15 +243,24 @@
 
   <!-- Sale detail view -->
   <div id="slDetailView" style="display:none">
-    <button type="button" class="sl-back" id="slBack">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      {{ 'Aksiyalarga qaytish' if is_uz else 'К списку акций' }}
-    </button>
     <div class="sl-detail-head">
-      <div>
-        <h2 class="sl-h1" id="slDetailTitle" style="font-size:22px"></h2>
-        <div class="sl-rule" id="slDetailRule"></div>
+      <button type="button" class="sl-back" id="slBack">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        {{ 'Aksiyalarga qaytish' if is_uz else 'К списку акций' }}
+      </button>
+      <h2 class="sl-h1 sl-detail-title" id="slDetailTitle"></h2>
+      <div class="sl-rule" id="slDetailRule"></div>
+
+      {% if shops | length > 1 %}
+      <div class="sl-store-picker" id="slStorePicker2">
+        <button type="button" class="sl-store-trigger" id="slStoreTrigger2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span id="slStoreLabel2"></span>
+          <svg class="sl-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="sl-store-menu" id="slStoreMenu2"></div>
       </div>
+      {% endif %}
     </div>
 
     <div class="sl-panels">
@@ -293,6 +328,14 @@
     added: UZ ? 'Aksiyaga qo\'shildi' : 'Добавлено в акцию',
     enterPrice: UZ ? 'Narx kiriting' : 'Укажите цену',
     apply: UZ ? 'Qo\'llash' : 'Применить',
+    remove: UZ ? 'Aksiyadan olib tashlash' : 'Убрать из акции',
+    removed: UZ ? 'Mahsulot aksiyadan olib tashlandi' : 'Товар убран из акции',
+    confirmInSale: UZ ? 'Mahsulot aksiyadan olib tashlansinmi? Uzum\'dagi chegirma darhol bekor bo\'ladi.' : 'Убрать товар из акции? Скидка на Uzum исчезнет сразу.',
+    confirmLocal: UZ ? 'Mahsulot tanlanganlar ro\'yxatidan olib tashlansinmi?' : 'Убрать товар из списка выбранных?',
+    confirmYes: UZ ? 'Olib tashlash' : 'Убрать',
+    confirmNo: UZ ? 'Bekor qilish' : 'Отмена',
+    removing: UZ ? 'Olib tashlanmoqda…' : 'Убираем…',
+    saleNotInShop: UZ ? 'Bu aksiya tanlangan do\'konda mavjud emas' : 'Этой акции нет в выбранном магазине',
   };
   var cur = UZ ? "so'm" : "сум";
   function fmt(n){ if(n===null||n===undefined||n==='') return '—'; return Number(n).toLocaleString('ru-RU').replace(/,/g,' '); }
@@ -309,12 +352,18 @@
   }
   function payoutText(po){ return po==null ? '—' : fmt(po); }
 
+  // Shop pick is shared across pages (/groups, /sales) via the sh_shop cookie
+  // (holds Shop.uzum_id; 'all' is groups-only — here it falls back to shop #1).
+  function readShopCookie(){ var m=document.cookie.match(/(?:^|;\s*)sh_shop=([^;]*)/); return m?decodeURIComponent(m[1]):''; }
+  function saveShopCookie(v){ document.cookie='sh_shop='+encodeURIComponent(v)+'; path=/; max-age=31536000; SameSite=Lax'; }
   var shopId = SHOPS.length ? SHOPS[0].uzum_id : '';
+  (function(){ var saved=readShopCookie(); if(saved && SHOPS.some(function(s){return s.uzum_id===saved;})) shopId=saved; })();
   var saleState = null;        // {sale, products, added_products, default_min_discount, sale_card}
   var allSales = [];
   var curTab = 'active';
   var selected = {};           // productId -> { product, loading, error, already_in, skus:[{sku_id,sku_title,characteristics,image,current_price,max_price,new_price}] }
   var order = [];              // display order of selected productIds (newest added first)
+  var confirmingPid = null;    // productId whose group header shows the inline remove-confirm
   var limitsCache = {};        // productId -> Promise([skus])
 
   // toast / error
@@ -322,22 +371,47 @@
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){toastEl.classList.remove('show');},3800); }
   function showError(msg){ var e=el('slError'); if(!msg){e.style.display='none';return;} e.textContent=msg; e.style.display=''; }
 
-  // ── store picker ──
+  // ── store picker (shared: sales-list header + sale-detail header, kept in
+  //     sync so changing the shop from either place switches everything) ──
   (function(){
-    var picker = el('slStorePicker'); if(!picker) { return; }
-    var label = el('slStoreLabel'), menu = el('slStoreMenu');
+    var pickers = [];
     function nameFor(id){ var s=SHOPS.find(function(x){return x.uzum_id===id;}); return s?s.name:id; }
-    label.textContent = nameFor(shopId);
-    SHOPS.forEach(function(s){
-      var d=document.createElement('div'); d.className='sl-store-item'+(s.uzum_id===shopId?' selected':''); d.textContent=s.name; d.dataset.id=s.uzum_id;
-      d.addEventListener('click', function(e){ e.stopPropagation(); shopId=s.uzum_id; label.textContent=s.name;
-        menu.querySelectorAll('.sl-store-item').forEach(function(x){x.classList.toggle('selected', x.dataset.id===shopId);});
-        picker.classList.remove('open'); backToList(); loadSales();
+    function selectShop(id){
+      if(id===shopId) return;
+      // If a sale is open, remember it so we can re-open the SAME campaign in
+      // the new shop (matched by title+dates) instead of dumping to the list.
+      var reopenKey = (saleState && saleState.sale_card) ? saleKeyOf(saleState.sale_card) : null;
+      shopId = id; saveShopCookie(shopId);
+      pickers.forEach(function(p){
+        p.label.textContent = nameFor(shopId);
+        p.menu.querySelectorAll('.sl-store-item').forEach(function(x){ x.classList.toggle('selected', x.dataset.id===shopId); });
       });
-      menu.appendChild(d);
-    });
-    el('slStoreTrigger').addEventListener('click', function(e){ e.stopPropagation(); picker.classList.toggle('open'); });
-    document.addEventListener('click', function(){ picker.classList.remove('open'); });
+      if(!reopenKey){ backToList(); loadSales(); return; }
+      // Stay in the detail view, show its loader, then swap in the new shop's
+      // version of this campaign once its sales are fetched.
+      el('slDetailLoading').style.display=''; showError('');
+      el('slSuitList').innerHTML=''; el('slSelTable').innerHTML=''; el('slAddBar').style.display='none';
+      loadSales(function(){
+        var match = allSales.filter(function(s){ return saleKeyOf(s)===reopenKey; })[0];
+        if(match){ openSale(match); }
+        else { toast(T.saleNotInShop); backToList(); }
+      });
+    }
+    function build(pickerId, triggerId, labelId, menuId){
+      var picker = el(pickerId); if(!picker) return;
+      var label = el(labelId), menu = el(menuId);
+      label.textContent = nameFor(shopId);
+      SHOPS.forEach(function(s){
+        var d=document.createElement('div'); d.className='sl-store-item'+(s.uzum_id===shopId?' selected':''); d.textContent=s.name; d.dataset.id=s.uzum_id;
+        d.addEventListener('click', function(e){ e.stopPropagation(); picker.classList.remove('open'); selectShop(s.uzum_id); });
+        menu.appendChild(d);
+      });
+      el(triggerId).addEventListener('click', function(e){ e.stopPropagation(); picker.classList.toggle('open'); });
+      pickers.push({picker:picker, label:label, menu:menu});
+    }
+    build('slStorePicker',  'slStoreTrigger',  'slStoreLabel',  'slStoreMenu');   // list header
+    build('slStorePicker2', 'slStoreTrigger2', 'slStoreLabel2', 'slStoreMenu2');  // detail header
+    document.addEventListener('click', function(){ pickers.forEach(function(p){ p.picker.classList.remove('open'); }); });
   })();
 
   // ── tabs ──
@@ -346,8 +420,12 @@
   function setTabActive(tab){ el('slTabs').querySelectorAll('.sl-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); }); }
   function showTab(tab){ curTab = tab; setTabActive(tab); renderSalesGrid(); }
 
+  // Cross-shop campaign identity: same Uzum campaign has the same title+dates
+  // in every shop, even though its per-shop sale id differs.
+  function saleKeyOf(s){ if(!s) return null; var t=s.title||{}; return (t.ru||t.uz||'')+'|'+(s.start_date||'')+'|'+(s.finish_date||''); }
+
   // ── sales list ──
-  function loadSales(){
+  function loadSales(afterLoad){
     showError('');
     el('slSales').innerHTML=''; el('slSalesLoading').style.display='';
     fetch('/api/sales?shop_id='+encodeURIComponent(shopId)).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
@@ -358,6 +436,7 @@
       updateTabCounts();
       var c = countByTab();
       showTab(c.active>0 ? 'active' : (c.created>0 ? 'created' : (c.completed>0 ? 'completed' : 'active')));
+      if(afterLoad) afterLoad();
     }).catch(function(err){ el('slSalesLoading').style.display='none'; showError(String(err)); });
   }
   function countByTab(){
@@ -400,8 +479,9 @@
   function openSale(s){
     el('slSalesView').style.display='none';
     el('slDetailView').style.display='';
+    el('slPageHead').style.display='none';   // page title/subtitle is redundant inside a sale
     el('slDetailTitle').textContent = title(s.title);
-    selected = {}; order = []; limitsCache = {};
+    selected = {}; order = []; limitsCache = {}; confirmingPid = null;
     el('slSuitList').innerHTML=''; el('slSelTable').innerHTML='';
     el('slDetailLoading').style.display=''; el('slAddBar').style.display='none';
     el('slProdSearch').value='';
@@ -511,14 +591,31 @@
     pids.forEach(function(pid){
       var e = selected[pid];
       var img = e.product.image;
-      html += '<div class="sl-grouphdr">'+
-        '<span class="sl-grouphdr-name">'+esc(title(e.product.title))+
-          (e.already_in?' <span class="sl-grouphdr-badge">'+T.inSale+'</span>':'')+'</span>'+
-        ((!e.loading && !e.error && e.skus && e.skus.length)
-          ? '<span class="sl-grouphdr-disc">'+T.colDisc+': <input class="sl-gdisc" type="number" min="0" max="99" value="'+dmin+'" data-pid="'+pid+'"> % '+
-            '<button type="button" class="sl-gdisc-apply" data-pid="'+pid+'">'+T.apply+'</button></span>'
-          : '')+
-        '</div>';
+      if(confirmingPid===pid){
+        // The row itself asks the question — no overlay, context stays put.
+        html += '<div class="sl-grouphdr sl-confirming">'+
+          '<span class="sl-grouphdr-name">'+esc(title(e.product.title))+'</span>'+
+          '<span class="sl-confirm" role="alertdialog" aria-label="'+T.remove+'">'+
+            '<span class="sl-confirm-msg">'+(e.already_in?T.confirmInSale:T.confirmLocal)+'</span>'+
+            '<button type="button" class="sl-confirm-no" data-pid="'+pid+'">'+T.confirmNo+'</button>'+
+            '<button type="button" class="sl-confirm-yes" data-pid="'+pid+'">'+T.confirmYes+'</button>'+
+          '</span>'+
+          '</div>';
+      } else {
+        html += '<div class="sl-grouphdr">'+
+          '<span class="sl-grouphdr-name">'+esc(title(e.product.title))+
+            (e.already_in?' <span class="sl-grouphdr-badge">'+T.inSale+'</span>':'')+'</span>'+
+          '<span class="sl-grouphdr-right">'+
+            ((!e.loading && !e.error && e.skus && e.skus.length)
+              ? '<span class="sl-grouphdr-disc">'+T.colDisc+': <input class="sl-gdisc" type="number" min="0" max="99" value="'+dmin+'" data-pid="'+pid+'"> % '+
+                '<button type="button" class="sl-gdisc-apply" data-pid="'+pid+'">'+T.apply+'</button></span>'
+              : '')+
+            '<button type="button" class="sl-group-del" data-pid="'+pid+'" title="'+T.remove+'" aria-label="'+T.remove+'">'+
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'+
+            '</button>'+
+          '</span>'+
+          '</div>';
+      }
       if(e.loading){ html += '<div class="sl-srow-loading">'+T.loading+'</div>'; return; }
       if(e.error){ html += '<div class="sl-srow-loading" style="color:var(--sl-danger-fg)">'+esc(e.error)+'</div>'; return; }
       if(!e.skus || !e.skus.length){ html += '<div class="sl-srow-loading">'+T.noLimits+'</div>'; return; }
@@ -548,6 +645,10 @@
     });
     box.querySelectorAll('.sl-gdisc-apply').forEach(function(btn){ btn.addEventListener('click', function(){ applyGroupDiscount(btn.dataset.pid); }); });
     box.querySelectorAll('.sl-gdisc').forEach(function(inp){ inp.addEventListener('keydown', function(ev){ if(ev.key==='Enter') applyGroupDiscount(inp.dataset.pid); }); });
+    box.querySelectorAll('.sl-group-del').forEach(function(btn){ btn.addEventListener('click', function(){ openRemoveConfirm(btn.dataset.pid); }); });
+    box.querySelectorAll('.sl-confirm-no').forEach(function(btn){ btn.addEventListener('click', function(){ confirmingPid=null; renderSelected(); }); });
+    box.querySelectorAll('.sl-confirm-yes').forEach(function(btn){ btn.addEventListener('click', function(){ doRemove(btn.dataset.pid, btn); }); });
+    box.querySelectorAll('.sl-confirm').forEach(function(st){ st.addEventListener('keydown', function(ev){ if(ev.key==='Escape'){ confirmingPid=null; renderSelected(); } }); });
     el('slAddBar').style.display='';
     updateFooter();
   }
@@ -593,6 +694,42 @@
     updateFooter();
   }
 
+  // Removal is confirmed inline: the group's own header turns into the
+  // question (no overlay). Focus lands on «Отмена» — the safe default for a
+  // destructive action; Esc also cancels.
+  function openRemoveConfirm(pid){
+    if(!selected[pid]) return;
+    confirmingPid = pid;
+    renderSelected();
+    var noBtn = el('slSelTable').querySelector('.sl-confirm-no[data-pid="'+pid+'"]');
+    if(noBtn) noBtn.focus();
+  }
+
+  // Enrolled products ("В акции") are removed on Uzum via the backend
+  // (product-level — all SKUs at once); not-yet-enrolled selections just drop
+  // locally, same as un-checking.
+  function doRemove(pid, btn){
+    var e = selected[pid]; if(!e) return;
+    if(!e.already_in){
+      confirmingPid = null;
+      delete selected[pid];
+      var oi = order.indexOf(pid); if(oi>=0) order.splice(oi,1);
+      renderSuitable(); renderSelected(); updateFooter();
+      return;
+    }
+    var strip = btn.closest('.sl-confirm');
+    if(strip) strip.querySelectorAll('button').forEach(function(b){ b.disabled=true; });
+    btn.textContent = T.removing;
+    fetch('/api/sales/'+saleState.sale.id+'/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({shop_id:shopId, product_id:Number(pid)})})
+    .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
+    .then(function(res){
+      confirmingPid = null;
+      if(res.status>=200 && res.status<300){ toast(T.removed); openSale(saleState.sale_card); }
+      else { renderSelected(); toast(res.j.error || 'Error'); }
+    })
+    .catch(function(err){ confirmingPid=null; renderSelected(); toast(String(err)); });
+  }
+
   function updateFooter(){
     var pids=Object.keys(selected);
     var ready = pids.length>0 && pids.every(function(pid){ var e=selected[pid]; return e.skus && e.skus.length; });
@@ -605,7 +742,7 @@
   el('slProdSearch').addEventListener('input', function(){ clearTimeout(psTimer); var q=this.value;
     psTimer=setTimeout(function(){ if(saleState&&saleState.sale_card){ el('slDetailLoading').style.display=''; el('slSuitList').innerHTML=''; fetchSuitable(saleState.sale_card, q, false); } },400); });
 
-  function backToList(){ el('slDetailView').style.display='none'; el('slSalesView').style.display=''; saleState=null; selected={}; order=[]; }
+  function backToList(){ el('slDetailView').style.display='none'; el('slSalesView').style.display=''; el('slPageHead').style.display=''; saleState=null; selected={}; order=[]; confirmingPid=null; }
   el('slBack').addEventListener('click', backToList);
 
   // submit

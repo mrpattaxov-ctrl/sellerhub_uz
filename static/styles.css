@@ -187,8 +187,8 @@
 
 
 body {
-  /* Slightly bluer-grey page bg so white cards visually separate from the page in light mode. */
-  background: #EFEEF5 !important;
+  /* Neutral light-gray page bg so white cards separate from the page (no purple tint). */
+  background: #f7f7f7 !important;
 }
 [data-bs-theme="dark"] body {
   background: #0E0E14 !important;

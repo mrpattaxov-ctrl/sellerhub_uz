@@ -91,6 +91,8 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 .we-prod-row2 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .we-sku-pill { display:inline-block; padding:3px 8px; border-radius:8px; background:var(--we-mono-pill-bg); color:var(--we-mono-pill-text);
   font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; letter-spacing:-0.01em; word-break:break-all; }
+.we-arch-pill { display:inline-block; padding:3px 8px; border-radius:8px; font-size:11px; font-weight:700; letter-spacing:.02em;
+  background:rgba(180,83,9,.14); color:#b45309; border:1px solid rgba(180,83,9,.28); }
 .we-store-badge { padding:3px 9px; border-radius:999px; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
   background:var(--we-store-default-bg); color:var(--we-store-default-fg); }
 .we-store-badge.is-luxuz { background:var(--we-luxuz-bg); color:var(--we-luxuz-fg); }
@@ -235,6 +237,7 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
                 <span class="we-prod-row2">
                   {% if sname %}<span class="we-store-badge {% if skey == 'luxuz' %}is-luxuz{% elif skey == 'blummy' %}is-blummy{% endif %}">{{ sname }}</span>{% endif %}
                   {% if it.short_sku %}<span class="we-sku-pill">{{ it.short_sku }}</span>{% endif %}
+                  {% if it.is_archived %}<span class="we-arch-pill" title="{{ 'Arxivlangan, ammo omborda saqlanmoqda' if is_uz else 'Архивирован, но всё ещё хранится на складе' }}">{{ 'Arxiv' if is_uz else 'Архив' }}</span>{% endif %}
                   <span class="we-vcount">{{ it.vcount }} {{ 'SKU' if is_uz else 'SKU' }}</span>
                 </span>
               </div>

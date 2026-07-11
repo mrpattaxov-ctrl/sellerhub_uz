@@ -103,6 +103,11 @@ def _ensure_postgres_runtime_schema():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_is_unlimited BOOLEAN NOT NULL DEFAULT FALSE",
         "UPDATE users SET trial_started_at = CURRENT_TIMESTAMP WHERE trial_started_at IS NULL AND COALESCE(is_admin, FALSE) = FALSE",
         "ALTER TABLE notification_settings ALTER COLUMN window_to_hour SET DEFAULT 20",
+        # Uzum-official per-SKU analytics columns (see Variant model)
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS avgd_sales DOUBLE PRECISION",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS avgd_quantity DOUBLE PRECISION",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS dimensional_group VARCHAR(80)",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS uzum_status VARCHAR(40)",
     ]
     try:
         with engine.begin() as conn:
@@ -219,6 +224,22 @@ app.jinja_env.filters["uzum540"] = lambda u: _uzum540(u) or ""
 # browser restarts, like most web apps. Applies to Telegram + admin logins.
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+# Re-read templates from disk on change without a process restart.
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+
+@app.after_request
+def _no_store_html(resp):
+    """Never let the browser cache rendered HTML pages. The pages carry their
+    CSS inline, so a cached document = stale styling — which repeatedly made
+    template edits appear to "not show up" until a hard refresh. Static assets
+    (styles.css, JS, images) keep their normal caching."""
+    ctype = (resp.headers.get("Content-Type") or "").lower()
+    if ctype.startswith("text/html"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
 
 _ADMIN_SECRET = os.environ.get("ADMIN_SECRET_PATH", "").strip()
 if not _ADMIN_SECRET:
@@ -3927,6 +3948,28 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                     try: group.commission = int(p_commission)
                     except Exception: pass
 
+                # ── Product-card fields (raw from the product object) ──────────
+                def _pnum(v, cast):
+                    try: return cast(v)
+                    except (TypeError, ValueError): return None
+                _mod = p.get("moderationStatus") or {}
+                group.status_value      = (p_status_obj.get("value") if isinstance(p_status_obj, dict) else None)
+                group.status_title      = (p_status_obj.get("title") if isinstance(p_status_obj, dict) else None)
+                group.status_color      = (p_status_obj.get("color") if isinstance(p_status_obj, dict) else None)
+                group.moderation_value  = _mod.get("value")
+                group.moderation_title  = _mod.get("title")
+                group.moderation_color  = _mod.get("color")
+                group.rating            = _pnum(p.get("rating"), float)
+                group.feedback_quantity = _pnum(p.get("feedbackQuantity"), int)
+                group.viewers           = _pnum(p.get("viewers"), int)
+                group.conversion        = _pnum(p.get("conversion"), float)
+                group.roi               = _pnum(p.get("roi"), float)
+                group.quantity_sold     = _pnum(p.get("quantitySold"), int)
+                group.quantity_returned = _pnum(p.get("quantityReturned"), int)
+                group.quantity_defected = _pnum(p.get("quantityDefected"), int)
+                group.quantity_available= _pnum(p.get("quantityAvailable"), int)
+                group.quantity_fbs      = _pnum(p.get("quantityFbs"), int)
+
                 if not p_is_archived:
                     active_group_ids.add(group.id)
 
@@ -3976,6 +4019,13 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                     s_product_title = (s.get("productTitle") or "").strip() or None
                     s_purchase_price = s.get("purchasePrice")
                     s_avgdsales = s.get("avgdsales")
+                    s_avgdquantity = s.get("avgdquantity")
+                    s_dim_group = (s.get("dimensionalGroup") or "").strip() or None
+                    _s_status_obj = s.get("status")
+                    s_uzum_status = (
+                        (_s_status_obj.get("value") or "").strip() or None
+                        if isinstance(_s_status_obj, dict) else None
+                    )
                     s_qty_created = s.get("quantityCreated")
                     s_qty_fbs = s.get("quantityFbs")
                     s_qty_additional = s.get("quantityAdditional")
@@ -4013,8 +4063,9 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                     # above. Images are owned by the /sku-list fetcher.
                     if characteristics:
                         v.color = characteristics
-                    # OpenAPI status object lives at product-level only,
-                    # not per-SKU. Use blocked/archived booleans below.
+                    # Per-SKU status.value (IN_STOCK/RUN_OUT/ARCHIVED/…) is
+                    # captured into v.uzum_status below. The internal v.status
+                    # column still mirrors the blocked/archived booleans.
                     if uz_qty is not None:
                         try: v.uzum_quantity = int(uz_qty)
                         except Exception: pass
@@ -4066,6 +4117,17 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                     if s_avgdsales is not None:
                         try: v.avg_daily_sales = float(s_avgdsales)
                         except Exception: pass
+                        # Dedicated column so the finance sync (which overwrites
+                        # avg_daily_sales = sales_30d/30) can't clobber Uzum's value.
+                        try: v.avgd_sales = float(s_avgdsales)
+                        except Exception: pass
+                    if s_avgdquantity is not None:
+                        try: v.avgd_quantity = float(s_avgdquantity)
+                        except Exception: pass
+                    if s_dim_group:
+                        v.dimensional_group = str(s_dim_group)[:80]
+                    if s_uzum_status:
+                        v.uzum_status = str(s_uzum_status)[:40]
                     if s_qty_created is not None:
                         try: v.quantity_created = int(s_qty_created)
                         except Exception: pass

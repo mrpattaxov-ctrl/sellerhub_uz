@@ -16,25 +16,26 @@
     --gd-bg:#f5f3fb; --gd-surface:#ffffff; --gd-surface-2:#faf8ff;
     --gd-line:#ece6f7; --gd-line-2:#f3eefb;
     --gd-ink:#13092e; --gd-ink-2:#3a2d67; --gd-muted:#6b5e94; --gd-faint:#a89dc8;
-    --gd-accent:#7000ff; --gd-accent-soft:#ede0ff;
+    --gd-accent:#7000ff; --gd-accent-soft:#ede0ff; --gd-link:#5b63e6;
     --gd-green:#0d8a4a; --gd-green-soft:#dbf3e3;
     --gd-amber:#d97706; --gd-amber-soft:#fdf2e3;
     --gd-red:#d92d20; --gd-red-soft:#fde4e2;
     --gd-shadow-sm:0 1px 2px rgba(70,36,168,.06);
     --gd-shadow-md:0 1px 2px rgba(70,36,168,.08), 0 6px 22px rgba(70,36,168,.07);
-    --gd-radius:12px;
+    --gd-radius:24px;
     --gd-input-bg:#f1ebfd;
     --gd-row-hover:#faf7ff;
     --gd-uzum-tint:#f1eaff;
     --gd-wh-tint:#e6f5fc;
     --gd-solid-bg:#13092e; --gd-solid-fg:#ffffff;
     --gd-bar:#4169e1;
+    --gd-rev:#d97706;
   }
   [data-bs-theme="dark"] .gd-scope {
     --gd-bg:#0a0d14; --gd-surface:#131722; --gd-surface-2:#161b27;
     --gd-line:#222838; --gd-line-2:#1b2030;
     --gd-ink:#f0f3fa; --gd-ink-2:#c9cdd9; --gd-muted:#787b86; --gd-faint:#4d5160;
-    --gd-accent:#a78bfa; --gd-accent-soft:rgba(167,139,250,.16);
+    --gd-accent:#a78bfa; --gd-accent-soft:rgba(167,139,250,.16); --gd-link:#8b93f8;
     --gd-green:#26a69a; --gd-green-soft:rgba(38,166,154,.18);
     --gd-amber:#ffb74d; --gd-amber-soft:rgba(255,183,77,.16);
     --gd-red:#ef5350; --gd-red-soft:rgba(239,83,80,.18);
@@ -47,24 +48,38 @@
     --gd-wh-tint:rgba(14,165,233,.10);
     --gd-solid-bg:#a78bfa; --gd-solid-fg:#0a0d14;
     --gd-bar:#4169e1;
+    --gd-rev:#ffb74d;
   }
 
+  /* The toolbar+table card is pinned under the 64px sticky topbar (see .gd-card)
+     so the table fills the screen with its header locked. Dropping main's bottom
+     padding (page-local — this <style> only loads on group_detail) removes the few
+     px of page scroll BELOW the sticky card that were letting its bottom edge drop
+     off-screen at the end of the scroll. */
+  main.container-fluid { padding-bottom:0; }
   .gd-scope {
     font-family:'Geist','Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
-    font-feature-settings:"ss01","cv11";
-    color:var(--gd-ink); background:var(--gd-bg);
-    padding:4px 0 24px;
+    /* "zero" 0 → plain (un-slashed) zeros. */
+    font-feature-settings:"ss01","cv11","zero" 0;
+    color:var(--gd-ink); background:transparent;
+    /* No bottom padding: the card now fills to the viewport bottom (max-height
+       100vh-64, gap = 0), so the page's max scroll lands EXACTLY on the card's
+       pinned position — the table ends flush at the bottom with nothing to
+       overscroll into. */
+    padding:4px 0 0;
   }
   .gd-scope * { box-sizing:border-box; }
-  .gd-scope .mono { font-family:'Geist Mono','SF Mono',Menlo,monospace; font-feature-settings:"tnum"; }
+  .gd-scope .mono { font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif; font-feature-settings:"tnum","zero" 0; }
+  /* Mono number cells set their own font-family, so disable slashed zero on them too. */
+  .gd-stock, .gd-money, .gd-barcode, .gd-sales-num, .gd-need, .gd-stat-value,
+  .gd-metric-value, .gd-gauge-pct, .gd-comm-cell { font-feature-settings:"tnum","zero" 0; }
   .gd-scope .tnum { font-variant-numeric:tabular-nums; }
 
-  /* Breadcrumb strip */
+  /* Breadcrumb — plain on the page background (no boxed card). */
   .gd-breadcrumb {
     display:flex; align-items:center; gap:14px;
-    padding:14px 20px; margin-bottom:14px;
-    background:var(--gd-surface); border:.5px solid var(--gd-line);
-    border-radius:var(--gd-radius);
+    padding:2px 4px; margin-bottom:12px;
+    background:transparent; border:0; border-radius:0;
   }
   .gd-back-btn {
     appearance:none; display:inline-flex; align-items:center; gap:6px;
@@ -74,30 +89,32 @@
   }
   .gd-back-btn:hover { background:var(--gd-surface-2); color:var(--gd-ink); }
   .gd-bc-divider { width:1px; height:22px; background:var(--gd-line); }
-  .gd-bc-nav { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--gd-muted); }
-  .gd-bc-nav .gd-bc-cur { color:var(--gd-ink); }
+  .gd-bc-nav { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--gd-muted); }
+  .gd-bc-nav .gd-bc-link { color:var(--gd-link); font-weight:600; text-decoration:none; }
+  .gd-bc-nav .gd-bc-link:hover { text-decoration:underline; }
+  .gd-bc-nav .gd-bc-cur { color:var(--gd-muted); }
   .gd-bc-nav .gd-sep { color:var(--gd-faint); }
 
   /* Product card */
   .gd-product {
-    display:flex; align-items:center; gap:18px;
+    display:flex; align-items:center; gap:20px;
     background:var(--gd-surface); border:.5px solid var(--gd-line);
     border-radius:var(--gd-radius); box-shadow:var(--gd-shadow-sm);
-    padding:20px 22px; margin-bottom:14px;
+    padding:22px 24px; margin-bottom:14px;
   }
   .gd-thumb {
-    width:74px; height:74px; border-radius:14px;
+    width:78px; height:78px; border-radius:14px;
     background:var(--gd-surface-2); border:.5px solid var(--gd-line);
     overflow:hidden; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
   }
   .gd-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-  .gd-no-img { color:var(--gd-faint); font-size:26px; }
+  .gd-no-img { color:var(--gd-faint); font-size:28px; }
   .gd-product h1 {
-    margin:0 0 5px; font-size:22px; font-weight:600; letter-spacing:-.01em;
-    color:var(--gd-ink); line-height:1.2;
+    margin:0 0 6px; font-size:24px; font-weight:700; letter-spacing:-.02em;
+    color:var(--gd-ink); line-height:1.18;
   }
-  .gd-meta { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--gd-muted); flex-wrap:wrap; }
+  .gd-meta { display:flex; align-items:center; gap:12px; font-size:13.5px; color:var(--gd-muted); flex-wrap:wrap; }
   .gd-meta .gd-id-val { color:var(--gd-ink-2); }
 
   /* Stat strip */
@@ -114,7 +131,7 @@
     font-size:12px; font-weight:500; letter-spacing:.04em;
     text-transform:uppercase; color:var(--gd-muted);
   }
-  .gd-stat-value { font-size:36px; font-weight:600; letter-spacing:-.02em; color:var(--gd-ink); line-height:1; }
+  .gd-stat-value { font-size:38px; font-weight:700; letter-spacing:-.02em; color:var(--gd-ink); line-height:1; }
   .gd-stat-value--accent { color:var(--gd-red); }
   .gd-stat-sub { font-size:16px; color:var(--gd-ink-2); }
   .gd-stat-row { display:flex; gap:14px; font-size:12.5px; color:var(--gd-muted); }
@@ -205,17 +222,39 @@
   }
   .gd-metric--profit.is-loss .gd-metric-sub { color:var(--gd-red); }
 
-  /* Hero bar chart */
+  /* Hero dual-series chart: Выручка (amber) + Продано (royal blue),
+     dual y-axis, toggleable legend, date x-axis. */
   .gd-hero-chart-wrap { margin-top:auto; position:relative; }
-  .gd-hero-chart {
-    width:100%; height:88px; display:block; overflow:visible;
+  .gd-chart-legend { display:flex; gap:18px; margin-bottom:10px; }
+  .gd-legend-item {
+    appearance:none; border:0; background:transparent; padding:1px 0;
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    font-family:inherit; font-size:12.5px; font-weight:500; color:var(--gd-ink-2);
+    transition:color .15s;
   }
-  .gd-hero-chart rect.bar { cursor:pointer; transition:opacity .12s; }
-  .gd-hero-chart rect.bar:hover { opacity:.78; }
-  .gd-hero-chart rect.hot { fill:var(--gd-amber); }
-  .gd-chart-axis {
-    display:flex; justify-content:space-between; padding:0 2px;
-    font-size:11px; color:var(--gd-faint); margin-top:2px;
+  .gd-legend-dot {
+    width:10px; height:10px; border-radius:50%; background:var(--dot);
+    flex:0 0 auto; transition:background .15s, box-shadow .15s;
+  }
+  .gd-legend-item.is-off { color:var(--gd-faint); }
+  .gd-legend-item.is-off .gd-legend-dot { background:transparent; box-shadow:inset 0 0 0 2px var(--gd-faint); }
+  .gd-chart-plot { display:grid; grid-template-columns:40px 1fr 26px; align-items:stretch; }
+  .gd-hero-chart { width:100%; height:120px; display:block; overflow:visible; }
+  .gd-hero-chart .bar { cursor:pointer; transition:opacity .12s; }
+  .gd-hero-chart .bar:hover { opacity:.78; }
+  .gd-chart-yaxis { position:relative; }
+  .gd-chart-ytick {
+    position:absolute; right:8px; transform:translateY(-50%);
+    font-size:10.5px; color:var(--gd-faint); font-variant-numeric:tabular-nums;
+    white-space:nowrap; line-height:1;
+  }
+  .gd-chart-yaxis--right .gd-chart-ytick { left:7px; right:auto; }
+  .gd-chart-xaxis { display:grid; grid-template-columns:40px 1fr 26px; margin-top:6px; }
+  .gd-xaxis-track { position:relative; height:13px; }
+  .gd-xaxis-tick {
+    position:absolute; transform:translateX(-50%); top:0;
+    font-size:10.5px; color:var(--gd-faint); white-space:nowrap; line-height:1;
+    font-variant-numeric:tabular-nums;
   }
   .gd-tooltip {
     position:absolute; pointer-events:none;
@@ -249,6 +288,16 @@
   .gd-card {
     background:var(--gd-surface); border:.5px solid var(--gd-line);
     border-radius:var(--gd-radius); box-shadow:var(--gd-shadow-md); overflow:hidden;
+    /* Pin the toolbar+table card under the 64px sticky topbar once the
+       breadcrumb/product/stats scroll away, so the table fills the screen and
+       scrolls INTERNALLY with its column header pinned (flex column → the
+       table-wrap auto-fills whatever height the toolbar leaves). Offset = the
+       topbar height (64px) + an 8px bottom margin, so when pinned the card's
+       bottom clears the viewport bottom cleanly — no leftover strip to overscroll
+       into, and the last row isn't jammed against the fold. */
+    position:sticky; top:64px; z-index:5;
+    max-height:calc(100vh - 72px);
+    display:flex; flex-direction:column;
   }
 
   /* Toolbar */
@@ -260,18 +309,18 @@
   .gd-count-pill {
     display:inline-flex; align-items:center; justify-content:center;
     min-width:22px; height:20px; padding:0 6px;
-    background:var(--gd-surface-2); border-radius:6px;
+    background:var(--gd-surface-2); border-radius:999px;
     font-size:11.5px; font-weight:500; color:var(--gd-muted); font-variant-numeric:tabular-nums;
   }
   .gd-sep-v { width:1px; height:22px; background:var(--gd-line); margin:0 4px; }
 
   .gd-seg {
     display:inline-flex; padding:3px; background:var(--gd-surface-2);
-    border-radius:9px; border:.5px solid var(--gd-line);
+    border-radius:999px; border:.5px solid var(--gd-line);
   }
   .gd-seg-btn {
     appearance:none; border:0; background:transparent;
-    padding:5px 12px; border-radius:7px; font-size:12.5px; font-weight:500;
+    padding:5px 13px; border-radius:999px; font-size:12.5px; font-weight:500;
     color:var(--gd-muted); cursor:pointer; transition:all .15s;
     white-space:nowrap; font-family:inherit;
   }
@@ -284,14 +333,14 @@
   .gd-search svg { position:absolute; left:10px; color:var(--gd-faint); pointer-events:none; }
   .gd-search input {
     appearance:none; width:240px; height:32px; padding:0 12px 0 32px;
-    background:var(--gd-input-bg); border:.5px solid transparent; border-radius:8px;
+    background:var(--gd-input-bg); border:.5px solid transparent; border-radius:999px;
     font-size:12.5px; outline:none; color:var(--gd-ink); font-family:inherit;
   }
   .gd-search input:focus { border-color:var(--gd-accent); box-shadow:0 0 0 3px var(--gd-accent-soft); }
 
   .gd-btn {
     appearance:none; display:inline-flex; align-items:center; gap:6px;
-    padding:0 12px; height:32px; border-radius:8px; font-size:12.5px; font-weight:500;
+    padding:0 14px; height:32px; border-radius:999px; font-size:12.5px; font-weight:500;
     background:var(--gd-surface); color:var(--gd-ink); border:.5px solid var(--gd-line);
     cursor:pointer; font-family:inherit; box-shadow:var(--gd-shadow-sm);
   }
@@ -301,8 +350,8 @@
   /* Date range picker (compact) */
   .gd-daterange {
     display:inline-flex; align-items:center; gap:8px;
-    padding:0 12px; height:32px;
-    background:var(--gd-surface); border:.5px solid var(--gd-line); border-radius:8px;
+    padding:0 14px; height:32px;
+    background:var(--gd-surface); border:.5px solid var(--gd-line); border-radius:999px;
     cursor:pointer; font-size:12.5px; color:var(--gd-ink-2);
     box-shadow:var(--gd-shadow-sm); transition:border-color .15s;
   }
@@ -348,12 +397,15 @@
   [data-bs-theme="dark"] .flatpickr-next-month svg { fill:#787b86 !important; }
 
   /* Table: scrollable horizontally, with checkbox + SKU pinned to the left */
-  .gd-table-wrap { overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; }
+  /* Bounded height so the table scrolls internally — this lets the sticky
+     header (position:sticky; top:0) pin to the top of the table while the
+     user scrolls through the rows. */
+  .gd-table-wrap { flex:1 1 auto; min-height:0; overflow:auto; -webkit-overflow-scrolling:touch; }
   .gd-thead, .gd-row {
     display:grid;
     /* Column tracks + min-width are driven by --gd-cols / --gd-min on .gd-scope,
        so the settings panel can rebuild them when columns are hidden. */
-    grid-template-columns: var(--gd-cols, 40px minmax(280px,1.3fr) 100px 90px 110px 130px 130px 130px 140px 200px 110px 44px);
+    grid-template-columns: var(--gd-cols, 40px minmax(340px,1.3fr) 130px 100px 90px 110px 130px 130px 130px 130px 140px 200px 110px 44px);
     min-width: var(--gd-min, 1540px);
     padding:0 16px;
   }
@@ -381,13 +433,20 @@
   .gd-row:hover > div:nth-child(2) {
     background:var(--gd-row-hover);
   }
+  /* The grid has 16px left padding, so the pinned checkbox column sticks at
+     left:16px — leaving a 16px strip at the very edge that scrolling columns
+     peek through when scrolled horizontally. Extend the checkbox cell's opaque
+     background 16px to the left (via a solid box-shadow) to cover that strip. */
+  .gd-thead > div:nth-child(1)     { box-shadow:-16px 0 0 0 var(--gd-surface-2); }
+  .gd-row   > div:nth-child(1)     { box-shadow:-16px 0 0 0 var(--gd-surface); }
+  .gd-row:hover > div:nth-child(1) { box-shadow:-16px 0 0 0 var(--gd-row-hover); }
   .gd-money {
-    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
     font-variant-numeric:tabular-nums;
-    font-size:13px; color:var(--gd-ink); white-space:nowrap;
+    font-size:15px; color:var(--gd-ink); white-space:nowrap;
   }
   .gd-money.is-zero { color:var(--gd-faint); }
-  .gd-money-sub { font-size:11px; color:var(--gd-faint); font-weight:400; margin-left:3px; }
+  .gd-money-sub { font-size:11.5px; color:var(--gd-faint); font-weight:400; margin-left:3px; }
   .gd-thead {
     background:var(--gd-surface-2); border-bottom:.5px solid var(--gd-line);
     font-size:11.5px; font-weight:500; color:var(--gd-muted);
@@ -395,11 +454,12 @@
     position:sticky; top:0; z-index:3;
   }
   .gd-th { display:flex; align-items:center; gap:5px; padding:12px 8px; user-select:none; }
+  /* Clean white table — no column tints (previously purple UZUM/FBS + cyan WH). */
   .gd-th--uzum, .gd-th--fbs, .gd-th--wh { padding-left:10px; padding-right:12px; }
-  .gd-th--uzum { background:var(--gd-uzum-tint); }
-  .gd-th--fbs  { background:var(--gd-uzum-tint); justify-content:flex-end; }
-  .gd-th--wh   { background:var(--gd-wh-tint); justify-content:flex-end; }
-  .gd-th--right { justify-content:flex-end; }
+  /* Left-aligned values (Uzum style): header + value both start at the column's left edge. */
+  .gd-th--fbs  { justify-content:flex-start; }
+  .gd-th--wh   { justify-content:flex-start; }
+  .gd-th--right { justify-content:flex-start; }
   .gd-th--center { justify-content:center; }
   .gd-th-sort { opacity:.4; }
   .gd-th[data-sort-active="1"] .gd-th-sort { opacity:1; }
@@ -411,18 +471,14 @@
     transition:background .12s; color:var(--gd-ink);
   }
   .gd-row:hover { background:var(--gd-row-hover); }
-  .gd-row:hover .gd-cell--uzum,
-  .gd-row:hover .gd-cell--fbs,
-  .gd-row:hover .gd-cell--wh { filter:brightness(.985); }
 
-  .gd-cell { display:flex; align-items:center; padding:13px 8px; min-width:0; }
-  .gd-cell--right { justify-content:flex-end; }
+  .gd-cell { display:flex; align-items:center; padding:10px 8px; min-width:0; }
+  .gd-cell--right { justify-content:flex-start; }
   .gd-cell--center { justify-content:center; }
-  .gd-cell--uzum, .gd-cell--fbs, .gd-cell--wh { padding-left:10px; padding-right:12px; transition:filter .12s; justify-content:flex-end; }
-  .gd-cell--uzum { background:var(--gd-uzum-tint); }
-  .gd-cell--fbs  { background:var(--gd-uzum-tint); }
-  .gd-cell--wh   { background:var(--gd-wh-tint); }
-  .gd-cell--sku  { gap:12px; padding-right:10px; }
+  /* Clean white table — no column tints. */
+  .gd-cell--uzum, .gd-cell--fbs, .gd-cell--wh { padding-left:10px; padding-right:12px; justify-content:flex-start; }
+  .gd-cell--sku  { gap:14px; padding-top:8px; padding-bottom:8px; padding-right:10px; overflow:hidden; }
+  .gd-cell--sku .gd-sku { overflow:hidden; text-overflow:ellipsis; }
 
   .gd-checkbox {
     width:15px; height:15px; cursor:pointer;
@@ -431,14 +487,14 @@
 
   .gd-row-thumb {
     position:relative;
-    width:44px; height:44px; border-radius:8px;
+    width:62px; height:62px; border-radius:11px;
     background:var(--gd-surface-2); border:.5px solid var(--gd-line);
     overflow:hidden; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
   }
   .gd-row-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
   .gd-row-thumb[data-zoom-src] { cursor:zoom-in; }
-  .gd-row-thumb .gd-no-img { color:var(--gd-faint); font-size:18px; }
+  .gd-row-thumb .gd-no-img { color:var(--gd-faint); font-size:24px; }
 
   /* Floating hover-zoom preview (position:fixed so it escapes table overflow) */
   .gd-zoom-preview {
@@ -456,51 +512,68 @@
   .gd-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:10px; display:block; }
 
   .gd-sku {
-    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
     font-size:13.5px; font-weight:500; color:var(--gd-ink); white-space:nowrap;
   }
+  .gd-sku-line { min-width:0; }
+  /* Keep color·size + status pill on ONE line: the pill never drops below.
+     The text truncates with an ellipsis before the pill would wrap. */
   .gd-row-meta {
-    display:flex; align-items:center; gap:8px; margin-top:4px;
-    font-size:12.5px; color:var(--gd-muted);
+    display:flex; align-items:center; gap:8px; margin-top:5px;
+    font-size:12.5px; color:var(--gd-muted); flex-wrap:nowrap; min-width:0;
   }
-  .gd-color-dot { display:inline-flex; align-items:center; gap:5px; }
-  .gd-color-dot span:first-child {
-    width:9px; height:9px; border-radius:50%;
-    border:.5px solid rgba(0,0,0,.12);
+  .gd-meta-info {
+    min-width:0; flex:0 1 auto;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+  .gd-row-meta .gd-pill { flex:0 0 auto; }
+  .gd-color-dot { display:inline; }
   .gd-size-val { color:var(--gd-ink-2); font-weight:500; }
 
   /* Status pill */
+  /* Outlined status pills (new design): transparent fill, colored border+text. */
   .gd-pill {
-    display:inline-flex; align-items:center; gap:5px;
-    padding:2px 8px 2px 6px; border-radius:999px;
-    font-size:12px; font-weight:500; white-space:nowrap;
+    display:inline-flex; align-items:center;
+    padding:1px 8px; border-radius:999px;
+    font-size:10.5px; font-weight:500; white-space:nowrap;
+    background:transparent; border:1px solid var(--gd-line);
   }
-  .gd-pill-dot { width:6px; height:6px; border-radius:50%; }
-  .gd-pill--ok    { background:var(--gd-green-soft); color:var(--gd-green); }
-  .gd-pill--ok    .gd-pill-dot { background:var(--gd-green); }
-  .gd-pill--low   { background:var(--gd-amber-soft); color:var(--gd-amber); }
-  .gd-pill--low   .gd-pill-dot { background:var(--gd-amber); }
-  .gd-pill--out   { background:var(--gd-red-soft);   color:var(--gd-red); }
-  .gd-pill--out   .gd-pill-dot { background:var(--gd-red); }
-  .gd-pill--stale { background:var(--gd-surface-2);  color:var(--gd-muted); }
-  .gd-pill--stale .gd-pill-dot { background:var(--gd-faint); }
+  .gd-pill-dot { display:none; }
+  .gd-pill--ok    { color:var(--gd-green); border-color:var(--gd-green); }
+  .gd-pill--low   { color:var(--gd-amber); border-color:var(--gd-amber); }
+  .gd-pill--out   { color:var(--gd-red);   border-color:var(--gd-red); }
+  .gd-pill--stale { color:var(--gd-muted); border-color:var(--gd-line); }
 
   .gd-stock {
-    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
     font-variant-numeric:tabular-nums;
     font-size:15px; font-weight:600; color:var(--gd-ink);
   }
   .gd-stock.is-zero { color:var(--gd-red); }
 
+  /* Lighter numeric cell for the analytics/quantity-breakdown columns —
+     bigger than body text but not bold like the stock/quantity cells. */
+  .gd-num {
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
+    font-variant-numeric:tabular-nums;
+    font-size:14px; color:var(--gd-ink-2); white-space:nowrap;
+  }
+  .gd-num.is-zero { color:var(--gd-faint); }
+  .gd-num-muted { color:var(--gd-faint); font-size:14px; }
+  .gd-dimgroup {
+    display:inline-flex; align-items:center; padding:2px 8px; border-radius:6px;
+    background:var(--gd-line-2); color:var(--gd-ink-2);
+    font-size:12px; font-weight:500; white-space:nowrap;
+  }
+
   .gd-barcode {
-    font-family:'Geist Mono','SF Mono',Menlo,monospace;
+    font-family:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
     font-variant-numeric:tabular-nums;
     font-size:12.5px; color:var(--gd-ink-2); letter-spacing:.02em;
   }
 
   /* Sales cell: mini chart + number */
-  .gd-sales-cell { gap:12px; padding-left:12px; padding-right:8px; justify-content:flex-end; }
+  .gd-sales-cell { gap:12px; padding-left:12px; padding-right:8px; justify-content:flex-start; }
   .gd-sparkline { width:112px; height:24px; display:block; flex-shrink:0; cursor:pointer; overflow:visible; }
   .gd-sparkline rect.bar { transition:opacity .12s; }
   .gd-sparkline:hover rect.bar { opacity:.78; }
@@ -514,14 +587,6 @@
   .gd-need-ok  { color:var(--gd-green); }
   .gd-need-bad { padding:2px 8px; border-radius:6px; background:var(--gd-red-soft); color:var(--gd-red); }
   .gd-need-mid { padding:2px 8px; border-radius:6px; background:var(--gd-amber-soft); color:var(--gd-amber); }
-
-  .gd-action-btn {
-    appearance:none; width:28px; height:28px; padding:0;
-    border:.5px solid transparent; background:transparent; border-radius:7px;
-    display:inline-flex; align-items:center; justify-content:center;
-    cursor:pointer; color:var(--gd-muted);
-  }
-  .gd-action-btn:hover { background:var(--gd-surface-2); color:var(--gd-ink); }
 
   /* Settings drawer */
   .gd-settings-backdrop {
@@ -601,7 +666,7 @@
   .gd-settings-btn--primary:hover { filter:brightness(1.08); }
 
   .gd-footer {
-    display:flex; align-items:center; justify-content:space-between;
+    display:none; align-items:center; justify-content:space-between;
     padding:14px 18px; background:var(--gd-surface-2);
     border-top:.5px solid var(--gd-line);
     font-size:13.5px; color:var(--gd-muted);
@@ -637,7 +702,7 @@
     </a>
     <span class="gd-bc-divider"></span>
     <nav class="gd-bc-nav">
-      <span>{{ "Katalog" if lang == "uz" else "Каталог" }}</span>
+      <a href="/groups" class="gd-bc-link">{{ "Katalog" if lang == "uz" else "Каталог" }}</a>
       <span class="gd-sep">/</span>
       <span class="gd-bc-cur">{{ group.name }}</span>
     </nav>
@@ -689,13 +754,27 @@
         </div>
       </div>
       <div class="gd-hero-chart-wrap" id="heroChartWrap">
-        <svg class="gd-hero-chart" id="heroChart" viewBox="0 0 600 88" preserveAspectRatio="none"></svg>
+        <div class="gd-chart-legend" id="heroLegend">
+          <button class="gd-legend-item" data-series="rev" type="button">
+            <span class="gd-legend-dot" style="--dot:var(--gd-rev)"></span>{{ "Tushum" if lang == "uz" else "Выручка" }}
+          </button>
+          <button class="gd-legend-item" data-series="qty" type="button">
+            <span class="gd-legend-dot" style="--dot:var(--gd-bar)"></span>{{ "Sotilgan" if lang == "uz" else "Продано" }}
+          </button>
+        </div>
+        <div class="gd-chart-plot">
+          <div class="gd-chart-yaxis gd-chart-yaxis--left" id="heroYLeft"></div>
+          <svg class="gd-hero-chart" id="heroChart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
+          <div class="gd-chart-yaxis gd-chart-yaxis--right" id="heroYRight"></div>
+        </div>
+        <div class="gd-chart-xaxis">
+          <span></span>
+          <div class="gd-xaxis-track" id="heroAxis"></div>
+          <span></span>
+        </div>
         <div class="gd-tooltip" id="chartTooltip">
           <span class="gd-tt-qty">0 {{ "dona" if lang == "uz" else "шт." }}</span><span class="gd-tt-date">—</span>
           <span class="gd-tt-rev">0 {{ "so'm" if lang == "uz" else "сум" }}</span>
-        </div>
-        <div class="gd-chart-axis" id="heroAxis">
-          <span>−30{{ "k" if lang == "uz" else "д" }}</span><span>−15{{ "k" if lang == "uz" else "д" }}</span><span>{{ "bugun" if lang == "uz" else "сегодня" }}</span>
         </div>
       </div>
     </div>
@@ -822,9 +901,10 @@
         <input type="checkbox" class="gd-checkbox" id="checkAll">
       </div>
       <div class="gd-th" data-col="sku" data-sortable="1" data-sort-key="color">
-        {{ "SKU · Holat" if lang == "uz" else "SKU · Статус" }}
+        SKU
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
+      <div class="gd-th" data-col="uzum_status">{{ "Holat" if lang == "uz" else "Статус" }}</div>
       <div class="gd-th gd-th--uzum gd-th--right" data-col="uzum_fbo" data-sortable="1" data-sort-key="uzum">
         Uzum FBO
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -862,11 +942,29 @@
         {{ "Kerak (60k)" if lang == "uz" else "Нужно (60д)" }}
         <svg class="gd-th-sort" width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <div class="gd-th" data-col="actions"></div>
+      <div class="gd-th gd-th--right" data-col="avg_stock">{{ "O'rt/kun qoldiq" if lang == "uz" else "Ср/сут ост." }}</div>
+      <div class="gd-th gd-th--right" data-col="turnover">{{ "Aylanma" if lang == "uz" else "Оборач., дн" }}</div>
+      <div class="gd-th gd-th--right" data-col="tariff">{{ "Saqlash tarifi" if lang == "uz" else "Тариф хран." }}</div>
+      <div class="gd-th gd-th--right" data-col="avg_sales">{{ "O'rt/kun sotuv" if lang == "uz" else "Ср/сут прод." }}</div>
+      <div class="gd-th" data-col="dimgroup">{{ "Gabarit" if lang == "uz" else "Габ. группа" }}</div>
+      <div class="gd-th gd-th--right" data-col="q_additional">{{ "Qo'shimcha" if lang == "uz" else "Доп." }}</div>
+      <div class="gd-th gd-th--right" data-col="q_created">{{ "Yaratilgan" if lang == "uz" else "Создано" }}</div>
+      <div class="gd-th gd-th--right" data-col="q_archived">{{ "Arxiv" if lang == "uz" else "Архив" }}</div>
+      <div class="gd-th gd-th--right" data-col="q_missing">{{ "Yetishm." if lang == "uz" else "Недостача" }}</div>
+      <div class="gd-th gd-th--right" data-col="q_defected">{{ "Nuqson" if lang == "uz" else "Брак" }}</div>
+      <div class="gd-th gd-th--right" data-col="q_pending">{{ "Kutish" if lang == "uz" else "Ожидание" }}</div>
     </div>
 
     <!-- Rows -->
     <div id="skuTbody">
+      {#- Uzum per-SKU status.value -> (ru title, uz title, color) -#}
+      {% set UZ_STATUS = {
+        'IN_STOCK':        ('В продаже','Sotuvda','#51AE42'),
+        'RUN_OUT':         ('Закончился','Tugadi','#E4981B'),
+        'ARCHIVED':        ('Архивный','Arxivlangan','#797D86'),
+        'BLOCKED':         ('Заблокирован','Bloklangan','#E74E4B'),
+        'ARCHIVED_BLOCKED':('Заблокир., в архиве','Bloklangan, arxivda','#E74E4B'),
+      } %}
       {% for v in variants %}
       {% set s30  = sales_30d_map.get(v.id, 0) %}
       {% set wh   = v.warehouse_quantity or 0 %}
@@ -900,20 +998,28 @@
             {% else %}<span class="gd-no-img">⌬</span>{% endif %}
           </div>
           <div style="min-width:0;">
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <span class="gd-sku">{{ v.sku }}</span>
-              <span class="gd-status-pill"></span>
-            </div>
+            <div class="gd-sku-line"><span class="gd-sku">{{ v.sku }}</span></div>
             {% if v.color or v.size %}
             <div class="gd-row-meta">
-              {% if v.color %}
-                <span class="gd-color-dot"><span data-color-dot="{{ v.color }}"></span>{{ v.color }}</span>
-              {% endif %}
-              {% if v.color and v.size %}<span style="color:var(--gd-faint)">·</span>{% endif %}
-              {% if v.size %}<span>{{ t.detail_size }} <span class="gd-size-val">{{ v.size }}</span></span>{% endif %}
+              <span class="gd-meta-info">
+                {% if v.color %}<span class="gd-color-dot">{{ v.color }}</span>{% endif %}
+                {% if v.color and v.size %}<span style="color:var(--gd-faint)">·</span>{% endif %}
+                {% if v.size %}<span>{{ t.detail_size }} <span class="gd-size-val">{{ v.size }}</span></span>{% endif %}
+              </span>
             </div>
             {% endif %}
           </div>
+        </div>
+
+        <div class="gd-cell" data-col="uzum_status">
+          {% if v.uzum_status and v.uzum_status in UZ_STATUS %}
+            {% set usm = UZ_STATUS[v.uzum_status] %}
+            <span class="gd-pill" style="color:{{ usm[2] }};border-color:{{ usm[2] }}">{{ usm[1] if lang == 'uz' else usm[0] }}</span>
+          {% elif v.uzum_status %}
+            <span class="gd-pill" style="color:var(--gd-muted);border-color:var(--gd-line)">{{ v.uzum_status }}</span>
+          {% else %}
+            <span class="gd-num-muted">—</span>
+          {% endif %}
         </div>
 
         <div class="gd-cell gd-cell--uzum" data-col="uzum_fbo">
@@ -967,11 +1073,63 @@
           <span class="gd-need-wrap"></span>
         </div>
 
-        <div class="gd-cell gd-cell--right" data-col="actions">
-          <button class="gd-action-btn" title="{{ t.common_actions }}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-          </button>
+        <div class="gd-cell gd-cell--right" data-col="avg_stock">
+          {% if v.avgd_quantity is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num">{{ '%.1f'|format(v.avgd_quantity) }}</span>{% endif %}
         </div>
+
+        <div class="gd-cell gd-cell--right" data-col="turnover">
+          {% if v.turnover is none or v.turnover == 0 %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num">{{ v.turnover }}<span class="gd-money-sub">{{ "kun" if lang == "uz" else "дн." }}</span></span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="tariff">
+          {% set trf = v.paid_storage_price_item or 0 %}
+          <span class="gd-money {% if trf == 0 %}is-zero{% endif %}">
+            {% if trf > 0 %}{{ '{:,}'.format(trf).replace(',', ' ') }}<span class="gd-money-sub">{{ "so'm" if lang == "uz" else "сум" }}</span>{% else %}—{% endif %}
+          </span>
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="avg_sales">
+          {% if v.avgd_sales is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num">{{ '%.1f'|format(v.avgd_sales) }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell" data-col="dimgroup">
+          {% if v.dimensional_group %}<span class="gd-dimgroup">{{ v.dimensional_group }}</span>
+          {% else %}<span class="gd-num-muted">—</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_additional">
+          {% if v.quantity_additional is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_additional == 0 %}is-zero{% endif %}">{{ v.quantity_additional }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_created">
+          {% if v.quantity_created is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_created == 0 %}is-zero{% endif %}">{{ v.quantity_created }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_archived">
+          {% if v.quantity_archived is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_archived == 0 %}is-zero{% endif %}">{{ v.quantity_archived }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_missing">
+          {% if v.quantity_missing is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_missing == 0 %}is-zero{% endif %}">{{ v.quantity_missing }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_defected">
+          {% if v.quantity_defected is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_defected == 0 %}is-zero{% endif %}">{{ v.quantity_defected }}</span>{% endif %}
+        </div>
+
+        <div class="gd-cell gd-cell--right" data-col="q_pending">
+          {% if v.quantity_pending is none %}<span class="gd-num-muted">—</span>
+          {% else %}<span class="gd-num {% if v.quantity_pending == 0 %}is-zero{% endif %}">{{ v.quantity_pending }}</span>{% endif %}
+        </div>
+
       </div>
       {% endfor %}
 
@@ -1069,19 +1227,13 @@ function paintColors(){
   });
 }
 
+// The status column now comes straight from Uzum (rendered server-side in the
+// `uzum_status` cell), so this only computes the "need" (Нужно 60д) cell.
 function paintRowStatusesAndNeeds(){
   document.querySelectorAll('#skuTbody .gd-row').forEach(tr => {
     const uq  = parseInt(tr.dataset.uq || 0);
     const wh  = parseInt(tr.dataset.wh || 0);
-    const s   = parseInt(tr.querySelector('.sales-cell').textContent || 0);
     const s30 = parseInt(tr.dataset.s30 || 0);
-    const st  = statusFor(uq, wh, s);
-    const pillEl = tr.querySelector('.gd-status-pill');
-    if (!pillEl) return;
-    // Keep `gd-status-pill` in the className so this selector keeps working
-    // on subsequent re-paints.
-    pillEl.className = `gd-status-pill gd-pill gd-pill--${st}`;
-    pillEl.innerHTML = `<span class="gd-pill-dot"></span>${PILL_LABELS[st]}`;
 
     const need = Math.max(0, Math.round((s30/30)*60 - uq - wh));
     const wrap = tr.querySelector('.gd-need-wrap');
@@ -1238,65 +1390,154 @@ function fmtRuShortDate(iso){
   return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
 }
 
+// Short month names for the x-axis (e.g. "7 июн").
+const SHORT_MONTHS = {{ ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"]|tojson if lang == "uz" else ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"]|tojson }};
+const TODAY_LABEL = {{ ("bugun" if lang == "uz" else "сегодня")|tojson }};
+function fmtAxisDate(iso){
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.getDate() + ' ' + SHORT_MONTHS[d.getMonth()];
+}
+
+// Series on/off state for the toggle legend. Keep ≥1 series on at all times.
+let heroSeriesOn = { rev: true, qty: true };
+let heroLegendBound = false;
+function bindHeroLegend(){
+  if (heroLegendBound) return;
+  heroLegendBound = true;
+  document.querySelectorAll('#heroLegend .gd-legend-item').forEach(btn => {
+    btn.classList.toggle('is-off', !heroSeriesOn[btn.dataset.series]);
+    btn.addEventListener('click', () => {
+      const s = btn.dataset.series;
+      const otherOn = s === 'rev' ? heroSeriesOn.qty : heroSeriesOn.rev;
+      if (heroSeriesOn[s] && !otherOn) return;  // don't allow turning both off
+      heroSeriesOn[s] = !heroSeriesOn[s];
+      btn.classList.toggle('is-off', !heroSeriesOn[s]);
+      redrawHeroChart();
+    });
+  });
+}
+
+// Round a max value up to a "nice" axis ceiling divisible into `ticks` steps.
+function niceAxisMax(v, ticks){
+  if (!(v > 0)) return ticks;
+  const rough = v / ticks;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+  return step * ticks;
+}
+function fmtAxisRev(v){
+  if (v >= 1e6) return (Math.round(v / 1e5) / 10) + 'M';
+  if (v >= 1000) return Math.round(v / 1000) + 'k';
+  return String(Math.round(v));
+}
+// SVG path for a bar with a flat bottom on the axis and rounded top corners.
+function roundedTopBar(x, y, w, baseY){
+  const r = Math.min(w / 2, 5, baseY - y);
+  return `M${x.toFixed(1)},${baseY.toFixed(1)}`
+    + `L${x.toFixed(1)},${(y + r).toFixed(1)}`
+    + `Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)}`
+    + `L${(x + w - r).toFixed(1)},${y.toFixed(1)}`
+    + `Q${(x + w).toFixed(1)},${y.toFixed(1)} ${(x + w).toFixed(1)},${(y + r).toFixed(1)}`
+    + `L${(x + w).toFixed(1)},${baseY.toFixed(1)}Z`;
+}
+
 function redrawHeroChart(){
   if (!heroData) return;
+  bindHeroLegend();
   const svg  = document.getElementById('heroChart');
   const wrap = document.getElementById('heroChartWrap');
   const tip  = document.getElementById('chartTooltip');
-  const arr  = heroData.group_daily || [];
-  const revArr = heroData.group_daily_revenue || [];
+  const yLeftEl  = document.getElementById('heroYLeft');
+  const yRightEl = document.getElementById('heroYRight');
+  const qty = heroData.group_daily || [];
+  const rev = heroData.group_daily_revenue || [];
   const labels = heroData.day_labels || [];
+  const n = Math.max(1, qty.length);
 
-  const W = 600, H = 88, pad = 4;
-  const slot = (W - pad*2) / Math.max(1, arr.length);
-  const barW = Math.max(2, slot - 2);
-  const max  = Math.max(1, ...arr);
-  const color = getComputedStyle(scope).getPropertyValue('--gd-bar').trim() || '#7000ff';
+  const W = 600, H = 120, padTop = 8;
+  const baseY = H;
+  const plotH = H - padTop;
+  const slot = W / n;
 
-  const svgNS = 'http://www.w3.org/2000/svg';
-  svg.innerHTML = '';
-  arr.forEach((v, i) => {
-    const h = Math.max(2, Math.round((v / max) * (H - pad*2)));
-    const x = pad + i * slot;
-    const y = H - pad - h;
-    const r = document.createElementNS(svgNS, 'rect');
-    r.setAttribute('class', 'bar');
-    r.setAttribute('x', x.toFixed(1));
-    r.setAttribute('y', y);
-    r.setAttribute('width', barW.toFixed(1));
-    r.setAttribute('height', h);
-    r.setAttribute('rx', '1.5');
-    r.setAttribute('fill', color);
-    r.dataset.idx = i;
-    svg.appendChild(r);
-  });
+  const cBlue = getComputedStyle(scope).getPropertyValue('--gd-bar').trim()  || '#4169e1';
+  const cRev  = getComputedStyle(scope).getPropertyValue('--gd-rev').trim()  || '#d97706';
+  const cGrid = getComputedStyle(scope).getPropertyValue('--gd-line').trim() || '#ece6f7';
 
-  // Hover tooltip — track via mousemove on the SVG so empty (zero-height)
-  // bars are still hoverable based on x-position.
-  const showAt = (idx, ev) => {
-    if (idx < 0 || idx >= arr.length) { tip.classList.remove('is-show'); return; }
+  const TICKS = 4;
+  const revMax = niceAxisMax(Math.max(1, ...rev), TICKS);
+  const qtyMax = niceAxisMax(Math.max(1, ...qty), TICKS);
+  const active = (heroSeriesOn.rev ? 1 : 0) + (heroSeriesOn.qty ? 1 : 0);
+
+  let gfx = '';
+  // horizontal gridlines
+  for (let t = 0; t <= TICKS; t++){
+    const y = baseY - (t / TICKS) * plotH;
+    gfx += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="${cGrid}" stroke-width="1"/>`;
+  }
+  // bars
+  for (let i = 0; i < n; i++){
+    // Revenue tracks quantity almost 1:1 (price is ~constant), so scale its
+    // height down slightly to visually separate the two overlapping series.
+    const revH = (Math.min(rev[i] || 0, revMax) / revMax) * plotH * 0.85;
+    const qtyH = (Math.min(qty[i] || 0, qtyMax) / qtyMax) * plotH;
+    if (active === 2){
+      // Revenue and quantity bars share the same width.
+      const bw = slot * 0.34;
+      const innerGap = slot * 0.06;
+      const total = bw * 2 + innerGap;
+      const gx = i * slot + (slot - total) / 2;
+      if (rev[i] > 0) gfx += `<path class="bar" fill="${cRev}" d="${roundedTopBar(gx, baseY - revH, bw, baseY)}"/>`;
+      if (qty[i] > 0) gfx += `<path class="bar" fill="${cBlue}" d="${roundedTopBar(gx + bw + innerGap, baseY - qtyH, bw, baseY)}"/>`;
+    } else if (active === 1){
+      const bw = slot * 0.6;
+      const gx = i * slot + (slot - bw) / 2;
+      if (heroSeriesOn.rev && rev[i] > 0) gfx += `<path class="bar" fill="${cRev}" d="${roundedTopBar(gx, baseY - revH, bw, baseY)}"/>`;
+      if (heroSeriesOn.qty && qty[i] > 0) gfx += `<path class="bar" fill="${cBlue}"  d="${roundedTopBar(gx, baseY - qtyH, bw, baseY)}"/>`;
+    }
+  }
+  svg.innerHTML = gfx;
+
+  // y-axis tick labels (left = revenue, right = quantity), aligned to gridlines
+  let leftHtml = '', rightHtml = '';
+  for (let t = 0; t <= TICKS; t++){
+    const y = baseY - (t / TICKS) * plotH;
+    if (heroSeriesOn.rev) leftHtml  += `<span class="gd-chart-ytick" style="top:${y.toFixed(1)}px">${fmtAxisRev(revMax * t / TICKS)}</span>`;
+    if (heroSeriesOn.qty) rightHtml += `<span class="gd-chart-ytick" style="top:${y.toFixed(1)}px">${Math.round(qtyMax * t / TICKS)}</span>`;
+  }
+  yLeftEl.innerHTML  = leftHtml;
+  yRightEl.innerHTML = rightHtml;
+
+  // x-axis date labels — a subset, with the last slot always "сегодня"
+  const step = Math.max(1, Math.ceil(n / 10));
+  let xHtml = '';
+  for (let i = 0; i < n - step * 0.5; i += step){
+    const frac = (i + 0.5) / n;
+    xHtml += `<span class="gd-xaxis-tick" style="left:${(frac * 100).toFixed(2)}%">${fmtAxisDate(labels[i])}</span>`;
+  }
+  xHtml += `<span class="gd-xaxis-tick" style="left:${(((n - 0.5) / n) * 100).toFixed(2)}%">${TODAY_LABEL}</span>`;
+  document.getElementById('heroAxis').innerHTML = xHtml;
+
+  // hover tooltip — both series for the day under the cursor
+  const showAt = (idx) => {
+    if (idx < 0 || idx >= n) { tip.classList.remove('is-show'); return; }
     const wrapRect = wrap.getBoundingClientRect();
     const svgRect  = svg.getBoundingClientRect();
-    const cx = svgRect.left + ((pad + idx * slot + barW/2) / W) * svgRect.width;
+    const cx = svgRect.left + ((idx + 0.5) / n) * svgRect.width;
     tip.style.left = (cx - wrapRect.left) + 'px';
-    tip.style.top  = (svgRect.top - wrapRect.top + 4) + 'px';
-    tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(arr[idx]) + ' {{ "dona" if lang == "uz" else "шт." }}';
+    tip.style.top  = (svgRect.top - wrapRect.top + 2) + 'px';
+    tip.querySelector('.gd-tt-qty').textContent  = new Intl.NumberFormat('ru-RU').format(qty[idx] || 0) + ' {{ "dona" if lang == "uz" else "шт." }}';
     tip.querySelector('.gd-tt-date').textContent = fmtRuShortDate(labels[idx]);
-    tip.querySelector('.gd-tt-rev').textContent  = revArr[idx] ? fmtMoney(revArr[idx]) : '';
+    tip.querySelector('.gd-tt-rev').textContent  = (rev[idx] ? fmtMoney(rev[idx]) : '');
     tip.classList.add('is-show');
   };
   svg.onmousemove = (ev) => {
     const r = svg.getBoundingClientRect();
-    const xLocal = ((ev.clientX - r.left) / r.width) * W;
-    const idx = Math.max(0, Math.min(arr.length - 1, Math.floor((xLocal - pad) / slot)));
-    showAt(idx, ev);
+    const idx = Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - r.left) / r.width) * n)));
+    showAt(idx);
   };
   svg.onmouseleave = () => tip.classList.remove('is-show');
-
-  // axis labels
-  const n = arr.length;
-  document.getElementById('heroAxis').innerHTML =
-    `<span>−${n-1}{{ "k" if lang == "uz" else "д" }}</span><span>−${Math.floor((n-1)/2)}{{ "k" if lang == "uz" else "д" }}</span><span>{{ "bugun" if lang == "uz" else "сегодня" }}</span>`;
 }
 
 const SPARK_W = 112, SPARK_H = 24, SPARK_PAD = 1;
@@ -1607,38 +1848,57 @@ document.getElementById('createOrderBtn').addEventListener('click', () => {
 
 // ── Column visibility + order (settings panel) ────────
 const COL_WIDTH = {
-  checkbox:'40px', sku:'minmax(280px,1.3fr)',
+  checkbox:'40px', sku:'minmax(340px,1.3fr)', uzum_status:'150px',
   uzum_fbo:'100px', fbs:'90px', wh:'110px',
-  purchase:'130px', sell:'130px', storage:'130px', comm:'130px',
-  barcode:'140px', sales:'200px', need:'110px', actions:'44px',
+  q_additional:'100px', q_created:'100px', q_archived:'100px', q_missing:'100px', q_defected:'100px', q_pending:'100px',
+  avg_stock:'130px', turnover:'120px',
+  purchase:'130px', sell:'130px', storage:'130px', tariff:'130px', comm:'130px',
+  avg_sales:'130px', dimgroup:'120px',
+  barcode:'140px', sales:'200px', need:'110px',
 };
 const COL_MINW = {
-  checkbox:40, sku:280, uzum_fbo:100, fbs:90, wh:110,
-  purchase:130, sell:130, storage:130, comm:130, barcode:140, sales:200, need:110, actions:44,
+  checkbox:40, sku:340, uzum_status:150, uzum_fbo:100, fbs:90, wh:110,
+  q_additional:100, q_created:100, q_archived:100, q_missing:100, q_defected:100, q_pending:100,
+  avg_stock:130, turnover:120,
+  purchase:130, sell:130, storage:130, tariff:130, comm:130,
+  avg_sales:130, dimgroup:120,
+  barcode:140, sales:200, need:110,
 };
 // Default order — sell BEFORE purchase. Checkbox + sku are always first
-// (sticky-left), actions is always last.
-const DEFAULT_ORDER = ['checkbox','sku','uzum_fbo','fbs','wh','sell','purchase','storage','comm','barcode','sales','need','actions'];
-// Barcode hidden by default; everything else shown.
-const DEFAULT_HIDDEN = ['barcode'];
+// (sticky-left).
+const DEFAULT_ORDER = ['checkbox','sku','uzum_status','uzum_fbo','fbs','wh','q_additional','q_created','q_archived','q_missing','q_defected','q_pending','avg_stock','turnover','sell','purchase','storage','tariff','comm','avg_sales','dimgroup','barcode','sales','need'];
+// Barcode + the sparse per-SKU quantity breakdowns hidden by default (toggle in the ⚙ panel).
+const DEFAULT_HIDDEN = ['barcode','q_additional','q_created','q_archived','q_missing','q_defected','q_pending'];
 
 // TOGGLE_COLS describes what shows up in the settings panel. Order in this
 // array doesn't matter — the panel uses appliedOrder/tempOrder for sequence.
 const TOGGLE_COLS_META = {
   sku:      { label:'{{ "Mahsulot" if lang == "uz" else "Товар" }}',            locked:true },
+  uzum_status:{ label:'{{ "Holat" if lang == "uz" else "Статус" }}',   hint:'{{ "Uzumdagi SKU holati" if lang == "uz" else "Статус SKU в Uzum (В продаже / Закончился / Архивный …)" }}' },
   uzum_fbo: { label:'{{ "FBO qoldiqlari" if lang == "uz" else "Остатки FBO" }}',      hint:'{{ "Uzum omboridagi mahsulotlar (FBO)" if lang == "uz" else "Товары на складе Uzum (FBO)" }}' },
   fbs:      { label:'{{ "FBS qoldiqlari" if lang == "uz" else "Остатки FBS" }}',      hint:`{{ "O'z omboringizdan jo'natishga tayyor" if lang == "uz" else "Готовы к отправке со своего склада" }}` },
   wh:       { label:`{{ "O'z omborimiz" if lang == "uz" else "Наш склад" }}` },
+  q_additional:{ label:'{{ "Qo\'shimcha" if lang == "uz" else "Доп. кол-во" }}',      hint:'quantityAdditional' },
+  q_created:{ label:'{{ "Yaratilgan" if lang == "uz" else "Создано" }}',              hint:'quantityCreated' },
+  q_archived:{ label:'{{ "Arxivda" if lang == "uz" else "В архиве" }}',               hint:'quantityArchived' },
+  q_missing:{ label:'{{ "Yetishmovchilik" if lang == "uz" else "Недостача" }}',       hint:'quantityMissing' },
+  q_defected:{ label:'{{ "Nuqsonli" if lang == "uz" else "Брак" }}',                  hint:'quantityDefected' },
+  q_pending:{ label:'{{ "Kutilmoqda" if lang == "uz" else "В ожидании" }}',           hint:'quantityPending' },
+  avg_stock:{ label:'{{ "O\'rt/kun qoldiq" if lang == "uz" else "Ср/сут. остатки" }}', hint:'{{ "O\'rtacha kunlik qoldiq, dona" if lang == "uz" else "Среднесуточные остатки, шт." }}' },
+  turnover: { label:'{{ "Aylanma" if lang == "uz" else "Оборачиваемость" }}',         hint:'{{ "Aylanma, kun" if lang == "uz" else "Оборачиваемость, дней" }}' },
   sell:     { label:'{{ "Uzum narxi" if lang == "uz" else "Цена Uzum" }}',        hint:'{{ "Haqiqiy sotuv narxi" if lang == "uz" else "Фактическая цена продажи" }}' },
   purchase: { label:'{{ "Tannarx" if lang == "uz" else "Себестоимость" }}' },
   storage:  { label:'{{ "Pullik saqlash" if lang == "uz" else "Платное хранение" }}', hint:'{{ "Uzumda pullik saqlash narxi" if lang == "uz" else "Стоимость платного хранения на Uzum" }}' },
+  tariff:   { label:'{{ "Saqlash tarifi" if lang == "uz" else "Тариф хранения" }}',    hint:'{{ "Saqlash tarifi, so\'m" if lang == "uz" else "Тариф хранения, сум (за единицу)" }}' },
   comm:     { label:'{{ "Uzum komissiyasi" if lang == "uz" else "Комиссия Uzum" }}',    hint:`{{ "Tanlangan davr uchun Uzum komissiyasining samarali stavkasi (tushumdan %). Katakcha ustiga sichqonchani olib boring — summani so'm da ko'rsatadi." if lang == "uz" else "Эффективная ставка комиссии Uzum (% от выручки) за выбранный период. Наведите курсор на ячейку — покажет сумму в сум." }}` },
+  avg_sales:{ label:'{{ "O\'rt/kun sotuv" if lang == "uz" else "Ср/сут. продажи" }}',  hint:'{{ "O\'rtacha kunlik sotuv, dona" if lang == "uz" else "Среднесуточные продажи, шт." }}' },
+  dimgroup: { label:'{{ "Gabarit guruhi" if lang == "uz" else "Габаритная группа" }}' },
   barcode:  { label:'{{ "Shtrix-kod" if lang == "uz" else "Штрихкод" }}' },
   sales:    { label:'{{ "30 kunlik sotuvlar" if lang == "uz" else "Продажи 30 дн." }}' },
   need:     { label:'{{ "Kerak (60k)" if lang == "uz" else "Нужно (60д)" }}',      hint:'{{ "60 kunga qancha sotib olish kerak" if lang == "uz" else "Сколько нужно закупить на 60 дней" }}' },
 };
-// keys that the user can toggle/drag in the panel (excludes locked checkbox/actions)
-const PANEL_KEYS = ['sku','uzum_fbo','fbs','wh','sell','purchase','storage','comm','barcode','sales','need'];
+// keys that the user can toggle/drag in the panel (excludes locked checkbox)
+const PANEL_KEYS = ['sku','uzum_status','uzum_fbo','fbs','wh','q_additional','q_created','q_archived','q_missing','q_defected','q_pending','avg_stock','turnover','sell','purchase','storage','tariff','comm','avg_sales','dimgroup','barcode','sales','need'];
 
 function applyColumnState(hiddenSet, orderArr){
   // 1) Reorder DOM cells in header + every row to match orderArr

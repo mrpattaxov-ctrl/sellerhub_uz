@@ -488,7 +488,7 @@ def _admin_set_user_subscription(
         base_point = now
         if status["active"] and not status["is_unlimited"] and status["effective_end_at"] is not None:
             base_point = max(now, status["effective_end_at"])     # ← START from current end (includes trial!)
-            applied_until = base_point + timedelta(days=duration_days)
+        applied_until = base_point + timedelta(days=duration_days)
         user.subscription_expires_at = applied_until
         user.subscription_is_unlimited = False
 

@@ -179,6 +179,31 @@ def _ensure_postgres_runtime_schema():
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS avgd_quantity DOUBLE PRECISION",
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS dimensional_group VARCHAR(80)",
         "ALTER TABLE variants ADD COLUMN IF NOT EXISTS uzum_status VARCHAR(40)",
+        # Extra variant columns from the product-card merge (astic).
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_sold INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS quantity_returned INTEGER NULL",
+        "ALTER TABLE variants ADD COLUMN IF NOT EXISTS paid_storage_dimensional_group VARCHAR(80) NULL",
+        # ── ProductGroup analytics/status columns from the product-card merge
+        # (astic). This deployment reconciles schema via create_all() + these
+        # manual ALTERs (no Alembic), so every new product_groups column the
+        # ORM selects must be added here or SELECTs fail with UndefinedColumn.
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS commission INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS status_value VARCHAR(40) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS status_title VARCHAR(80) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS status_color VARCHAR(9) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS moderation_value VARCHAR(40) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS moderation_title VARCHAR(80) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS moderation_color VARCHAR(9) NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS rating DOUBLE PRECISION NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS feedback_quantity INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS viewers INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS conversion DOUBLE PRECISION NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS roi DOUBLE PRECISION NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS quantity_sold INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS quantity_returned INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS quantity_defected INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS quantity_available INTEGER NULL",
+        "ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS quantity_fbs INTEGER NULL",
     ]
     try:
         with engine.begin() as conn:
@@ -5318,115 +5343,6 @@ def _sync_cabinet_sku_images(shop_uzum_id: str) -> int:
             db.commit()
     return updated
 
-
-def _products_sync_tick():
-    """One pass: sync products for every shop that has an OpenAPI token.
-
-    Shops without an owner, or whose owner has no
-    ``User.uzum_openapi_token``, are skipped silently — there's no path
-    to sync them without a token, and the manual /api/uzum/sync route
-    handles the legacy admin-token fallback for those edge cases.
-
-    Per-shop work is sequential inside one thread; the ThreadPool
-    spreads DIFFERENT shops across threads. ``_sync_products_via_openapi``
-    is a blocking HTTP-heavy call (~2-10s per shop depending on catalog
-    size), so threading is essential to keep the tick under a minute
-    for a 5-shop account.
-    """
-    tick_start = datetime.utcnow()
-    with SessionLocal() as db:
-        shops = db.execute(select(Shop).order_by(Shop.id)).scalars().all()
-    if not shops:
-        print("[Products Sync] No shops, nothing to do")
-        return
-
-    # Resolve each shop's token once, up-front. Skip the ones we can't
-    # sync; the rest are queued into the pool. Doing this in the
-    # caller thread avoids a DB hit inside every worker.
-    work: list[tuple[int, str, str]] = []  # (shop.id, shop.uzum_id, token)
-    for s in shops:
-        tok = _owner_openapi_token_for_shop(s.uzum_id)
-        if not tok:
-            # Owner missing or no token saved — manual sync only.
-            continue
-        work.append((s.id, str(s.uzum_id), tok))
-
-    print(f"[Products Sync] Tick start: {len(work)}/{len(shops)} shops have tokens")
-    if not work:
-        return
-
-    def _sync_one(shop_id_int: int, shop_uzum_id: str, token: str) -> None:
-        try:
-            result = _sync_products_via_openapi(
-                shop_uzum_id, token,
-                size=100, max_pages=500,
-                fetch_uz_titles=True,
-            )
-            # Result dict shape: total_products / fetched (variants) /
-            # active_groups / uz_titles_updated. We only log the
-            # high-signal counts so the loop doesn't spam multi-line
-            # dicts every tick.
-            if isinstance(result, dict):
-                n_p = result.get("total_products")
-                n_v = result.get("fetched")
-                n_uz = result.get("uz_titles_updated")
-                print(
-                    f"[Products Sync] shop={shop_uzum_id} "
-                    f"products={n_p} variants={n_v} uz_updates={n_uz}"
-                )
-            else:
-                print(f"[Products Sync] shop={shop_uzum_id} done (no result dict)")
-            # Overlay true per-SKU (per-colour) images from the cabinet
-            # sku-list — OpenAPI only carries a product-level previewImage.
-            try:
-                n_img = _sync_cabinet_sku_images(str(shop_uzum_id))
-                if n_img:
-                    print(f"[Products Sync] shop={shop_uzum_id} sku_images={n_img}")
-            except Exception as e:
-                print(f"[Products Sync] shop={shop_uzum_id} sku_images ERROR: {e!r}")
-        except Exception as e:
-            # Single bad shop must NOT kill the tick — log and move on.
-            print(f"[Products Sync] shop={shop_uzum_id} ERROR: {e!r}")
-
-    max_parallel = max(1, min(_PRODUCTS_SYNC_PARALLELISM, len(work)))
-    with ThreadPoolExecutor(max_workers=max_parallel) as pool:
-        for shop_id_int, shop_uzum_id, token in work:
-            pool.submit(_sync_one, shop_id_int, shop_uzum_id, token)
-
-    elapsed = (datetime.utcnow() - tick_start).total_seconds()
-    print(
-        f"[Products Sync] Tick done in {elapsed:.1f}s "
-        f"(synced={len(work)}, parallelism={max_parallel})"
-    )
-
-
-def _products_sync_loop():
-    """Run :func:`_products_sync_tick` every
-    ``_PRODUCTS_SYNC_INTERVAL_SEC`` seconds.
-
-    Mirrors :func:`_fbs_sync_loop` exactly — first tick after a 30s
-    warm-up, then on a steady cadence, with a try/except that logs
-    unexpected errors and keeps the loop alive.
-
-    Off-switch via the ``PRODUCTS_SYNC_LOOP`` env var (handled in
-    background/startup.py). Useful if a future Uzum-side change breaks
-    the OpenAPI product endpoint and we want to keep everything else
-    running while we triage.
-    """
-    import time as _t
-    import traceback
-
-    _t.sleep(30)
-
-    while True:
-        try:
-            _products_sync_tick()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception as e:
-            print(f"[Products Sync] Tick unexpected error: {e!r}")
-            traceback.print_exc()
-        _t.sleep(_PRODUCTS_SYNC_INTERVAL_SEC)
 
 
 def _parse_backfill_start_date() -> date:

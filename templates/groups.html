@@ -686,9 +686,9 @@
   })();
   {% endif %}
 
-  // placeholder actions
+  // «Новый товар» → noviy_tavar/ wizard sahifasi
   var newBtn = document.getElementById('pp-new-product-btn');
-  if (newBtn) newBtn.addEventListener('click', function() { showToast('Скоро: создание товара'); });
+  if (newBtn) newBtn.addEventListener('click', function() { window.location.href = '/noviy-tavar'; });
   var sortBtn = document.getElementById('pp-sort-btn');
   if (sortBtn) sortBtn.addEventListener('click', function() { showToast('Скоро: сортировка'); });
 })();

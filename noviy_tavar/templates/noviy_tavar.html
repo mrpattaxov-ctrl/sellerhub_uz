@@ -1,0 +1,797 @@
+{% extends "base.html" %}
+{% set lang = session.get('lang', 'uz') %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== «Новый товар» — wizard (aurora/glass, postavki uslubi) ===== */
+.nt-app { font-family:'Manrope', system-ui, sans-serif; color:#1C2030; font-size:14px; -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
+    radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
+  padding:0 0 40px; }
+.nt-app *{ box-sizing:border-box; }
+.nt-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(22,22,40,.05); }
+.nt-glass { background:rgba(255,255,255,.74); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.55); box-shadow:0 10px 30px -12px rgba(20,16,40,.18); }
+
+/* Header + stepper */
+.nt-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  border-radius:18px; padding:14px 18px; margin:14px 0 18px; position:sticky; top:8px; z-index:30; }
+.nt-h1 { font-size:19px; font-weight:800; margin:0; letter-spacing:-.02em; }
+.nt-h1 small { display:block; font-size:12px; font-weight:600; color:#7A8099; margin-top:2px; }
+.nt-steps { display:flex; gap:6px; align-items:center; }
+.nt-step { display:flex; align-items:center; gap:8px; padding:7px 13px; border-radius:12px; font-weight:700;
+  font-size:12.5px; color:#7A8099; background:transparent; transition:all .25s ease; white-space:nowrap; }
+.nt-step .n { width:20px; height:20px; border-radius:7px; display:grid; place-items:center; font-size:11px;
+  background:#E8E9F2; color:#7A8099; transition:all .25s ease; }
+.nt-step.is-active { color:#fff; background:linear-gradient(135deg,#4169E1,#7C3AED); box-shadow:0 6px 16px -6px rgba(93,74,226,.5); }
+.nt-step.is-active .n { background:rgba(255,255,255,.22); color:#fff; }
+.nt-step.is-done { color:#2E9E6B; }
+.nt-step.is-done .n { background:#DCF3E8; color:#2E9E6B; }
+.nt-step-sep { width:16px; height:2px; border-radius:2px; background:#DDDFEA; }
+
+/* Layout */
+.nt-grid { display:grid; grid-template-columns:1fr 320px; gap:16px; align-items:start; }
+@media (max-width: 1100px){ .nt-grid { grid-template-columns:1fr; } }
+.nt-main { padding:20px; }
+.nt-side { padding:18px; position:sticky; top:84px; }
+
+/* Section titles */
+.nt-sec { font-size:13px; font-weight:800; letter-spacing:.02em; color:#3A3F55; margin:0 0 10px;
+  display:flex; align-items:center; gap:8px; }
+.nt-sec .req { color:#E24A6A; }
+.nt-hint { font-size:12px; color:#8A90A8; margin:4px 0 12px; }
+
+/* Shop picker */
+.nt-shop-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.nt-shop-pill { padding:9px 16px; border-radius:12px; border:1.5px solid #E3E5F0; background:#fff; cursor:pointer;
+  font-weight:700; font-size:13px; color:#4A5068; transition:all .2s ease; }
+.nt-shop-pill:hover { border-color:#B9C4F2; }
+.nt-shop-pill.is-on { border-color:#4169E1; background:linear-gradient(135deg,rgba(65,105,225,.08),rgba(124,58,237,.08)); color:#3A50C8; }
+
+/* Category miller columns */
+.nt-cats { display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; min-height:280px; }
+.nt-cat-col { min-width:230px; max-width:250px; flex:0 0 auto; background:#F7F8FC; border-radius:14px;
+  border:1px solid #ECEEF6; max-height:420px; overflow-y:auto; padding:6px; animation:ntColIn .25s ease; }
+@keyframes ntColIn { from { opacity:0; transform:translateX(10px);} to { opacity:1; transform:none;} }
+.nt-cat-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+  text-align:left; border:0; background:transparent; padding:9px 11px; border-radius:10px; cursor:pointer;
+  font-size:13px; font-weight:600; color:#3A3F55; transition:background .15s ease; }
+.nt-cat-item:hover { background:#EDEFFA; }
+.nt-cat-item.is-on { background:linear-gradient(135deg,rgba(65,105,225,.13),rgba(124,58,237,.13)); color:#3A50C8; }
+.nt-cat-item.is-off { opacity:.45; cursor:not-allowed; }
+.nt-cat-item .chev { flex:0 0 auto; color:#A6ACBF; }
+.nt-crumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 12px; font-size:12.5px; font-weight:700; color:#7A8099; }
+.nt-crumb b { color:#3A50C8; }
+.nt-cat-search { width:100%; padding:10px 14px; border-radius:12px; border:1.5px solid #E3E5F0; font-size:13px;
+  margin-bottom:12px; outline:none; transition:border .2s; background:#fff; color:inherit; }
+.nt-cat-search:focus { border-color:#4169E1; }
+.nt-search-res { max-height:300px; overflow-y:auto; border:1px solid #ECEEF6; border-radius:14px; padding:6px; background:#F7F8FC; }
+
+/* Meta panel (commission etc.) */
+.nt-meta-title { font-size:12px; font-weight:800; color:#7A8099; letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
+.nt-kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.nt-kpi { background:#F7F8FC; border:1px solid #ECEEF6; border-radius:12px; padding:10px 12px; }
+.nt-kpi .v { font-size:16px; font-weight:800; color:#1C2030; }
+.nt-kpi .l { font-size:11px; font-weight:700; color:#8A90A8; margin-top:2px; }
+.nt-scheme { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:800; }
+.nt-scheme.on  { background:#DCF3E8; color:#227A52; }
+.nt-scheme.off { background:#F3E9E9; color:#B0596A; text-decoration:line-through; opacity:.7; }
+.nt-meta-note { font-size:12px; color:#8A90A8; margin-top:10px; line-height:1.5; }
+.nt-meta-note b { color:#4A5068; }
+
+/* Form fields */
+.nt-frm { display:grid; gap:14px; }
+.nt-two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width: 800px){ .nt-two { grid-template-columns:1fr; } }
+.nt-fld label { display:block; font-size:12px; font-weight:800; color:#4A5068; margin-bottom:6px; }
+.nt-fld label .req { color:#E24A6A; }
+.nt-fld input, .nt-fld textarea { width:100%; padding:11px 14px; border-radius:12px; border:1.5px solid #E3E5F0;
+  font-size:13.5px; font-family:inherit; outline:none; transition:border .2s, box-shadow .2s; background:#fff; color:inherit; }
+.nt-fld input:focus, .nt-fld textarea:focus { border-color:#4169E1; box-shadow:0 0 0 4px rgba(65,105,225,.1); }
+.nt-fld textarea { min-height:96px; resize:vertical; }
+.nt-cnt { font-size:11px; color:#A6ACBF; text-align:right; margin-top:3px; }
+.nt-badwords { margin-top:6px; font-size:12px; font-weight:700; color:#C4384F; display:none; }
+.nt-badwords.show { display:block; animation:ntShake .3s ease; }
+@keyframes ntShake { 25%{transform:translateX(-3px);} 75%{transform:translateX(3px);} }
+.nt-okmark { color:#2E9E6B; font-weight:800; font-size:12px; display:none; margin-top:6px; }
+.nt-okmark.show { display:block; }
+
+/* Filter dropdowns (brend/model/davlat) */
+.nt-filters { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+.nt-dd { position:relative; }
+.nt-dd-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:11px 14px; border-radius:12px; border:1.5px solid #E3E5F0; background:#fff; cursor:pointer;
+  font-size:13.5px; font-weight:600; color:#3A3F55; transition:border .2s; text-align:left; }
+.nt-dd-btn:hover { border-color:#B9C4F2; }
+.nt-dd-btn .ph { color:#A6ACBF; font-weight:600; }
+.nt-dd-pop { position:absolute; z-index:40; top:calc(100% + 6px); left:0; right:0; background:#fff;
+  border-radius:14px; border:1px solid #E7E9F2; box-shadow:0 18px 40px -12px rgba(20,16,40,.25);
+  padding:8px; display:none; }
+.nt-dd.open .nt-dd-pop { display:block; animation:ntColIn .2s ease; }
+.nt-dd-pop input { width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid #E3E5F0; font-size:13px;
+  outline:none; margin-bottom:6px; background:#fff; color:inherit; }
+.nt-dd-list { max-height:230px; overflow-y:auto; }
+.nt-dd-item { display:block; width:100%; text-align:left; border:0; background:transparent; padding:8px 11px;
+  border-radius:9px; cursor:pointer; font-size:13px; font-weight:600; color:#3A3F55; }
+.nt-dd-item:hover { background:#EDEFFA; }
+.nt-dd-more { width:100%; border:0; background:#F1F2F9; border-radius:9px; padding:8px; font-size:12px;
+  font-weight:800; color:#4A5068; cursor:pointer; margin-top:4px; }
+
+/* Characteristics (rang chiplari) */
+.nt-chars { display:grid; gap:14px; }
+.nt-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.nt-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:999px;
+  border:1.5px solid #E3E5F0; background:#fff; cursor:pointer; font-size:12.5px; font-weight:700; color:#4A5068;
+  transition:all .18s ease; }
+.nt-chip:hover { border-color:#B9C4F2; transform:translateY(-1px); }
+.nt-chip.is-on { border-color:#4169E1; background:linear-gradient(135deg,rgba(65,105,225,.1),rgba(124,58,237,.1)); color:#3A50C8; }
+.nt-chip .sw { width:14px; height:14px; border-radius:5px; border:1px solid rgba(0,0,0,.12); flex:0 0 auto; }
+
+/* Images */
+.nt-imgs { display:flex; flex-wrap:wrap; gap:12px; }
+.nt-drop { width:150px; height:200px; border-radius:16px; border:2px dashed #C9CEE4; display:grid; place-items:center;
+  cursor:pointer; color:#8A90A8; font-weight:700; font-size:12.5px; text-align:center; transition:all .2s ease; background:#FAFBFF; }
+.nt-drop:hover, .nt-drop.drag { border-color:#4169E1; color:#3A50C8; background:rgba(65,105,225,.05); }
+.nt-img { width:150px; height:200px; border-radius:16px; overflow:hidden; position:relative; border:1px solid #ECEEF6;
+  animation:ntColIn .25s ease; background:#F1F2F9; }
+.nt-img img { width:100%; height:100%; object-fit:cover; }
+.nt-img .main-tag { position:absolute; top:8px; left:8px; background:linear-gradient(135deg,#4169E1,#7C3AED);
+  color:#fff; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; }
+.nt-img .del { position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:8px; border:0;
+  background:rgba(15,17,26,.55); color:#fff; cursor:pointer; display:grid; place-items:center; font-size:13px; }
+.nt-img .st { position:absolute; bottom:0; left:0; right:0; padding:6px 8px; font-size:10.5px; font-weight:800;
+  color:#fff; background:linear-gradient(transparent, rgba(15,17,26,.75)); }
+.nt-img.warn { border-color:#E7B742; }
+.nt-img .warn-tag { position:absolute; bottom:28px; left:8px; right:8px; background:rgba(160,120,20,.9); color:#fff;
+  font-size:10px; font-weight:700; border-radius:8px; padding:4px 7px; }
+
+/* Review */
+.nt-rev { display:grid; gap:10px; }
+.nt-rev-row { display:flex; justify-content:space-between; gap:14px; padding:10px 14px; background:#F7F8FC;
+  border:1px solid #ECEEF6; border-radius:12px; font-size:13px; }
+.nt-rev-row .k { font-weight:700; color:#8A90A8; flex:0 0 auto; }
+.nt-rev-row .v { font-weight:700; color:#1C2030; text-align:right; word-break:break-word; }
+
+/* Footer nav */
+.nt-nav { display:flex; justify-content:space-between; gap:10px; margin-top:20px; }
+.nt-btn { border:0; border-radius:13px; padding:12px 22px; font-size:13.5px; font-weight:800; cursor:pointer;
+  transition:all .2s ease; font-family:inherit; }
+.nt-btn-primary { color:#fff; background:linear-gradient(135deg,#4169E1,#7C3AED); box-shadow:0 8px 20px -8px rgba(93,74,226,.55); }
+.nt-btn-primary:hover { transform:translateY(-1px); box-shadow:0 12px 26px -8px rgba(93,74,226,.6); }
+.nt-btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+.nt-btn-ghost { background:#EEF0F8; color:#4A5068; }
+.nt-btn-ghost:hover { background:#E4E7F3; }
+
+/* Success */
+.nt-done { text-align:center; padding:44px 20px; }
+.nt-done .big { width:74px; height:74px; margin:0 auto 16px; border-radius:24px; display:grid; place-items:center;
+  background:linear-gradient(135deg,#22B573,#0E9F6E); color:#fff; font-size:34px; box-shadow:0 14px 34px -10px rgba(20,150,100,.5);
+  animation:ntPop .45s cubic-bezier(.2,1.4,.4,1); }
+@keyframes ntPop { from { transform:scale(.4); opacity:0;} to { transform:scale(1); opacity:1;} }
+.nt-done h2 { font-size:20px; font-weight:800; margin:0 0 6px; }
+.nt-done p { color:#7A8099; font-size:13.5px; margin:0 0 18px; line-height:1.6; }
+.nt-done .pid { display:inline-block; background:#F1F2F9; border-radius:10px; padding:6px 14px; font-weight:800; color:#3A50C8; margin-bottom:18px; }
+
+/* Toast */
+.nt-toasts { position:fixed; right:18px; bottom:18px; z-index:1000; display:grid; gap:8px; }
+.nt-toast { background:#16182A; color:#fff; border-radius:13px; padding:11px 16px; font-size:13px; font-weight:700;
+  box-shadow:0 14px 34px -10px rgba(10,10,30,.5); animation:ntColIn .25s ease; max-width:360px; }
+.nt-toast.err { background:#7C2437; }
+.nt-toast.ok  { background:#155E43; }
+
+/* Spinner */
+.nt-spin { width:16px; height:16px; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%;
+  display:inline-block; vertical-align:-3px; animation:ntRot .7s linear infinite; margin-right:7px; }
+.nt-spin.dark { border-color:rgba(60,70,120,.25); border-top-color:#4169E1; }
+@keyframes ntRot { to { transform:rotate(360deg);} }
+.nt-load { display:grid; place-items:center; padding:40px; color:#8A90A8; font-weight:700; font-size:13px; }
+
+/* ===== Dark mode ===== */
+[data-bs-theme="dark"] .nt-app { color:#DFE2F2;
+  background:
+    radial-gradient(640px 300px at 6% -60px, rgba(93,110,255,.10), transparent 70%),
+    radial-gradient(560px 280px at 94% -50px, rgba(150,90,255,.09), transparent 70%); }
+[data-bs-theme="dark"] .nt-card { background:#1a1d27; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+[data-bs-theme="dark"] .nt-glass { background:rgba(26,29,39,.78); border-color:rgba(60,66,96,.5); }
+[data-bs-theme="dark"] .nt-h1, [data-bs-theme="dark"] .nt-kpi .v, [data-bs-theme="dark"] .nt-rev-row .v { color:#EDEFFB; }
+[data-bs-theme="dark"] .nt-step .n { background:#262a3a; color:#8b90ab; }
+[data-bs-theme="dark"] .nt-step-sep { background:#2d3148; }
+[data-bs-theme="dark"] .nt-sec { color:#C9CDE4; }
+[data-bs-theme="dark"] .nt-cat-col, [data-bs-theme="dark"] .nt-search-res { background:#151823; border-color:#2d3148; }
+[data-bs-theme="dark"] .nt-cat-item { color:#C9CDE4; }
+[data-bs-theme="dark"] .nt-cat-item:hover { background:#232739; }
+[data-bs-theme="dark"] .nt-cat-item.is-on { color:#B7BEFF; }
+[data-bs-theme="dark"] .nt-cat-search, [data-bs-theme="dark"] .nt-fld input, [data-bs-theme="dark"] .nt-fld textarea,
+[data-bs-theme="dark"] .nt-dd-btn, [data-bs-theme="dark"] .nt-dd-pop, [data-bs-theme="dark"] .nt-dd-pop input,
+[data-bs-theme="dark"] .nt-shop-pill, [data-bs-theme="dark"] .nt-chip { background:#151823; border-color:#2d3148; color:#DFE2F2; }
+[data-bs-theme="dark"] .nt-dd-item { color:#C9CDE4; }
+[data-bs-theme="dark"] .nt-dd-item:hover { background:#232739; }
+[data-bs-theme="dark"] .nt-dd-more { background:#232739; color:#C9CDE4; }
+[data-bs-theme="dark"] .nt-kpi, [data-bs-theme="dark"] .nt-rev-row { background:#151823; border-color:#2d3148; }
+[data-bs-theme="dark"] .nt-fld label { color:#A9AEC9; }
+[data-bs-theme="dark"] .nt-btn-ghost { background:#232739; color:#C9CDE4; }
+[data-bs-theme="dark"] .nt-drop { background:#151823; border-color:#3a3f5c; color:#8b90ab; }
+[data-bs-theme="dark"] .nt-img { border-color:#2d3148; background:#151823; }
+[data-bs-theme="dark"] .nt-scheme.on { background:#0f3527; color:#6ee7b7; }
+[data-bs-theme="dark"] .nt-scheme.off { background:#331b22; color:#e59aab; }
+[data-bs-theme="dark"] .nt-step.is-done .n { background:#0f3527; color:#6ee7b7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="nt-app">
+  <div class="nt-head nt-glass">
+    <h1 class="nt-h1">Yangi tovar yaratish
+      <small>Uzum katalogiga karta — qoralama sifatida, xavfsiz</small>
+    </h1>
+    <div class="nt-steps" id="ntSteps">
+      <div class="nt-step" data-step="1"><span class="n">1</span>Kategoriya</div>
+      <div class="nt-step-sep"></div>
+      <div class="nt-step" data-step="2"><span class="n">2</span>Ma'lumotlar</div>
+      <div class="nt-step-sep"></div>
+      <div class="nt-step" data-step="3"><span class="n">3</span>Rasmlar</div>
+      <div class="nt-step-sep"></div>
+      <div class="nt-step" data-step="4"><span class="n">4</span>Yaratish</div>
+    </div>
+  </div>
+
+  <div class="nt-grid">
+    <div class="nt-card nt-main" id="ntMain"><div class="nt-load"><span class="nt-spin dark"></span>Yuklanmoqda…</div></div>
+    <div class="nt-card nt-side" id="ntSide" style="display:none"></div>
+  </div>
+</div>
+<div class="nt-toasts" id="ntToasts"></div>
+
+<script>
+(function(){
+  'use strict';
+  var SHOPS = {{ shops | tojson }};
+
+  var S = {
+    step: 1,
+    shop: SHOPS.length ? SHOPS[0].uzum_id : null,
+    cols: [],          // miller ustunlar: [{parentId, items:[]}]
+    path: [],          // tanlangan zanjir: [{id,title,...}]
+    leaf: null,        // yakuniy tanlangan kategoriya
+    meta: null,        // category_meta javobi
+    form: { titleUz:'', titleRu:'', shortUz:'', shortRu:'', descUz:'', descRu:'', productFields:{} },
+    filterSel: {},     // filterId -> {id, title}
+    charSel: {},       // charKey -> {char, values:[]}
+    images: [],        // {key,url,preview,warn,recommendations}
+    creating: false,
+    created: null,
+    badWords: {}       // fieldKey -> [words]
+  };
+
+  var $main = document.getElementById('ntMain');
+  var $side = document.getElementById('ntSide');
+
+  /* ── utils ── */
+  function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function toast(msg, cls){ var t=document.createElement('div'); t.className='nt-toast '+(cls||'');
+    t.textContent=msg; document.getElementById('ntToasts').appendChild(t);
+    setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(function(){ t.remove(); },400); }, 4200); }
+  function api(url, opts){
+    return fetch(url, opts).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        if(!r.ok){ throw new Error(j.error || ('HTTP '+r.status)); }
+        return j;
+      });
+    });
+  }
+  function qs(o){ return Object.keys(o).map(function(k){ return k+'='+encodeURIComponent(o[k]); }).join('&'); }
+
+  function setStep(n){
+    S.step = n;
+    document.querySelectorAll('#ntSteps .nt-step').forEach(function(el){
+      var s = +el.dataset.step;
+      el.classList.toggle('is-active', s===n);
+      el.classList.toggle('is-done', s<n);
+    });
+    render();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  /* ── STEP 1: kategoriya ── */
+  function loadCol(parentId, colIdx){
+    var p = {shop:S.shop}; if(parentId!=null) p.parentId = parentId;
+    return api('/noviy-tavar/api/categories?'+qs(p)).then(function(j){
+      S.cols = S.cols.slice(0, colIdx);
+      S.cols.push({parentId:parentId, items:j.categories||[]});
+    });
+  }
+  function pickCat(colIdx, cat){
+    S.path = S.path.slice(0, colIdx); S.path.push(cat);
+    S.leaf = null; S.meta = null;
+    if(cat.hasChildren){
+      loadCol(cat.id, colIdx+1).then(render).catch(function(e){ toast(e.message,'err'); });
+    } else {
+      S.leaf = cat;
+      render();
+      api('/noviy-tavar/api/category-meta?'+qs({shop:S.shop, categoryId:cat.id}))
+        .then(function(m){ S.meta = m; render(); })
+        .catch(function(e){ toast('Kategoriya ma\'lumotini olib bo\'lmadi: '+e.message,'err'); });
+    }
+    render();
+  }
+  function catItemHtml(colIdx, c, selId){
+    var off = c.canUse===false;
+    return '<button type="button" class="nt-cat-item'+(selId===c.id?' is-on':'')+(off?' is-off':'')+'" '+
+      (off?'disabled':'')+' data-col="'+colIdx+'" data-id="'+c.id+'">'+
+      '<span>'+esc(c.title)+'</span>'+
+      (c.hasChildren?'<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>':'')+
+      '</button>';
+  }
+  function step1Html(){
+    var h = '';
+    if(SHOPS.length > 1){
+      h += '<div class="nt-sec">Do\'kon</div><div class="nt-shop-row">';
+      SHOPS.forEach(function(s){
+        h += '<button type="button" class="nt-shop-pill'+(S.shop===s.uzum_id?' is-on':'')+'" data-shop="'+esc(s.uzum_id)+'">'+esc(s.name||s.uzum_id)+'</button>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="nt-sec">Kategoriya tanlang <span class="req">*</span></div>';
+    h += '<div class="nt-hint">Oxirgi bargacha kirib boring — tanlangach o\'ng panelda komissiya va shartlar chiqadi.</div>';
+    if(S.path.length){
+      h += '<div class="nt-crumb">';
+      S.path.forEach(function(c,i){
+        if(i) h += '<span>›</span>';
+        h += (i===S.path.length-1 ? '<b>'+esc(c.title)+'</b>' : '<span>'+esc(c.title)+'</span>');
+      });
+      h += '</div>';
+    }
+    h += '<div class="nt-cats">';
+    S.cols.forEach(function(col, ci){
+      var selId = S.path[ci] ? S.path[ci].id : null;
+      h += '<div class="nt-cat-col">' + col.items.map(function(c){ return catItemHtml(ci,c,selId); }).join('') + '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  /* ── STEP 2: ma'lumotlar ── */
+  function fld(key, label, req, ph, isArea, extra){
+    var v = S.form[key]||'';
+    var inner = isArea
+      ? '<textarea data-f="'+key+'" placeholder="'+esc(ph||'')+'">'+esc(v)+'</textarea>'
+      : '<input type="text" data-f="'+key+'" value="'+esc(v)+'" placeholder="'+esc(ph||'')+'">';
+    return '<div class="nt-fld"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+inner+
+      (extra||'')+'<div class="nt-badwords" id="bw_'+key+'"></div></div>';
+  }
+  function step2Html(){
+    var m = S.meta || {};
+    var h = '<div class="nt-frm">';
+    h += '<div class="nt-sec">Nomi</div>';
+    h += '<div class="nt-two">'
+      + fld('titleUz','Nomi (o\'zbekcha)', true, 'Masalan: Avto organayzer')
+      + fld('titleRu','Nomi (ruscha)', false, 'Bo\'sh qolsa o\'zbekchasidan nusxa olinadi')
+      + '</div>';
+    h += '<div class="nt-sec">Qisqa tavsif</div>';
+    h += '<div class="nt-two">'
+      + fld('shortUz','Qisqa tavsif (uz)', false, 'Bir jumla', false)
+      + fld('shortRu','Qisqa tavsif (ru)', false, 'Bo\'sh qolsa uz nusxa', false)
+      + '</div>';
+    h += '<div class="nt-sec">To\'liq tavsif</div>';
+    h += '<div class="nt-two">'
+      + fld('descUz','Tavsif (uz)', false, 'Har abzats yangi qatordan', true)
+      + fld('descRu','Tavsif (ru)', false, 'Bo\'sh qolsa uz nusxa', true)
+      + '</div>';
+
+    // Dinamik product fields (WARRANTY va h.k.)
+    var fds = (m.fieldDescriptions||[]);
+    if(fds.length){
+      h += '<div class="nt-sec">Qo\'shimcha maydonlar</div><div class="nt-two">';
+      fds.forEach(function(fd){
+        var val = S.form.productFields[fd.fieldName];
+        h += '<div class="nt-fld"><label>'+esc(fd.fieldTitle||fd.fieldName)+(fd.required?' <span class="req">*</span>':'')+'</label>'
+          + '<input type="'+(fd.fieldType==='INTEGER'?'number':'text')+'" data-pf="'+esc(fd.fieldName)+'" value="'+(val!=null?esc(val):'')+'" placeholder="'+esc(fd.fieldPlaceholder||'')+'"></div>';
+      });
+      h += '</div>';
+    }
+
+    // Filtrlar (Brend/Model/Davlat)
+    var flts = (m.filters||[]);
+    if(flts.length){
+      h += '<div class="nt-sec">Filtrlar</div><div class="nt-filters">';
+      flts.forEach(function(f){
+        var sel = S.filterSel[f.id];
+        var lbl = sel ? esc(sel.title) : (f.emptyValue ? '' : '');
+        h += '<div class="nt-fld"><label>'+esc(f.title)+(f.required?' <span class="req">*</span>':'')+'</label>'
+          + '<div class="nt-dd" data-fid="'+f.id+'">'
+          + '<button type="button" class="nt-dd-btn">'
+          + (sel ? '<span>'+esc(sel.title)+'</span>' : '<span class="ph">Tanlang…</span>')
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>'
+          + '</button>'
+          + '<div class="nt-dd-pop"><input type="text" placeholder="Qidirish…" data-ddsearch="'+f.id+'">'
+          + '<div class="nt-dd-list" id="ddl_'+f.id+'"></div></div></div></div>';
+      });
+      h += '</div>';
+    }
+
+    // Xususiyatlar (Rang chiplari va h.k.)
+    var chars = (m.characteristics||[]);
+    if(chars.length){
+      h += '<div class="nt-sec" style="margin-top:6px">Xususiyatlar</div><div class="nt-chars">';
+      chars.forEach(function(ch, ci){
+        var key = 'c'+ci;
+        var selVals = (S.charSel[key] && S.charSel[key].values) || [];
+        var selSet = {}; selVals.forEach(function(v){ selSet[v.skuValue||JSON.stringify(v.title)] = 1; });
+        var title = (ch.characteristicTitle && (ch.characteristicTitle.uz || ch.characteristicTitle.ru)) || 'Xususiyat';
+        h += '<div class="nt-fld"><label>'+esc(title)+'</label><div class="nt-chips" data-char="'+ci+'">';
+        (ch.characteristicValues||[]).forEach(function(v, vi){
+          var isColor = typeof v.value === 'string' && v.value.indexOf('#')===0;
+          var vt = (v.title && (v.title.uz || v.title.ru)) || v.skuValue || '';
+          var on = selSet[v.skuValue||JSON.stringify(v.title)] ? ' is-on' : '';
+          h += '<button type="button" class="nt-chip'+on+'" data-char="'+ci+'" data-vi="'+vi+'">'
+            + (isColor ? '<span class="sw" style="background:'+esc(v.value)+'"></span>' : '')
+            + esc(vt) + '</button>';
+        });
+        h += '</div></div>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  /* ── STEP 3: rasmlar ── */
+  function step3Html(){
+    var h = '<div class="nt-sec">Mahsulot rasmlari <span class="req">*</span></div>';
+    h += '<div class="nt-hint">Kamida 1 ta. Tavsiya: 1080×1440 px va katta (3:4). Birinchi rasm — asosiy.</div>';
+    h += '<div class="nt-imgs" id="ntImgs">';
+    S.images.forEach(function(im, i){
+      h += '<div class="nt-img'+(im.warn?' warn':'')+'">'
+        + '<img src="'+esc(im.preview||im.url)+'">'
+        + (i===0?'<span class="main-tag">ASOSIY</span>':'')
+        + '<button type="button" class="del" data-del="'+i+'">✕</button>'
+        + (im.uploading?'<span class="st"><span class="nt-spin"></span>Yuklanmoqda…</span>'
+           : (im.key?'<span class="st">✓ Yuklandi</span>':''))
+        + (im.warn?'<span class="warn-tag">'+esc(im.warn)+'</span>':'')
+        + '</div>';
+    });
+    h += '<div class="nt-drop" id="ntDrop">+ Rasm qo\'shish<br><small>yoki shu yerga tashlang</small></div>';
+    h += '<input type="file" id="ntFile" accept="image/*" multiple style="display:none">';
+    h += '</div>';
+    return h;
+  }
+
+  /* ── STEP 4: review ── */
+  function step4Html(){
+    if(S.created){
+      return '<div class="nt-done">'
+        + '<div class="big">✓</div>'
+        + '<h2>Karta yaratildi!</h2>'
+        + '<div class="pid">ID: '+esc(S.created.id)+'</div>'
+        + '<p>Karta <b>qoralama</b> sifatida yaratildi — moderatsiyaga hali yuborilmadi.<br>'
+        + 'SKU (narx, shtrix-kod, o\'lchov) bosqichini hozircha Uzum kabinetida to\'ldirasiz —<br>'
+        + 'bu bosqich tez orada shu yerga ham qo\'shiladi.</p>'
+        + '<div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">'
+        + '<a class="nt-btn nt-btn-primary" style="text-decoration:none" target="_blank" href="https://seller.uzum.uz/seller/'+esc(S.shop)+'/products">Uzum kabinetida ochish</a>'
+        + '<button type="button" class="nt-btn nt-btn-ghost" id="ntAgain">Yana bitta yaratish</button>'
+        + '</div></div>';
+    }
+    var m = S.meta||{}; var f = S.form;
+    var fltNames = Object.keys(S.filterSel).map(function(k){ return S.filterSel[k].title; }).join(', ') || '—';
+    var charCnt = Object.keys(S.charSel).reduce(function(a,k){ return a + ((S.charSel[k].values||[]).length); }, 0);
+    var h = '<div class="nt-sec">Ko\'rib chiqish</div><div class="nt-rev">';
+    h += '<div class="nt-rev-row"><span class="k">Kategoriya</span><span class="v">'+esc(S.path.map(function(c){return c.title;}).join(' › '))+'</span></div>';
+    h += '<div class="nt-rev-row"><span class="k">Nomi (uz)</span><span class="v">'+esc(f.titleUz||f.titleRu||'—')+'</span></div>';
+    h += '<div class="nt-rev-row"><span class="k">Nomi (ru)</span><span class="v">'+esc(f.titleRu||f.titleUz||'—')+'</span></div>';
+    h += '<div class="nt-rev-row"><span class="k">Filtrlar</span><span class="v">'+esc(fltNames)+'</span></div>';
+    h += '<div class="nt-rev-row"><span class="k">Xususiyat qiymatlari</span><span class="v">'+charCnt+' ta</span></div>';
+    h += '<div class="nt-rev-row"><span class="k">Rasmlar</span><span class="v">'+S.images.filter(function(i){return i.key;}).length+' ta</span></div>';
+    h += '</div>';
+    h += '<div class="nt-hint" style="margin-top:14px">«Yaratish» bosilganda karta Uzum\'da <b>qoralama</b> sifatida paydo bo\'ladi — moderatsiyaga yuborilmaydi, hech narsa e\'lon qilinmaydi. Xavfsiz.</div>';
+    return h;
+  }
+
+  /* ── Side panel (kategoriya meta) ── */
+  function sideHtml(){
+    if(!S.leaf) return '';
+    var m = S.meta;
+    var h = '<div class="nt-meta-title">Tanlangan kategoriya</div>';
+    h += '<div style="font-weight:800; font-size:14px; margin-bottom:12px">'+esc(S.leaf.title)+'</div>';
+    if(!m){ return h + '<div class="nt-load"><span class="nt-spin dark"></span>Shartlar yuklanmoqda…</div>'; }
+    var flds = (m.fields && m.fields.fields) || {};
+    function commOf(key){
+      var c = flds[key];
+      try { return c.borders[0].commission + '%'; } catch(e){ return '—'; }
+    }
+    h += '<div class="nt-kpis">'
+      + '<div class="nt-kpi"><div class="v">'+commOf('commissionFormula')+'</div><div class="l">FBO komissiya</div></div>'
+      + '<div class="nt-kpi"><div class="v">'+commOf('fbsCommissionFormula')+'</div><div class="l">FBS komissiya</div></div>'
+      + '<div class="nt-kpi"><div class="v">'+commOf('dbsCommissionFormula')+'</div><div class="l">DBS komissiya</div></div>'
+      + '<div class="nt-kpi"><div class="v">'+esc(flds.DIMENSIONAL_GROUP||'—')+'</div><div class="l">O\'lchov guruhi</div></div>'
+      + '</div>';
+    h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:12px">';
+    [['SOLD_BY_FBO','FBO'],['SOLD_BY_FBS','FBS'],['SOLD_BY_DBS','DBS']].forEach(function(p){
+      h += '<span class="nt-scheme '+(flds[p[0]]?'on':'off')+'">'+p[1]+'</span>';
+    });
+    h += '</div>';
+    var cert = (m.certification && m.certification.fillType) || null;
+    var ret = flds.returnability;
+    h += '<div class="nt-meta-note">'
+      + (cert ? ('Sertifikat: <b>'+(cert==='OPTIONAL'?'ixtiyoriy':cert)+'</b><br>') : '')
+      + (ret ? ('Qaytarish: <b>'+(ret==='RETURNABLE'?'mumkin':ret)+'</b><br>') : '')
+      + (S.leaf.okpd2Required ? '<b style="color:#C77B24">⚠ OKPD2 kod talab qilinadi</b>' : '')
+      + '</div>';
+    return h;
+  }
+
+  /* ── render ── */
+  function navHtml(){
+    var h = '<div class="nt-nav">';
+    h += (S.step>1 && !S.created)
+      ? '<button type="button" class="nt-btn nt-btn-ghost" id="ntBack">← Orqaga</button>'
+      : '<span></span>';
+    if(S.step<4){
+      var dis = '';
+      if(S.step===1 && !S.leaf) dis = 'disabled';
+      if(S.step===2 && !(S.form.titleUz||S.form.titleRu)) dis = 'disabled';
+      if(S.step===3 && !S.images.some(function(i){return i.key;})) dis = 'disabled';
+      h += '<button type="button" class="nt-btn nt-btn-primary" id="ntNext" '+dis+'>Davom etish →</button>';
+    } else if(!S.created){
+      h += '<button type="button" class="nt-btn nt-btn-primary" id="ntCreate" '+(S.creating?'disabled':'')+'>'
+        + (S.creating?'<span class="nt-spin"></span>Yaratilmoqda…':'✨ Yaratish (qoralama)')+'</button>';
+    }
+    h += '</div>';
+    return h;
+  }
+  function render(){
+    var body = '';
+    if(S.step===1) body = step1Html();
+    else if(S.step===2) body = step2Html();
+    else if(S.step===3) body = step3Html();
+    else body = step4Html();
+    $main.innerHTML = body + (S.created ? '' : navHtml());
+    var sh = sideHtml();
+    $side.style.display = sh ? '' : 'none';
+    $side.innerHTML = sh;
+    bind();
+  }
+
+  /* ── events ── */
+  function bind(){
+    $main.querySelectorAll('.nt-shop-pill').forEach(function(b){
+      b.onclick = function(){
+        S.shop = b.dataset.shop; S.cols=[]; S.path=[]; S.leaf=null; S.meta=null;
+        loadCol(null,0).then(render).catch(function(e){ toast(e.message,'err'); });
+      };
+    });
+    $main.querySelectorAll('.nt-cat-item').forEach(function(b){
+      b.onclick = function(){
+        var ci = +b.dataset.col, id = +b.dataset.id;
+        var cat = S.cols[ci].items.find(function(c){ return c.id===id; });
+        if(cat) pickCat(ci, cat);
+      };
+    });
+    var back = document.getElementById('ntBack');
+    if(back) back.onclick = function(){ setStep(S.step-1); };
+    var next = document.getElementById('ntNext');
+    if(next) next.onclick = function(){ setStep(S.step+1); };
+    var again = document.getElementById('ntAgain');
+    if(again) again.onclick = function(){ location.reload(); };
+    var create = document.getElementById('ntCreate');
+    if(create) create.onclick = doCreate;
+
+    // form inputs
+    $main.querySelectorAll('[data-f]').forEach(function(inp){
+      inp.oninput = function(){ S.form[inp.dataset.f] = inp.value; refreshNav(); };
+      if(inp.dataset.f.indexOf('title')===0 || inp.dataset.f.indexOf('desc')===0){
+        inp.onblur = function(){ checkWords(inp.dataset.f, inp.value); };
+      }
+    });
+    $main.querySelectorAll('[data-pf]').forEach(function(inp){
+      inp.oninput = function(){
+        var v = inp.value.trim();
+        if(v==='') delete S.form.productFields[inp.dataset.pf];
+        else S.form.productFields[inp.dataset.pf] = (inp.type==='number' ? +v : v);
+      };
+    });
+
+    // filter dropdowns
+    $main.querySelectorAll('.nt-dd').forEach(function(dd){
+      var fid = +dd.dataset.fid;
+      var btn = dd.querySelector('.nt-dd-btn');
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var was = dd.classList.contains('open');
+        document.querySelectorAll('.nt-dd.open').forEach(function(o){ o.classList.remove('open'); });
+        if(!was){ dd.classList.add('open'); loadFilterValues(fid, '', 0, false); }
+      };
+      var si = dd.querySelector('[data-ddsearch]');
+      var deb;
+      si.oninput = function(){
+        clearTimeout(deb);
+        deb = setTimeout(function(){ loadFilterValues(fid, si.value.trim(), 0, false); }, 350);
+      };
+      si.onclick = function(e){ e.stopPropagation(); };
+    });
+
+    // characteristic chips
+    $main.querySelectorAll('.nt-chip').forEach(function(chip){
+      chip.onclick = function(){
+        var ci = +chip.dataset.char, vi = +chip.dataset.vi;
+        var ch = (S.meta.characteristics||[])[ci];
+        var v = (ch.characteristicValues||[])[vi];
+        var key = 'c'+ci;
+        if(!S.charSel[key]) S.charSel[key] = {char: ch, values: []};
+        var arr = S.charSel[key].values;
+        var sig = v.skuValue || JSON.stringify(v.title);
+        var idx = arr.findIndex(function(x){ return (x.skuValue||JSON.stringify(x.title))===sig; });
+        if(idx>=0) arr.splice(idx,1); else arr.push(v);
+        chip.classList.toggle('is-on', idx<0);
+      };
+    });
+
+    // images
+    var drop = document.getElementById('ntDrop');
+    var file = document.getElementById('ntFile');
+    if(drop && file){
+      drop.onclick = function(){ file.click(); };
+      file.onchange = function(){ addFiles(file.files); file.value=''; };
+      drop.ondragover = function(e){ e.preventDefault(); drop.classList.add('drag'); };
+      drop.ondragleave = function(){ drop.classList.remove('drag'); };
+      drop.ondrop = function(e){ e.preventDefault(); drop.classList.remove('drag'); addFiles(e.dataTransfer.files); };
+    }
+    $main.querySelectorAll('[data-del]').forEach(function(b){
+      b.onclick = function(){ S.images.splice(+b.dataset.del,1); render(); };
+    });
+  }
+  document.addEventListener('click', function(){
+    document.querySelectorAll('.nt-dd.open').forEach(function(o){ o.classList.remove('open'); });
+  });
+  function refreshNav(){
+    var next = document.getElementById('ntNext');
+    if(!next) return;
+    if(S.step===2) next.disabled = !(S.form.titleUz||S.form.titleRu);
+  }
+
+  /* ── check-words ── */
+  function checkWords(key, text){
+    if(!text.trim()) return;
+    api('/noviy-tavar/api/check-words', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({shop:S.shop, text:text})})
+      .then(function(j){
+        var el = document.getElementById('bw_'+key);
+        if(!el) return;
+        var words = j.words||[];
+        if(words.length){
+          el.textContent = '⚠ Taqiqlangan so\'zlar: '+words.map(function(w){ return typeof w==='string'?w:JSON.stringify(w); }).join(', ');
+          el.classList.add('show');
+        } else { el.classList.remove('show'); }
+      }).catch(function(){});
+  }
+
+  /* ── filter values ── */
+  var fvCache = {};
+  function loadFilterValues(fid, search, page, append){
+    var list = document.getElementById('ddl_'+fid);
+    if(!list) return;
+    if(!append) list.innerHTML = '<div class="nt-load" style="padding:14px"><span class="nt-spin dark"></span></div>';
+    api('/noviy-tavar/api/filter-values?'+qs({shop:S.shop, filterId:fid, categoryId:S.leaf.id, search:search, page:page}))
+      .then(function(j){
+        var data = j.values;
+        var items = [];
+        if(Array.isArray(data)) items = data;
+        else if(data && Array.isArray(data.content)) items = data.content;
+        else if(data && Array.isArray(data.values)) items = data.values;
+        var html = items.map(function(v){
+          return '<button type="button" class="nt-dd-item" data-vid="'+v.id+'" data-vtitle="'+esc(v.title||v.value||'')+'">'+esc(v.title||v.value||'')+'</button>';
+        }).join('');
+        if(items.length >= 24){
+          html += '<button type="button" class="nt-dd-more" data-more="'+(page+1)+'">Yana yuklash…</button>';
+        }
+        if(!items.length && !append) html = '<div class="nt-load" style="padding:12px">Topilmadi</div>';
+        if(append){
+          var more = list.querySelector('.nt-dd-more'); if(more) more.remove();
+          list.insertAdjacentHTML('beforeend', html);
+        } else list.innerHTML = html;
+        list.querySelectorAll('.nt-dd-item').forEach(function(b){
+          b.onclick = function(e){
+            e.stopPropagation();
+            S.filterSel[fid] = {id:+b.dataset.vid, title:b.dataset.vtitle};
+            render();
+          };
+        });
+        var moreBtn = list.querySelector('.nt-dd-more');
+        if(moreBtn) moreBtn.onclick = function(e){ e.stopPropagation(); loadFilterValues(fid, search, +moreBtn.dataset.more, true); };
+      })
+      .catch(function(e){ list.innerHTML = '<div class="nt-load" style="padding:12px">'+esc(e.message)+'</div>'; });
+  }
+
+  /* ── images ── */
+  function addFiles(files){
+    Array.prototype.slice.call(files||[]).forEach(function(f){
+      if(!/^image\//.test(f.type)){ toast('Faqat rasm fayllari','err'); return; }
+      var im = {key:null, url:null, preview:URL.createObjectURL(f), uploading:true, warn:null};
+      S.images.push(im);
+      // Mahalliy o'lcham tekshiruvi (Uzum tavsiyasi 1080×1440)
+      var img = new Image();
+      img.onload = function(){
+        if(img.naturalWidth < 1080 || img.naturalHeight < 1440){
+          im.warn = img.naturalWidth+'×'+img.naturalHeight+' — 1080×1440 dan kichik';
+          render();
+        }
+      };
+      img.src = im.preview;
+      render();
+      var fd = new FormData();
+      fd.append('shop', S.shop);
+      fd.append('file', f, f.name);
+      api('/noviy-tavar/api/upload-image', {method:'POST', body:fd})
+        .then(function(j){
+          im.key = j.key; im.url = j.url; im.uploading = false;
+          (j.recommendations||[]).forEach(function(r){ toast(r,''); });
+          render();
+        })
+        .catch(function(e){
+          im.uploading = false;
+          var i = S.images.indexOf(im); if(i>=0) S.images.splice(i,1);
+          toast('Rasm yuklanmadi: '+e.message,'err');
+          render();
+        });
+    });
+  }
+
+  /* ── create ── */
+  function doCreate(){
+    if(S.creating) return;
+    // Majburiy filtr tekshiruvi
+    var missing = (S.meta && S.meta.filters || []).filter(function(f){ return f.required && !S.filterSel[f.id]; });
+    if(missing.length){
+      toast('Majburiy filtr tanlanmagan: '+missing.map(function(f){return f.title;}).join(', '),'err');
+      setStep(2); return;
+    }
+    S.creating = true; render();
+    var chars = Object.keys(S.charSel).map(function(k){
+      var e = S.charSel[k];
+      return {
+        characteristicId: (e.char.characteristicId!=null ? e.char.characteristicId : -1),
+        characteristicTitle: e.char.characteristicTitle || {},
+        orderingNumber: e.char.orderingNumber || 0,
+        values: e.values
+      };
+    }).filter(function(c){ return c.values.length; });
+    var body = {
+      shop: S.shop,
+      categoryId: S.leaf.id,
+      titleUz: S.form.titleUz, titleRu: S.form.titleRu,
+      shortUz: S.form.shortUz, shortRu: S.form.shortRu,
+      descUz: S.form.descUz, descRu: S.form.descRu,
+      productFields: S.form.productFields,
+      filterValues: Object.keys(S.filterSel).map(function(fid){
+        return {filterId:+fid, filterValueId:S.filterSel[fid].id};
+      }),
+      characteristics: chars,
+      images: S.images.filter(function(i){return i.key;}).map(function(i){ return {key:i.key, url:i.url}; })
+    };
+    api('/noviy-tavar/api/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+      .then(function(j){
+        S.creating = false; S.created = j;
+        toast('Karta yaratildi — ID '+j.id, 'ok');
+        render();
+      })
+      .catch(function(e){
+        S.creating = false; render();
+        toast('Yaratib bo\'lmadi: '+e.message, 'err');
+      });
+  }
+
+  /* ── init ── */
+  if(!SHOPS.length){
+    $main.innerHTML = '<div class="nt-load">Do\'kon topilmadi — avval do\'kon ulang.</div>';
+  } else {
+    setStep(1);
+    loadCol(null,0).then(render).catch(function(e){
+      $main.innerHTML = '<div class="nt-load">Kategoriya yuklanmadi: '+esc(e.message)+'</div>';
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -691,6 +691,13 @@ app.register_blueprint(_postavki_mod.postavki_bp)
 import admin_autoslot as _admin_autoslot_mod
 app.register_blueprint(_admin_autoslot_mod.admin_autoslot_bp)
 
+# ---------------------------------------------------------------------------
+# Register «Новый товар» Blueprint (mahsulot kartasi yaratish — noviy_tavar/
+# papkasida IZOLYATSIYALANGAN: portal-API client + wizard sahifa)
+# ---------------------------------------------------------------------------
+import noviy_tavar as _noviy_tavar_mod
+app.register_blueprint(_noviy_tavar_mod.noviy_tavar_bp)
+
 
 # ----------------------------
 # Pages (new)

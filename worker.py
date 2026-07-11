@@ -104,7 +104,7 @@ print("[Worker] Started: auto-login scheduler")
 
 print(f"[Worker] All background jobs running. Monitoring {len(threads)} threads.")
 
-# Keep the process alive — if all daemon threads die, restart them
+# Keep the process alive — if all daemon threads die
 while True:
     time.sleep(60)
     alive = [t.name for t in threads if t.is_alive()]

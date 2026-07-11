@@ -40,7 +40,7 @@ def admin_required(f):
         if not current_user.is_authenticated or not _current_user_is_admin():
             if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
                 return _json_response({"error": "Admin access required"}, 403)
-            return redirect(url_for("products_bp.groups_page"))
+            return redirect(url_for("products_bp.economics_page"))
         return f(*args, **kwargs)
     return decorated
 
@@ -58,7 +58,7 @@ def _get_admin_token() -> str:
         admin = db.execute(select(User).where(User.is_admin == True)).scalars().first()
         return (admin.api_key or "").strip() if admin else ""
 
-
+#Automatically refresh the Uzum API token if it's expired or missing, and save it to DB.
 def _uzum_auto_login() -> bool:
     """Login to Uzum via OAuth2 password grant and save the fresh token. Returns True on success."""
     try:

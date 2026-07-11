@@ -24,14 +24,13 @@ from models import (
     SubscriptionCodeActivation,
     User,
     Variant,
-    VariantSale,
 )
 from core.auth_helpers import (
     _current_user_is_admin,
     _json_response,
     _user_shop_ids,
 )
-from core.redis_client import revoke_user, unrevoke_user
+from core.redis_client import revoke_user, unrevoke_user, mark_user_for_recheck
 from core.subscriptions import (
     _admin_clear_user_subscription,
     _admin_set_user_subscription,
@@ -58,6 +57,8 @@ def init_admin_routes(app_module):
     global _app
     _app = app_module
 
+
+#start the fetching all dada from uzum for the newly added shop in the background
 
 def _fire_finance_seed(uzum_id: str, shop_pk: int):
     """Trigger background finance work for a newly added shop.
@@ -114,7 +115,7 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
             from core.uzum_skulist import refresh_sku_images_for_shop
             refresh_sku_images_for_shop(uzum_id, shop_pk)
         except Exception as e:
-            print(f"[AdminShop] sku-list image refresh failed for shop {uzum_id}: {e}")
+            print(f"[fetch] sku-list image refresh failed for shop {uzum_id}: {e}")
 
     def _run_fbs_seed(uzum_id=uzum_id, shop_pk=shop_pk):
         """Initial FBS order backfill for THIS freshly-added shop only.
@@ -199,6 +200,7 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
     threading.Thread(target=_orchestrate, daemon=True,
                      name=f"backfill-orchestrate-{uzum_id}").start()
 
+#shop limit error response for the user if the user has reached the limit of shops that can be added to their account. This is used in the add_shop and assign_shop endpoints to prevent users from exceeding their shop limit.
 
 def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: int | None = None):
     if not owner_id or owner_id == existing_owner_id:
@@ -225,6 +227,9 @@ def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: i
 # Shop Management API
 # ----------------------------
 
+
+
+#function to get shops from db
 @admin_bp.get("/api/shops")
 @login_required
 def get_shops():
@@ -236,6 +241,8 @@ def get_shops():
             "shops": [{"id": s.id, "uzum_id": s.uzum_id, "name": s.name, "owner_id": s.owner_id} for s in shops]
         })
 
+
+#we use it only for shop edit for now
 @admin_bp.post("/api/shops")
 @login_required
 def add_shop():
@@ -359,7 +366,7 @@ def discover_shops_via_openapi():
 
     return _json_response({"shops": result})
 
-
+#Adds shops to db and start the function for backfill shops 
 @admin_bp.post("/api/shops/openapi/attach")
 @login_required
 def attach_shops_via_openapi():
@@ -489,6 +496,8 @@ def assign_shop(shop_id: int):
         db.commit()
     return _json_response({"ok": True})
 
+
+#shops delete functionality
 @admin_bp.delete("/api/shops/<int:shop_id>")
 @login_required
 def delete_shop(shop_id: int):
@@ -523,7 +532,7 @@ def delete_shop(shop_id: int):
                 except (TypeError, ValueError):
                     uzum_id_int = None
 
-                # Cascade delete: VariantSale -> Variant -> ProductGroup -> Shop
+                # Cascade delete:  -> Variant -> ProductGroup -> Shop
                 group_ids = db.execute(
                     select(ProductGroup.id).where(ProductGroup.shop_id == shop_id)
                 ).scalars().all()
@@ -532,7 +541,6 @@ def delete_shop(shop_id: int):
                         select(Variant.id).where(Variant.group_id.in_(group_ids))
                     ).scalars().all()
                     if variant_ids:
-                        db.execute(delete(VariantSale).where(VariantSale.variant_id.in_(variant_ids)))
                         db.execute(delete(Variant).where(Variant.id.in_(variant_ids)))
                     db.execute(delete(ProductGroup).where(ProductGroup.id.in_(group_ids)))
 
@@ -577,12 +585,13 @@ def my_shops_page():
 @login_required
 def admin_users_page():
     if not _current_user_is_admin():
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
     with SessionLocal() as db:
         users = db.execute(select(User)).scalars().all()
         shops = db.execute(select(Shop)).scalars().all()
     return render_template("admin_users.html", users=users, shops=shops)
 
+#admin creates user (no email or other metadata, just username/password). Returns the new user's ID so the admin can assign shops to them in a follow-up step. No notification is sent to the user; the admin must communicate credentials out-of-band.
 @admin_bp.post("/api/admin/users")
 @login_required
 def admin_create_user():
@@ -602,7 +611,7 @@ def admin_create_user():
         db.add(user)
         db.commit()
         return _json_response({"ok": True, "id": user.id, "username": user.username})
-
+#admin deletes user (soft delete by revoking access; shops remain but are unmanageable until reassigned)
 @admin_bp.delete("/api/admin/users/<int:user_id>")
 @login_required
 def admin_delete_user(user_id: int):
@@ -621,7 +630,7 @@ def admin_delete_user(user_id: int):
         db.delete(user)
         db.commit()
     return _json_response({"ok": True})
-
+#admin revokes user access (soft delete by revoking access; shops remain but are unmanageable until unrevoke)
 @admin_bp.get("/api/admin/users")
 @login_required
 def admin_list_users():
@@ -640,12 +649,12 @@ def admin_list_users():
             for u in users
         ]})
 
-
+#admin page for subscription management (codes, settings, user overrides)
 @admin_bp.route("/admin/subscriptions", methods=["GET", "POST"])
 @login_required
 def admin_subscriptions_page():
     if not _current_user_is_admin():
-        return redirect(url_for("products_bp.groups_page"))
+        return redirect(url_for("products_bp.economics_page"))
 
     duration_options = _subscription_code_duration_rows()
 
@@ -653,6 +662,7 @@ def admin_subscriptions_page():
         action = (request.form.get("action") or "").strip()
         with SessionLocal() as db:
             settings = _get_or_create_subscription_settings(db)
+            #change subscription settings (trial days, monthly price, max shops per user)
             if action == "settings":
                 try:
                     trial_days = max(0, int(request.form.get("trial_days") or settings.trial_days))
@@ -669,7 +679,7 @@ def admin_subscriptions_page():
                 _invalidate_settings_cache()
                 flash("Настройки подписки сохранены.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
-
+            #code_creation, create the  code with the selected duration and max activations. The code is generated randomly and stored in the database. The admin can then distribute this code to users who can redeem it for a subscription.
             if action == "create_code":
                 duration_key = (request.form.get("duration_key") or "").strip()
                 duration_cfg = next(
@@ -732,7 +742,7 @@ def admin_subscriptions_page():
                 db.commit()
                 flash(f"Срок кода {code.code} обновлён.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
-
+            #code_deletion, delete the code and all its activations. This revokes any subscriptions granted by this code, but does not affect other active subscriptions the users may have (e.g. from trial or their own payment). The admin can use this to invalidate a code that was leaked or distributed too widely.
             if action == "delete_code":
                 try:
                     code_id = int(request.form.get("code_id") or 0)
@@ -809,10 +819,17 @@ def admin_subscriptions_page():
                 _admin_clear_user_subscription(db, user=user)
                 db.commit()
                 _invalidate_user_ctx_cache(user.id)
-                # Force the target user out on their next request — their
-                # signed session might still say "active" until they log in
-                # again, and the blocklist is how we close that window.
-                revoke_user(user.id)
+                # Cancel removes the PAID subscription only. If the user still
+                # has an active free trial, keep their access (don't block) —
+                # only revoke when no active access remains. Either way force a
+                # one-time session recheck so the stale "paid" signed session is
+                # recomputed from the DB on their next request.
+                status = _subscription_status_for_user(user, settings=settings)
+                if status["active"]:
+                    unrevoke_user(user.id)
+                    mark_user_for_recheck(user.id)
+                else:
+                    revoke_user(user.id)
                 flash(f"Подписка пользователя {user.username} удалена.")
                 return redirect(url_for("admin_bp.admin_subscriptions_page"))
 

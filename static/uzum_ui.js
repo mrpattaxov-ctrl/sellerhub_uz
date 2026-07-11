@@ -172,6 +172,8 @@
     ru: {
       products: "Товары",
       economics: "Юнит Экономика",
+      expenses: "Складские расходы",
+      sales: "Акции",
       calculator: "Калькулятор",
       pos: "POS Терминал",
       fbs: "FBS/DBS",
@@ -188,6 +190,8 @@
     uz: {
       products: "Mahsulotlar",
       economics: "Birlik Iqtisodiyoti",
+      expenses: "Ombor xarajatlari",
+      sales: "Aksiyalar",
       calculator: "Kalkulyator",
       pos: "POS Terminal",
       fbs: "FBS/DBS",
@@ -387,6 +391,8 @@
     const links = [
       { label: SL.products, href: "/groups", icon: svgIcon('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>') },
       { label: SL.economics, href: "/economics", icon: svgIcon('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>') },
+      { label: SL.expenses, href: "/expenses", icon: svgIcon('<path d="M21 8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/><path d="M3 10h18"/><path d="M7 15h2"/>') },
+      { label: SL.sales, href: "/sales", icon: svgIcon('<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>') },
       { label: SL.calculator, href: "/calculator", icon: svgIcon('<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="16" y2="18"/>') },
       { label: SL.pos, href: "/pos", icon: svgIcon('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>') },
       { label: SL.fbs, href: "/fbs", icon: svgIcon('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>') },
@@ -414,15 +420,9 @@
       nav.appendChild(a);
     });
 
-    // Logout Link
-    const logoutLink = document.createElement("a");
-    logoutLink.className = "uzum-nav-item mt-auto";
-    logoutLink.style.color = "#F04438";
-    logoutLink.innerHTML = `${svgIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>').replace('#667085','#F04438')}<span class="nav-label">${SL.logout}</span>`;
-    logoutLink.href = "/logout";
-    logoutLink.title = SL.logout;
-    nav.appendChild(logoutLink);
-    
+    // Logout intentionally omitted from the sidebar — it lives in the
+    // top-bar user dropdown instead (see _topbar.html).
+
     content.appendChild(nav);
 
     // Shop picker moved to groups page top bar
@@ -440,7 +440,7 @@
     if (foundActions.length > 0) {
       const sectionTitle = document.createElement("div");
       sectionTitle.className = "uzum-section-label";
-      sectionTitle.textContent = "Действия";
+      sectionTitle.textContent = lang === "uz" ? "Amallar" : "Действия";
       content.appendChild(sectionTitle);
       
       const actionsGroup = document.createElement("div");
@@ -502,7 +502,9 @@
         if (out) {
           out.style.display = "block";
           out.className = "alert alert-secondary mb-0 small";
-          out.textContent = "Синхронизация… пожалуйста, подождите (это может занять время).";
+          out.textContent = lang === "uz"
+            ? "Sinxronizatsiya… iltimos, kuting (biroz vaqt olishi mumkin)."
+            : "Синхронизация… пожалуйста, подождите (это может занять время).";
         }
 
         try {
@@ -524,13 +526,15 @@
 
           if (out) {
             out.className = "alert alert-success mb-0 small";
-            out.textContent = `Готово. Страниц: ${totalPages}, товаров: ${totalFetched}. Перезагрузка…`;
+            out.textContent = lang === "uz"
+              ? `Tayyor. Sahifalar: ${totalPages}, mahsulotlar: ${totalFetched}. Qayta yuklanmoqda…`
+              : `Готово. Страниц: ${totalPages}, товаров: ${totalFetched}. Перезагрузка…`;
           }
           setTimeout(() => location.reload(), 800);
         } catch (e) {
           if (out) {
             out.className = "alert alert-danger mb-0 small";
-            out.textContent = "Ошибка: " + e.message;
+            out.textContent = (lang === "uz" ? "Xato: " : "Ошибка: ") + e.message;
           }
         }
       });
@@ -554,11 +558,11 @@
           if (theadRow) {
               if (theadRow.querySelector(".th-img-col")) return; // Prevent double injection
 
-              // Remove existing duplicate "Продажи (30д)" columns if any, plus "Цвет" and "Размер"
+              // Remove existing duplicate "Продажи (30д)" / "Sotuvlar (30k)" columns if any, plus "Цвет"/"Rang" and "Размер"/"O'lcham"
               const headers = Array.from(theadRow.children);
               for (let i = headers.length - 1; i >= 0; i--) {
                   const txt = headers[i].textContent.trim();
-                  if (txt.includes("Продажи (30д)") || txt === "Цвет" || txt === "Размер") {
+                  if (txt.includes("Продажи (30д)") || txt.includes("Sotuvlar (30k)") || txt === "Цвет" || txt === "Rang" || txt === "Размер" || txt === "O'lcham") {
                       headers[i].remove();
                       const bodyRows = table.querySelectorAll("tbody tr");
                       bodyRows.forEach(r => {
@@ -568,13 +572,13 @@
               }
 
               const th = document.createElement("th");
-              th.textContent = "Фото";
+              th.textContent = lang === "uz" ? "Rasm" : "Фото";
               th.className = "th-img-col";
               th.style.width = "70px";
               theadRow.insertBefore(th, theadRow.firstElementChild);
 
               const thNeed = document.createElement("th");
-              thNeed.textContent = "Нужно (60д)";
+              thNeed.textContent = lang === "uz" ? "Kerak (60k)" : "Нужно (60д)";
               thNeed.className = "text-center";
               theadRow.appendChild(thNeed);
 
@@ -634,7 +638,7 @@
               aPrint.target = "_blank";
               aPrint.className = "btn btn-sm btn-outline-secondary p-0 px-1";
               aPrint.innerHTML = "&#128438;";
-              aPrint.title = "Печать этикетки";
+              aPrint.title = lang === "uz" ? "Yorliq chop etish" : "Печать этикетки";
               tdPrint.appendChild(aPrint);
               row.appendChild(tdPrint);
           });

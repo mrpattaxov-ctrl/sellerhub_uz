@@ -5,7 +5,6 @@ import io
 import json
 from datetime import date, datetime
 
-import debug_routes
 from flask import Blueprint, render_template, request, send_file
 from flask_login import current_user, login_required
 from sqlalchemy import delete, func, select
@@ -16,7 +15,7 @@ from core.http_client import http_json
 from core.parsers import _safe_qty
 from core.uzum_skulist import normalize_uzum_image_url
 from extensions import SessionLocal
-from models import PosActionLog, ProductGroup, Shop, Variant, VariantSale
+from models import PosActionLog, ProductGroup, Shop, Variant
 
 POS_HISTORY_LIMIT = 20
 
@@ -147,6 +146,17 @@ def pos_transaction():
         return _json_response({"error": "Invalid mode"}, 400)
 
     uid = int(current_user.get_id())
+    allowed_shop_ids = set(_user_shop_ids(uid))
+
+    # Lock rows in a stable ascending-id order across every request (the warehouse
+    # import path also locks by Variant.id), so two concurrent transactions can
+    # never grab the same rows in opposite orders and deadlock each other.
+    def _lock_order_key(it):
+        try:
+            return (0, int(it.get("id")))
+        except (TypeError, ValueError):
+            return (1, 0)  # unparseable ids sort last; they no-op in the loop
+    items = sorted(items, key=_lock_order_key)
 
     with SessionLocal() as db:
         snapshot = []
@@ -158,9 +168,19 @@ def pos_transaction():
             if qty <= 0:
                 continue
 
-            variant = db.get(Variant, variant_id)
+            # Lock the row for the read-modify-write below so two concurrent POS
+            # transactions on the same variant can't clobber each other's update.
+            variant = db.execute(
+                select(Variant).where(Variant.id == variant_id).with_for_update()
+            ).scalars().first()
             if not variant:
                 continue
+
+            # Ownership: the variant's shop must belong to the caller. Without
+            # this, any logged-in user could edit any shop's stock / fake sales.
+            variant_shop_id = variant.group.shop_id if variant.group is not None else None
+            if variant_shop_id not in allowed_shop_ids:
+                return _json_response({"error": "Forbidden"}, 403)
 
             qty_before = int(variant.warehouse_quantity or 0)
             entry = {
@@ -172,18 +192,15 @@ def pos_transaction():
             }
 
             if mode == "sale":
-                variant.warehouse_quantity = qty_before - qty
-                sale = VariantSale(variant_id=variant.id, date=date.today(), qty_sold=qty)
-                db.add(sale)
-                db.flush()
-                entry["variant_sale_id"] = sale.id
+                # Floor at 0: a sale must never drive recorded stock negative.
+                variant.warehouse_quantity = max(0, qty_before - qty)
             else:  # stock_in
                 variant.warehouse_quantity = qty_before + qty
 
             entry["qty_after"] = int(variant.warehouse_quantity or 0)
 
-            if shop_id is None and variant.group is not None:
-                shop_id = variant.group.shop_id
+            if shop_id is None and variant_shop_id is not None:
+                shop_id = variant_shop_id
 
             snapshot.append(entry)
 
@@ -259,121 +276,25 @@ def pos_undo(action_id: int):
             if not variant_id or qty <= 0:
                 continue
 
-            variant = db.get(Variant, variant_id)
+            # Lock the row for the read-modify-write below so a concurrent POS
+            # sale / stock-in on the same variant can't clobber the reversal —
+            # the same race the sale path (pos_transaction) guards against.
+            variant = db.execute(
+                select(Variant).where(Variant.id == variant_id).with_for_update()
+            ).scalars().first()
             if not variant:
                 continue
 
             if log.action == "sale":
                 variant.warehouse_quantity = int(variant.warehouse_quantity or 0) + qty
-                sale_id = entry.get("variant_sale_id")
-                if sale_id:
-                    sale = db.get(VariantSale, sale_id)
-                    if sale is not None:
-                        db.delete(sale)
             elif log.action == "stock_in":
-                variant.warehouse_quantity = int(variant.warehouse_quantity or 0) - qty
+                # Floor at 0: reversing a stock-in must not drive stock negative.
+                variant.warehouse_quantity = max(0, int(variant.warehouse_quantity or 0) - qty)
 
         log.reverted_at = datetime.utcnow()
         db.commit()
 
     return _json_response({"ok": True})
-
-
-@pos_bp.get("/lost-goods")
-@login_required
-def lost_goods_page():
-    uid = int(current_user.get_id())
-    allowed = _user_shop_ids(uid)
-    with SessionLocal() as db:
-        shops = db.execute(select(Shop).where(Shop.id.in_(allowed))).scalars().all() if allowed else []
-    return render_template("lost_goods.html", shops=shops)
-
-
-@pos_bp.get("/api/lost-goods")
-@login_required
-def api_lost_goods():
-    return debug_routes.debug_lost_goods()
-
-
-@pos_bp.post("/lost-goods/export")
-@login_required
-def lost_goods_export():
-    if not openpyxl:
-        return "openpyxl library not installed", 500
-
-    raw = request.form.get("data")
-    if not raw:
-        return "No data", 400
-
-    data = json.loads(raw)
-    items = data.get("items", [])
-    totals = data.get("totals", {})
-    shop_id = data.get("shop_id", "")
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Lost Goods"
-
-    headers = ["SKU", "Invoiced", "Active (В продаже)", "Defected (Брак)", "Sold", "Lost"]
-    ws.append(headers)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-
-    for item in items:
-        ws.append([
-            item.get("sku", ""),
-            item.get("invoiced", 0),
-            item.get("active", 0),
-            item.get("defected", 0),
-            item.get("sold", 0),
-            item.get("lost", 0),
-        ])
-
-    ws.append([])
-    ws.append([
-        "ИТОГО",
-        totals.get("invoiced", 0),
-        totals.get("active", 0),
-        totals.get("defected", 0),
-        totals.get("sold", 0),
-        totals.get("lost", 0),
-    ])
-    for cell in ws[ws.max_row]:
-        cell.font = Font(bold=True)
-
-    for col in ws.columns:
-        max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                max_len = max(max_len, len(str(cell.value or "")))
-            except Exception:
-                pass
-        ws.column_dimensions[col_letter].width = max(max_len + 2, 12)
-
-    red_fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
-    yellow_fill = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=6, max_col=6):
-        for cell in row:
-            if isinstance(cell.value, (int, float)):
-                if cell.value > 0:
-                    cell.fill = red_fill
-                elif cell.value < 0:
-                    cell.fill = yellow_fill
-
-    out = io.BytesIO()
-    wb.save(out)
-    out.seek(0)
-
-    filename = f"lost_goods_{shop_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-    return send_file(
-        out,
-        download_name=filename,
-        as_attachment=True,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
 
 @pos_bp.post("/api/pos/fetch-invoice")
 @login_required

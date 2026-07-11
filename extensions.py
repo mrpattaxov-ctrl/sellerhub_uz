@@ -32,7 +32,7 @@ if not PARSED_DB_URL.drivername.startswith("postgresql"):
 
 DB_URL_DISPLAY = PARSED_DB_URL.render_as_string(hide_password=True)
 
-# ── SQLAlchemy engine & session factory ───────────────────────────────
+#DB connection pool SQLAlchemy engine & session factory
 engine = create_engine(
     DATABASE_URL,
     future=True,

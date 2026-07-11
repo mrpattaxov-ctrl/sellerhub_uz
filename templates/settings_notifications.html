@@ -404,9 +404,9 @@
     <section class="notify-summary">
       <div class="notify-summary-head">
         <div>
-          <h2 class="notify-summary-title">Текущая схема отправки</h2>
+          <h2 class="notify-summary-title">{{ "Joriy yuborish sxemasi" if lang == "uz" else "Текущая схема отправки" }}</h2>
           <p class="notify-summary-copy">
-            Здесь показаны только основные параметры: статус, интервал, окно и время дневной сводки.
+            {{ "Bu yerda faqat asosiy parametrlar ko'rsatilgan: holat, interval, oyna va kunlik xulosaning vaqti." if lang == "uz" else "Здесь показаны только основные параметры: статус, интервал, окно и время дневной сводки." }}
           </p>
         </div>
       </div>
@@ -520,7 +520,7 @@
               <select class="form-select notify-select" id="window_to_hour" name="window_to_hour">
                 {% for hour in hours %}
                   <option value="{{ hour }}" {% if hour == settings.window_to_hour %}selected{% endif %}>
-                    {% if hour == 0 %}00:00 (конец дня){% else %}{{ "%02d:00"|format(hour) }}{% endif %}
+                    {% if hour == 0 %}00:00 ({{ "kun oxiri" if lang == "uz" else "конец дня" }}){% else %}{{ "%02d:00"|format(hour) }}{% endif %}
                   </option>
                 {% endfor %}
               </select>

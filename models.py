@@ -158,13 +158,30 @@ class ProductGroup(Base):
     uzum_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Fields from getProducts API (product level)
-    viewers: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
-    conversion: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    roi: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    rating: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
-    feedback_quantity: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
-    commission: Mapped[int] = mapped_column(Integer, nullable=True, default=0)       # from commissionDto (single value)
-    rank: Mapped[str] = mapped_column(String(10), nullable=True)                     # e.g. "A", "B", "C"
+    commission: Mapped[int] = mapped_column(Integer, nullable=True, default=0)       # from commissionDto (single value)               # e.g. "A", "B", "C"
+
+    # ── Product-card fields, populated from the OpenAPI product object ──────────
+    # Status badge (p["status"]) — store value/title/color raw so any Uzum status
+    # (READY_TO_SEND, NO_SKU, SENT, IN_STOCK, …) renders without a hardcoded map.
+    status_value: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    status_title: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    status_color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    # Moderation (p["moderationStatus"])
+    moderation_value: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    moderation_title: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    moderation_color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    # Metrics (product level)
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)               # p["rating"]
+    feedback_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)    # p["feedbackQuantity"]
+    viewers: Mapped[int | None] = mapped_column(Integer, nullable=True)              # p["viewers"] → Просмотры
+    conversion: Mapped[float | None] = mapped_column(Float, nullable=True)           # p["conversion"] → Конверсия
+    roi: Mapped[float | None] = mapped_column(Float, nullable=True)                  # p["roi"] (Uzum's own)
+    # Totals Uzum already summed for us (no variant summing needed)
+    quantity_sold: Mapped[int | None] = mapped_column(Integer, nullable=True)        # p["quantitySold"] → Продано
+    quantity_returned: Mapped[int | None] = mapped_column(Integer, nullable=True)    # p["quantityReturned"] → Возврат
+    quantity_defected: Mapped[int | None] = mapped_column(Integer, nullable=True)    # p["quantityDefected"] → Брак
+    quantity_available: Mapped[int | None] = mapped_column(Integer, nullable=True)   # p["quantityAvailable"] → FBO
+    quantity_fbs: Mapped[int | None] = mapped_column(Integer, nullable=True)         # p["quantityFbs"] → FBS
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -236,30 +253,19 @@ class Variant(Base):
     sku_block_reason: Mapped[str] = mapped_column(Text, nullable=True)
     ikpu: Mapped[str] = mapped_column(String(80), nullable=True)
 
+    # Uzum-official per-SKU analytics from /v1/product/shop (kept separate from
+    # avg_daily_sales, which the finance sync overwrites with sales_30d/30).
+    avgd_sales: Mapped[float] = mapped_column(Float, nullable=True)      # Среднесуточные продажи, шт.
+    avgd_quantity: Mapped[float] = mapped_column(Float, nullable=True)   # Среднесуточные остатки, шт.
+    dimensional_group: Mapped[str] = mapped_column(String(80), nullable=True)  # Габаритная группа (dimensionalGroup)
+    uzum_status: Mapped[str] = mapped_column(String(40), nullable=True)  # per-SKU status.value (IN_STOCK/RUN_OUT/…)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     group: Mapped["ProductGroup"] = relationship(back_populates="variants")
 
-    sales: Mapped[list["VariantSale"]] = relationship(
-        back_populates="variant",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
 
-
-class VariantSale(Base):
-    __tablename__ = "variant_sales"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    variant_id: Mapped[int] = mapped_column(Integer, ForeignKey("variants.id", ondelete="CASCADE"), index=True, nullable=False)
-
-    date: Mapped[date] = mapped_column(Date, nullable=False)
-    qty_sold: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    variant: Mapped["Variant"] = relationship(back_populates="sales")
 
 
 class PosActionLog(Base):
@@ -277,7 +283,7 @@ class PosActionLog(Base):
         Index("ix_pos_action_log_user_created", "user_id", "created_at"),
     )
 
-
+#User tables connection functions
 class User(UserMixin, Base):
     __tablename__ = "users"
 

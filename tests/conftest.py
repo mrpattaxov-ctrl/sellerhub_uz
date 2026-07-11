@@ -23,6 +23,14 @@ os.environ.setdefault(
     "postgresql://test:test@localhost:5432/test_fbs",
 )
 
+# config.py refuses to import without a real SECRET_KEY (session-signing
+# guard added on the env-token branch). Tests don't sign anything real, so a
+# deterministic throwaway key is enough to get past the import-time check.
+os.environ.setdefault(
+    "SECRET_KEY",
+    "test-only-secret-key-not-used-in-production-0000000000000000",
+)
+
 # Make the project root importable so ``import core.fbs_sync`` works
 # when pytest is run from anywhere.
 _ROOT = Path(__file__).resolve().parent.parent

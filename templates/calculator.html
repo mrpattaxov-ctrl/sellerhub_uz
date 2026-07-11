@@ -1,81 +1,344 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="row justify-content-center">
-  <div class="col-12 col-lg-8 col-xl-6">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-      <h1 class="h3 mb-0 fw-semibold">{{ t.calc_profit_title }}</h1>
-    </div>
 
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <!-- Inputs -->
-        <div class="row g-3 mb-4">
-          <div class="col-12">
-            <label class="form-label fw-medium">{{ t.calc_cat_search }}</label>
-            <div class="position-relative">
-              <input type="text" id="catSearch" class="form-control" placeholder="{{ t.calc_example_placeholder }}" autocomplete="off">
-              <div id="catResults" class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 250px; overflow-y: auto; display: none;"></div>
+{% block extra_css %}
+<style>
+[data-bs-theme="light"] .pp-calc, .pp-calc {
+  --pp-page-bg:#F4F4F7;
+  --pp-surface:#FFFFFF;
+  --pp-border:#ECECF0;
+  --pp-border-strong:#E0DFE6;
+  --pp-text:#1A1A22;
+  --pp-text-2:#5A5762;
+  --pp-text-muted:#8E8B97;
+  --pp-shadow-pop:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+  --pp-accent-bg:#EAF0FF;  --pp-accent-fg:#4169E1;
+  --pp-pos:#0F9A6A;
+  --pp-neg:#E84747;
+  --pp-hover:#F8F8FA;
+}
+[data-bs-theme="dark"] .pp-calc {
+  --pp-page-bg:#0E0E14;
+  --pp-surface:#18181F;
+  --pp-border:#25252F;
+  --pp-border-strong:#2E2E3A;
+  --pp-text:#F0EDF5;
+  --pp-text-2:#B6B4C2;
+  --pp-text-muted:#8A8896;
+  --pp-shadow-pop:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  --pp-accent-bg:rgba(110,143,232,.16); --pp-accent-fg:#A4B9F0;
+  --pp-pos:#5EEAB0;
+  --pp-neg:#FCA5A5;
+  --pp-hover:#1C1C26;
+}
+
+.pp-calc {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--pp-text);
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.pp-calc-head { margin-bottom: 22px; }
+.pp-calc-h1 {
+  margin: 0 0 6px;
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.15;
+}
+.pp-calc-sub { margin: 0; font-size: 14px; color: var(--pp-text-muted); }
+
+.pp-calc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 880px) { .pp-calc-grid { grid-template-columns: 1fr; } }
+
+.pp-calc-card {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+/* ── Input sections — each is its own distinct card ─────────── */
+.pp-calc-inputs { display: flex; flex-direction: column; gap: 14px; }
+.pp-calc-section {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border-strong);
+  border-radius: 16px;
+  padding: 20px;
+}
+.pp-calc-section-title {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 0 16px;
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--pp-text);
+}
+.pp-calc-section-title::before {
+  content: ''; flex-shrink: 0;
+  width: 4px; height: 15px; border-radius: 2px;
+  background: var(--pp-accent-fg);
+}
+
+.pp-field { margin-bottom: 14px; }
+.pp-field:last-child { margin-bottom: 0; }
+.pp-field-label {
+  display: block;
+  font-size: 13px; font-weight: 500;
+  color: var(--pp-text-2);
+  margin-bottom: 7px;
+}
+.pp-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pp-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+.pp-input-wrap { position: relative; display: flex; align-items: center; }
+.pp-input {
+  width: 100%; height: 46px;
+  border: 1px solid var(--pp-border-strong);
+  border-radius: 12px;
+  background: var(--pp-page-bg);
+  color: var(--pp-text);
+  padding: 0 14px;
+  font-size: 15px; font-weight: 500;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.pp-input::placeholder { color: var(--pp-text-muted); font-weight: 400; }
+.pp-input:focus {
+  background: var(--pp-surface);
+  border-color: var(--pp-accent-fg);
+  box-shadow: 0 0 0 4px rgba(110,143,232,.14);
+}
+.pp-input.has-suffix { padding-right: 48px; }
+.pp-input::-webkit-outer-spin-button,
+.pp-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pp-input[type=number] { -moz-appearance: textfield; }
+.pp-suffix {
+  position: absolute; right: 14px;
+  font-size: 13px; color: var(--pp-text-muted);
+  pointer-events: none;
+}
+
+/* category autocomplete */
+.pp-cat-wrap { position: relative; }
+.pp-cat-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  z-index: 60;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: 14px;
+  box-shadow: var(--pp-shadow-pop);
+  max-height: 300px; overflow-y: auto;
+  padding: 6px;
+  display: none;
+}
+.pp-cat-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  border: 0; background: transparent;
+  color: var(--pp-text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px; line-height: 1.35;
+}
+.pp-cat-item:hover { background: var(--pp-hover); }
+.pp-cat-pct {
+  flex-shrink: 0;
+  font-size: 12px; font-weight: 700;
+  color: var(--pp-accent-fg);
+  background: var(--pp-accent-bg);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.pp-log-hint {
+  margin-top: 12px;
+  font-size: 13px; color: var(--pp-text-2);
+  background: var(--pp-page-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: none;
+}
+.pp-log-hint b { color: var(--pp-text); font-weight: 700; }
+
+/* ── Results panel ──────────────────────────────────────────── */
+.pp-calc-results { position: sticky; top: 16px; }
+@media (max-width: 880px) { .pp-calc-results { position: static; } }
+
+.pp-res-hero {
+  text-align: center;
+  padding-bottom: 20px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--pp-border);
+}
+.pp-res-label { font-size: 13px; color: var(--pp-text-muted); margin-bottom: 8px; }
+.pp-res-profit {
+  font-size: 40px; font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.pp-res-profit.pos { color: var(--pp-pos); }
+.pp-res-profit.neg { color: var(--pp-neg); }
+.pp-res-unit { font-size: 12px; color: var(--pp-text-muted); margin-top: 4px; }
+
+.pp-res-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.pp-res-stat {
+  background: var(--pp-page-bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.pp-res-stat-label { display: block; font-size: 12px; color: var(--pp-text-muted); margin-bottom: 4px; }
+.pp-res-stat-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.pp-res-break { display: flex; flex-direction: column; }
+.pp-res-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 9px 0;
+  font-size: 14px; color: var(--pp-text-2);
+}
+.pp-res-row > span:last-child {
+  font-weight: 600; color: var(--pp-text);
+  font-variant-numeric: tabular-nums;
+}
+.pp-res-row.pos > span:last-child { color: var(--pp-text); }
+.pp-res-row.expense > span:last-child { color: var(--pp-text-2); }
+.pp-res-total {
+  margin-top: 6px; padding-top: 14px;
+  border-top: 1px solid var(--pp-border-strong);
+}
+.pp-res-total > span { font-size: 16px; font-weight: 800 !important; color: var(--pp-text) !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pp-calc">
+  <div class="pp-calc-head">
+    <h1 class="pp-calc-h1">{{ t.calc_profit_title }}</h1>
+    <p class="pp-calc-sub">{{ t.calc_subtitle }}</p>
+  </div>
+
+  <div class="pp-calc-grid">
+    <!-- ── Inputs ─────────────────────────────────────────── -->
+    <div class="pp-calc-inputs">
+
+      <div class="pp-calc-section">
+        <h2 class="pp-calc-section-title">{{ t.calc_section_product }}</h2>
+
+        <div class="pp-field pp-cat-wrap">
+          <label class="pp-field-label">{{ t.calc_cat_search }}</label>
+          <input type="text" id="catSearch" class="pp-input" placeholder="{{ t.calc_example_placeholder }}" autocomplete="off">
+          <div id="catResults" class="pp-cat-results"></div>
+        </div>
+
+        <div class="pp-row2">
+          <div class="pp-field">
+            <label class="pp-field-label">{{ t.calc_sale_price_label }}</label>
+            <div class="pp-input-wrap">
+              <input type="number" id="calcPrice" class="pp-input has-suffix" placeholder="0" oninput="calc()">
+              <span class="pp-suffix">{{ t.calc_sum_label }}</span>
             </div>
           </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-medium">{{ t.calc_sale_price_label }}</label>
-            <input type="number" id="calcPrice" class="form-control form-control-lg" placeholder="0" oninput="calc()">
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-medium">{{ t.calc_cost_price_label }}</label>
-            <input type="number" id="calcCost" class="form-control form-control-lg" placeholder="0" oninput="calc()">
-          </div>
-
-          <div class="col-6">
-            <label class="form-label text-secondary small">{{ t.calc_commission_pct }}</label>
-            <input type="number" id="calcCommPct" class="form-control" value="15" oninput="calc()">
-          </div>
-          <div class="col-6">
-            <label class="form-label text-secondary small">{{ t.calc_logistics_label }}</label>
-            <input type="number" id="calcLogistics" class="form-control" value="0" placeholder="0" oninput="calc()">
-          </div>
-          <div class="col-6">
-            <label class="form-label text-secondary small">{{ t.calc_tax_label }}</label>
-            <input type="number" id="calcTaxPct" class="form-control" value="0" oninput="calc()">
-          </div>
-          <div class="col-6">
-            <label class="form-label text-secondary small">{{ t.calc_other_expenses }}</label>
-            <input type="number" id="calcOther" class="form-control" value="0" placeholder="0" oninput="calc()">
+          <div class="pp-field">
+            <label class="pp-field-label">{{ t.calc_cost_price_label }}</label>
+            <div class="pp-input-wrap">
+              <input type="number" id="calcCost" class="pp-input has-suffix" placeholder="0" oninput="calc()">
+              <span class="pp-suffix">{{ t.calc_sum_label }}</span>
+            </div>
           </div>
         </div>
-
-        <hr class="my-4">
-
-        <!-- Results -->
-        <div class="row g-3 text-center">
-          <div class="col-6">
-            <div class="text-secondary small mb-1">{{ t.calc_net_profit }}</div>
-            <div class="fs-2 fw-bold" id="resProfit">0</div>
-            <div class="small text-muted">{{ t.calc_sum_label }}</div>
-          </div>
-          <div class="col-6">
-            <div class="text-secondary small mb-1">{{ t.calc_margin }}</div>
-            <div class="fs-2 fw-bold" id="resMargin">0%</div>
-          </div>
-        </div>
-
-        <div class="mt-4 p-3 bg-light rounded-3">
-          <div class="d-flex justify-content-between mb-2">
-            <span class="text-secondary">{{ t.calc_platform_commission }}</span>
-            <span class="fw-medium" id="resCommAmt">0</span>
-          </div>
-          <div class="d-flex justify-content-between mb-2">
-            <span class="text-secondary">{{ t.calc_tax_row }}</span>
-            <span class="fw-medium" id="resTaxAmt">0</span>
-          </div>
-          <div class="d-flex justify-content-between border-top pt-2 mt-2">
-            <span class="fw-bold">{{ t.calc_roi }}</span>
-            <span class="fw-bold text-success" id="resRoi">0%</span>
-          </div>
-        </div>
-
       </div>
+
+      <div class="pp-calc-section">
+        <h2 class="pp-calc-section-title">{{ t.calc_section_fees }}</h2>
+        <div class="pp-row2">
+          <div class="pp-field">
+            <label class="pp-field-label">{{ t.calc_commission_pct }}</label>
+            <div class="pp-input-wrap">
+              <input type="number" id="calcCommPct" class="pp-input has-suffix" value="15" oninput="calc()">
+              <span class="pp-suffix">%</span>
+            </div>
+          </div>
+          <div class="pp-field">
+            <label class="pp-field-label">{{ t.calc_tax_label }}</label>
+            <div class="pp-input-wrap">
+              <input type="number" id="calcTaxPct" class="pp-input has-suffix" value="0" oninput="calc()">
+              <span class="pp-suffix">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-calc-section">
+        <h2 class="pp-calc-section-title">{{ t.calc_section_logistics }}</h2>
+        <div class="pp-field">
+          <label class="pp-field-label">{{ t.calc_dimensions_label }}</label>
+          <div class="pp-row3">
+            <input type="number" id="calcLen" class="pp-input" min="0" placeholder="{{ t.calc_length }}" oninput="calc()">
+            <input type="number" id="calcWidth" class="pp-input" min="0" placeholder="{{ t.calc_width }}" oninput="calc()">
+            <input type="number" id="calcHeight" class="pp-input" min="0" placeholder="{{ t.calc_height }}" oninput="calc()">
+          </div>
+          <div class="pp-log-hint" id="logisticsHint"></div>
+        </div>
+      </div>
+
+      <div class="pp-calc-section">
+        <h2 class="pp-calc-section-title">{{ t.calc_section_other }}</h2>
+        <div class="pp-field">
+          <label class="pp-field-label">{{ t.calc_other_expenses }}</label>
+          <div class="pp-input-wrap">
+            <input type="number" id="calcOther" class="pp-input has-suffix" value="0" placeholder="0" oninput="calc()">
+            <span class="pp-suffix">{{ t.calc_sum_label }}</span>
+          </div>
+        </div>
+      </div>
+
     </div>
+
+    <!-- ── Results ────────────────────────────────────────── -->
+    <aside class="pp-calc-card pp-calc-results">
+      <div class="pp-res-hero">
+        <div class="pp-res-label">{{ t.calc_net_profit }}</div>
+        <div class="pp-res-profit pos" id="resProfit">0</div>
+        <div class="pp-res-unit">{{ t.calc_sum_label }}</div>
+        <div class="pp-res-stats">
+          <div class="pp-res-stat">
+            <span class="pp-res-stat-label">{{ t.calc_margin }}</span>
+            <span class="pp-res-stat-val" id="resMargin">0%</span>
+          </div>
+          <div class="pp-res-stat">
+            <span class="pp-res-stat-label">ROI</span>
+            <span class="pp-res-stat-val" id="resRoi">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-res-break">
+        <div class="pp-res-row pos">
+          <span>{{ t.calc_revenue_row }}</span><span id="resPrice">0</span>
+        </div>
+        <div class="pp-res-row expense">
+          <span>{{ t.calc_cost_row }}</span><span id="resCostAmt">0</span>
+        </div>
+        <div class="pp-res-row expense">
+          <span>{{ t.calc_commission_row }}</span><span id="resCommAmt">0</span>
+        </div>
+        <div class="pp-res-row expense">
+          <span>{{ t.calc_logistics_short }}</span><span id="resLogAmt">0</span>
+        </div>
+        <div class="pp-res-row expense">
+          <span>{{ t.calc_tax_short }}</span><span id="resTaxAmt">0</span>
+        </div>
+        <div class="pp-res-row expense">
+          <span>{{ t.calc_other_row }}</span><span id="resOtherAmt">0</span>
+        </div>
+        <div class="pp-res-row pp-res-total">
+          <span>{{ t.calc_net_profit }}</span><span id="resProfitRow">0</span>
+        </div>
+      </div>
+    </aside>
   </div>
 </div>
 
@@ -98,17 +361,24 @@ catSearch.addEventListener('input', function() {
     return;
   }
 
- const matches = uzumCommissions.filter(c => (c.category_last || "").toLowerCase().includes(val));
-
+  // Match against the FULL category path, not just the leaf. Every
+  // space-separated term must appear somewhere in the path, so e.g.
+  // "техника плиты" or "сад инструмент" narrow results across levels.
+  const terms = val.split(/\s+/).filter(Boolean);
+  const matches = uzumCommissions.filter(c => {
+    const full = (c.category_full || c.category_last || "").toLowerCase();
+    return terms.every(t => full.includes(t));
+  });
 
   if (matches.length > 0) {
     catResults.innerHTML = matches.slice(0, 50).map(c => {
       const pct = (c.commission || 0) * 100;
-      const nameSafe = (c.category_last || "").replace(/'/g, "\\'");
+      const full = c.category_full || c.category_last || "";
+      const nameSafe = full.replace(/'/g, "\\'");
       return `
-      <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onclick="selectCat('${nameSafe}', ${pct})">
-        <span>${c.category_last}</span>
-        <span class="badge bg-primary rounded-pill">${+pct.toFixed(2)}%</span>
+      <button type="button" class="pp-cat-item" onclick="selectCat('${nameSafe}', ${pct})">
+        <span>${full}</span>
+        <span class="pp-cat-pct">${+pct.toFixed(2)}%</span>
       </button>
     `}).join('');
     catResults.style.display = 'block';
@@ -130,13 +400,41 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ── Uzum logistics fee (Логистический сбор, с 01.06.2026) ───────────────────
+// Volume in liters = ceil(L × W × H / 1000) with dimensions in cm (cm³ → L).
+// First liter (≤1 L): 5 250 sum; each additional liter: 250 sum; capped at 50 000.
+const LOG_BASE = 5250;        // first liter (up to 1 L inclusive)
+const LOG_PER_LITER = 250;    // each additional liter above the first
+const LOG_MAX = 50000;        // maximum fee
+
+function logisticsLiters(len, width, height) {
+  if (!(len > 0 && width > 0 && height > 0)) return 0;
+  return Math.ceil((len * width * height) / 1000); // cm³ → liters, rounded up
+}
+
+function logisticsFee(liters) {
+  if (liters <= 0) return 0;
+  const fee = LOG_BASE + Math.max(0, liters - 1) * LOG_PER_LITER;
+  return Math.min(fee, LOG_MAX);
+}
+
+const T_VOLUME = "{{ t.calc_volume }}";
+const T_LITERS = "{{ t.calc_liters_unit }}";
+const T_LOG = "{{ t.calc_logistics_short }}";
+const T_SUM = "{{ t.calc_sum_label }}";
+
 function calc() {
   const price = parseFloat(document.getElementById('calcPrice').value) || 0;
   const cost = parseFloat(document.getElementById('calcCost').value) || 0;
   const commPct = parseFloat(document.getElementById('calcCommPct').value) || 0;
-  const logistics = parseFloat(document.getElementById('calcLogistics').value) || 0;
+  const len = parseFloat(document.getElementById('calcLen').value) || 0;
+  const width = parseFloat(document.getElementById('calcWidth').value) || 0;
+  const height = parseFloat(document.getElementById('calcHeight').value) || 0;
   const taxPct = parseFloat(document.getElementById('calcTaxPct').value) || 0;
   const other = parseFloat(document.getElementById('calcOther').value) || 0;
+
+  const liters = logisticsLiters(len, width, height);
+  const logistics = logisticsFee(liters);
 
   const commAmt = price * (commPct / 100);
   const taxAmt = price * (taxPct / 100);
@@ -152,13 +450,32 @@ function calc() {
 
   const fmt = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
   const fmtPct = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + '%';
+  const neg = (n) => (n > 0 ? '− ' : '') + fmt(n);
 
-  document.getElementById('resProfit').textContent = fmt(profit);
-  document.getElementById('resProfit').className = 'fs-2 fw-bold ' + (profit >= 0 ? 'text-success' : 'text-danger');
+  const profitEl = document.getElementById('resProfit');
+  profitEl.textContent = fmt(profit);
+  profitEl.className = 'pp-res-profit ' + (profit >= 0 ? 'pos' : 'neg');
+
   document.getElementById('resMargin').textContent = fmtPct(margin);
   document.getElementById('resRoi').textContent = fmtPct(roi);
-  document.getElementById('resCommAmt').textContent = fmt(commAmt);
-  document.getElementById('resTaxAmt').textContent = fmt(taxAmt);
+
+  document.getElementById('resPrice').textContent = fmt(price);
+  document.getElementById('resCostAmt').textContent = neg(cost);
+  document.getElementById('resCommAmt').textContent = neg(commAmt);
+  document.getElementById('resLogAmt').textContent = neg(logistics);
+  document.getElementById('resTaxAmt').textContent = neg(taxAmt);
+  document.getElementById('resOtherAmt').textContent = neg(other);
+  document.getElementById('resProfitRow').textContent = fmt(profit);
+
+  const hintEl = document.getElementById('logisticsHint');
+  if (liters > 0) {
+    hintEl.innerHTML = `${T_VOLUME}: <b>${liters} ${T_LITERS}</b> · ${T_LOG}: <b>${fmt(logistics)} ${T_SUM}</b>`;
+    hintEl.style.display = 'block';
+  } else {
+    hintEl.style.display = 'none';
+  }
 }
+
+calc();
 </script>
 {% endblock %}

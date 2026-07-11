@@ -19,7 +19,6 @@ from core.subscriptions import (
     write_session_subscription,
 )
 
-
 telegram_bp = Blueprint("telegram_bp", __name__)
 
 _app = None
@@ -28,59 +27,6 @@ _app = None
 def init_telegram_routes(app_module):
     global _app
     _app = app_module
-
-
-@telegram_bp.get("/api/telegram/code")
-def api_tg_generate_code():
-    _app._tg_clean_expired()
-    code = secrets.token_hex(3).upper()
-    _app._tg_set(code, type="code")
-    return jsonify({"code": code})
-
-
-@telegram_bp.get("/api/telegram/check/<code>")
-def api_tg_check_code(code):
-    code = code.upper()
-    _app._tg_clean_expired()
-    entry = _app._tg_get(code)
-    if not entry:
-        return jsonify({"status": "expired"})
-    if not entry.get("confirmed"):
-        return jsonify({"status": "waiting"})
-
-    tg_id = entry["tg_id"]
-    tg_username = entry["tg_username"] or f"tg_{tg_id}"
-
-    with SessionLocal() as db:
-        user = db.execute(select(User).where(User.telegram_id == tg_id)).scalar_one_or_none()
-        if user is None:
-            base = tg_username
-            username = base
-            suffix = 1
-            while db.execute(select(User).where(User.username == username)).scalar_one_or_none():
-                username = f"{base}_{suffix}"
-                suffix += 1
-            user = User(
-                username=username,
-                password_hash=generate_password_hash(os.urandom(32).hex()),
-                telegram_id=tg_id,
-                is_admin=False,
-            )
-            _ensure_user_trial_started(db, user)
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        login_user(user)
-        # Step 0: mirror subscription state into the signed session so the
-        # gate's fast path hits on the next request — and clear any stale
-        # revoke so a re-login unblocks the user.
-        settings = _get_or_create_subscription_settings(db)
-        status = _subscription_status_for_user(user, settings=settings)
-        write_session_subscription(session, status)
-        unrevoke_user(user.id)
-
-    _app._tg_delete(code)
-    return jsonify({"status": "ok", "redirect": url_for("products_bp.groups_page")})
 
 
 @telegram_bp.post("/api/telegram/send-approval")
@@ -106,7 +52,7 @@ def api_tg_send_approval():
             bot_username = cfg.get("bot_username", "")
             # Create a contact_link pending token — bot will confirm it when user shares contact
             token = secrets.token_hex(16)
-            # Store phone digits in tg_username field (reused for contact_link type)
+            # Store the token with type "contact_link" so the approval-checking route can distinguish it from regular approvals and skip the waiting state.
             _app._tg_set(token, type="contact_link", tg_username=digits)
             return jsonify({
                 "not_linked": True,
@@ -144,13 +90,14 @@ def api_tg_send_approval():
 
     return jsonify({"ok": True, "token": token})
 
-
+# user clicks the approval button in Telegram, which hits the callback route in the bot, and the bot updates the pending entry with "confirmed": True. The frontend polls the check-approval route to see when it's confirmed, then logs in the user.
 @telegram_bp.get("/api/telegram/check-approval/<token>")
 def api_tg_check_approval(token):
     _app._tg_clean_expired()
     entry = _app._tg_get(token)
     if not entry or entry.get("type") not in ("approval", "contact_link"):
         return jsonify({"status": "expired"})
+    
     if not entry.get("confirmed"):
         return jsonify({"status": "waiting"})
 
@@ -167,4 +114,4 @@ def api_tg_check_approval(token):
         unrevoke_user(user.id)
 
     _app._tg_delete(token)
-    return jsonify({"status": "ok", "redirect": url_for("products_bp.groups_page")})
+    return jsonify({"status": "ok", "redirect": url_for("products_bp.economics_page")})

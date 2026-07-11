@@ -11,6 +11,7 @@
   --pp-text-2:#5A5762;
   --pp-text-muted:#8E8B97;
   --pp-active-bg:#EFEEF2;
+  --pp-tab-active-bg:#1A1A22; --pp-tab-active-fg:#ffffff;
   --pp-mono-pill-bg:#F4F4F7;
   --pp-mono-pill-text:#3A3744;
   --pp-btn-primary-bg:#1A1A22;
@@ -35,6 +36,7 @@
   --pp-text-2:#B6B4C2;
   --pp-text-muted:#8A8896;
   --pp-active-bg:#22222D;
+  --pp-tab-active-bg:#ECECF2; --pp-tab-active-fg:#1A1A22;
   --pp-mono-pill-bg:#101018;
   --pp-mono-pill-text:#D7D4DF;
   --pp-btn-primary-bg:#F0EDF5;
@@ -118,6 +120,7 @@
   width: 100%; font-size: 14px; color: var(--pp-text);
 }
 .pp-search input::placeholder { color: var(--pp-text-muted); }
+.pp-loading { opacity: .45; transition: opacity .12s ease; pointer-events: none; }
 
 .pp-store-picker { position: relative; }
 .pp-store-trigger {
@@ -165,15 +168,15 @@
   transition: background .15s, color .15s;
 }
 .pp-tab:hover { color: var(--pp-text); background: var(--pp-hover); }
-.pp-tab.active { background: var(--pp-active-bg); color: var(--pp-text); font-weight: 600; }
+.pp-tab.active { background: var(--pp-tab-active-bg); color: var(--pp-tab-active-fg); font-weight: 600; }
 .pp-tab-badge {
   font-size: 12px; font-weight: 600; min-width: 20px;
   padding: 2px 7px; border-radius: 999px;
   background: rgba(0,0,0,.06); color: var(--pp-text-2);
 }
 [data-bs-theme="dark"] .pp-tab-badge { background: rgba(255,255,255,.08); }
-.pp-tab.active .pp-tab-badge { background: rgba(0,0,0,.10); color: var(--pp-text); }
-[data-bs-theme="dark"] .pp-tab.active .pp-tab-badge { background: rgba(255,255,255,.16); }
+.pp-tab.active .pp-tab-badge { background: rgba(255,255,255,.20); color: var(--pp-tab-active-fg); }
+[data-bs-theme="dark"] .pp-tab.active .pp-tab-badge { background: rgba(0,0,0,.12); }
 
 .pp-view-toggle {
   display: inline-flex; align-items: center; gap: 2px;
@@ -196,17 +199,18 @@
 
 .pp-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
 }
-@media (max-width: 1400px) { .pp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1024px) { .pp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px)  { .pp-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1180px) { .pp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 940px)  { .pp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .pp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px)  { .pp-grid { grid-template-columns: 1fr; } }
 
 .pp-card {
   background: var(--pp-surface);
   border: 1px solid var(--pp-border);
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
   display: flex; flex-direction: column;
   text-decoration: none; color: inherit;
@@ -217,7 +221,8 @@
 .pp-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .pp-card-img-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--pp-text-muted); }
 .pp-store-badge {
-  position: absolute; top: 12px; left: 12px;
+  display: none;  /* hidden for now (was the LUXUZ/BLUMMY corner badge) */
+  position: absolute; top: 4px; left: 4px;
   padding: 4px 10px; border-radius: 999px;
   font-size: 11px; font-weight: 700;
   letter-spacing: .04em; text-transform: uppercase;
@@ -240,9 +245,9 @@
 .pp-card-iconbtn:hover { color: var(--pp-text); }
 .pp-card-iconbtn.is-hidden { background: var(--pp-text); color: var(--pp-surface); border-color: transparent; }
 .pp-card-iconbtn svg { width: 16px; height: 16px; }
-.pp-card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.pp-card-body { padding: 11px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
 .pp-card-title {
-  font-size: 15px; font-weight: 600; color: var(--pp-text);
+  font-size: 14px; font-weight: 600; color: var(--pp-text);
   line-height: 1.3; margin: 0;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
@@ -250,19 +255,22 @@
 .pp-card-cat { font-size: 12px; color: var(--pp-text-muted); }
 .pp-sku-pill {
   display: inline-block; align-self: flex-start;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 8px;
   background: var(--pp-mono-pill-bg);
   color: var(--pp-mono-pill-text);
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  font-size: 13px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   letter-spacing: -0.01em;
   word-break: break-all;
 }
-.pp-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
-.pp-metric { border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.pp-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 2px; }
+.pp-metric { border-radius: 10px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
 .pp-metric-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
-.pp-metric-value { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+/* Number is the normal ink colour (not the block's accent), and uses a sans
+   face so the "0" renders plain — JetBrains/SF Mono draw a dotted zero. The
+   coloured label and the block background are left untouched. */
+.pp-metric-value { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "zero" 0; line-height: 1.1; color: var(--pp-text); }
 .pp-metric.fbo { background: var(--pp-fbo-bg); color: var(--pp-fbo-fg); }
 .pp-metric.fbs { background: var(--pp-fbs-bg); color: var(--pp-fbs-fg); }
 .pp-metric.wh  { background: var(--pp-wh-bg);  color: var(--pp-wh-fg);  }
@@ -295,7 +303,73 @@
 @media (max-width: 1100px) { .pp-row { grid-template-columns: 64px 1fr 80px 80px 80px 70px; gap: 10px; } }
 @media (max-width: 820px)  { .pp-row { grid-template-columns: 56px 1fr; } .pp-row .pp-metric, .pp-row-actions { display: none; } }
 
-.pp-card.is-hidden, .pp-row.is-hidden { opacity: .68; }
+.pp-card.is-hidden, .pp-row.is-hidden, .pp-scard.is-hidden { opacity: .68; }
+
+/* ── Detailed "stats" card view ─────────────────────────────────────── */
+.pp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1500px) { .pp-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1080px) { .pp-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px)  { .pp-stats-grid { grid-template-columns: 1fr; } }
+.pp-scard {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: 20px;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  text-decoration: none; color: inherit;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.pp-scard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(20,16,40,.08); border-color: var(--pp-border-strong); color: inherit; }
+.pp-scard-top { display: grid; grid-template-columns: clamp(92px, 30%, 130px) 1fr; gap: 12px; }
+.pp-scard-img { position: relative; aspect-ratio: 3/4; border-radius: 12px; overflow: hidden; background: var(--pp-active-bg); align-self: start; }
+.pp-scard-img img { width: 100%; height: 100%; object-fit: cover; }
+.pp-scard-img .pp-card-img-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--pp-text-muted); }
+.pp-scard-right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pp-scard-head { display: flex; align-items: center; gap: 6px; }
+.pp-status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 10px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.pp-status-badge svg { width: 13px; height: 13px; }
+.pp-status-badge.is-ready { background: #E8F6EC; color: #1E9E54; }
+.pp-status-badge.is-nosku { background: #FDF1DC; color: #B7791F; }
+[data-bs-theme="dark"] .pp-status-badge.is-ready { background: rgba(30,158,84,.16); color: #6FD79A; }
+[data-bs-theme="dark"] .pp-status-badge.is-nosku { background: rgba(183,121,31,.18); color: #E4B665; }
+.pp-scard-head .pp-card-iconbtn { width: 30px; height: 30px; background: var(--pp-surface); border-color: var(--pp-border); }
+.pp-scard-head .pp-card-iconbtn:first-of-type { margin-left: auto; }
+.pp-stats {
+  background: var(--pp-page-bg);
+  border-radius: 10px; padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.pp-stat { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.pp-stat-label { color: var(--pp-text-muted); }
+.pp-stat-value { font-weight: 700; color: var(--pp-text); font-variant-numeric: tabular-nums; }
+.pp-stat-value.is-muted { color: var(--pp-text-muted); font-weight: 600; }
+.pp-stat-value .pp-star { color: #F5A623; margin-right: 3px; }
+.pp-scard-stock { }
+.pp-stock-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pp-text-muted); margin-bottom: 6px; }
+.pp-scard-body { display: flex; flex-direction: column; gap: 8px; }
+.pp-scard-body .pp-card-title { -webkit-line-clamp: 2; }
+.pp-moder { font-size: 13px; color: var(--pp-text-muted); }
+.pp-moder .pp-moder-val { font-weight: 600; }
+.pp-scard-ids { font-size: 12px; color: var(--pp-text-muted); font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+.pp-scard-ids b { color: var(--pp-text-2); font-weight: 700; }
+.pp-scard-price { font-size: 20px; font-weight: 800; color: var(--pp-text); }
+.pp-scard-price span { font-size: 13px; font-weight: 500; color: var(--pp-text-muted); }
+/* Copyable text inside the card link: selectable, with a text cursor. A
+   delegated click handler (see script below) stops these from navigating so
+   you can select/copy instead of opening the product. */
+.pp-copyable { user-select: text; -webkit-user-select: text; cursor: text; -webkit-user-drag: none; width: fit-content; max-width: 100%; }
+/* Disable the card link's native drag (the URL "ghost" preview) so dragging
+   across the text selects a partial range instead of starting a link drag. */
+.pp-card, .pp-scard, .pp-row { -webkit-user-drag: none; }
+.pp-card img, .pp-scard img, .pp-row img { -webkit-user-drag: none; user-drag: none; }
 
 .pp-empty {
   grid-column: 1 / -1;
@@ -342,16 +416,16 @@
 <div class="pp-products">
   <div class="pp-title-row">
     <div>
-      <h1 class="pp-h1">Мои товары</h1>
+      <h1 class="pp-h1">{{ "Mening mahsulotlarim" if lang == "uz" else "Мои товары" }}</h1>
     </div>
     <div class="pp-title-actions">
       <button type="button" class="pp-btn-ghost-bordered" id="pp-sort-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
-        Сортировка
+        {{ "Saralash" if lang == "uz" else "Сортировка" }}
       </button>
       <button type="button" class="pp-btn-primary" id="pp-new-product-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новый товар
+        {{ "Yangi mahsulot" if lang == "uz" else "Новый товар" }}
       </button>
     </div>
   </div>
@@ -359,20 +433,19 @@
   <div class="pp-filter-row">
     <label class="pp-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="ppSearch" type="text" value="{{ q }}" placeholder="Поиск по названию или SKU…">
+      <input id="ppSearch" type="text" value="{{ q }}" placeholder="{{ 'Nom yoki SKU bo\'yicha qidirish…' if lang == 'uz' else 'Поиск по названию или SKU…' }}">
     </label>
 
     {% if shops | length > 1 %}
     <div class="pp-store-picker" id="ppStorePicker">
       <button type="button" class="pp-store-trigger" id="ppStoreTrigger">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span id="ppStoreLabel">{{ shops | selectattr('id', 'equalto', current_shop_id|int) | map(attribute='name') | first | default('Все магазины') if current_shop_id else 'Все магазины' }}</span>
+        <span id="ppStoreLabel">{% set _sel = (shops | selectattr('id', 'equalto', current_shop_id|int) | list | first) if (current_shop_id and current_shop_id != 'all') else none %}{{ (_sel.name or _sel.uzum_id) if _sel else (shops[0].name or shops[0].uzum_id if shops else '') }}</span>
         <svg class="pp-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="pp-store-menu">
-        <div class="pp-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">Все магазины</div>
         {% for s in shops %}
-        <div class="pp-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
+        <div class="pp-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}" data-uzum-id="{{ s.uzum_id }}">{{ s.name or s.uzum_id }}</div>
         {% endfor %}
       </div>
     </div>
@@ -381,23 +454,26 @@
     <div class="pp-tabs" role="tablist">
       <a class="pp-tab {{ 'active' if current_status == 'active' }}" data-tab="active"
          href="/groups?status=active{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
-        Активные <span class="pp-tab-badge" id="ppTabBadgeActive">{{ count_active }}</span>
+        {{ "Faollar" if lang == "uz" else "Активные" }} <span class="pp-tab-badge" id="ppTabBadgeActive">{{ count_active }}</span>
       </a>
       <button type="button" class="pp-tab" data-tab="hidden">
-        Скрытые <span class="pp-tab-badge" id="ppTabBadgeHidden">0</span>
+        {{ "Yashirilgan" if lang == "uz" else "Скрытые" }} <span class="pp-tab-badge" id="ppTabBadgeHidden">0</span>
       </button>
       <a class="pp-tab {{ 'active' if current_status == 'archived' }}" data-tab="archive"
          href="/groups?status=archived{% if current_shop_id %}&shop_id={{ current_shop_id }}{% endif %}{% if q %}&q={{ q }}{% endif %}">
-        Архив <span class="pp-tab-badge" id="ppTabBadgeArchive">{{ count_archived }}</span>
+        {{ "Arxiv" if lang == "uz" else "Архив" }} <span class="pp-tab-badge" id="ppTabBadgeArchive">{{ count_archived }}</span>
       </a>
     </div>
 
-    <div class="pp-view-toggle" role="group" aria-label="Вид списка">
-      <button type="button" class="pp-vt-btn active" data-view="grid" title="Сетка">
+    <div class="pp-view-toggle" role="group" aria-label="{{ 'Ro\'yxat ko\'rinishi' if lang == 'uz' else 'Вид списка' }}">
+      <button type="button" class="pp-vt-btn active" data-view="grid" title="{{ 'Katak' if lang == 'uz' else 'Сетка' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       </button>
-      <button type="button" class="pp-vt-btn" data-view="list" title="Список">
+      <button type="button" class="pp-vt-btn" data-view="list" title="{{ 'Ro\'yxat' if lang == 'uz' else 'Список' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </button>
+      <button type="button" class="pp-vt-btn" data-view="stats" title="{{ 'Statistika' if lang == 'uz' else 'Статистика' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       </button>
     </div>
   </div>
@@ -405,15 +481,15 @@
   {% macro render_card(g, a, store_name, store_key, view) -%}
     {% set img = g.image_url | uzum540 if g.image_url else '' %}
     {% if view == 'grid' %}
-    <a class="pp-card" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
+    <a class="pp-card" draggable="false" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
       <div class="pp-card-img-wrap">
         {% if store_name %}<span class="pp-store-badge {% if store_key == 'luxuz' %}is-luxuz{% elif store_key == 'blummy' %}is-blummy{% endif %}">{{ store_name }}</span>{% endif %}
         <div class="pp-card-tools">
-          <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="Скрыть товар" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
+          <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
             <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
-          <button type="button" class="pp-card-iconbtn" title="Действия" onclick="event.preventDefault(); event.stopPropagation();">
+          <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </button>
         </div>
@@ -425,18 +501,71 @@
         {% endif %}
       </div>
       <div class="pp-card-body">
-        <h3 class="pp-card-title">{{ g.name }}</h3>
+        <h3 class="pp-card-title pp-copyable">{{ g.name }}</h3>
         {% if g.category %}<div class="pp-card-cat">{{ g.category }}</div>{% endif %}
         {% if a.sku %}<span class="pp-sku-pill">{{ a.sku }}</span>{% endif %}
         <div class="pp-metrics">
           <div class="pp-metric fbo"><span class="pp-metric-label">FBO</span><span class="pp-metric-value">{{ a.fbo }}</span></div>
           <div class="pp-metric fbs"><span class="pp-metric-label">FBS</span><span class="pp-metric-value">{{ a.fbs }}</span></div>
-          <div class="pp-metric wh"><span class="pp-metric-label">Склад</span><span class="pp-metric-value">{{ a.wh }}</span></div>
+          <div class="pp-metric wh"><span class="pp-metric-label">{{ "Ombor" if lang == "uz" else "Склад" }}</span><span class="pp-metric-value">{{ a.wh }}</span></div>
         </div>
       </div>
     </a>
+    {% elif view == 'stats' %}
+    <a class="pp-scard" draggable="false" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
+      <div class="pp-scard-top">
+        <div class="pp-scard-img">
+          {% if store_name %}<span class="pp-store-badge {% if store_key == 'luxuz' %}is-luxuz{% elif store_key == 'blummy' %}is-blummy{% endif %}">{{ store_name }}</span>{% endif %}
+          {% if img %}
+          <img src="{{ img }}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="pp-card-img-empty" style="display:none">—</div>
+          {% else %}<div class="pp-card-img-empty">—</div>{% endif %}
+        </div>
+        <div class="pp-scard-right">
+          <div class="pp-scard-head">
+            {% if g.status_title %}
+            <span class="pp-status-badge" style="color:{{ g.status_color or '#797D86' }};background:{{ (g.status_color or '#797D86') ~ '1A' }}">
+              {% if g.status_value in ['IN_STOCK','READY_TO_SEND'] %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>{% endif %}{{ g.status_title }}
+            </span>
+            {% else %}
+            <span class="pp-status-badge is-nosku">{{ "SKU yo'q" if lang == "uz" else "Нет СКУ" }}</span>
+            {% endif %}
+            <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
+              <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            </button>
+          </div>
+          <div class="pp-stats">
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Reyting" if lang == "uz" else "Рейтинг" }}</span><span class="pp-stat-value {{ 'is-muted' if not g.rating }}"><span class="pp-star">★</span>{% if g.rating %}{{ '%.1f'|format(g.rating) }}{% else %}—{% endif %}</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Ko'rishlar" if lang == "uz" else "Просмотры" }}</span><span class="pp-stat-value">{{ g.viewers or 0 }}</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Konversiya" if lang == "uz" else "Конверсия" }}</span><span class="pp-stat-value">{{ '%.2f'|format(g.conversion or 0) }}%</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">ROI</span><span class="pp-stat-value {{ 'is-muted' if g.roi is none }}">{% if g.roi is none %}—{% else %}{{ g.roi|round|int }}%{% endif %}</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Sotilgan" if lang == "uz" else "Продано" }}</span><span class="pp-stat-value">{{ g.quantity_sold or 0 }}</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Qaytarish" if lang == "uz" else "Возврат" }}</span><span class="pp-stat-value">{{ g.quantity_returned or 0 }}</span></div>
+            <div class="pp-stat"><span class="pp-stat-label">{{ "Brak" if lang == "uz" else "Брак" }}</span><span class="pp-stat-value">{{ g.quantity_defected or 0 }}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pp-scard-stock">
+        <div class="pp-stock-label">{{ "Qoldiqlar" if lang == "uz" else "Остатки" }}</div>
+        <div class="pp-metrics">
+          <div class="pp-metric fbo"><span class="pp-metric-label">FBO</span><span class="pp-metric-value">{{ g.quantity_available if g.quantity_available is not none else a.fbo }}</span></div>
+          <div class="pp-metric fbs"><span class="pp-metric-label">FBS</span><span class="pp-metric-value">{{ g.quantity_fbs if g.quantity_fbs is not none else a.fbs }}</span></div>
+          <div class="pp-metric wh"><span class="pp-metric-label">{{ "Ombor" if lang == "uz" else "Склад" }}</span><span class="pp-metric-value">{{ a.wh }}</span></div>
+        </div>
+      </div>
+      <div class="pp-scard-body">
+        <h3 class="pp-card-title pp-copyable">{{ g.name }}</h3>
+        <div class="pp-moder">{{ "Moderatsiya" if lang == "uz" else "Модерация" }}: {% if g.moderation_title %}<span class="pp-moder-val" style="color:{{ g.moderation_color or 'inherit' }}">{{ g.moderation_title }}</span>{% else %}<span class="pp-moder-val">—</span>{% endif %}</div>
+        <div class="pp-scard-ids pp-copyable">SKU: <b>{{ a.sku or '—' }}</b>&nbsp;&nbsp;ID: <b>{{ g.uzum_product_id or g.id }}</b></div>
+        {% if a.price_from %}<div class="pp-scard-price pp-copyable">{{ "dan" if lang == "uz" else "от" }} {{ '{:,}'.format(a.price_from).replace(',', ' ') }} <span>so'm</span></div>{% endif %}
+      </div>
+    </a>
     {% else %}
-    <a class="pp-row" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
+    <a class="pp-row" draggable="false" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
       <div class="pp-row-img">
         {% if img %}
         <img src="{{ img }}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -457,13 +586,13 @@
       </div>
       <div class="pp-metric fbo"><span class="pp-metric-label">FBO</span><span class="pp-metric-value">{{ a.fbo }}</span></div>
       <div class="pp-metric fbs"><span class="pp-metric-label">FBS</span><span class="pp-metric-value">{{ a.fbs }}</span></div>
-      <div class="pp-metric wh"><span class="pp-metric-label">Склад</span><span class="pp-metric-value">{{ a.wh }}</span></div>
+      <div class="pp-metric wh"><span class="pp-metric-label">{{ "Ombor" if lang == "uz" else "Склад" }}</span><span class="pp-metric-value">{{ a.wh }}</span></div>
       <div class="pp-row-actions">
-        <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="Скрыть товар" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
+        <button type="button" class="pp-card-iconbtn pp-hide-btn" data-product-id="{{ g.id }}" title="{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}" onclick="event.preventDefault(); event.stopPropagation(); ppToggleHidden({{ g.id }}, this);">
           <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
           <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
-        <button type="button" class="pp-card-iconbtn" title="Действия" onclick="event.preventDefault(); event.stopPropagation();">
+        <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
       </div>
@@ -473,7 +602,7 @@
 
   {% set ns = namespace(items=[]) %}
   {% for g in groups %}
-    {% set a = agg.get(g.id, {"variants":0, "fbo":0, "fbs":0, "wh":0, "sku":""}) %}
+    {% set a = agg.get(g.id, {"variants":0, "fbo":0, "fbs":0, "wh":0, "sku":"", "views":0, "sold":0, "returned":0, "defected":0, "conversion":0.0, "roi":none, "price_from":0}) %}
     {% set shop = shops_by_id.get(g.shop_id) %}
     {% set sname = (shop.name if shop else None) or '' %}
     {% set skey = sname.lower() %}
@@ -484,7 +613,7 @@
     {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'grid') }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
-        <div class="pp-empty-title">Здесь пока пусто</div>
+        <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
         <div class="pp-empty-body">{% if current_status == 'archived' %}{{ t.groups_empty_archived }}{% else %}{{ t.groups_empty_active }}{% endif %}</div>
       </div>
     {% endif %}
@@ -494,18 +623,30 @@
     {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'list') }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
-        <div class="pp-empty-title">Здесь пока пусто</div>
+        <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
         <div class="pp-empty-body">{% if current_status == 'archived' %}{{ t.groups_empty_archived }}{% else %}{{ t.groups_empty_active }}{% endif %}</div>
       </div>
     {% endif %}
   </div>
 
+  <div id="ppStatsView" class="pp-stats-grid" style="display:none">
+    {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'stats') }}{% endfor %}
+    {% if not groups %}
+      <div class="pp-empty">
+        <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
+        <div class="pp-empty-body">{% if current_status == 'archived' %}{{ t.groups_empty_archived }}{% else %}{{ t.groups_empty_active }}{% endif %}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div id="ppPagination">
   {% if total_pages is defined and total_pages > 1 %}
-  <div class="pp-pagination">
+  <div class="pp-pagination" data-page="{{ page }}" data-total="{{ total_pages }}">
     <div class="pp-pg-info">{{ t.common_shown }} {{ groups|length }} {{ t.common_of }} {{ total_count }} {{ t.common_products }} ({{ t.common_page }} {{ page }} {{ t.common_of }} {{ total_pages }})</div>
     <div class="pp-pg-list" id="ppPgList"></div>
   </div>
   {% endif %}
+  </div>
 </div>
 
 <div id="ppToast" class="pp-toast" role="status" aria-live="polite"></div>
@@ -514,21 +655,83 @@
 {% block extra_js %}
 <script>
 (function(){
-  // live search
+  // Let card text (title, SKU/ID, price) be selected/copied instead of opening
+  // the product: clicking a .pp-copyable element cancels the card link's
+  // navigation. Text selection (drag) still works normally.
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (t && t.closest && t.closest('.pp-copyable')) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  // live search — AJAX swap instead of full-page reload, so the cursor
+  // stays in the box and the page doesn't flash/scroll on every keystroke.
   var search = document.getElementById('ppSearch');
   if (search) {
     var timer;
     search.addEventListener('input', function() {
       clearTimeout(timer);
       var val = this.value;
-      timer = setTimeout(function() {
-        var params = new URLSearchParams(window.location.search);
-        if (val.trim()) params.set('q', val.trim()); else params.delete('q');
-        params.delete('page');
-        window.location.search = params.toString();
-      }, 400);
+      timer = setTimeout(function() { runSearch(val, true); }, 300);
     });
   }
+
+  var searchSeq = 0;
+
+  function setLoading(on) {
+    ['ppGridView', 'ppListView', 'ppStatsView'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('pp-loading', on);
+    });
+  }
+
+  function navigateAjax(url, pushHistory) {
+    var seq = ++searchSeq;
+    setLoading(true);
+    fetch(url, { headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        if (seq !== searchSeq) return; // a newer request superseded this one
+        if (pushHistory) history.pushState({ ajax: true }, '', url);
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        swapContent(doc);
+      })
+      .catch(function() {})
+      .then(function() { if (seq === searchSeq) setLoading(false); });
+  }
+
+  function runSearch(val, pushHistory) {
+    var params = new URLSearchParams(window.location.search);
+    if (val.trim()) params.set('q', val.trim()); else params.delete('q');
+    params.delete('page');
+    navigateAjax(window.location.pathname + '?' + params.toString(), pushHistory);
+  }
+
+  function swapContent(doc) {
+    ['ppGridView', 'ppListView', 'ppStatsView'].forEach(function(id) {
+      var src = doc.getElementById(id), dst = document.getElementById(id);
+      if (src && dst) dst.innerHTML = src.innerHTML;
+    });
+    var newPag = doc.getElementById('ppPagination'), curPag = document.getElementById('ppPagination');
+    if (newPag && curPag) curPag.innerHTML = newPag.innerHTML;
+    ['ppTabBadgeActive', 'ppTabBadgeArchive'].forEach(function(id) {
+      var src = doc.getElementById(id), dst = document.getElementById(id);
+      if (src && dst) dst.textContent = src.textContent;
+    });
+    applyView(localStorage.getItem(viewKey) || 'grid');
+    applyHiddenState(currentTab);
+    buildPagination();
+  }
+
+  window.addEventListener('popstate', function() {
+    if (search) {
+      var p = new URLSearchParams(window.location.search);
+      search.value = p.get('q') || '';
+    }
+    navigateAjax(window.location.pathname + window.location.search, false);
+  });
 
   // store picker
   var picker = document.getElementById('ppStorePicker');
@@ -541,6 +744,9 @@
         e.stopPropagation();
         var params = new URLSearchParams(window.location.search);
         var sid = item.dataset.shopId;
+        // Remember the pick across pages (/groups, /sales) until changed.
+        var uz = sid === 'all' ? 'all' : (item.dataset.uzumId || '');
+        if (uz) document.cookie = 'sh_shop=' + encodeURIComponent(uz) + '; path=/; max-age=31536000; SameSite=Lax';
         if (sid) params.set('shop_id', sid); else params.delete('shop_id');
         params.delete('page');
         window.location.search = params.toString();
@@ -554,6 +760,8 @@
   function applyView(v) {
     document.getElementById('ppGridView').style.display = v === 'grid' ? '' : 'none';
     document.getElementById('ppListView').style.display = v === 'list' ? '' : 'none';
+    var statsView = document.getElementById('ppStatsView');
+    if (statsView) statsView.style.display = v === 'stats' ? '' : 'none';
     document.querySelectorAll('.pp-vt-btn').forEach(function(b) {
       b.classList.toggle('active', b.dataset.view === v);
     });
@@ -601,7 +809,7 @@
           off.style.display = isHidden ? '' : 'none';
         }
         btn.classList.toggle('is-hidden', isHidden);
-        btn.title = isHidden ? 'Показать товар' : 'Скрыть товар';
+        btn.title = isHidden ? "{{ "Mahsulotni ko'rsatish" if lang == 'uz' else 'Показать товар' }}" : "{{ 'Mahsulotni yashirish' if lang == 'uz' else 'Скрыть товар' }}";
       }
     });
     updateHiddenBadge();
@@ -648,7 +856,7 @@
     else                   { hiddenIds.add(id);    nowHidden = true; }
     persistHidden();
     applyHiddenState(currentTab);
-    showToast(nowHidden ? 'Товар скрыт' : 'Товар возвращён в активные');
+    showToast(nowHidden ? '{{ "Mahsulot yashirildi" if lang == "uz" else "Товар скрыт" }}' : '{{ "Mahsulot faollarga qaytarildi" if lang == "uz" else "Товар возвращён в активные" }}');
   };
 
   // toast
@@ -661,13 +869,20 @@
     toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 2200);
   }
 
-  // pagination
-  {% if total_pages is defined and total_pages > 1 %}
-  (function() {
-    var cur = {{ page }};
-    var total = {{ total_pages }};
-    var params = new URLSearchParams(window.location.search);
-    function pageUrl(p) { params.set('page', p); return window.location.pathname + '?' + params.toString(); }
+  // pagination — rebuilt from data-attrs so it also works after an AJAX swap;
+  // page links navigate via AJAX too (no full reload).
+  function buildPagination() {
+    var wrap = document.querySelector('#ppPagination .pp-pagination');
+    var pgList = document.getElementById('ppPgList');
+    if (!wrap || !pgList) return;
+    pgList.innerHTML = '';
+    var cur = parseInt(wrap.dataset.page, 10) || 1;
+    var total = parseInt(wrap.dataset.total, 10) || 1;
+    function pageUrl(p) {
+      var q = new URLSearchParams(window.location.search);
+      q.set('page', p);
+      return window.location.pathname + '?' + q.toString();
+    }
     function item(p, label, disabled, active) {
       if (disabled || active) {
         var s = document.createElement('span');
@@ -676,21 +891,23 @@
         return s;
       }
       var a = document.createElement('a');
-      a.href = pageUrl(p); a.textContent = label; return a;
+      a.href = pageUrl(p);
+      a.textContent = label;
+      a.addEventListener('click', function(e) { e.preventDefault(); navigateAjax(a.href, true); });
+      return a;
     }
-    var pgList = document.getElementById('ppPgList');
     pgList.appendChild(item(cur - 1, '‹', cur <= 1, false));
     var start = Math.max(1, cur - 2), end = Math.min(total, cur + 2);
     for (var p = start; p <= end; p++) pgList.appendChild(item(p, p, false, p === cur));
     pgList.appendChild(item(cur + 1, '›', cur >= total, false));
-  })();
-  {% endif %}
+  }
+  buildPagination();
 
   // «Новый товар» → noviy_tavar/ wizard sahifasi
   var newBtn = document.getElementById('pp-new-product-btn');
   if (newBtn) newBtn.addEventListener('click', function() { window.location.href = '/noviy-tavar'; });
   var sortBtn = document.getElementById('pp-sort-btn');
-  if (sortBtn) sortBtn.addEventListener('click', function() { showToast('Скоро: сортировка'); });
+  if (sortBtn) sortBtn.addEventListener('click', function() { showToast('{{ "Tez kunda: saralash" if lang == "uz" else "Скоро: сортировка" }}'); });
 })();
 </script>
 {% endblock %}

@@ -7,10 +7,10 @@ from datetime import date, datetime, timedelta, time as dt_time
 
 from flask import Blueprint, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import select, func, delete, update
+from sqlalchemy import select, func, delete, update, false as sql_false
 
 from extensions import SessionLocal
-from models import ProductGroup, Variant, VariantSale, Shop, User, ExpensesLedger
+from models import ProductGroup, Variant, Shop, User, ExpensesLedger
 from core.parsers import _safe_qty
 from core.uzum_skulist import normalize_uzum_image_url
 from core.sales_reads import (
@@ -51,7 +51,7 @@ def init_products_routes(app_module):
 @products_bp.get("/")
 @login_required
 def home():
-    return redirect(url_for("products_bp.groups_page"))
+    return redirect(url_for("products_bp.economics_page"))
 
 @products_bp.get("/print/labels")
 @login_required
@@ -105,12 +105,37 @@ def groups_page():
     shop_filter = (request.args.get("shop_id") or "").strip()
     status_filter = (request.args.get("status") or "active").strip().lower()
     display_status = "archived" if status_filter in ("archived", "archive") else "active"
-    page = max(1, int(request.args.get("page") or 1))
-    per_page = 50
+    page = 1  # pagination removed — all products render on a single page
 
     # Restrict to the user's assigned shops
     uid = int(current_user.get_id())
     allowed_shop_ids = _user_shop_ids(uid)
+
+    # Default shop selection: on first visit (no shop_id param) reuse the shop
+    # picked on other pages (sh_shop cookie, holds Shop.uzum_id or the sentinel
+    # 'all'), falling back to the first shop. An explicit "Все магазины" pick
+    # arrives as shop_id=all and is likewise remembered via the cookie.
+    if shop_filter == "" and allowed_shop_ids:
+        saved = (request.cookies.get("sh_shop") or "").strip()
+        if saved == "all":
+            shop_filter = "all"
+        elif saved:
+            with SessionLocal() as db:
+                sid = db.execute(
+                    select(Shop.id).where(
+                        Shop.uzum_id == saved, Shop.id.in_(allowed_shop_ids)
+                    )
+                ).scalar_one_or_none()
+            if sid is not None:
+                shop_filter = str(sid)
+        if shop_filter == "":
+            shop_filter = str(sorted(allowed_shop_ids)[0])
+
+    # The groups page has no "Все магазины" (all shops) option in its picker, so
+    # coerce the 'all' sentinel — which may arrive from the shop cookie shared
+    # with other pages, or from an old ?shop_id=all link — to the first shop.
+    if shop_filter == "all" and allowed_shop_ids:
+        shop_filter = str(sorted(allowed_shop_ids)[0])
 
     with SessionLocal() as db:
         stmt = select(ProductGroup)
@@ -141,20 +166,21 @@ def groups_page():
             ).with_only_columns(ProductGroup.id).distinct().subquery()
             stmt = select(ProductGroup).where(ProductGroup.id.in_(select(subq)))
 
-        # Sort by sku-list position (0 = not in sku-list, goes last), then by id
+        # Newest products first (mirrors Uzum's "Мои товары" ordering). The Uzum
+        # sku-list position grows with recency, so order it DESC. Rows with 0
+        # (not in the sku-list) still sort last; id.desc() breaks any ties.
         stmt = stmt.order_by(
             (ProductGroup.uzum_sort_order == 0).asc(),
-            ProductGroup.uzum_sort_order.asc(),
-            ProductGroup.id.asc(),
+            ProductGroup.uzum_sort_order.desc(),
+            ProductGroup.id.desc(),
         )
 
         total_count = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
-        total_pages = max(1, (total_count + per_page - 1) // per_page)
-        page = min(page, total_pages)
+        total_pages = 1  # single page — no LIMIT/OFFSET, all rows returned
 
-        groups = db.execute(stmt.offset((page - 1) * per_page).limit(per_page)).scalars().all()
+        groups = db.execute(stmt).scalars().all()
 
-        # aggregate counts only for current page
+        # aggregate counts for the full list
         group_ids = [g.id for g in groups]
         vstmt = (
             select(
@@ -164,12 +190,33 @@ def groups_page():
                 func.coalesce(func.sum(Variant.quantity_fbs), 0),
                 func.coalesce(func.sum(Variant.warehouse_quantity), 0),
                 func.min(Variant.sku),
+                # Extra metrics for the detailed ("stats") card view
+                func.coalesce(func.sum(Variant.views_30d), 0),
+                func.coalesce(func.sum(Variant.quantity_sold), 0),
+                func.coalesce(func.sum(Variant.quantity_returned), 0),
+                func.coalesce(func.sum(Variant.quantity_defected), 0),
+                func.min(func.nullif(Variant.price_sum, 0)),      # "от" price (cheapest variant)
+                func.avg(func.nullif(Variant.sell_price_uzum, 0)),
+                func.avg(func.nullif(Variant.purchase_price, 0)),
             )
             .where(Variant.group_id.in_(group_ids) if group_ids else False)
             .group_by(Variant.group_id)
         )
-        agg = {
-            gid: {
+        agg = {}
+        for (gid, c, u, fbs, w, s, views, sold, ret, defect,
+             price_from, avg_sell, avg_purchase) in db.execute(vstmt).all():
+            sold_i = int(sold or 0)
+            views_i = int(views or 0)
+            # Конверсия = orders ÷ views (real metric from synced data)
+            conv = (sold_i / views_i * 100.0) if views_i else 0.0
+            # ROI proxy = markup over purchase cost. Prefer the realized sell
+            # price; fall back to the listing price when finance data isn't
+            # synced. None when there's no purchase cost to divide by.
+            roi = None
+            sell_basis = float(avg_sell) if avg_sell else (float(price_from) if price_from else None)
+            if avg_purchase and float(avg_purchase) > 0 and sell_basis:
+                roi = (sell_basis - float(avg_purchase)) / float(avg_purchase) * 100.0
+            agg[gid] = {
                 "variants": c,
                 "fbo": int(u),
                 "fbs": int(fbs),
@@ -177,14 +224,22 @@ def groups_page():
                 "uzum_qty": int(u),  # kept for backward compat with other templates/JS
                 "wh_qty": int(w),
                 "sku": "-".join(str(s).split("-")[:2]) if s else "",
+                "views": views_i,
+                "sold": sold_i,
+                "returned": int(ret or 0),
+                "defected": int(defect or 0),
+                "conversion": conv,
+                "roi": roi,
+                "price_from": int(price_from or 0),
             }
-            for (gid, c, u, fbs, w, s) in db.execute(vstmt).all()
-        }
 
-        # Fetch shops for the picker (with name lookup used by the cards)
-        shops = db.execute(
+        # Fetch shops for the picker (with name lookup used by the cards).
+        # Ordered by id so the first listed shop matches the auto-selected
+        # default (sorted(allowed_shop_ids)[0]).
+        shops_stmt = (
             select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop)
-        ).scalars().all()
+        ).order_by(Shop.id)
+        shops = db.execute(shops_stmt).scalars().all()
         shops_by_id = {s.id: s for s in shops}
 
         # Tab totals (Активные / Архив) over the *visible* set (allowed shops + store filter, ignoring search)
@@ -209,9 +264,911 @@ def groups_page():
         groups=groups, agg=agg, q=q,
         current_status=display_status, shops=shops, shops_by_id=shops_by_id,
         current_shop_id=shop_filter,
-        page=page, total_pages=total_pages, total_count=total_count, per_page=per_page,
+        page=page, total_pages=total_pages, total_count=total_count,
         count_active=count_active, count_archived=count_archived,
     )
+
+@products_bp.get("/expenses")
+@login_required
+def expenses_page():
+    """Warehouse (paid-storage) expenses, grouped by product.
+
+    One row per ProductGroup showing the SHORT sku + the group's TOTAL
+    paid-storage expense (Variant.paid_storage_amount — "Платное хранение"),
+    summed across its variants, plus total Uzum warehouse qty and average
+    sell/cost price. Groups are sorted by total expense (highest first); each
+    row expands to reveal its variant SKUs, also sorted by expense (highest
+    first). Mirrors the groups page UX (search bar + per-shop picker +
+    pagination).
+    """
+    q = (request.args.get("q") or "").strip()
+    shop_filter = (request.args.get("shop_id") or "").strip()
+    page = max(1, int(request.args.get("page") or 1))
+    per_page = 50
+
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+
+    with SessionLocal() as db:
+        # Base WHERE — shop scope only. (Search is applied as a group-id
+        # restriction below so a SKU match still surfaces the WHOLE group, not
+        # just the matching variant.)
+        #
+        # NOTE: archived products are deliberately NOT excluded here. An
+        # archived Uzum listing can still have stock physically sitting in the
+        # warehouse racking up paid-storage ("Платное хранение") charges — a
+        # real cash cost. We keep every non-archived group plus any archived
+        # group that STILL has storage or warehouse qty (enforced by the HAVING
+        # on the aggregate below). Archived-but-empty groups contribute 0 to the
+        # storage total, so `total_storage` needs no archived filter either.
+        conds = []
+        if allowed_shop_ids:
+            conds.append(ProductGroup.shop_id.in_(allowed_shop_ids))
+        else:
+            conds.append(sql_false())
+        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
+            conds.append(ProductGroup.shop_id == int(shop_filter))
+
+        if q:
+            like = f"%{q}%"
+            match_ids = (
+                select(ProductGroup.id)
+                .outerjoin(Variant, Variant.group_id == ProductGroup.id)
+                .where(*conds)
+                .where(
+                    ProductGroup.name.ilike(like)
+                    | Variant.sku.ilike(like)
+                    | Variant.barcode.ilike(like)
+                )
+                .distinct()
+            )
+            conds.append(ProductGroup.id.in_(match_ids))
+
+        storage_col = func.coalesce(func.sum(func.coalesce(Variant.paid_storage_amount, 0)), 0)
+        qty_col = func.coalesce(func.sum(func.coalesce(Variant.uzum_quantity, 0)), 0)
+
+        # Keep non-archived groups always; keep archived groups only while they
+        # still cost money to store (storage > 0) or still hold warehouse stock
+        # (qty > 0). Archived + empty groups are dropped so the list isn't
+        # cluttered with dead listings that no longer incur storage.
+        archived_ok = (
+            (ProductGroup.is_archived == False)
+            | (ProductGroup.is_archived == None)
+            | (storage_col > 0)
+            | (qty_col > 0)
+        )
+
+        # Per-group aggregate (inner join → only groups that have variants).
+        agg = (
+            select(
+                ProductGroup.id.label("gid"),
+                ProductGroup.name.label("name"),
+                ProductGroup.image_url.label("image_url"),
+                ProductGroup.shop_id.label("shop_id"),
+                ProductGroup.uzum_product_id.label("uzum_product_id"),
+                ProductGroup.is_archived.label("is_archived"),
+                storage_col.label("storage"),
+                qty_col.label("qty"),
+                func.count(Variant.id).label("vcount"),
+                func.min(Variant.sku).label("min_sku"),
+            )
+            .join(Variant, Variant.group_id == ProductGroup.id)
+            .where(*conds)
+            .group_by(
+                ProductGroup.id, ProductGroup.name,
+                ProductGroup.image_url, ProductGroup.shop_id,
+                ProductGroup.uzum_product_id, ProductGroup.is_archived,
+            )
+            .having(archived_ok)
+        )
+
+        total_count = db.execute(
+            select(func.count()).select_from(agg.subquery())
+        ).scalar() or 0
+        # Single-page view: all matching groups are rendered at once (no
+        # pagination). `page`/`total_pages` are kept only so the template's
+        # existing bindings stay valid.
+        total_pages = 1
+        page = 1
+
+        # Grand total storage across all matching groups (every page).
+        total_storage = db.execute(
+            select(func.coalesce(func.sum(func.coalesce(Variant.paid_storage_amount, 0)), 0))
+            .select_from(Variant).join(
+                ProductGroup, Variant.group_id == ProductGroup.id
+            ).where(*conds)
+        ).scalar() or 0
+
+        agg = agg.order_by(storage_col.desc(), ProductGroup.id.asc())
+        rows = db.execute(agg).all()
+        group_ids = [r.gid for r in rows]
+
+        # Fetch all variants for the page's groups (for the expand dropdown),
+        # ordered by expense (highest first).
+        variants_by_group: dict[int, list] = {}
+        if group_ids:
+            vrows = db.execute(
+                select(Variant)
+                .where(Variant.group_id.in_(group_ids))
+                .order_by(
+                    func.coalesce(Variant.paid_storage_amount, 0).desc(),
+                    func.lower(Variant.sku).asc(),
+                )
+            ).scalars().all()
+            for v in vrows:
+                variants_by_group.setdefault(v.group_id, []).append(v)
+
+        items = []
+        for r in rows:
+            gvars = variants_by_group.get(r.gid, [])
+            sells = [int(v.price_sum or 0) for v in gvars if (v.price_sum or 0) > 0]
+            costs = [int(v.purchase_price or 0) for v in gvars if (v.purchase_price or 0) > 0]
+            avg_sell = (sum(sells) // len(sells)) if sells else 0
+            avg_cost = (sum(costs) // len(costs)) if costs else 0
+            # Short SKU like the groups page (first two dash-segments).
+            short_sku = "-".join(str(r.min_sku).split("-")[:2]) if r.min_sku else ""
+            items.append({
+                "id": r.gid,
+                "name": r.name or "",
+                "image_url": r.image_url or "",
+                "shop_id": r.shop_id,
+                "uzum_product_id": r.uzum_product_id or "",
+                "short_sku": short_sku,
+                "is_archived": bool(r.is_archived),
+                "vcount": int(r.vcount or 0),
+                "storage": int(r.storage or 0),
+                "qty": int(r.qty or 0),
+                "avg_sell": avg_sell,
+                "avg_cost": avg_cost,
+                "variants": [{
+                    "id": v.id,
+                    "sku": v.sku or "",
+                    "color": v.color or "",
+                    "image_url": (v.image_url or r.image_url) or "",
+                    "storage": int(v.paid_storage_amount or 0),
+                    "qty": int(v.uzum_quantity or 0),
+                    "sell_price": int(v.price_sum or 0),
+                    "cost_price": int(v.purchase_price or 0),
+                } for v in gvars],
+            })
+
+        # Shops for the picker.
+        shops = db.execute(
+            select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop)
+        ).scalars().all()
+        shops_by_id = {s.id: s for s in shops}
+
+        # Enrolled-in-sale state, rendered server-side so already-in-sale
+        # buttons are correct on first paint (no 5s flip). Read-only PEEK at the
+        # shared (Redis) sales cache — never triggers a cold Uzum build here; if
+        # the cache is cold the client-side refresh fills it in.
+        from core.uzum_marketing import peek_shop_sales_dataset
+        enrolled_pids: dict[str, list] = {}
+        cost_by_pid: dict[str, int] = {}   # uzum_product_id -> Uzum cost price
+        page_uzids = {
+            str(shops_by_id[it["shop_id"]].uzum_id)
+            for it in items
+            if shops_by_id.get(it["shop_id"]) and shops_by_id[it["shop_id"]].uzum_id
+        }
+        for uzid in page_uzids:
+            ds = peek_shop_sales_dataset(uzid)
+            if not ds:
+                continue
+            for s in ds["sales"]:
+                title = _split_sale_title(s.get("title"))
+                for pid in s["involved_ids"]:
+                    enrolled_pids.setdefault(str(pid), []).append(title)
+            for pid, c in (ds.get("purchase_prices") or {}).items():
+                if c and str(pid) not in cost_by_pid:
+                    cost_by_pid[str(pid)] = int(c)
+
+        # Cost price: Uzum's product-level «себестоимость» is often missing from
+        # the DB (the product sync doesn't carry it). Backfill blank costs from
+        # the sales dataset's purchasePrice and surface it on this page even
+        # before the DB write lands.
+        if cost_by_pid:
+            _persist_uzum_costs(allowed_shop_ids, cost_by_pid)
+            for it in items:
+                c = cost_by_pid.get(str(it.get("uzum_product_id") or ""))
+                if not c:
+                    continue
+                if not it["avg_cost"]:
+                    it["avg_cost"] = int(c)
+                for v in it["variants"]:
+                    if not v["cost_price"]:
+                        v["cost_price"] = int(c)
+
+    return render_template(
+        "expenses.html",
+        items=items, q=q, shops=shops, shops_by_id=shops_by_id,
+        current_shop_id=shop_filter,
+        page=page, total_pages=total_pages, total_count=total_count, per_page=per_page,
+        total_storage=int(total_storage),
+        enrolled_pids=enrolled_pids,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Marketing / Sales (акции) — enroll products into Uzum sale campaigns.
+# Read side is live; the "add" write is gated until its request is captured
+# (see core/uzum_marketing.py).
+# ──────────────────────────────────────────────────────────────────────
+
+def _owned_shop_by_uzum_id(db, uid: int, raw_shop: str):
+    """Return the Shop (owned by uid) matching raw_shop uzum_id, else None."""
+    allowed = _user_shop_ids(uid)
+    if not allowed:
+        return None
+    shop = db.execute(
+        select(Shop).where(Shop.uzum_id == str(raw_shop), Shop.id.in_(allowed))
+    ).scalar_one_or_none()
+    return shop
+
+
+def _split_sale_title(t: str) -> dict:
+    """Sale titles arrive as 'RU text/UZ text' — split once on the last '/'."""
+    t = (t or "").strip()
+    if "/" in t:
+        ru, uz = t.rsplit("/", 1)
+        return {"ru": ru.strip(), "uz": uz.strip()}
+    return {"ru": t, "uz": t}
+
+
+def _persist_uzum_costs(shop_ids, cost_by_pid: dict) -> None:
+    """Backfill blank Variant.purchase_price from Uzum's product-level cost.
+
+    ``cost_by_pid`` is ``{uzum_product_id(str): cost(int)}`` harvested from the
+    marketing suitable-products payload. We only fill variants whose cost is
+    currently 0/NULL — a user-entered cost is never overwritten.
+
+    Runs in its OWN session (not the caller's) so its commit never expires the
+    caller's loaded ORM objects — committing the caller's session would expire
+    e.g. the expenses page's Shop list and blow up at render time
+    (DetachedInstanceError). Best-effort: any error is swallowed."""
+    cost_by_pid = {str(k): int(v) for k, v in (cost_by_pid or {}).items() if v and int(v) > 0}
+    if not cost_by_pid or not shop_ids:
+        return
+    try:
+        with SessionLocal() as db:
+            groups = db.execute(
+                select(ProductGroup.id, ProductGroup.uzum_product_id)
+                .where(
+                    ProductGroup.shop_id.in_(list(shop_ids)),
+                    ProductGroup.uzum_product_id.in_(list(cost_by_pid.keys())),
+                )
+            ).all()
+            changed = False
+            for gid, upid in groups:
+                cost = cost_by_pid.get(str(upid))
+                if not cost:
+                    continue
+                res = db.execute(
+                    update(Variant)
+                    .where(
+                        Variant.group_id == gid,
+                        (Variant.purchase_price == None) | (Variant.purchase_price == 0),  # noqa: E711
+                    )
+                    .values(purchase_price=cost)
+                )
+                if res.rowcount:
+                    changed = True
+            if changed:
+                db.commit()
+    except Exception:
+        pass
+
+
+def _sku_payout_rates(db, shop_uzum_id: str, days: int = 120) -> dict[str, dict]:
+    """Per-SKU commission rate + per-unit logistics from real finance history.
+
+    Uzum doesn't expose commission/logistics in the marketing SKU payload, so we
+    derive each SKU's deductions from our own finance/orders (which DO store them
+    per sale). «К выводу» = new_price × (1 − commission_rate) − logistics_per_unit.
+    Keyed by sku_title (= Variant.sku code), which the marketing payload also
+    returns. SKUs with no recent sales simply won't have a rate (UI shows '—')."""
+    today = _today_app_tz()
+    start_ts, _ = day_bounds_tashkent(today - timedelta(days=days))
+    _, end_ts = day_bounds_tashkent(today)
+    rates: dict[str, dict] = {}
+    try:
+        rows = read_sales_aggregated(
+            str(shop_uzum_id), start_ts, end_ts, group_by="sku", session=db
+        )
+    except Exception:
+        return rates
+    for r in rows:
+        title = r.get("sku_title")
+        rev = float(r.get("revenue_sum") or 0)
+        qty = int(r.get("qty_sum") or 0)
+        comm = float(r.get("commission_sum") or 0)
+        logi = float(r.get("logistics_sum") or 0)
+        if not title or rev <= 0 or qty <= 0:
+            continue
+        rates[str(title)] = {
+            "commission_rate": max(0.0, min(0.9, comm / rev)),
+            "logistics_per_unit": max(0.0, round(logi / qty)),
+        }
+    return rates
+
+
+@products_bp.get("/sales")
+@login_required
+def sales_page():
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    with SessionLocal() as db:
+        shops = db.execute(
+            select(Shop).where(Shop.id.in_(allowed_shop_ids)) if allowed_shop_ids else select(Shop).where(sql_false())
+        ).scalars().all()
+        shops_list = [{"uzum_id": s.uzum_id, "name": s.name or s.uzum_id} for s in shops]
+    return render_template("sales.html", shops=shops_list)
+
+
+@products_bp.get("/api/sales")
+@login_required
+def api_sales_list():
+    """List sale campaigns for a shop (uzum_id via ?shop_id=)."""
+    raw_shop = (request.args.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+    if not shop:
+        return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+    try:
+        from core.uzum_marketing import list_sales, UzumMarketingError
+        sales = list_sales(raw_shop)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+    def split_title(t: str) -> dict:
+        # Titles arrive as "RU text/UZ text"; split once on the last "/".
+        t = (t or "").strip()
+        if "/" in t:
+            ru, uz = t.rsplit("/", 1)
+            return {"ru": ru.strip(), "uz": uz.strip()}
+        return {"ru": t, "uz": t}
+
+    out = []
+    for s in sales:
+        out.append({
+            "id": s.get("id"),
+            "title": split_title(s.get("title")),
+            "start_date": s.get("startDate"),
+            "finish_date": s.get("finishDate"),
+            "status": s.get("status"),
+            "type": s.get("type"),
+            "image_url": (s.get("imageUrl") or {}),
+            "suitable_count": s.get("suitableProductsCount"),
+            "involved_count": s.get("involvedProductsCount"),
+        })
+    return _json_response({"sales": out})
+
+
+@products_bp.get("/api/sales/<int:sale_id>/suitable")
+@login_required
+def api_sale_suitable(sale_id: int):
+    """Products eligible for a sale, mapped to our local product groups +
+    variants (so the UI can show every variant that would be enrolled)."""
+    raw_shop = (request.args.get("shop_id") or "").strip()
+    search = (request.args.get("q") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+        try:
+            from core.uzum_marketing import (
+                get_sale, list_suitable_products, list_sale_products, UzumMarketingError,
+            )
+            detail = get_sale(raw_shop, sale_id)
+            suitable = list_suitable_products(raw_shop, sale_id, search=search)
+            involved = list_sale_products(raw_shop, sale_id)
+        except UzumMarketingError as e:
+            return _json_response({"error": str(e)}, 502)
+        except Exception as e:
+            return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+        involved_ids = {str(p.get("productId")) for p in involved if p.get("productId") is not None}
+
+        # Product-level cost («purchasePrice») from suitable-products — Uzum's
+        # only cost source. Backfill blank Variant.purchase_price from it.
+        uzum_cost_by_pid = {
+            str(p.get("productId")): int(p.get("purchasePrice"))
+            for p in suitable
+            if p.get("productId") is not None
+            and isinstance(p.get("purchasePrice"), (int, float))
+            and p.get("purchasePrice") > 0
+        }
+        _persist_uzum_costs([shop.id], uzum_cost_by_pid)
+
+        # Already-enrolled products drop off suitable-products, so their cost
+        # isn't in the payload — read it back from the DB (filled above / on a
+        # prior pass) for the right-panel cost column.
+        cost_by_involved: dict[str, int] = {}
+        if involved_ids:
+            crows = db.execute(
+                select(ProductGroup.uzum_product_id, func.max(Variant.purchase_price))
+                .join(Variant, Variant.group_id == ProductGroup.id)
+                .where(
+                    ProductGroup.shop_id == shop.id,
+                    ProductGroup.uzum_product_id.in_(list(involved_ids)),
+                )
+                .group_by(ProductGroup.uzum_product_id)
+            ).all()
+            for upid, c in crows:
+                if c and int(c) > 0:
+                    cost_by_involved[str(upid)] = int(c)
+
+        # Map Uzum productId → our ProductGroup (+ variants) for this shop.
+        pid_strs = [str(p.get("productId")) for p in suitable if p.get("productId") is not None]
+        variants_by_pid: dict[str, list] = {}
+        if pid_strs:
+            grows = db.execute(
+                select(ProductGroup, Variant)
+                .join(Variant, Variant.group_id == ProductGroup.id)
+                .where(
+                    ProductGroup.shop_id == shop.id,
+                    ProductGroup.uzum_product_id.in_(pid_strs),
+                )
+                .order_by(func.lower(Variant.sku))
+            ).all()
+            for g, v in grows:
+                variants_by_pid.setdefault(str(g.uzum_product_id), []).append({
+                    "sku": v.sku or "",
+                    "color": v.color or "",
+                    "barcode": v.barcode or "",
+                    "image_url": (v.image_url or g.image_url) or "",
+                    "qty": int(v.uzum_quantity or 0),
+                    "sell_price": int(v.price_sum or 0),
+                    "cost_price": int(v.purchase_price or 0),
+                })
+
+        # DB name/image for the ALREADY-ADDED products (right panel) — the Uzum
+        # enrolled payload doesn't reliably carry title/image, so fall back to
+        # our own ProductGroup.
+        meta_by_pid: dict[str, dict] = {}
+        if involved_ids:
+            mrows = db.execute(
+                select(ProductGroup.uzum_product_id, ProductGroup.name, ProductGroup.image_url)
+                .where(
+                    ProductGroup.shop_id == shop.id,
+                    ProductGroup.uzum_product_id.in_(list(involved_ids)),
+                )
+            ).all()
+            for upid, name, img in mrows:
+                meta_by_pid[str(upid)] = {"name": name or "", "image_url": img or ""}
+
+        cat_rules = []
+        for c in (detail.get("categoryRule") or []):
+            cat_rules.append({
+                "category_id": c.get("categoryId"),
+                "title": c.get("title"),
+                "min_discount": c.get("minDiscountPercentage"),
+            })
+        # A single representative min-discount (max across category rules so any
+        # product clears its category floor). Falls back to 1%.
+        min_discounts = [c["min_discount"] for c in cat_rules if isinstance(c.get("min_discount"), (int, float))]
+        default_min = int(max(min_discounts)) if min_discounts else 1
+
+        products = []
+        for p in suitable:
+            pid = str(p.get("productId"))
+            title = p.get("title") or {}
+            # Skip products already enrolled — they belong in the right panel.
+            if pid in involved_ids:
+                continue
+            products.append({
+                "product_id": p.get("productId"),
+                "title": {"ru": title.get("ru") or "", "uz": title.get("uz") or ""},
+                "image": p.get("imageHigh") or p.get("imageLow") or "",
+                "available_count": p.get("availableCount"),
+                "purchase_price": p.get("purchasePrice"),
+                "min_sell_price": p.get("minSellPrice"),
+                "already_in": False,
+                "variants": variants_by_pid.get(pid, []),
+            })
+
+        # Already-enrolled products (right panel) with their per-SKU sale prices.
+        payout_rates = _sku_payout_rates(db, raw_shop)
+        added_products = []
+        for p in involved:
+            pid = str(p.get("productId"))
+            meta = meta_by_pid.get(pid, {})
+            ptitle = p.get("title") if isinstance(p.get("title"), dict) else {}
+            skus_out = []
+            for sk in (p.get("skuList") or []):
+                cur0 = int(sk.get("currentSellPrice") or 0)
+                sp = int(sk.get("salePrice") or 0)
+                disc = round((cur0 - sp) / cur0 * 100) if (cur0 > 0 and sp > 0) else 0
+                row = {
+                    "sku_id": sk.get("skuId"),
+                    "sku_title": sk.get("skuTitle") or "",
+                    "characteristics": sk.get("characteristics") or "",
+                    "image": sk.get("imageHigh") or sk.get("imageLow") or "",
+                    "current_price": cur0,
+                    "max_price": int(sk.get("maxSuitablePrice") or 0),
+                    "sale_price": sp,
+                    "discount_pct": disc,
+                }
+                rt = payout_rates.get(sk.get("skuTitle") or "")
+                if rt:
+                    row["commission_rate"] = rt["commission_rate"]
+                    row["logistics_per_unit"] = rt["logistics_per_unit"]
+                skus_out.append(row)
+            added_products.append({
+                "product_id": p.get("productId"),
+                "title": {
+                    "ru": (ptitle.get("ru") if ptitle else "") or meta.get("name", ""),
+                    "uz": (ptitle.get("uz") if ptitle else "") or meta.get("name", ""),
+                },
+                "image": p.get("imageHigh") or p.get("imageLow") or meta.get("image_url", ""),
+                "purchase_price": cost_by_involved.get(pid) or uzum_cost_by_pid.get(pid),
+                "skus": skus_out,
+            })
+
+    return _json_response({
+        "sale": {
+            "id": detail.get("id"),
+            "status": detail.get("status"),
+            "start_date": detail.get("startDate"),
+            "finish_date": detail.get("finishDate"),
+        },
+        "category_rules": cat_rules,
+        "default_min_discount": default_min,
+        "products": products,
+        "added_products": added_products,
+        "involved_count": len(involved_ids),
+    })
+
+
+@products_bp.post("/api/sales/<int:sale_id>/add")
+@login_required
+def api_sale_add(sale_id: int):
+    """Enroll selected products into a sale.
+
+    Request (two accepted shapes per product):
+      • explicit per-SKU prices (from the expenses modal):
+        {"product_id": int, "skus": [{"sku_id": int, "new_price": int}, ...]}
+      • a single discount % applied to every variant (from the Sales page):
+        {"product_id": int, "discount_percent": number}
+
+    Enrollment is product-level, so when only a discount is given we expand it
+    across ALL the product's variants. Provided skuIds are validated against
+    the product's own variants (no arbitrary skuIds reach Uzum)."""
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_shop = str(payload.get("shop_id") or "").strip()
+    req_products = payload.get("products") or []
+    uid = int(current_user.get_id())
+
+    from core.uzum_marketing import (
+        add_products_to_sale, discounted_price, invalidate_shop_sales_cache,
+        invalidate_product_sku_limits, UzumMarketingError,
+    )
+
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+        uzum_products = []
+        skipped = []
+        for entry in req_products:
+            try:
+                pid = int(entry.get("product_id"))
+            except (TypeError, ValueError):
+                continue
+
+            group = db.execute(
+                select(ProductGroup).where(
+                    ProductGroup.shop_id == shop.id,
+                    ProductGroup.uzum_product_id == str(pid),
+                )
+            ).scalar_one_or_none()
+            if not group:
+                skipped.append({"product_id": pid, "reason": "not_found"})
+                continue
+
+            variants = db.execute(
+                select(Variant).where(Variant.group_id == group.id)
+            ).scalars().all()
+            # Valid skuId → current price, for validation + discount expansion.
+            valid_skus = {}
+            for v in variants:
+                try:
+                    sid = int(str(v.uzum_sku_id).strip())
+                except (TypeError, ValueError):
+                    continue
+                valid_skus[sid] = int(v.price_sum or 0)
+
+            sku_list = []
+            explicit = entry.get("skus")
+            if explicit:
+                # Per-SKU prices set by the user — validate skuId + price.
+                for s in explicit:
+                    try:
+                        sid = int(s.get("sku_id"))
+                        np = int(round(float(s.get("new_price"))))
+                    except (TypeError, ValueError):
+                        continue
+                    if sid in valid_skus and np > 0:
+                        sku_list.append({"skuId": sid, "newSalePrice": np})
+            else:
+                # Single discount % expanded across all variants.
+                try:
+                    disc = float(entry.get("discount_percent") or 0)
+                except (TypeError, ValueError):
+                    disc = 0.0
+                disc = max(0.0, min(99.0, disc))
+                for sid, base in valid_skus.items():
+                    if base <= 0:
+                        continue
+                    np = discounted_price(base, disc)
+                    if np > 0:
+                        sku_list.append({"skuId": sid, "newSalePrice": np})
+
+            if not sku_list:
+                skipped.append({"product_id": pid, "reason": "no_priced_skus"})
+                continue
+            uzum_products.append({"productId": pid, "skuList": sku_list})
+
+    if not uzum_products:
+        return _json_response({
+            "error": "Не удалось собрать данные SKU (нет цен/skuId). "
+                     "Синхронизируйте товары и попробуйте снова.",
+            "skipped": skipped,
+        }, 422)
+
+    try:
+        result = add_products_to_sale(raw_shop, sale_id, uzum_products)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        msg = str(e)
+        # Translate known Uzum business errors into actionable messages.
+        if "DISCOUNT_NOT_ENOUGH" in msg:
+            return _json_response({
+                "error": "Uzum: скидки недостаточно. Uzum сравнивает цену акции "
+                         "с действующей (уже сниженной) ценой товара, а не с полной — "
+                         "поэтому цену нужно поставить ещё ниже. Точный максимум для "
+                         "этого товара Uzum показывает только в кабинете.",
+                "code": "DISCOUNT_NOT_ENOUGH",
+            }, 422)
+        if "PRICE" in msg.upper() and "LOW" in msg.upper():
+            return _json_response({
+                "error": "Uzum: цена слишком низкая (ниже допустимого минимума).",
+                "code": "PRICE_TOO_LOW",
+            }, 422)
+        return _json_response({"error": f"Ошибка Uzum: {msg}"}, 502)
+
+    # The shop's cached sales dataset is now stale (product moved suitable →
+    # enrolled) — drop it so the next load rebuilds with the new state. Also
+    # drop the per-SKU limits cache (prices/already_in just changed).
+    invalidate_shop_sales_cache(raw_shop)
+    invalidate_product_sku_limits(raw_shop)
+
+    # Reflect the new sale price in our DB immediately, instead of waiting for
+    # the next products sync (~15 min). The products sync would otherwise be
+    # the only thing that updates Variant.price_sum, which is why a freshly
+    # changed product kept showing the old price until then.
+    try:
+        with SessionLocal() as db2:
+            for prod in uzum_products:
+                for sk in prod["skuList"]:
+                    db2.execute(
+                        update(Variant)
+                        .where(Variant.uzum_sku_id == str(sk["skuId"]))
+                        .values(price_sum=int(sk["newSalePrice"]))
+                    )
+            db2.commit()
+    except Exception:
+        # Non-fatal: the sale was set on Uzum; the sync will reconcile prices.
+        import traceback; traceback.print_exc()
+
+    return _json_response({
+        "ok": True,
+        "added": len(uzum_products),
+        "skipped": skipped,
+        **(result or {}),
+    })
+
+
+@products_bp.post("/api/sales/<int:sale_id>/remove")
+@login_required
+def api_sale_remove(sale_id: int):
+    """Remove a product from a sale (all its SKUs — removal is product-level).
+
+    Request: {"shop_id": str, "product_id": int}. Mirrors api_sale_add: same
+    ownership guard, same cache invalidation after the Uzum write."""
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_shop = str(payload.get("shop_id") or "").strip()
+    try:
+        product_id = int(payload.get("product_id"))
+    except (TypeError, ValueError):
+        return _json_response({"error": "Некорректный товар."}, 400)
+    uid = int(current_user.get_id())
+
+    from core.uzum_marketing import (
+        remove_product_from_sale, invalidate_shop_sales_cache,
+        invalidate_product_sku_limits, UzumMarketingError,
+    )
+
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    try:
+        remove_product_from_sale(raw_shop, sale_id, product_id)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e}"}, 502)
+
+    # Product moved enrolled → suitable; drop the stale caches (same as add).
+    invalidate_shop_sales_cache(raw_shop)
+    invalidate_product_sku_limits(raw_shop, product_id)
+
+    return _json_response({"ok": True})
+
+
+@products_bp.get("/api/product/<int:product_id>/eligible-sales")
+@login_required
+def api_product_eligible_sales(product_id: int):
+    """Which joinable sales a single product can be enrolled into.
+
+    Product-centric counterpart of /api/sales/<id>/suitable: used by the
+    "Add to sale" modal launched from the expenses (or product) page. Scans
+    only joinable sales (CREATED/ACTIVE) and checks this productId against each
+    one's suitable-products list. Returns the product's variants too so the
+    modal can show exactly what will be enrolled (whole product = all SKUs)."""
+    raw_shop = (request.args.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+        # Local product + variants (what gets enrolled).
+        group = db.execute(
+            select(ProductGroup).where(
+                ProductGroup.shop_id == shop.id,
+                ProductGroup.uzum_product_id == str(product_id),
+            )
+        ).scalar_one_or_none()
+        product_name = group.name if group else ""
+        variants = []
+        if group:
+            vrows = db.execute(
+                select(Variant).where(Variant.group_id == group.id)
+                .order_by(func.lower(Variant.sku))
+            ).scalars().all()
+            for v in vrows:
+                try:
+                    sku_id = int(str(v.uzum_sku_id).strip()) if v.uzum_sku_id else None
+                except (TypeError, ValueError):
+                    sku_id = None
+                variants.append({
+                    "sku": v.sku or "",
+                    "sku_id": sku_id,
+                    "color": v.color or "",
+                    "image_url": (v.image_url or group.image_url) or "",
+                    "qty": int(v.uzum_quantity or 0),
+                    "current_price": int(v.price_sum or 0),
+                    "sell_price": int(v.price_sum or 0),
+                    "cost_price": int(v.purchase_price or 0),
+                    "storage": int(v.paid_storage_amount or 0),
+                })
+            # High-expense SKUs first — they're the ones worth discounting.
+            variants.sort(key=lambda x: x["storage"], reverse=True)
+
+    try:
+        from core.uzum_marketing import get_shop_sales_dataset, UzumMarketingError
+        # Cached per-shop dataset (built once, reused across products/clicks).
+        dataset = get_shop_sales_dataset(raw_shop)
+        eligible = []
+        for s in dataset["sales"]:
+            # A product is relevant to a sale if it can still be ADDED
+            # (in suitable-products) OR is ALREADY enrolled (added products
+            # drop off "suitable").
+            in_suitable = str(product_id) in s["suitable_ids"]
+            already_in = str(product_id) in s["involved_ids"]
+            if not (in_suitable or already_in):
+                continue
+            eligible.append({
+                "id": s["id"],
+                "title": _split_sale_title(s.get("title")),
+                "image_url": s.get("image_url") or {},
+                "start_date": s.get("start_date"),
+                "finish_date": s.get("finish_date"),
+                "status": s.get("status"),
+                "already_in": already_in,
+                "min_discount": s.get("min_discount", 1),
+            })
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+    return _json_response({
+        "product": {
+            "product_id": product_id,
+            "name": product_name,
+            "variants": variants,
+        },
+        "eligible_sales": eligible,
+    })
+
+
+@products_bp.get("/api/sales/<int:sale_id>/product/<int:product_id>/sku-limits")
+@login_required
+def api_sale_product_sku_limits(sale_id: int, product_id: int):
+    """Per-SKU price limits for a product in a specific sale.
+
+    Returns each SKU's current price + max allowed sale price (Uzum's
+    «Не больше X» / fair-discount ceiling). Uses the suitable-skus endpoint for
+    not-yet-added products; falls back to the enrolled products' skuList (which
+    carries maxSuitablePrice) for products already in the sale."""
+    raw_shop = (request.args.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+    if not shop:
+        return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+    try:
+        from core.uzum_marketing import get_product_sku_limits, UzumMarketingError
+        # Cached per (shop, sale, product) — the suitable-skus call is the slow
+        # part of opening the modal; the expenses page pre-warms it on hover/load.
+        out = get_product_sku_limits(raw_shop, sale_id, product_id)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+    # Attach per-SKU payout rates (commission + logistics) from finance history
+    # so the UI can show «К выводу» live as the price changes.
+    try:
+        with SessionLocal() as db:
+            rates = _sku_payout_rates(db, raw_shop)
+        for sk in out:
+            rt = rates.get(str(sk.get("sku_title") or ""))
+            if rt:
+                sk["commission_rate"] = rt["commission_rate"]
+                sk["logistics_per_unit"] = rt["logistics_per_unit"]
+    except Exception:
+        pass
+    return _json_response({"skus": out})
+
+
+@products_bp.get("/api/sales/enrolled-products")
+@login_required
+def api_enrolled_products():
+    """Map of productId → [sale titles] for products currently enrolled in any
+    joinable (CREATED/ACTIVE) sale. Used by the expenses page to badge product
+    rows as "В акции" without a per-product API call."""
+    raw_shop = (request.args.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+    if not shop:
+        return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+    try:
+        from core.uzum_marketing import get_shop_sales_dataset, UzumMarketingError
+        # Same cached dataset the modal uses → this page-load call also warms
+        # the cache, so the first modal click is already fast.
+        dataset = get_shop_sales_dataset(raw_shop)
+        by_product: dict[str, list] = {}
+        for s in dataset["sales"]:
+            title = _split_sale_title(s.get("title"))
+            for pid in s["involved_ids"]:
+                by_product.setdefault(str(pid), []).append(title)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+    return _json_response({"enrolled": by_product})
+
 
 @products_bp.get("/fetch")
 @login_required
@@ -298,6 +1255,99 @@ def group_detail(group_id: int):
 
     return render_template("group_detail.html", group=group, variants=variants,
                            sales_30d_map=sales_30d_map, cost_map=cost_map)
+
+
+def _categorize_expense_ledger(exp_rows):
+    """Bucket `expenses_ledger` rows into warehouse / marketing / misc plus
+    netted logistics refunds. Mirrors the owner's categorization decisions
+    (see the block comment in ``economics_data_api``). Returns grand totals
+    and per-shop (str uzum_id keyed) breakdowns. Shared by the main period
+    block and the previous-period delta snapshot so the two never diverge.
+    """
+    t_warehouse = t_marketing = t_misc = 0
+    t_log_refunds = 0  # ≤ 0 — Возврат credits, net against Логистика
+    per_shop_exp: dict[str, dict] = {}
+    per_shop_log_refund: dict[str, int] = {}
+    for r in exp_rows:
+        svc_raw = (r.service or "").lower()
+        # Normalize Uzbek apostrophe variants (U+02BB, U+2019, U+02BC)
+        # to ASCII so substring matches work consistently.
+        svc = svc_raw
+        for _ap in ("ʻ", "’", "ʼ"):
+            svc = svc.replace(_ap, "'")
+        op = (r.op_type or "").strip()
+        sign = 1 if op == "Оплата" else -1
+        amt = int(float(r.amount or 0)) * sign
+        # Ledger logistics: skip Оплата charges, net Возврат credits.
+        if "logistika" in svc or "logistic" in svc:
+            if op == "Оплата":
+                continue
+            t_log_refunds += amt  # amt < 0 (Возврат)
+            sid_lr = str(r.shop_id)
+            per_shop_log_refund[sid_lr] = per_shop_log_refund.get(sid_lr, 0) + amt
+            continue
+        # Skip inter-shop balance redistribution — internal transfer, not a cost.
+        if "balansni qayta taqsimlash" in svc:
+            continue
+        if ("saqlash" in svc) or ("ombor" in svc) or ("qaytarish" in svc):
+            cat = "warehouse"
+        elif ("pulli targ" in svc) or ("paytirish" in svc):
+            cat = "marketing"
+        else:
+            cat = "misc"
+        if cat == "warehouse":   t_warehouse += amt
+        elif cat == "marketing": t_marketing += amt
+        else:                    t_misc      += amt
+        sid_str = str(r.shop_id)
+        bucket = per_shop_exp.setdefault(sid_str, {"warehouse": 0, "marketing": 0, "misc": 0})
+        bucket[cat] += amt
+    return {
+        "warehouse": t_warehouse, "marketing": t_marketing, "misc": t_misc,
+        "log_refunds": t_log_refunds,
+        "per_shop_exp": per_shop_exp,
+        "per_shop_log_refund": per_shop_log_refund,
+    }
+
+
+def _payout_snapshot(db, shop_uzum_ids, date_from, date_to):
+    """Lightweight grand-total snapshot (revenue + the fields `payoutOf` needs)
+    for one window. Feeds the previous-period delta pills without paying for a
+    second full economics payload."""
+    rev = comm = logi = sp = 0
+    if shop_uzum_ids:
+        start_ts, _ = day_bounds_tashkent(date_from)
+        _, end_ts = day_bounds_tashkent(date_to)
+        for row in read_sales_aggregated(shop_uzum_ids, start_ts, end_ts, group_by="sku", session=db):
+            rev  += int(row.get("revenue_sum") or 0)
+            comm += int(row.get("commission_sum") or 0)
+            logi += int(row.get("logistics_sum") or 0)
+            sp   += int(row.get("seller_profit_sum") or 0)
+        int_shop_ids = []
+        for sid in shop_uzum_ids:
+            try: int_shop_ids.append(int(sid))
+            except (TypeError, ValueError): pass
+        if int_shop_ids:
+            exp_rows = db.execute(
+                select(ExpensesLedger).where(
+                    ExpensesLedger.shop_id.in_(int_shop_ids),
+                    ExpensesLedger.day >= date_from,
+                    ExpensesLedger.day <= date_to,
+                )
+            ).scalars().all()
+            cat = _categorize_expense_ledger(exp_rows)
+            # Логистика gross-only — Возврат credits not netted (see main block).
+            return {
+                "sales_revenue": rev, "sales_commission": comm,
+                "sales_logistics": logi, "sales_seller_profit": sp,
+                "expenses_marketing": cat["marketing"],
+                "expenses_warehouse": cat["warehouse"],
+                "expenses_misc": cat["misc"],
+            }
+    return {
+        "sales_revenue": rev, "sales_commission": comm, "sales_logistics": logi,
+        "sales_seller_profit": sp,
+        "expenses_marketing": 0, "expenses_warehouse": 0, "expenses_misc": 0,
+    }
 
 
 @products_bp.get("/economics")
@@ -399,9 +1449,14 @@ def economics_data_api():
                 comm = int(row.get("commission_sum") or 0)
                 logi = int(row.get("logistics_sum") or 0)
                 pp   = int(row.get("purchase_price_sum") or 0)
+                # seller_profit == Uzum's per-line "К выводу" (withdrawable):
+                # revenue − commission − logistics, computed by Uzum itself.
+                # Summed directly so the KPI card doesn't reconstruct it from
+                # the (currently sellPrice-based) revenue figure.
+                sp   = int(row.get("seller_profit_sum") or 0)
                 entry = {"qty": qty, "sell_price": sell,
                          "commission": comm, "logistics": logi,
-                         "purchase_price": pp}
+                         "purchase_price": pp, "seller_profit": sp}
                 if title:
                     per_shop_sales[(sid, title)] = entry
                     per_shop_sales[(sid, title.upper())] = entry
@@ -411,13 +1466,14 @@ def economics_data_api():
                 # each finance_orders SKU row appears once)
                 pst = per_shop_totals.setdefault(sid, {
                     "revenue": 0, "commission": 0, "logistics": 0,
-                    "qty": 0, "purchase_price": 0,
+                    "qty": 0, "purchase_price": 0, "seller_profit": 0,
                 })
                 pst["revenue"]        += sell
                 pst["commission"]     += comm
                 pst["logistics"]      += logi
                 pst["qty"]            += qty
                 pst["purchase_price"] += pp
+                pst["seller_profit"]  += sp
 
             # Daily breakdown for "Продажи по дням" chart
             day_rows = read_sales_aggregated(
@@ -441,16 +1497,15 @@ def economics_data_api():
                 daily_qty[bkey] = daily_qty.get(bkey, 0) + qty
 
         # ── Categorized expenses from expenses_ledger ────────────────────
-        # Logistics outflow ("Оплата") rows are skipped here: they're already
-        # counted via finance_orders.logistics_sum (Uzum's payments report
-        # exposes the same logistics fee, so double-counting would inflate
-        # расходы). BUT logistics REFUND ("Возврат") rows are kept and netted
-        # against the logistics total — those are credits Uzum issues when a
-        # parcel comes back, and the seller should see them reduce Логистика.
-        # Net per category = sum(Оплата) - sum(Возврат).
+        # Ledger "Logistika" handling:
+        #   • Оплата rows (per-order return-leg charges) — EXCLUDED: money
+        #     movement, not an expense.
+        #   • Возврат rows (credits Uzum pays back) — also EXCLUDED from
+        #     Логистика. Their charge date (`day`) rarely matches the order's
+        #     `period_from`, so netting them distorted bounded periods.
+        # Логистика = gross finance_orders forward leg only
+        # (seller_profit == sell - commission - logistics_fee row-by-row).
         t_exp_warehouse = t_exp_marketing = t_exp_misc = 0
-        t_log_refunds = 0  # cumulative — negative when there are refunds
-        per_shop_log_refund: dict[str, int] = {}
         per_shop_exp: dict[str, dict] = {}  # uzum_id (str) → {warehouse, marketing, misc}
         if shop_uzum_ids:
             # ExpensesLedger.shop_id is int; cast our str uzum_ids.
@@ -466,51 +1521,11 @@ def economics_data_api():
                         ExpensesLedger.day <= date_to,
                     )
                 ).scalars().all()
-                for r in exp_rows:
-                    svc_raw = (r.service or "").lower()
-                    # Normalize Uzbek apostrophe variants (U+02BB, U+2019, U+02BC)
-                    # to ASCII so substring matches work consistently.
-                    svc = svc_raw
-                    for _ap in ("ʻ", "’", "ʼ"):
-                        svc = svc.replace(_ap, "'")
-                    op = (r.op_type or "").strip()
-                    sign = 1 if op == "Оплата" else -1
-                    amt = int(float(r.amount or 0)) * sign
-                    # Logistics handling:
-                    #   • "Оплата" (forward delivery outflow) — skip; already in
-                    #     finance_orders.logistics_fee, so counting it again
-                    #     would double-charge.
-                    #   • "Возврат" (Uzum credits the seller back when a parcel
-                    #     comes home or the fee was miscalculated) — KEEP and
-                    #     route into a dedicated refund bucket so it nets
-                    #     against the Логистика total.
-                    if "logistika" in svc or "logistic" in svc:
-                        if op == "Оплата":
-                            continue
-                        # amt is already negative because sign == -1
-                        t_log_refunds += amt
-                        sid_lr = str(r.shop_id)
-                        per_shop_log_refund[sid_lr] = per_shop_log_refund.get(sid_lr, 0) + amt
-                        continue
-                    # Skip inter-shop balance redistribution — it's an internal
-                    # transfer between the seller's own shops, not a real cost.
-                    if "balansni qayta taqsimlash" in svc:
-                        continue
-                    if ("saqlash" in svc) or ("ombor" in svc) or ("qaytarish" in svc):
-                        cat = "warehouse"
-                    # Marketing = paid promotion ("pulli targ'ibot") +
-                    # boost orders ("buyurtmalarni ko'paytirish to'lovi") only.
-                    # Photoshoot/other services fall through to misc.
-                    elif ("pulli targ" in svc) or ("paytirish" in svc):
-                        cat = "marketing"
-                    else:
-                        cat = "misc"
-                    if cat == "warehouse":   t_exp_warehouse += amt
-                    elif cat == "marketing": t_exp_marketing += amt
-                    else:                    t_exp_misc      += amt
-                    sid_str = str(r.shop_id)
-                    bucket = per_shop_exp.setdefault(sid_str, {"warehouse": 0, "marketing": 0, "misc": 0})
-                    bucket[cat] += amt
+                cat = _categorize_expense_ledger(exp_rows)
+                t_exp_warehouse     = cat["warehouse"]
+                t_exp_marketing     = cat["marketing"]
+                t_exp_misc          = cat["misc"]
+                per_shop_exp        = cat["per_shop_exp"]
 
         stmt = select(ProductGroup).where(ProductGroup.is_archived == False)
         if active_shop_ids:
@@ -616,15 +1631,11 @@ def economics_data_api():
 
         items.sort(key=lambda x: x["sales_profit"], reverse=True)
 
-        # Net logistics refunds (Возврат rows tagged "logistika") into the
-        # grand total and into each shop's logistics bucket BEFORE the per-shop
-        # output loop is built. t_log_refunds is ≤ 0, so this reduces the
-        # reported "Логистика" expense.
-        t_logistics += t_log_refunds
-        for _sid, _ref in per_shop_log_refund.items():
-            _pst = per_shop_totals.get(_sid)
-            if _pst is not None:
-                _pst["logistics"] += _ref
+        # Логистика is the gross forward-leg fee from finance_orders only.
+        # Ledger Возврат credits are NOT netted in: their charge date (`day`)
+        # rarely lines up with the order's `period_from`, so netting distorted
+        # bounded periods (could even go negative). Gross-only keeps the figure
+        # consistent with finance_orders for any window.
 
         # Per-shop breakdown for hero cards (Revenue, Profit). Uses finance totals
         # for revenue + commission/logistics; profit here is the same proxy used
@@ -719,12 +1730,34 @@ def economics_data_api():
 
         # Final profit subtracts the extra expense categories on top of the
         # per-item profit (which only subtracted commission/logistics/cogs).
-        # t_log_refunds is ≤ 0 (Возврат logistika rows), so subtracting it
-        # adds the refunded logistics back to profit.
-        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc) - t_log_refunds
+        # Logistics is gross-only (no Возврат credit), so profit does not add
+        # any refund back either — both stay purely finance_orders-derived.
+        t_sales_profit_full = t_sales_profit - (t_exp_warehouse + t_exp_marketing + t_exp_misc)
+
+        # Year-to-date revenue across ALL owned shops — feeds the annual tax
+        # limit bar. Always all-shops and Jan-1→today, independent of the
+        # active shop filter / selected period, so it's folded into every
+        # response instead of a separate front-end request.
+        ytd_revenue = 0
+        owned_uzum_ids = [s.uzum_id for s in owned_shops]
+        if owned_uzum_ids:
+            yr_start, _ = day_bounds_tashkent(date(today.year, 1, 1))
+            _, yr_end = day_bounds_tashkent(today)
+            for row in read_sales_aggregated(owned_uzum_ids, yr_start, yr_end, group_by="month", session=db):
+                ytd_revenue += int(row.get("revenue_sum") or 0)
+
+        # Previous period of equal length, immediately preceding date_from —
+        # feeds the ↑/↓ delta pills. Computed server-side (lightweight totals
+        # only) so the page no longer makes a second full request for it.
+        period_days = (date_to - date_from).days + 1
+        prev_to   = date_from - timedelta(days=1)
+        prev_from = prev_to - timedelta(days=period_days - 1)
+        prev_totals = _payout_snapshot(db, shop_uzum_ids, prev_from, prev_to)
 
         return _json_response({
             "items": items,
+            "year_to_date_revenue": ytd_revenue,
+            "prev_totals": prev_totals,
             "totals": {
                 "stock_cost": t_stock_cost, "stock_qty": t_stock_qty,
                 "stock_qty_uzum": t_stock_qty_uzum, "stock_qty_warehouse": t_stock_qty_wh,
@@ -732,6 +1765,8 @@ def economics_data_api():
                 "sales_revenue": t_sales_rev, "sales_qty": t_sales_qty,
                 "sales_profit": t_sales_profit_full, "sales_commission": t_commission,
                 "sales_logistics": t_logistics, "sales_cost": t_sales_cost,
+                # "К выводу" = Uzum-reported withdrawable (sum of seller_profit).
+                "sales_seller_profit": sum(p.get("seller_profit", 0) for p in per_shop_totals.values()),
                 "expenses_warehouse": t_exp_warehouse,
                 "expenses_marketing": t_exp_marketing,
                 "expenses_misc":      t_exp_misc,
@@ -820,7 +1855,6 @@ def _uzum_sync_inner():
         result = _app._sync_products_via_openapi(
             shop_id, openapi_token,
             size=size, max_pages=max_pages,
-            fetch_uz_titles=bool(payload.get("fetch_uz_titles", False)),
         )
         return _json_response({"ok": True, "shop_id": shop_id, **result})
     except Exception as e:
@@ -836,8 +1870,6 @@ def uzum_sync_finance():
     Reads aggregated SKU stats from finance_orders (kept fresh by the hourly +
     nightly finance loops \u2014 no Uzum API call here). Updates each variant's
     sales_30d_finance / avg_daily_sales / purchase_price / sell_price_uzum /
-    commission_per_unit / logistics_per_unit. Inserts today's VariantSale rows
-    for economics date-range queries.
     """
     try:
         payload = request.get_json(force=True, silent=True) or {}
@@ -899,15 +1931,6 @@ def uzum_sync_finance():
                 select(Variant).join(ProductGroup).where(ProductGroup.shop_id == shop_obj.id)
             ).scalars().all()
             updated_count = 0
-            _today = date.today()
-
-            # Bulk-delete today's VariantSale records for this shop's variants upfront
-            variant_ids = [v.id for v in variants]
-            if variant_ids:
-                db.execute(delete(VariantSale).where(
-                    VariantSale.variant_id.in_(variant_ids),
-                    VariantSale.date == _today
-                ))
 
             for v in variants:
                 sku_key = (v.sku or "").strip()
@@ -930,8 +1953,6 @@ def uzum_sync_finance():
                 if data and data.get("logistics", 0) > 0:
                     v.logistics_per_unit = int(data["logistics"])
 
-                if qty_val > 0:
-                    db.add(VariantSale(variant_id=v.id, date=_today, qty_sold=qty_val))
                 updated_count += 1
 
             db.commit()
@@ -1096,7 +2117,15 @@ def group_daily_stats(group_id: int):
                     FinanceOrder.sku_title.label("sku"),
                     FinanceOrder.sku_id.label("sid"),
                     func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty"),
-                    func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("rev"),
+                    # Revenue = seller_profit + commission + logistics (Uzum's own
+                    # identity). NOT sum(sell_price): the group=false backfill stored
+                    # a bogus ~6x-low sellPrice. REVERT to sum(sell_price) once Uzum
+                    # fixes the API and the backfill is re-run. See core/sales_reads.py.
+                    func.coalesce(func.sum(
+                        FinanceOrder.seller_profit
+                        + FinanceOrder.commission
+                        + FinanceOrder.logistics_fee
+                    ), 0).label("rev"),
                     func.coalesce(func.sum(FinanceOrder.commission), 0).label("comm"),
                     func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("log"),
                     func.coalesce(func.sum(FinanceOrder.purchase_price), 0).label("cost"),
@@ -1271,34 +2300,6 @@ def get_group_variants_api(group_id: int):
         return _json_response({
             "variants": items
         })
-
-
-@products_bp.post("/api/variants/<int:variant_id>/sales")
-@login_required
-def add_variant_sale(variant_id: int):
-    payload = request.get_json(force=True, silent=True) or {}
-    try:
-        qty = int(payload.get("qty") or 0)
-    except ValueError:
-        qty = 0
-    if qty <= 0:
-        return _json_response({"error": "qty must be > 0"}, 400)
-
-    try:
-        sale_date = payload.get("date")
-        d = date.fromisoformat(sale_date) if sale_date else date.today()
-    except Exception:
-        d = date.today()
-
-    with SessionLocal() as db:
-        v = db.get(Variant, variant_id)
-        if not v:
-            return _json_response({"error": "Variant not found"}, 404)
-        s = VariantSale(variant_id=variant_id, date=d, qty_sold=qty)
-        db.add(s)
-        db.commit()
-        return _json_response({"ok": True})
-
 
 # ----------------------------
 # Invoice / Restock Logic

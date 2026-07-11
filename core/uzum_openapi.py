@@ -274,14 +274,6 @@ def _clean(token: str) -> str:
 
 
 def _try_request(url: str, headers: dict, *, debug_label: str) -> tuple[int, str, dict | list | None]:
-    """Single attempt with the given headers. Returns (status, body_text, parsed_or_None).
-
-    Uses the project's pooled session for connection reuse. Throttled by the
-    process-wide ``TokenBucket`` keyed by the Uzum token, so all callers
-    (backfill, hourly loop, variant seed, products sync) cooperatively
-    respect Uzum's empirical 2-burst / ~2-per-sec ceiling without ever
-    triggering 429s.
-    """
     sess = _get_http_session()
     # Minimal, programmatic-client-style headers. Some openapi gateways
     # reject browser-like UA/Accept-Language combos with a 403, so we
@@ -341,13 +333,8 @@ def _is_token_not_found(status: int, parsed) -> bool:
     return False
 
 
+#actual connection to api to get list of shops json openapi
 def _call_v1_shops(token: str) -> dict | list:
-    """Probe /v1/shops with each auth variant in order. Returns parsed JSON.
-
-    Raises ``RuntimeError`` with a descriptive message if every variant
-    fails. The message includes which variants were tried and the last
-    response body so the caller can surface it to the UI.
-    """
     url = f"{OPENAPI_BASE}/v1/shops"
     token = _clean(token)
 
@@ -377,22 +364,13 @@ def _call_v1_shops(token: str) -> dict | list:
     )
 
 
+
+#actual conncetion to the api to get products json openapi
 def fetch_products_page(token: str, shop_uzum_id: str | int, *,
                         page: int, size: int = 100,
                         accept_language: str | None = None,
                         sort_by: str = "ID", order: str = "DESC",
                         filter_: str = "ALL") -> dict:
-    """GET /v1/product/shop/{shopId}?page=...&size=...
-
-    Returns the parsed JSON body (``AllProducts`` schema). Raises
-    ``RuntimeError`` if every auth-header variant we know about is
-    rejected — same probing rules as :func:`_call_v1_shops`.
-
-    ``accept_language`` is passed through verbatim (``"ru"`` / ``"uz"``).
-    The OpenAPI swagger does not document a localization parameter, so
-    whether the API actually honors it is empirical — call twice and
-    diff the returned productTitle to find out.
-    """
     token = _clean(token)
     qs = (f"size={int(size)}&page={int(page)}"
           f"&sortBy={sort_by}&order={order}&filter={filter_}")
@@ -425,41 +403,13 @@ def fetch_products_page(token: str, shop_uzum_id: str | int, *,
     )
 
 
+
+#actual api cal function for finance fetch json openapi
 def fetch_finance_orders_page(token: str, shop_uzum_id: str | int, *,
                               date_from_sec: int | None,
                               date_to_sec: int | None,
                               page: int = 0, size: int = 100,
                               group: bool = False) -> dict:
-    """GET /v1/finance/orders — paginated per-line sales ledger.
-
-    Returns the parsed JSON body. Shape (verified live 2026-05-20):
-      {"orderItems": [ {...}, ... ], "totalElements": N}
-
-    NOTE: there is NO ``payload`` wrapper on this endpoint, unlike most other
-    OpenAPI endpoints. The bare ``FinanceOrderItemsDto`` sits at the root.
-
-    Date filter units
-    -----------------
-    Uzum's swagger says ``dateFrom``/``dateTo`` are Unix epoch **milliseconds**.
-    They lie — the API actually expects **seconds**. Passing ms returns
-    ``totalElements=0`` cleanly with HTTP 200. Always pass seconds here;
-    callers convert from Tashkent-naive datetimes via ``int(dt.timestamp())``
-    after attaching tzinfo.
-
-    Pass ``None`` for either bound to omit it (the API then returns
-    unfiltered data, ordered by ``date`` desc).
-
-    Field-name surprise: the swagger says ``sellerPrice`` for unit price but
-    the real response key is ``sellPrice``. See ``_openapi_order_to_canonical``.
-
-    Other params
-    ------------
-    ``group=False`` → ``SellerOrderItemDto[]`` (per-order-line; primary mode
-    for ``sales_lines`` ingest).
-    ``group=True``  → ``ProductGroupedSellerItem[]`` (per-product rollup
-    with embedded SKU breakdown including ``skuId``, ``characteristics`` and
-    ``sellerDiscountAmount`` — useful for summary reports).
-    """
     token = _clean(token)
     qs_parts = [f"shopIds={int(shop_uzum_id)}",
                 f"page={int(page)}", f"size={int(size)}",
@@ -496,21 +446,12 @@ def fetch_finance_orders_page(token: str, shop_uzum_id: str | int, *,
     )
 
 
+
+#actual api cal for expenses fetch json openapi
 def fetch_finance_expenses_page(token: str, shop_uzum_id: str | int, *,
                                 date_from_sec: int | None,
                                 date_to_sec: int | None,
                                 page: int = 0, size: int = 100) -> dict:
-    """GET /v1/finance/expenses — paginated per-operation expenses ledger.
-
-    Returns the parsed JSON body. Shape (verified live 2026-05-20):
-      {"payload": {"payments": [ {...}, ... ], "totalElements": N},
-       "timestamp": "...", "trace": "..."}
-
-    Unlike ``/v1/finance/orders`` this endpoint DOES use the ``payload``
-    wrapper. Caller reads ``parsed["payload"]["payments"]``.
-
-    Same seconds-not-ms quirk applies — pass epoch seconds.
-    """
     token = _clean(token)
     qs_parts = [f"shopIds={int(shop_uzum_id)}",
                 f"page={int(page)}", f"size={int(size)}"]
@@ -2173,13 +2114,6 @@ FBS_ORDER_SCHEMES = ("FBS", "DBS")
 
 
 def list_owned_shops(token: str) -> list[dict]:
-    """Call /v1/shops and return a normalized list of owned shops.
-
-    Each returned dict has at least:
-      - uzum_id: str   (Uzum's shop identifier as a string)
-      - name: str | None
-    Other fields the API returns are passed through under `raw`.
-    """
     resp = _call_v1_shops(token)
 
     # Uzum responses vary; accept the common shapes:

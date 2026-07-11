@@ -213,7 +213,18 @@ def read_sales_aggregated(
         [
             func.coalesce(func.sum(FinanceOrder.amount), 0).label("qty_sum"),
             func.coalesce(func.sum(FinanceOrder.amount_returns), 0).label("qty_returns_sum"),
-            func.coalesce(func.sum(FinanceOrder.sell_price), 0).label("revenue_sum"),
+            # WORKAROUND (2026-06-16): Uzum's /v1/finance/orders?group=false
+            # returns a bogus per-unit `sellPrice` (~6x too low), so the
+            # backfilled `sell_price` column understates revenue. The identity
+            # Выручка = seller_profit + commission + logistics holds in BOTH
+            # API modes, so reconstruct revenue from those instead.
+            # REVERT to `func.sum(FinanceOrder.sell_price)` once Uzum fixes the
+            # group=false sellPrice and the backfill is re-run.
+            func.coalesce(func.sum(
+                FinanceOrder.seller_profit
+                + FinanceOrder.commission
+                + FinanceOrder.logistics_fee
+            ), 0).label("revenue_sum"),
             func.coalesce(func.sum(FinanceOrder.seller_profit), 0).label("seller_profit_sum"),
             func.coalesce(func.sum(FinanceOrder.commission), 0).label("commission_sum"),
             func.coalesce(func.sum(FinanceOrder.logistics_fee), 0).label("logistics_sum"),

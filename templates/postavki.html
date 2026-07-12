@@ -206,6 +206,16 @@
   .qrsz-opt { padding:.5rem .7rem; border-radius:9px; font-size:.9rem; font-weight:600; color:#e2e8f0; cursor:pointer; white-space:nowrap; transition:background .12s, color .12s; }
   .qrsz-opt:hover { background:rgba(255,255,255,.1); color:#fff; }
   .qrsz-opt.is-sel { background:#4169E1; color:#fff; }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    /* header row: let the shop selector wrap below the title instead of
+       overflowing the right edge */
+    .pkx-glass { flex-wrap: wrap !important; }
+    .pkx-glass > * { min-width: 0; }
+    /* dense supply grids already scroll inside .pkx-scroll; keep them contained */
+    .pkx-scroll { -webkit-overflow-scrolling: touch; }
+  }
 </style>
 {% endblock %}
 

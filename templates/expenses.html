@@ -154,6 +154,12 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 @media (max-width:900px) {
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:none; }
 }
+/* phones: don't hide columns — let the table scroll sideways so every column is reachable */
+@media (max-width:640px) {
+  .we-tablewrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+  .we-table { min-width:680px; }
+  .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:table-cell; }
+}
 </style>
 {% endblock %}
 

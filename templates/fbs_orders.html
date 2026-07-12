@@ -1045,6 +1045,23 @@
     background: #0f1117; color: #e2e8f0;
     box-shadow: 0 14px 32px rgba(0,0,0,.5);
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    /* header: shop picker drops to its own full-width row */
+    .fbs-glass { row-gap: 8px; }
+    .fbs-glass-spacer { display: none; }
+    .fbs-cap { flex: 1 1 100%; }
+    /* horizontal strips scroll instead of widening the page */
+    .fbs-section-tabs,
+    .fbs-status-row,
+    .fbs-status-line { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .fbs-section-tabs::-webkit-scrollbar,
+    .fbs-status-row::-webkit-scrollbar,
+    .fbs-status-line::-webkit-scrollbar { display: none; }
+    /* nothing should force the content wider than the viewport */
+    .fbs-card, .fbs-glass { max-width: 100%; }
+  }
 </style>
 {# «Soft» dizayn qatlami — inline uslublardan KEYIN (.fbs-page specificity bilan yengadi) #}
 <link rel="stylesheet" href="/static/fbs_aurora.css">
@@ -2191,7 +2208,7 @@
 
     out.innerHTML = `
       <div class="table-responsive">
-        <table class="table table-hover fbs-table mb-0">
+        <table class="table table-hover fbs-table mb-0 rwd-card">
           <thead>
             <tr>
               <th class="fbs-check-col">
@@ -2211,6 +2228,10 @@
         </table>
       </div>
     `;
+
+    // The whole table is (re)built as a string above, so stamp mobile-card
+    // labels + attach the tbody observer on this freshly injected table.
+    if (window.rwdCards) window.rwdCards.refresh(out);
 
     // Fill the per-row countdown timers right after render; the 60s
     // interval (registered at boot) keeps them ticking afterwards.

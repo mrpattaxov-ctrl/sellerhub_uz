@@ -1548,12 +1548,15 @@ def economics_data_api():
             g_stock_cost_uzum = g_stock_cost_wh = 0
             g_sales_rev = g_sales_cost = g_commission = g_logistics = 0
             g_uzum_id = shop_id_to_uzum.get(g.shop_id, "")
+            g_skus = []
 
             for v in g.variants:
                 v_cost_db = v.purchase_price or 0  # cost from local Variant.purchase_price (may be 0)
                 qty_uzum  = v.uzum_quantity or 0
                 qty_wh    = v.warehouse_quantity or 0
                 stock_qty = qty_uzum + qty_wh
+                if v.sku:
+                    g_skus.append(v.sku)
 
                 # "Active SKU" = currently on sale on Uzum (has stock available to buy).
                 # Counts unique variants with Uzum stock > 0; not affected by period.
@@ -1614,6 +1617,7 @@ def economics_data_api():
 
             items.append({
                 "id": g.id, "name": g.name, "image_url": normalize_uzum_image_url(g.image_url) or "",
+                "sku": " ".join(g_skus),
                 "stock_qty": g_stock_qty, "stock_cost": g_stock_cost,
                 "stock_qty_uzum": g_stock_qty_uzum, "stock_qty_warehouse": g_stock_qty_wh,
                 "stock_cost_uzum": g_stock_cost_uzum, "stock_cost_warehouse": g_stock_cost_wh,

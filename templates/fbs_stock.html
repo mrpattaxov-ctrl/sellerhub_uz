@@ -533,6 +533,17 @@
   [data-bs-theme="dark"] .stk-step:hover { background: rgba(79,124,240,.16); color: #93b4ff; }
   [data-bs-theme="dark"] .stk-step:active { background: rgba(79,124,240,.26); color: #aebfff; }
   [data-bs-theme="dark"] .stk-state { color: #98a2b3; }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .stk-trackrow { flex-wrap: wrap; }
+    .stk-seg { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; }
+    .stk-seg::-webkit-scrollbar { display: none; }
+    .stk-searchbox { flex: 1 1 100%; flex-wrap: wrap; }
+    .stk-summary { overflow-x: auto; max-width: 100%; }
+    /* long product name in the ТОВАР/SKU card cell wraps to its own line */
+    .stk-table.rwd-card td { flex-wrap: wrap; }
+  }
 </style>
 {% endblock %}
 
@@ -602,7 +613,7 @@
 
   <section class="stk-card">
     <div class="stk-table-wrap">
-      <table class="stk-table" id="stkTable">
+      <table class="stk-table rwd-card" id="stkTable">
         <thead>
           <tr>
             <th>{{ labels.th_product }}</th>

@@ -409,6 +409,50 @@
   z-index: 100;
 }
 .pp-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Mobile (≤640px): stack the toolbar, keep the status tabs on one scrollable
+   line, and stop anything from pushing the page wider than the screen ── */
+@media (max-width: 640px) {
+  .pp-products { overflow-x: hidden; }
+
+  .pp-filter-row { gap: 10px; }
+  .pp-search { flex: 1 1 100%; max-width: none; height: 42px; }
+  .pp-store-picker { width: 100%; }
+  .pp-store-trigger { width: 100%; min-width: 0; height: 42px; }
+  .pp-store-trigger .pp-chev { margin-left: auto; }
+
+  .pp-tabs {
+    width: 100%; margin-left: 0; gap: 4px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .pp-tabs::-webkit-scrollbar { display: none; }
+  .pp-tab { flex: 0 0 auto; }
+  .pp-view-toggle { flex: 0 0 auto; }
+
+  /* title actions span the row so they don't crowd on small screens */
+  .pp-title-actions { width: 100%; }
+  .pp-btn-ghost-bordered, .pp-btn-primary { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Phones ≤400px: tighten the status tabs so all three fit — including the wider
+   Russian labels (Активные/Скрытые/Архив) with up to 3-digit counts. Full-size
+   tabs only start fitting ~380px+, so 375px needs this too. Horizontal scroll
+   from the ≤640 rule remains as a safety net for extreme counts. */
+@media (max-width: 400px) {
+  .pp-tabs { gap: 2px; }
+  .pp-tab { padding: 0 7px; font-size: 13px; gap: 5px; height: 36px; }
+  .pp-tab-badge { min-width: 14px; padding: 1px 5px; font-size: 11px; }
+}
+
+/* Smallest phones (≤360px): also shrink the stats-view card so the status badge +
+   eye/⋮ action buttons fit its narrow right column (the ⋮ overflowed the card
+   edge at 320px; at 375px the column is wide enough and needs no change). */
+@media (max-width: 360px) {
+  .pp-scard-top { grid-template-columns: 72px 1fr; gap: 10px; }
+  .pp-scard-head { gap: 4px; }
+  .pp-scard-head .pp-card-iconbtn { width: 28px; height: 28px; }
+  .pp-status-badge { padding: 5px 9px; }
+}
 </style>
 {% endblock %}
 

@@ -176,6 +176,13 @@
   .sl-thead { display:none; }
   .sl-srow { grid-template-columns:1fr 1fr; gap:8px; }
   .sl-srow-prod { grid-column:1 / -1; }
+
+  /* keep the status tabs on a single line */
+  .sl-tabs { display:flex; flex-wrap:nowrap; gap:3px; padding:3px; max-width:100%;
+    overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .sl-tabs::-webkit-scrollbar { display:none; }
+  .sl-tab { height:30px; padding:0 10px; gap:5px; font-size:12px; white-space:nowrap; flex:0 0 auto; }
+  .sl-tab-count { font-size:10px; min-width:16px; height:16px; padding:0 4px; }
 }
 
 /* left panel sticky add bar */

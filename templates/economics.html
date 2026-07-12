@@ -65,6 +65,7 @@
 
     /* ── Header ────────────────────────────────────────── */
     .eco-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .eco-header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .eco-title-block { display: flex; align-items: center; gap: 12px; }
     .eco-h1 { font-size: 26px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
     .eco-back-btn {
@@ -126,6 +127,8 @@
 
     /* Shop picker dropdown (matches the products page store dropdown styling) */
     .eco-shop-picker { position: relative; }
+    /* period dropdown is a phones-only replacement for the preset chips */
+    .eco-period-picker { display: none; }
     .eco-shop-trigger {
       display: inline-flex; align-items: center; gap: 8px;
       height: 38px; padding: 0 14px;
@@ -157,6 +160,141 @@
     }
     .eco-shop-item:hover { background: var(--surface-2); }
     .eco-shop-item.selected { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+
+    /* ── Mobile toolbar: tidy full-width stack of equal controls (phones only) ── */
+    @media (max-width: 640px) {
+      /* let content stretch toward the screen edges — more usable width for cards/numbers */
+      .eco-wrap { padding: 18px 14px; }
+
+      /* everything compact & snug — two tidy rows, no loose internal gaps */
+      .eco-header-controls, .period-row {
+        font-size: 12px; gap: 8px; flex-wrap: nowrap; width: 100%; align-items: stretch;
+      }
+
+      /* Row 1: Налог · Период · Назад (back on the right) */
+      .tax-input { flex: 0 0 auto; height: 38px; gap: 3px; padding: 0 12px; border-radius: 9px; }
+      .tax-input input { width: 3ch; text-align: left; }
+      .tax-input .tax-label, .tax-input input, .tax-input .tax-pct { font-size: 12px; }
+      .eco-header-controls .eco-period-picker { display: block; flex: 1 1 auto; min-width: 0; }
+      .eco-back-btn { flex: 0 0 auto; height: 38px; padding: 0 14px; font-size: 12px; border-radius: 9px; }
+
+      /* Row 2: date range · Все магазины (equal halves) */
+      .period-row { flex-direction: row; }
+      .period-chips { display: none; }
+      .date-range-wrapper { flex: 1 1 0; min-width: 0; width: auto; height: 38px; padding: 0 12px; border-radius: 9px; justify-content: center; gap: 6px; }
+      .date-range-wrapper input { flex: 0 1 auto; width: auto; font-size: 12px; text-align: center; }
+      #ecoShopPicker { flex: 1 1 0; min-width: 0; width: auto; }
+
+      /* shared triggers: centered, snug content with the chevron next to the label */
+      .eco-shop-trigger { width: 100%; min-width: 0; height: 38px; padding: 0 12px; font-size: 12px; border-radius: 9px; justify-content: center; gap: 6px; }
+      .eco-header-controls .eco-shop-chev, .period-row .eco-shop-chev { margin-left: 2px; }
+      #ecoPeriodLabel, #ecoShopLabel {
+        flex: 0 1 auto; min-width: 0; text-align: center;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+
+      /* 12-month chart: stack title over a full-width toggle so the title stops wrapping to 3 lines */
+      .dyn-card { padding: 16px 14px; }
+      .dyn-card .panel-head { flex-direction: column; align-items: stretch; gap: 12px; }
+      .dyn-card .dyn-toggle { width: 100%; }
+      .dyn-card .dyn-toggle button { flex: 1; padding: 9px 14px; font-size: 13px; }
+
+      /* ── Products table → stacked cards (no horizontal scrolling) ── */
+      /* toolbar: title on top, then search + Экспорт fully visible on one row */
+      .table-head { flex-direction: column; align-items: stretch; padding: 14px; gap: 10px; }
+      .table-tools { width: 100%; gap: 8px; }
+      /* flex-basis:0 forces the search to share the row so Экспорт is never clipped */
+      /* .table-tools prefix raises specificity above the base `.search-input
+         { min-width:240px }` (defined later in the file) so search can shrink
+         and the Eksport button stays fully visible at 320/375px */
+      .table-tools .search-input { min-width: 0; flex: 1 1 0; height: 38px; }
+      .export-btn { flex: 0 0 auto; padding: 8px 12px; }
+
+      .eco-table-scroll { overflow-x: visible; padding-top: 14px; }
+      .eco-table, .eco-table tbody, .eco-table tr, .eco-table td { display: block; width: auto; }
+      .eco-table thead { display: none; }
+
+      /* each product row becomes a card */
+      .eco-table tbody tr {
+        border: 1px solid var(--line); border-radius: 12px;
+        margin: 0 14px 12px; padding: 12px 14px; background: var(--surface);
+      }
+      .eco-table tbody tr.totals-row { background: var(--surface-2); }
+      .eco-table tbody tr:last-child td { border-bottom: none; }
+
+      /* first cell = card header (product / «Итого»), no label */
+      .eco-table tbody td:first-child {
+        padding: 0 0 10px; margin-bottom: 8px;
+        border-bottom: 1px solid var(--line-2); text-align: left;
+      }
+      .prod-cell { min-width: 0; }
+
+      /* every other cell = a labeled row: LABEL … value */
+      .eco-table tbody td:not(:first-child) {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 6px 0; border: none; text-align: right;
+      }
+      .eco-table tbody td:not(:first-child)::before {
+        content: attr(data-label); flex: 0 0 auto; text-align: left;
+        color: var(--muted); font-size: 11px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .03em;
+      }
+      /* keep the stock split (Uzum/Свой) stacked tidily on the value side */
+      .eco-table td.stock-cell .stock-val { display: flex; flex-direction: column; align-items: flex-end; }
+
+      /* ── Annual-limit card: smaller, tidier numbers (no mid-value "сум" wrap) ── */
+      .eco-limit-card { padding: 16px; }
+      .eco-limit-current { font-size: 16px; white-space: nowrap; }
+      .eco-limit-max { white-space: nowrap; }
+      .eco-limit-values { flex-wrap: wrap; column-gap: 6px; row-gap: 0; font-size: 11px; }
+      .eco-limit-pct { font-size: 18px; padding: 3px 10px; }
+
+      /* nothing should push the page wider than the screen */
+      .eco-wrap { overflow-x: hidden; }
+
+      /* «Все расходы» card: single column, drop the decorative per-row bar so the
+         numbers always fit (the multicolor bar at the top already shows shares) */
+      .exp-rows { grid-template-columns: 1fr; column-gap: 0; }
+      .exp-total .exp-num { font-size: 22px; }
+      .exp-row { gap: 8px; }
+      .exp-ico { width: 32px; height: 32px; }
+      .exp-name { min-width: 0; flex: 1 1 auto; font-size: 14px; }
+      .exp-track { display: none; }
+      /* push the amounts flush to the card's right edge so they share a right
+         edge instead of sitting left-aligned mid-row (single-column phone view) */
+      .exp-val { font-size: 14px; }
+      .exp-rows .exp-val { margin-left: auto; text-align: right; }
+
+      /* frozen-stock band: smaller numbers so «сум» / «шт» don't get clipped.
+         .frozen-band prefix raises specificity above the base .fb-cell / .fb-val
+         rules (defined later in the file) which otherwise won and kept the
+         34px value that overflowed the fb-left cell at 320px. */
+      .frozen-band .fb-cell { padding: 16px; }
+      .frozen-band .fb-val { font-size: 22px; }
+      .frozen-band .fb-cell.fb-left .fb-val { font-size: 22px; }
+
+      /* products search must shrink so the Экспорт button stays fully visible */
+      .search-input input { min-width: 0; }
+    }
+
+    /* Very narrow phones (≤360px): 3 controls per row crush the labels, so stack
+       full-width instead — Налог+Назад share the top row, the rest go full width. */
+    @media (max-width: 360px) {
+      .eco-header-controls { flex-wrap: wrap; }
+      .tax-input { flex: 1 1 auto; }
+      .eco-back-btn { order: 2; }
+      .eco-header-controls .eco-period-picker { order: 3; flex: 1 1 100%; }
+
+      .period-row { flex-wrap: wrap; }
+      .date-range-wrapper, #ecoShopPicker { flex: 1 1 100%; }
+
+      /* full-width dropdowns read better left-aligned with the chevron at the edge */
+      .eco-shop-trigger, .date-range-wrapper { justify-content: flex-start; }
+      /* let the date fill the row so its ▼ sits at the right edge like the others */
+      .date-range-wrapper input { text-align: left; flex: 1 1 auto; width: auto; }
+      .eco-header-controls .eco-shop-chev, .period-row .eco-shop-chev { margin-left: auto; }
+      #ecoPeriodLabel, #ecoShopLabel { text-align: left; }
+    }
 
     /* Annual revenue limit indicator */
     .eco-limit-card {
@@ -286,8 +424,12 @@
     .kpi-pill.down { background: rgba(239,68,68,.12);  color: var(--red); }
 
     /* ── Main split: sales chart | expenses ────────────── */
-    .main-grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 16px; margin-bottom: 16px; }
-    @media (max-width: 1000px) { .main-grid { grid-template-columns: 1fr; } }
+    /* auto-fit collapses the split to one column whenever a panel would be too
+       narrow — this accounts for the fixed 220px sidebar present ≥769px, which
+       otherwise squeezed each panel to ~366px at 1024px and made the 4-up
+       sp-foot and 2-col expenses list overlap. Side-by-side only when each
+       panel gets ≥540px. min(540px,100%) keeps it from overflowing <540px. */
+    .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(540px, 100%), 1fr)); gap: 16px; margin-bottom: 16px; }
 
     .panel {
       background: var(--surface); border: 1px solid var(--line);
@@ -310,7 +452,14 @@
       gap: 8px; margin-top: 16px; padding-top: 14px;
       border-top: 1px solid var(--line);
     }
-    @media (max-width: 560px) { .sp-foot { grid-template-columns: repeat(2, 1fr); row-gap: 14px; } }
+    @media (max-width: 640px) {
+      /* compact 2×2 grid with smaller text — labels wrap fully instead of truncating */
+      .sp-foot { grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 12px; padding-top: 12px; }
+      .spf-cell { text-align: left; }
+      .spf-label { white-space: normal; overflow: visible; text-overflow: clip; font-size: 10.5px; line-height: 1.25; margin-bottom: 3px; }
+      .spf-val { font-size: 15px; }
+      .spf-val .unit { font-size: 11px; }
+    }
     .spf-cell  { text-align: center; min-width: 0; }
     .spf-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .spf-val   { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -378,6 +527,8 @@
     .chart-line { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
     .chart-area { fill: url(#blueFill); opacity: .22; }
     .chart-axis { fill: var(--muted); font-size: 10px; font-family: inherit; }
+    /* slimmer y-labels so the left gutter can be narrow and the plot stays wide */
+    .chart-axis-y { font-size: 9px; }
     .chart-grid { stroke: var(--line); stroke-dasharray: 3 3; }
     .chart-hot { fill: transparent; cursor: pointer; }
     .chart-dot { fill: var(--brand); stroke: #fff; stroke-width: 2; opacity: 0; pointer-events: none; transition: opacity .15s; }
@@ -413,6 +564,7 @@
     .dyn-chart-wrap { height: 340px; padding-top: 8px; }
     .bar-shape { transition: opacity .15s; cursor: pointer; }
     .bar-shape:hover { opacity: .85; }
+    .bar-shape.bar-zero { fill: var(--line-2); }
     .bar-label { fill: var(--ink); font-size: 11px; font-weight: 600; font-family: inherit; text-anchor: middle; }
     .bar-month { fill: var(--muted); font-size: 11px; font-family: inherit; text-anchor: middle; }
 
@@ -440,6 +592,7 @@
     }
     .export-btn:hover { color: var(--ink); border-color: var(--ink-2); }
 
+    .eco-table-scroll { overflow-x: auto; }
     .eco-table { width: 100%; border-collapse: collapse; }
     .eco-table thead th {
       padding: 14px 18px; text-align: right;
@@ -524,11 +677,20 @@
           <h1 class="eco-h1">{{ t.eco_title }}</h1>
         </div>
       </div>
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div class="tax-input" id="taxInputWrap" title="{{ "Soliq stavkasi. Foyda hisoblashda tushumdan ayriladi." if lang == "uz" else "Ставка налога. Вычитается из выручки при расчёте прибыли." }}">
+      <div class="eco-header-controls" id="ecoHeaderControls">
+        <div class="tax-input" id="taxInputWrap" title="{{ "Soliq stavkasi. Foyda hisoblashda aylanmadan ayriladi." if lang == "uz" else "Ставка налога. Вычитается из выручки при расчёте прибыли." }}">
           <span class="tax-label">{{ "Soliq" if lang == "uz" else "Налог" }}</span>
           <input type="number" id="taxRate" min="0" max="100" step="0.1" inputmode="decimal" placeholder="0">
           <span class="tax-pct">%</span>
+        </div>
+        <!-- Mobile-only: single dropdown mirroring the preset chips (built in JS) -->
+        <div class="eco-shop-picker eco-period-picker" id="ecoPeriodPicker">
+          <button type="button" class="eco-shop-trigger" id="ecoPeriodTrigger">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="ecoPeriodLabel"></span>
+            <span class="eco-shop-chev">▼</span>
+          </button>
+          <div class="eco-shop-menu" id="ecoPeriodMenu"></div>
         </div>
         <a href="/groups" class="eco-back-btn" id="backBtn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -568,7 +730,7 @@
     <div class="eco-limit-card" id="ecoLimitCard">
       <div class="eco-limit-row">
         <div class="eco-limit-info">
-          <div class="eco-limit-label">{{ "Yillik tushum limiti" if lang == "uz" else "Годовой лимит выручки" }} · <span class="eco-limit-year" id="ecoLimitYear">—</span></div>
+          <div class="eco-limit-label">{{ "Yillik aylanma limiti" if lang == "uz" else "Годовой лимит выручки" }} · <span class="eco-limit-year" id="ecoLimitYear">—</span></div>
           <div class="eco-limit-values">
             <span class="eco-limit-current" id="ecoLimitCurrent">—</span>
             <span class="eco-limit-sep">/</span>
@@ -676,7 +838,7 @@
           <span>{{ "12 oylik dinamika" if lang == "uz" else "Динамика за 12 месяцев" }}</span>
         </div>
         <div class="dyn-toggle">
-          <button class="active" data-dyn="revenue">{{ "Tushum" if lang == "uz" else "Выручка" }}</button>
+          <button class="active" data-dyn="revenue">{{ "Aylanma" if lang == "uz" else "Выручка" }}</button>
           <button data-dyn="profit">{{ "Foyda" if lang == "uz" else "Прибыль" }}</button>
         </div>
       </div>
@@ -693,7 +855,7 @@
         <div class="table-tools">
           <div class="search-input">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="productSearch" placeholder="{{ "Nom yoki ID bo'yicha qidirish" if lang == "uz" else "Поиск по названию или ID" }}">
+            <input type="text" id="productSearch" placeholder="{{ "Nom, ID yoki SKU bo'yicha qidirish" if lang == "uz" else "Поиск по названию, ID или SKU" }}">
           </div>
           <button class="export-btn" id="exportBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -701,7 +863,7 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x: auto;">
+      <div class="eco-table-scroll">
         <table class="eco-table">
           <thead>
             <tr>
@@ -743,9 +905,9 @@
       cardRevenue: "{{ t.eco_card_revenue }}",
       cardProfit: "{{ t.eco_card_profit }}",
       refreshBtn: "{{ 'Uzumdan yangilash' if lang == 'uz' else 'Обновить из Uzum' }}",
-      ccy: "{{ "so'm" if lang == 'uz' else 'сум' }}",
+      ccy: "{{ ("so'm" if lang == 'uz' else 'сум') | safe }}",
       orders: "{{ 'buyurtma' if lang == 'uz' else 'заказов' }}",
-      allShops: "{{ "Barcha do'konlar" if lang == 'uz' else 'Все магазины' }}",
+      allShops: "{{ ("Barcha do'konlar" if lang == 'uz' else 'Все магазины') | safe }}",
       cardPayout: "{{ 'Tushum' if lang == 'uz' else 'К выводу' }}",
       margin: "{{ 'Marja' if lang == 'uz' else 'Маржа' }}",
       commission: "{{ 'Komissiya' if lang == 'uz' else 'Комиссия' }}",
@@ -754,14 +916,14 @@
       warehouse: "{{ 'Ombor' if lang == 'uz' else 'Склад' }}",
       misc: "{{ 'Boshqa' if lang == 'uz' else 'Прочее' }}",
       tax: "{{ 'Soliq' if lang == 'uz' else 'Налог' }}",
-      fromRevenue: "{{ 'tushumdan' if lang == 'uz' else 'от выручки' }}",
+      fromRevenue: "{{ 'aylanmadan' if lang == 'uz' else 'от выручки' }}",
       catSingular: "{{ 'kategoriya' if lang == 'uz' else 'категория' }}",
       catFew: "{{ 'kategoriya' if lang == 'uz' else 'категории' }}",
       catMany: "{{ 'kategoriya' if lang == 'uz' else 'категорий' }}",
       totalLabel: "{{ 'Jami' if lang == 'uz' else 'Итого' }}",
       productsCount: "{{ 'ta mahsulot' if lang == 'uz' else 'товаров' }}",
       ttOrders: "{{ 'buyurtma' if lang == 'uz' else 'заказов' }}",
-      ttRevenue: "{{ 'Tushum' if lang == 'uz' else 'Выручка' }}",
+      ttRevenue: "{{ 'Aylanma' if lang == 'uz' else 'Выручка' }}",
       ttProfit: "{{ 'Foyda' if lang == 'uz' else 'Прибыль' }}",
       unitDona: "{{ 'dona' if lang == 'uz' else 'шт' }}",
       frozen: "{{ 'muzlatilgan' if lang == 'uz' else 'заморожено' }}",
@@ -962,7 +1124,8 @@
       // Cap visual width at 100% but keep the actual ratio in the badge text
       fillEl.style.width = Math.min(100, pct) + "%";
       pctEl.textContent = pct.toFixed(1).replace(".", ",") + "%";
-      currentEl.textContent = fmt(revenue) + " " + _ET.ccy;
+      // unit shown once (on the max value) — keeps the current number clean
+      currentEl.textContent = fmt(revenue);
     }
 
     // ── Previous-period deltas (↑/↓ pills) ──────
@@ -1121,7 +1284,11 @@
     // ── Daily sales chart (SVG line) ───────────
     function renderDailyChart(series){
       const host = document.getElementById("dailyChartHost");
-      const W = 600, H = 220, PAD_L = 40, PAD_R = 10, PAD_T = 14, PAD_B = 26;
+      // Match the viewBox width to the real rendered width so text isn't squished
+      // by preserveAspectRatio="none" on narrow (mobile) containers.
+      // Slim left gutter for the y-labels (smaller font) so the plot stays wide
+      // without the labels overlapping the line.
+      const W = Math.max(320, Math.round(host.clientWidth || 600)), H = 220, PAD_L = 40, PAD_R = 12, PAD_T = 16, PAD_B = 26;
       const innerW = W - PAD_L - PAD_R;
       const innerH = H - PAD_T - PAD_B;
       const points = (series || []);
@@ -1168,7 +1335,7 @@
           </defs>
           ${yLabels.map(l => `
             <line class="chart-grid" x1="${PAD_L}" x2="${W-PAD_R}" y1="${l.y}" y2="${l.y}"/>
-            <text class="chart-axis" x="${PAD_L-6}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
+            <text class="chart-axis chart-axis-y" x="${PAD_L-5}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
           `).join("")}
           ${points.length > 1 ? `<path class="chart-area" d="${areaD}"/>` : ""}
           ${points.length > 1 ? `<path class="chart-line" d="${pathD}"/>` : ""}
@@ -1214,7 +1381,10 @@
     function renderDynChart(){
       const host = document.getElementById("dynChartHost");
       const data = (currentData?.monthly_dynamics) || [];
-      const W = 1200, H = 340, PAD_L = 60, PAD_R = 20, PAD_T = 30, PAD_B = 36;
+      // Match viewBox width to the real rendered width so axis/month labels aren't
+      // squished by preserveAspectRatio="none" on narrow (mobile) containers.
+      // Slim left gutter + smaller y-labels so the bars get more width.
+      const W = Math.max(320, Math.round(host.clientWidth || 1200)), H = 340, PAD_L = 44, PAD_R = 12, PAD_T = 30, PAD_B = 36;
       const innerW = W - PAD_L - PAD_R, innerH = H - PAD_T - PAD_B;
 
       const vals = data.map(d => Math.max(0, num(d[dynMode])));
@@ -1230,6 +1400,8 @@
       const barCount = Math.max(1, data.length);
       const slotW = innerW / barCount;
       const barW  = Math.min(60, slotW * 0.62);
+      // thin month labels when slots are too narrow (mobile) so they don't run together
+      const monthLabelStep = Math.max(1, Math.ceil(30 / slotW));
       const months = {{ ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"]|tojson if lang == "uz" else ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]|tojson }};
 
       const barColor = dynMode === "revenue" ? "#4169e1" : "#10b981";
@@ -1241,20 +1413,23 @@
         <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:100%;" id="dynSvg">
           ${yLabels.map(l => `
             <line class="chart-grid" x1="${PAD_L}" x2="${W-PAD_R}" y1="${l.y}" y2="${l.y}"/>
-            <text class="chart-axis" x="${PAD_L-8}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
+            <text class="chart-axis chart-axis-y" x="${PAD_L-5}" y="${l.y+3}" text-anchor="end">${fmtCompact(l.v)}</text>
           `).join("")}
           ${data.map((d, i) => {
             const v = vals[i];
-            const h = niceMax > 0 ? (v / niceMax) * innerH : 0;
+            const rawH = niceMax > 0 ? (v / niceMax) * innerH : 0;
+            const isZero = v <= 0;
+            // keep every month visible: a zero/near-zero month shows a small muted stub
+            const h = Math.max(4, rawH);
             const x = PAD_L + i*slotW + (slotW - barW)/2;
             const y = PAD_T + innerH - h;
             const monthNum = parseInt(d.month.split("-")[1], 10);
             const monthLbl = months[(monthNum-1+12)%12];
             const showLbl = i === maxIdx && v > 0;
             return `
-              <rect class="bar-shape" x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" ry="6" fill="${barColor}" data-idx="${i}"/>
+              <rect class="bar-shape${isZero ? ' bar-zero' : ''}" x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" ry="6" fill="${barColor}" data-idx="${i}"/>
               ${showLbl ? `<text class="bar-label" x="${x+barW/2}" y="${y-8}">${fmtCompact(v)}</text>` : ""}
-              <text class="bar-month" x="${x+barW/2}" y="${H-12}">${monthLbl}</text>
+              ${((barCount - 1 - i) % monthLabelStep === 0) ? `<text class="bar-month" x="${x+barW/2}" y="${H-12}">${monthLbl}</text>` : ""}
               <rect class="chart-hot" x="${PAD_L + i*slotW}" y="${PAD_T}" width="${slotW}" height="${innerH}" data-idx="${i}"/>
             `;
           }).join("")}
@@ -1294,7 +1469,8 @@
       const tbody = document.getElementById("ecoTbody");
       const q = (document.getElementById("productSearch").value || "").trim().toLowerCase();
       const filtered = !q ? allItems : allItems.filter(it =>
-        (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q)
+        (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q) ||
+        (it.sku||"").toLowerCase().includes(q)
       );
       document.getElementById("tableCount").textContent = filtered.length;
       { const el = document.getElementById("productsCount"); if (el) el.textContent = filtered.length + " " + _ET.productsCount; }
@@ -1327,18 +1503,20 @@
                 </div>
               </div>
             </td>
-            <td class="stock-cell">
-              <div class="qty-main">${fmt(item.stock_qty)}</div>
-              <div class="qty-split"><span><span class="dot" style="background:var(--brand);"></span>${fmt(item.stock_qty_uzum||0)}</span><span><span class="dot" style="background:var(--green);"></span>${fmt(item.stock_qty_warehouse||0)}</span></div>
+            <td class="stock-cell" data-label="{{ t.eco_col_stock }}">
+              <div class="stock-val">
+                <div class="qty-main">${fmt(item.stock_qty)}</div>
+                <div class="qty-split"><span><span class="dot" style="background:var(--brand);"></span>${fmt(item.stock_qty_uzum||0)}</span><span><span class="dot" style="background:var(--green);"></span>${fmt(item.stock_qty_warehouse||0)}</span></div>
+              </div>
             </td>
-            <td class="num-muted">${fmt(item.stock_cost)}</td>
-            <td class="num-bold">${fmt(item.sales_qty)}</td>
-            <td class="num-muted">${fmt(item.sales_revenue)}</td>
-            <td class="num-red">${fmt(item.sales_commission)}</td>
-            <td class="num-red">${fmt(item.sales_logistics)}</td>
-            <td class="num-muted">${fmt(item.sales_cost)}</td>
-            <td class="${profitCls}">${profitSign}${fmt(item.sales_profit)}</td>
-            <td><span class="roi-pill ${roiCls}">${roiTxt}</span></td>
+            <td class="num-muted" data-label="{{ 'Qoldiq tannarxi' if lang == 'uz' else 'Себест. остатка' }}">${fmt(item.stock_cost)}</td>
+            <td class="num-bold" data-label="{{ 'Sotilgan' if lang == 'uz' else 'Продано' }}">${fmt(item.sales_qty)}</td>
+            <td class="num-muted" data-label="{{ t.eco_col_revenue }}">${fmt(item.sales_revenue)}</td>
+            <td class="num-red" data-label="{{ t.eco_col_commission }}">${fmt(item.sales_commission)}</td>
+            <td class="num-red" data-label="{{ t.eco_col_logistics }}">${fmt(item.sales_logistics)}</td>
+            <td class="num-muted" data-label="{{ t.eco_col_sales_cost }}">${fmt(item.sales_cost)}</td>
+            <td class="${profitCls}" data-label="{{ t.eco_col_net_profit }}">${profitSign}${fmt(item.sales_profit)}</td>
+            <td data-label="ROI"><span class="roi-pill ${roiCls}">${roiTxt}</span></td>
           </tr>`;
       }).join("");
 
@@ -1350,15 +1528,15 @@
       const totalRow = `
         <tr class="totals-row">
           <td style="padding-left: 22px;">${_ET.totalLabel}</td>
-          <td class="num-strong">${fmt(totals.stock_qty)}</td>
-          <td class="num-strong">${fmt(totals.stock_cost)}</td>
-          <td class="num-strong">${fmt(totals.sales_qty)}</td>
-          <td class="num-strong">${fmt(totals.sales_revenue)}</td>
-          <td class="num-red num-strong">${fmt(totals.sales_commission)}</td>
-          <td class="num-red num-strong">${fmt(totals.sales_logistics)}</td>
-          <td class="num-strong">${fmt(totalCogs)}</td>
-          <td class="${(totalProfit>=0?'num-green':'num-red')}">${(totalProfit>0?'+':'')}${fmt(totalProfit)}</td>
-          <td><span class="roi-pill ${totalRoiCls}">${totalRoi}%</span></td>
+          <td class="num-strong" data-label="{{ t.eco_col_stock }}">${fmt(totals.stock_qty)}</td>
+          <td class="num-strong" data-label="{{ 'Qoldiq tannarxi' if lang == 'uz' else 'Себест. остатка' }}">${fmt(totals.stock_cost)}</td>
+          <td class="num-strong" data-label="{{ 'Sotilgan' if lang == 'uz' else 'Продано' }}">${fmt(totals.sales_qty)}</td>
+          <td class="num-strong" data-label="{{ t.eco_col_revenue }}">${fmt(totals.sales_revenue)}</td>
+          <td class="num-red num-strong" data-label="{{ t.eco_col_commission }}">${fmt(totals.sales_commission)}</td>
+          <td class="num-red num-strong" data-label="{{ t.eco_col_logistics }}">${fmt(totals.sales_logistics)}</td>
+          <td class="num-strong" data-label="{{ t.eco_col_sales_cost }}">${fmt(totalCogs)}</td>
+          <td class="${(totalProfit>=0?'num-green':'num-red')}" data-label="{{ t.eco_col_net_profit }}">${(totalProfit>0?'+':'')}${fmt(totalProfit)}</td>
+          <td data-label="ROI"><span class="roi-pill ${totalRoiCls}">${totalRoi}%</span></td>
         </tr>`;
 
       tbody.innerHTML = rows + totalRow;
@@ -1367,7 +1545,7 @@
     // ── Export to CSV ───────────────────────────
     function exportCSV(){
       if (!allItems.length) return;
-      const headers = {{ ["ID","Mahsulot","Qoldiq","Uzum","O'z","Qoldiq tannarxi","Sotilgan","Tushum","Komissiya","Logistika","Sotuv tannarxi","Sof foyda","ROI%"]|tojson if lang == "uz" else ["ID","Товар","Остаток","Uzum","Свой","Себест.остатка","Продано","Выручка","Комиссия","Логистика","Себест.продаж","Чист.прибыль","ROI%"]|tojson }};
+      const headers = {{ ["ID","Mahsulot","Qoldiq","Uzum","O'z","Qoldiq tannarxi","Sotilgan","Aylanma","Komissiya","Logistika","Sotuv tannarxi","Sof foyda","ROI%"]|tojson if lang == "uz" else ["ID","Товар","Остаток","Uzum","Свой","Себест.остатка","Продано","Выручка","Комиссия","Логистика","Себест.продаж","Чист.прибыль","ROI%"]|tojson }};
       const rows = allItems.map(it => [
         it.id, `"${(it.name||"").replace(/"/g,'""')}"`,
         it.stock_qty, it.stock_qty_uzum||0, it.stock_qty_warehouse||0,
@@ -1436,8 +1614,9 @@
     dateFromEl.value = init.from;
     dateToEl.value   = init.to;
 
+    const _isNarrow = window.matchMedia("(max-width: 640px)").matches;
     const fp = flatpickr("#dateRangeInput", {
-      mode: "range", locale: "ru", dateFormat: "d M Y",
+      mode: "range", locale: "ru", dateFormat: _isNarrow ? "d.m.y" : "d M Y",
       showMonths: 1, disableMobile: true,
       position: "below",
       onChange(selectedDates){
@@ -1471,6 +1650,44 @@
       });
     });
 
+    // ── Mobile period dropdown: mirrors the preset chips, reuses their logic ──
+    (function initPeriodDropdown(){
+      const picker  = document.getElementById("ecoPeriodPicker");
+      const trigger = document.getElementById("ecoPeriodTrigger");
+      const menu    = document.getElementById("ecoPeriodMenu");
+      const label   = document.getElementById("ecoPeriodLabel");
+      if (!picker || !trigger || !menu || !label) return;
+      const CUSTOM_PERIOD = "{{ 'Tanlangan davr' if lang == 'uz' else 'Свой период' }}";
+      const chips = Array.from(document.querySelectorAll("#periodChips .pchip"));
+      if (!chips.length) return;
+
+      menu.innerHTML = chips.map(c =>
+        `<div class="eco-shop-item" data-period="${c.dataset.period}">${c.textContent.trim()}</div>`
+      ).join("");
+
+      function syncLabel(){
+        const active = chips.find(c => c.classList.contains("active"));
+        label.textContent = active ? active.textContent.trim() : CUSTOM_PERIOD;
+        menu.querySelectorAll(".eco-shop-item").forEach(it =>
+          it.classList.toggle("selected", !!active && it.dataset.period === active.dataset.period));
+      }
+
+      trigger.addEventListener("click", (e) => { e.stopPropagation(); picker.classList.toggle("open"); });
+      menu.addEventListener("click", (e) => {
+        const item = e.target.closest(".eco-shop-item");
+        if (!item) return;
+        picker.classList.remove("open");
+        const chip = chips.find(c => c.dataset.period === item.dataset.period);
+        if (chip) chip.click();  // reuse the existing preset handler end-to-end
+      });
+      document.addEventListener("click", (e) => { if (!picker.contains(e.target)) picker.classList.remove("open"); });
+
+      // keep the label correct whatever changes the active chip (presets or custom date)
+      const mo = new MutationObserver(syncLabel);
+      chips.forEach(c => mo.observe(c, { attributes: true, attributeFilter: ["class"] }));
+      syncLabel();
+    })();
+
     { const _rb = document.getElementById("refreshBtn"); if (_rb) _rb.addEventListener("click", () => { fetchFresh(dateFromEl.value, dateToEl.value); }); }
 
     document.getElementById("productSearch").addEventListener("input", () => {
@@ -1503,6 +1720,17 @@
         renderDynChart();
       });
     });
+
+    // Re-render the charts on resize so the width-matched viewBox stays crisp
+    (function(){
+      let _rt;
+      window.addEventListener("resize", () => {
+        clearTimeout(_rt);
+        _rt = setTimeout(() => {
+          if (currentData) { renderDailyChart(currentData.daily_series || []); renderDynChart(); }
+        }, 180);
+      });
+    })();
 
     // Initial render. If a fresh cache (<10 min) exists, render it and skip
     // the immediate refetch — that double-paint was the main reason the page

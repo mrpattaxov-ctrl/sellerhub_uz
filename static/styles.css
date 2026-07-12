@@ -94,7 +94,11 @@
 .pp-tb-avatar-trigger svg { width: 14px; height: 14px; color: var(--tb-text-muted); }
 
 .pp-tb-dropdown {
-  position: absolute;
+  /* fixed (not absolute): the top-bar is position:sticky, but this menu is a
+     sibling OUTSIDE it, so an absolute top:56px is measured from the document —
+     it detaches and opens off-screen once the page is scrolled. Anchor it to
+     the viewport so it always sits just under the sticky bar. */
+  position: fixed;
   top: 56px; right: 24px;
   width: 260px;
   background: var(--tb-surface);
@@ -417,3 +421,81 @@ body {
 [data-bs-theme="dark"] .admin-sub-state--trial { background: #0f1e38 !important; color: #60a5fa !important; }
 [data-bs-theme="dark"] .admin-sub-state--expired { background: #2a0e0e !important; color: #f87171 !important; }
 [data-bs-theme="dark"] .admin-sub-state--admin { background: #1a1040 !important; color: #a78bfa !important; }
+
+/* ═══════════ Responsive: tables → cards, grids → single column ═══════════ */
+.rwd-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .rwd-cards { grid-template-columns: 1fr; }
+
+  table.rwd-card { display: block; width: 100%; }
+  table.rwd-card thead {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  table.rwd-card tbody { display: block; }
+  table.rwd-card tr {
+    display: block;
+    margin-bottom: 12px;
+    padding: 4px 2px;
+    border: 1px solid var(--tb-border);
+    border-radius: 14px;
+    background: var(--tb-surface);
+    box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  }
+  table.rwd-card td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+    white-space: normal !important;
+    padding: 9px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--tb-border) !important;
+  }
+  table.rwd-card tr td:last-child { border-bottom: 0 !important; }
+  table.rwd-card td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    margin-right: auto;
+    text-align: left;
+    font-size: .74rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--tb-text-muted);
+  }
+  /* action / checkbox columns (empty header) — full width, no label */
+  table.rwd-card td[data-label=""],
+  table.rwd-card td:not([data-label]) { justify-content: flex-start; }
+  table.rwd-card td[data-label=""]::before,
+  table.rwd-card td:not([data-label])::before { content: none; }
+  /* colspan cells (empty-state / group rows) — centered, no label */
+  table.rwd-card td[colspan] { justify-content: center; text-align: center; }
+  table.rwd-card td[colspan]::before { content: none; }
+}
+
+/* ═══════════ Responsive: topbar, spacing, touch targets ═══════════ */
+@media (max-width: 768px) {
+  .pp-topbar { padding: 0 12px; gap: 6px; }
+  /* hide the username label, keep the avatar circle + chevron */
+  .pp-tb-avatar-trigger > span:not(.pp-tb-avatar) { display: none; }
+  .pp-tb-plan { font-size: 12px; padding: 0 10px; }
+  .pp-tb-dropdown { max-width: calc(100vw - 24px); }
+
+  main.container-fluid { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* touch sizing */
+  .btn, .form-control, .form-select { min-height: 42px; }
+  .pp-tb-ghost { min-width: 42px; height: 42px; }
+}
+@media (max-width: 480px) {
+  /* drop the plan pill on very small screens to save room */
+  .pp-tb-plan { display: none; }
+}

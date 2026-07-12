@@ -207,6 +207,49 @@
     },
   };
 
+  // ── Responsive tables: stamp data-label on <td> from <thead> headers ──
+  // Accepts a document/element root OR a single <table>. Idempotent (skips
+  // cells already stamped). Attaches a MutationObserver to each table's
+  // <tbody> so JS-rendered rows get labeled automatically — pages that
+  // re-render rows generally need only the `rwd-card` class, no refresh() call.
+  function stampRwdLabels(root) {
+    let tables;
+    if (root && root.tagName === "TABLE") {
+      tables = root.classList.contains("rwd-card") ? [root] : [];
+    } else {
+      tables = Array.from((root || document).querySelectorAll("table.rwd-card"));
+    }
+    tables.forEach((table) => {
+      const headCells = table.querySelectorAll("thead th");
+      if (headCells.length) {
+        const labels = Array.from(headCells).map((th) => (th.textContent || "").trim());
+        table.querySelectorAll("tbody tr").forEach((tr) => {
+          let col = 0;
+          Array.from(tr.children).forEach((td) => {
+            if (td.tagName !== "TD") return;
+            if (td.hasAttribute("colspan")) {
+              col += parseInt(td.getAttribute("colspan"), 10) || 1;
+              return;
+            }
+            if (!td.hasAttribute("data-label")) {
+              td.setAttribute("data-label", labels[col] || "");
+            }
+            col += 1;
+          });
+        });
+      }
+      // Re-stamp automatically when JS replaces tbody rows.
+      if (!table.__rwdObserved && table.tBodies[0]) {
+        table.__rwdObserved = true;
+        new MutationObserver(() => stampRwdLabels(table)).observe(
+          table.tBodies[0],
+          { childList: true }
+        );
+      }
+    });
+  }
+  window.rwdCards = { refresh: stampRwdLabels };
+
   function initUzumUI() {
     const isAdmin = document.body.dataset.isAdmin === "1";
     const lang = document.body.dataset.lang || "ru";
@@ -356,6 +399,38 @@
       [data-bs-theme="dark"] .uzum-segment { background: #1e2130; }
       [data-bs-theme="dark"] .uzum-segment-opt { color: #64748b; }
       [data-bs-theme="dark"] .uzum-segment-opt.active { background: #252a3f; color: #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+
+      /* ── Hamburger (mobile only) ── */
+      .uzum-hamburger { display: none; }
+
+      /* ── Mobile: sidebar becomes an off-canvas drawer ── */
+      @media (max-width: 768px) {
+        body, body.sidebar-closed { margin-left: 0 !important; }
+        .uzum-sidebar, .uzum-sidebar.closed {
+          width: 272px;
+          transform: translateX(-100%);
+          transition: transform 0.28s ease;
+        }
+        .uzum-sidebar.drawer-open {
+          transform: translateX(0);
+          box-shadow: 0 12px 40px rgba(16,24,40,.28);
+        }
+        /* keep labels + header full even if desktop-collapsed state persisted */
+        .uzum-sidebar.closed .uzum-nav-item { justify-content: flex-start; padding: 8px 10px; border-radius: 6px; }
+        .uzum-sidebar.closed .uzum-nav-item .nav-label { opacity: 1; width: auto; }
+        .uzum-sidebar.closed .uzum-sidebar-header { padding: 16px 14px; justify-content: space-between; }
+        .uzum-sidebar.closed .uzum-brand #uzumBrandLabel { display: inline; }
+        .uzum-sidebar .uzum-toggle-btn { display: none; }
+        .uzum-drawer-backdrop {
+          position: fixed; inset: 0; z-index: 1049;
+          background: rgba(16,24,40,.45);
+          opacity: 0; visibility: hidden;
+          transition: opacity .28s ease, visibility .28s ease;
+        }
+        .uzum-drawer-backdrop.show { opacity: 1; visibility: visible; }
+        .uzum-hamburger { display: inline-flex !important; }
+      }
+      [data-bs-theme="dark"] .uzum-drawer-backdrop { background: rgba(0,0,0,.6); }
     `;
     document.head.appendChild(layoutStyle);
 
@@ -479,6 +554,42 @@
       e.preventDefault(); e.stopPropagation(); toggleSidebar();
     });
     if (localStorage.getItem("uzum_sidebar_closed") === "true") toggleSidebar();
+
+    // ── Mobile off-canvas drawer ──
+    const _mq = window.matchMedia("(max-width: 768px)");
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "uzum-drawer-backdrop";
+    document.body.appendChild(backdrop);
+
+    let hamburger = null;
+    const topbar = document.querySelector(".pp-topbar");
+    if (topbar) {
+      hamburger = document.createElement("button");
+      hamburger.className = "uzum-hamburger pp-tb-ghost";
+      hamburger.setAttribute("aria-label", "Menu");
+      hamburger.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+      topbar.insertBefore(hamburger, topbar.firstChild);
+    }
+
+    const openDrawer = () => {
+      sidebar.classList.add("drawer-open");
+      backdrop.classList.add("show");
+      document.body.style.overflow = "hidden";
+    };
+    const closeDrawer = () => {
+      sidebar.classList.remove("drawer-open");
+      backdrop.classList.remove("show");
+      document.body.style.overflow = "";
+    };
+
+    if (hamburger) hamburger.addEventListener("click", (e) => { e.stopPropagation(); openDrawer(); });
+    backdrop.addEventListener("click", closeDrawer);
+    sidebar.querySelectorAll(".uzum-nav-item").forEach((a) =>
+      a.addEventListener("click", () => { if (_mq.matches) closeDrawer(); })
+    );
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+    _mq.addEventListener("change", (e) => { if (!e.matches) closeDrawer(); });
 
     // 5. Hide inputs that are now hardcoded (AFTER moving Shop ID)
     ["syncWorkerBase", "syncSize"].forEach(id => {
@@ -644,6 +755,8 @@
           });
         });
     }
+
+    stampRwdLabels();
   }
 
   if (document.readyState === "loading") {

@@ -716,7 +716,7 @@
   }
 
   .pos-cart-item {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 90px minmax(0, 1fr);
   }
 
   .pos-cart-media,

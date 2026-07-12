@@ -270,6 +270,26 @@
   .footer-summary { font-size: 1.5rem; font-weight: bold; }
   .footer-summary td { border-top: 0.5px solid #cccccc !important; }
   .footer-cell { text-align: center; vertical-align: middle; font-size: 1.1rem; }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    /* invoice card header: let the action buttons wrap below the title
+       instead of overlapping it on narrow screens */
+    .card-header.d-flex { flex-wrap: wrap; gap: 10px; }
+    .card-header .action-btn { flex: 1 1 auto; justify-content: center; }
+    .card-header .action-btn.me-2 { margin-right: 0 !important; }
+    /* day-period segment scrolls horizontally instead of pushing page width */
+    .restock-seg { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+    .restock-seg::-webkit-scrollbar { display: none; }
+    /* footer totals row keeps its label when stacked as a card */
+    .footer-summary { font-size: 1.15rem; }
+    /* header right column: stretch full width instead of right-aligned
+       fixed-width controls that poke past the viewport */
+    .d-flex.flex-column.align-items-end { align-items: stretch !important; width: 100%; }
+    .d-flex.flex-column.align-items-end #shop_filter { min-width: 0 !important; }
+    .d-flex.flex-column.align-items-end .justify-content-end { justify-content: flex-start !important; }
+    .restock-daterange { width: 100%; }
+  }
 </style>
 <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
   <div>
@@ -338,7 +358,7 @@
     </div>
   </div>
   <div class="table-responsive mb-0">
-    <table class="table table-hover mb-0 align-middle">
+    <table class="table table-hover mb-0 align-middle rwd-card">
       <thead class="table-light">
         <tr>
           <th style="width: 78px;" class="text-center">

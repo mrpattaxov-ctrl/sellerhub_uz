@@ -685,6 +685,132 @@
     background:#131722 !important; border-color:#222838 !important;
     box-shadow:0 12px 32px rgba(0,0,0,.5) !important;
   }
+
+  /* ── Mobile: 24-column variants grid → stacked labeled cards ── */
+  @media (max-width: 768px) {
+    /* The desktop card pins itself (position:sticky) with max-height + internal
+       scroll so the table fills the screen. On a phone that cage clipped every
+       variant after the first (overflow:hidden cut off rows 2–N with no way to
+       scroll them). Release it: let the card grow with content and scroll the
+       page normally. */
+    .gd-card { position: static; max-height: none; overflow: visible; }
+    .gd-table-wrap { overflow: visible; }
+    .gd-thead { display: none !important; }
+
+    /* ── Mobile redesign: each variant row → a card; its cells → a 2-up grid of
+       stat tiles (small-caps label on top, value below). Reads like a dashboard
+       instead of a raw ledger, and ~halves the height. ── */
+    .gd-row {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      min-width: 0 !important;
+      align-items: stretch;
+      padding: 10px;
+      margin-bottom: 14px;
+      border: 1px solid var(--gd-line);
+      border-radius: 16px;
+      background: var(--gd-surface);
+      box-shadow: var(--gd-shadow-sm);
+    }
+    .gd-row:hover { background: var(--gd-surface); }   /* neutralize desktop row-hover */
+
+    .gd-cell {
+      /* NOT !important on display: the column-visibility JS hides columns via
+         inline style.display='none'; an !important here would override that and
+         force every hidden column to show. flex-column keeps visible tiles laid
+         out while inline display:none still removes toggled-off columns. */
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 3px;
+      padding: 9px 11px !important;
+      text-align: left;
+      min-width: 0;
+      background: var(--gd-surface-2);
+      border-radius: 10px;
+      position: static !important;
+      box-shadow: none !important;
+    }
+    .gd-cell::before {
+      content: attr(data-label);
+      order: -1;                       /* label sits above the value */
+      font-size: .6rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: var(--gd-muted);
+      max-width: 100%;
+    }
+
+    /* checkbox + product identity span the full width and carry no tile chrome */
+    .gd-cell[data-col="checkbox"] {
+      grid-column: 1 / -1;
+      flex-direction: row; align-items: center; justify-content: flex-start;
+      background: transparent; padding: 2px 4px 0 !important;
+    }
+    .gd-cell--sku {
+      grid-column: 1 / -1;
+      flex-direction: row; align-items: center; gap: 12px;
+      background: transparent; padding: 2px 4px 12px !important;
+      border-bottom: 1px solid var(--gd-line);
+      text-align: left;
+    }
+    .gd-cell[data-col="checkbox"]::before,
+    .gd-cell--sku::before { content: none; }
+    .gd-cell--sku .gd-sku { font-size: 15px; font-weight: 600; }
+    .gd-row-thumb { width: 54px; height: 54px; border-radius: 12px; }
+
+    /* drop the squished 112px per-row sparkline — it reads as a stray dashed
+       line; the aggregate trend is already the hero chart */
+    .gd-sales-cell .gd-sparkline { display: none; }
+  }
+
+  /* Phones ≤520px: the hero sales card (min-width:360) + its 3-column nowrap
+     money metrics + the 6-button period pill + the fixed 240px search all
+     overflow a 320px viewport. Reflow them to fit. */
+  @media (max-width: 520px) {
+    /* stack the stat strip so each card is full-width — otherwise once the hero
+       min-width is dropped the flex-wrap packs Ombor/Need cards onto one narrow
+       row and the "Buyurtma yaratish" button overflows */
+    .gd-stats { flex-direction: column; }
+    .gd-stat--hero { min-width: 0; padding: 14px 14px 12px; }
+
+    /* 3 nowrap money columns can't fit a phone → 2-up grid (2 metrics fit a row,
+       the optional profit metric wraps to the next row) */
+    /* keep all three metrics on ONE row like the desktop version — just tighter
+       (smaller font + padding) so Выручка/Средний чек/Прибыль fit a phone */
+    .gd-metric { flex: 1 1 0; min-width: 0; padding: 0 6px !important; }
+    .gd-metric:first-child { padding-left: 0 !important; }
+    .gd-metric-label { font-size: 11px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gd-metric-value { font-size: 14px; }
+    .gd-metric-unit { font-size: 9.5px; }
+    .gd-metric-sub { font-size: 11px; margin-top: 5px; }
+
+    /* period segment: full-width even control instead of a ~336px overflow pill */
+    .gd-seg { display: flex; width: 100%; }
+    .gd-seg-btn { flex: 1 1 0; padding: 5px 4px; text-align: center; }
+
+    /* search fills the toolbar row instead of a fixed 240px */
+    .gd-search { flex: 1 1 100%; }
+    .gd-search input { width: 100%; }
+
+    /* Header declutter — the breadcrumb + product card read as noise on a phone:
+       the breadcrumb repeats the full long name, the H1 wraps ~5 lines, and the
+       Uzum-ID/category separator dangles. Tighten and truncate. */
+    .gd-breadcrumb { gap: 10px; margin-bottom: 10px; }
+    .gd-bc-nav { min-width: 0; flex: 1 1 auto; }
+    .gd-bc-nav .gd-bc-cur {
+      min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .gd-product { gap: 14px; padding: 16px; align-items: flex-start; }
+    .gd-thumb { width: 60px; height: 60px; border-radius: 12px; }
+    .gd-product h1 { font-size: 17px; line-height: 1.3; margin-bottom: 5px; }
+    .gd-meta { flex-direction: column; align-items: flex-start; gap: 3px; font-size: 12.5px; }
+    .gd-meta-sep { display: none; }
+  }
 </style>
 
 <div class="gd-scope" id="gdScope">
@@ -719,7 +845,7 @@
       <h1>{{ group.name }}</h1>
       <div class="gd-meta">
         <span>Uzum ID: <span class="mono gd-id-val">{{ group.uzum_product_id or "—" }}</span></span>
-        {% if group.category %}<span style="color:var(--gd-faint)">·</span><span>{{ group.category }}</span>{% endif %}
+        {% if group.category %}<span class="gd-meta-sep" style="color:var(--gd-faint)">·</span><span>{{ group.category }}</span>{% endif %}
       </div>
     </div>
 
@@ -1509,8 +1635,12 @@ function redrawHeroChart(){
   yLeftEl.innerHTML  = leftHtml;
   yRightEl.innerHTML = rightHtml;
 
-  // x-axis date labels — a subset, with the last slot always "сегодня"
-  const step = Math.max(1, Math.ceil(n / 10));
+  // x-axis date labels — a subset, with the last slot always "сегодня".
+  // Label count scales with the axis pixel width (~1 per 52px) so narrow phones
+  // show fewer dates instead of overlapping them.
+  const axisW = document.getElementById('heroAxis').clientWidth || 300;
+  const maxLabels = Math.max(3, Math.floor(axisW / 52));
+  const step = Math.max(1, Math.ceil(n / maxLabels));
   let xHtml = '';
   for (let i = 0; i < n - step * 0.5; i += step){
     const frac = (i + 0.5) / n;
@@ -2126,6 +2256,29 @@ window.addEventListener('load', () => {
     thumb.addEventListener('mouseenter', function () { show(thumb); });
     thumb.addEventListener('mouseleave', hide);
   });
+})();
+</script>
+
+<script>
+/* Mobile card reflow: stamp each .gd-cell with its column's header label
+   (matched by data-col) so the grid reads as labeled cards on phones. */
+(function () {
+  function labelGdCells() {
+    var heads = {};
+    document.querySelectorAll('.gd-thead .gd-th[data-col]').forEach(function (th) {
+      heads[th.getAttribute('data-col')] = (th.textContent || '').trim();
+    });
+    document.querySelectorAll('.gd-row .gd-cell[data-col]').forEach(function (cell) {
+      if (cell.hasAttribute('data-label')) return;
+      var label = heads[cell.getAttribute('data-col')];
+      if (label) cell.setAttribute('data-label', label);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', labelGdCells);
+  } else {
+    labelGdCells();
+  }
 })();
 </script>
 

@@ -1079,10 +1079,47 @@
      (mono-DOM, fxsel buzilmaydi). FAQAT ≥769px — mobil (<769px) da pickerlar
      glass ичида qoladi, hech nima o'zgармaydi. */
   @media (min-width: 769px) {
+    /* Glass header'ni FON bilan qo'shib yuboramiz (Ulug'bek 2026-07-12):
+       foydalanuvchi oq blokni xohlamadi — sarlavha + FBS/DBS belgi + bo'lim
+       tab'lari to'g'ridan-to'g'ri sahifa fonida tursin. Oq fon, border, blur,
+       radius, padding va yuqori nur-chizig'i olib tashlandi. FAQAT ≥769px —
+       mobil'даги kompakt app-header (glass-card) tegilmaydi. */
+    .fbs-glass {
+      background: transparent;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
+      border: 0; border-radius: 0; padding: 0;
+    }
+    .fbs-glass::before { display: none; }
+    /* Dark tema base qoidasi (yuqori spetsifiklik) fon/borderни qaytaради —
+       laptopда uni ham shaffofga o'tkazamiz. */
+    [data-bs-theme="dark"] .fbs-glass { background: transparent; border-color: transparent; }
+    /* Sahifa sarlavhasi (Заказы) — «Мои товары» (groups.html `.pp-h1`) bilan
+       AYNAN bir xil: 28px / 700 / -0.02em / 1.15 (Ulug'bek 2026-07-12).
+       Mobil sarlavha o'z o'lchamida qoladi. */
+    .fbs-glass-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
     /* Spacer'ni yashiramiz — u section-tabs'дан keyin turиб bo'sh joyни yeб
        qo'yгани учун `margin-left:auto` ишламай, toggle chapда qolарди. */
     .fbs-glass-spacer { display: none; }
-    .fbs-section-tabs { margin-left: auto; }
+    /* «Заказы / Склад» toggle — laptopда pastдаги «Все магазины + FBS/DBS»
+       dropdown-klasteri (372px) bilan BIR XIL kenglikда, o'ng chetга tekislanган
+       (uning ustiga to'g'ri keladi). Ikки tugma teng 50/50 (Ulug'bek 2026-07-12). */
+    .fbs-section-tabs { flex: none; width: 500px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
+    /* «Заказы / Склад» toggle — KATTAROQ + aktiv plita «ko'tarilган» (Ulug'bek
+       2026-07-12): tugmalar yiriкроq (padding+shrift), tanlanган navy plita
+       konteynerdan bir oz TASHQARIга chiqиб, soyа bilan «proud» turadi — Chat/Work
+       reference kabi. Radius O'ZГARMAYDI. Gorizontal «proud»ни fbs_section_tabs.js
+       beradi (≥769px). FAQAT ≥769px — mobil toggle byte-identical qoladi. */
+    .fbs-section-tabs a { flex: 1 1 0; justify-content: center; padding: .3rem 1.4rem; font-size: .95rem; }
+    /* «Все» filtr-tab'i kabi «freymланган» ko'rinish (Ulug'bek 2026-07-12): blok
+       6px padding bilan plitaни ~7px ичкарига oladi; plita AYNAN tugma bilan teng
+       (proud yo'q — JS proud=0), tekis (soyasiz). 100% = padding-box (36px). */
+    .seg-thumb {
+      top: 4px; height: calc(100% - 8px);
+      box-shadow: none;
+    }
+    [data-bs-theme="dark"] .seg-thumb {
+      box-shadow: 0 8px 20px -4px rgba(0,0,0,.55), 0 3px 8px rgba(0,0,0,.40);
+    }
     /* O'ng-klaster: «Пункт приёма» + pickerlar bitta guruh, o'ng chetда
        (margin-left:auto → chips chapда). Klaster bo'lиб yozilгani учун tor
        ekranда birga o'raladi va o'ng-tekislanган qoladi (tugma yashиринлигidan
@@ -1099,6 +1136,18 @@
        laptopda (klaster ичида) — mobil'даги to'liq-kenglik tugma tegилmaydi. */
     .fbs-status-right > .fbs-dropoff-btn {
       height: 44px; padding: 0 18px; border-radius: 14px;
+    }
+    /* Status-segment (Новый/Сборка/…/Другие статусы) qatorининг bo'yi ham
+       «Все магазины»/«Схема» pickerlari (44px) bilan BIR XIL bo'lsin (Ulug'bek
+       2026-07-12). Аura-widget CSS (fbs_aurora.css) кейинроқ юклангани учун
+       spetsifiklikни oshiramiz (.fbs-status-line qo'shildi). Chip'lar 55px'дан
+       44px'ga tushганда siqилmasин — vertikal padding kamaytiriladi (gorizontal
+       + thumb JS o'zгармaydi). FAQAT ≥769px — mobil segment tegилmaydi. */
+    .fbs-status-line .fbs-status-row { height: 44px; }
+    .fbs-status-line .fbs-status-row .fbs-status-chip,
+    .fbs-status-line .fbs-status-row .fbs-status-nav,
+    .fbs-status-line .fbs-status-row .fbsx-trigger {
+      padding-top: .3rem; padding-bottom: .3rem;
     }
   }
 
@@ -1140,6 +1189,17 @@
    popovers aren't clipped); scope an override back so the wide desktop order
    table scrolls inside its card at 769–1147px instead of spilling off-page. */
 .fbs-page .table-responsive { max-width: 100%; overflow-x: auto !important; }
+/* «Ikki qavat quti» tuzatildi (Ulug'bek 2026-07-12): base.html'да `.table-responsive`
+   GLOBAL karta (oq fon + border + radius + soyа). FBS ro'yxati esa uni yana `.fbs-card`
+   ичига o'raган — natijada qutи ичида quti. `.fbs-card` yagona quti bo'lib qoladi;
+   ichкi `.table-responsive` karta bezaklari olib tashlanadi (jadval kartага tekis
+   o'tiradi, pagination bilan bitta quti). Mobil (rwd-card) uchun ham amal qiladi. */
+.fbs-page .table-responsive {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none; margin-bottom: 0;
+}
+[data-bs-theme="dark"] .fbs-page .table-responsive {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
 
 @media (max-width: 768px) {
   .fbs-page { gap: .8rem; }
@@ -1247,7 +1307,14 @@
      Text columns keep the label ─ value rwd-card rows (matches Накладные),
      but the product cell goes full-width so the thumbnail + name never
      get squeezed into a right-aligned value (the old overflow cause). */
-  .fbs-card { padding: .75rem .8rem; }
+  /* «Ikki qavat quti» mobil'да ham tuzatildi (Ulug'bek 2026-07-12): qatorlar allaqachon
+     alohida KARTA (rwd-card: oq fon + border + soyа + 12px orasi). Tashqi `.fbs-card`
+     qutisi ortiqcha → uni SHAFFOF qilamiz; kartalar to'g'ridan-to'g'ri sahifa fonида
+     turadi (yagona quti = har bir qator). */
+  .fbs-card {
+    padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  }
+  [data-bs-theme="dark"] .fbs-card { background: transparent; border-color: transparent; box-shadow: none; }
   table.fbs-table.rwd-card tr {
     padding: 2px 6px 6px; border-radius: 16px; border-color: var(--sx-bd, #ececf2);
     box-shadow: 0 1px 3px rgba(16,24,40,.05);

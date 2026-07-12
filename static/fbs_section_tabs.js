@@ -13,6 +13,8 @@
     var a = nav.querySelector("a.active");
     var th = nav.querySelector(".seg-thumb");
     if (!a || !th) return;
+    // Plita AYNAN aktiv tugma bilan teng — «Все» filtr-tab'i kabi «freymланган»
+    // ko'rinish (blok padding'i freymни beradi; plita tugmани to'liq o'raydi).
     th.style.left = a.offsetLeft + "px";
     th.style.width = a.offsetWidth + "px";
     th.style.opacity = "1";

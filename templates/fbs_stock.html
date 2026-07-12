@@ -562,19 +562,62 @@
      filtr tab'lari yonига — suriladi. Ko'chиришни reparent-скрипт bajaradi.
      FAQAT ≥769px — mobil (<769px) da guruh glass ичида qoladi, tegilmaydi. */
   @media (min-width: 769px) {
+    /* Glass header'ni FON bilan qo'shib yuboramiz (Ulug'bek 2026-07-12):
+       oq blok yo'q — sarlavha + FBS/DBS belgi + bo'lim tab'lari to'g'ridan-to'g'ri
+       sahifa fonida tursin (Buyurtmalar sahifasi bilan bir xil). Oq fon, border,
+       blur, radius, padding va yuqori nur-chizig'i olib tashlandi. FAQAT ≥769px —
+       mobil'даги kompakt app-header tegilmaydi. */
+    .stk-glass {
+      background: transparent;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
+      border: 0; border-radius: 0; padding: 0;
+    }
+    .stk-glass::before { display: none; }
+    /* Dark tema base qoidasi (yuqori spetsifiklik) fon/borderни qaytaради —
+       laptopда uni ham shaffofga o'tkazamiz. */
+    [data-bs-theme="dark"] .stk-glass { background: transparent; border-color: transparent; }
+    /* Sahifa sarlavhasi (Склад) — «Мои товары» (groups.html `.pp-h1`) bilan AYNAN
+       bir xil: 28px / 700 / -0.02em / 1.15 (Buyurtmalar bilan bir xil). */
+    .stk-glass-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
     /* Spacer'ni yashiramiz — aks holда section-tabs'ni o'ngга ura olmaydi. */
     .stk-glass-spacer { display: none; }
-    .fbs-section-tabs { margin-left: auto; }
+    /* «Заказы / Склад» toggle — laptopда pastдаги «Все магазины + Excel + Загрузить»
+       klasteri (406px) bilan BIR XIL kenglikда, o'ng chetга tekislanган (uning
+       ustiga to'g'ri keladi). Ikки tugma teng 50/50 (Buyurtmalar bilan bir xil). */
+    .fbs-section-tabs { flex: none; width: 500px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
+    /* «Заказы / Склад» toggle — KATTAROQ + aktiv plita «ko'tarilган» (Buyurtmalar
+       sahifasi bilan AYNAN bir xil, Ulug'bek 2026-07-12): tugmalar yiriкроq,
+       tanlanган navy plita konteynerdan bir oz TASHQARIга chiqиб soyа bilan turadi
+       — Chat/Work reference kabi. Radius O'ZГARMAYDI. Gorizontal «proud» — JS'да
+       (≥769px). FAQAT ≥769px — mobil toggle byte-identical. */
+    .fbs-section-tabs a { flex: 1 1 0; justify-content: center; padding: .3rem 1.4rem; font-size: .95rem; }
+    /* «Все» filtr-tab'i kabi «freymланган» ko'rinish — Buyurtmalar bilan bir xil:
+       blok 6px padding, plita = tugma (proud yo'q), tekis. */
+    .seg-thumb {
+      top: 4px; height: calc(100% - 8px);
+      box-shadow: none;
+    }
+    [data-bs-theme="dark"] .seg-thumb {
+      box-shadow: 0 8px 20px -4px rgba(0,0,0,.55), 0 3px 8px rgba(0,0,0,.40);
+    }
     /* Qidiruv o'ng-itarилишини bekor qilamiz — endi filtr tab'lari yonида (chapda). */
     .stk-searchbox { margin-left: 0; }
-    /* Qidiruv maydoni bo'yi + radiusi yonидаги filtr tab'lari (.stk-seg: 55px,
-       16px) bilan BIR XIL bo'lsin — «Пункт приёма» tugmasи uchun qilgan kabi.
-       Faqat laptopда; mobil'даги to'liq-kenglik qidiruv tegилmaydi. */
-    .stk-search { height: 55px; border-radius: 16px; }
+    /* Butun filtr/qidiruv qatorining bo'yi = Buyurtmalar sahifasidagi «Все магазины»/
+       «Схема» pickerlari (.fbs-cap) bilan BIR XIL: 44px / 14px radius (Ulug'bek
+       2026-07-12 — foydalanuvchi dropdown bo'yига tenglashtirishни so'radi). Filtr
+       tab'lari, qidiruv, «Все магазины» kapsulasi va Excel/Загрузить — hammasi 44px.
+       Faqat laptopда; mobil'даги to'liq-kenglik variantlar tegилmaydi. */
+    .stk-trackrow > .stk-seg { height: 44px; }
+    /* Seg 55px'дан 44px'ga tushganда tugma matni siqилmasин — vertikal padding'ni
+       kamaytiramiz (gorizontal o'zгармaydi). */
+    .stk-trackrow > .stk-seg .stk-seg-btn { padding-top: .3rem; padding-bottom: .3rem; }
+    .stk-search { height: 44px; border-radius: 14px; }
     /* Filtr-qаторига ko'chганда: Магазин + Excel/Загрузить bitta guruh, o'ng chetда. */
     .stk-trackrow > .stk-cap-group {
       display: flex; align-items: center; gap: .6rem; margin-left: auto; flex: none;
     }
+    .stk-trackrow > .stk-cap-group .stk-cap { height: 44px; border-radius: 14px; }
+    .stk-trackrow > .stk-cap-group .stk-xls-btn { height: 44px; border-radius: 14px; }
   }
 
   /* ── Mobile ── */

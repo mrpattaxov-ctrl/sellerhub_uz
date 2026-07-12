@@ -19,10 +19,9 @@
   }
   .stk-page {
     max-width: none; margin: 0; display: grid; gap: 1rem;
-    /* Yuqori burchaklarda yumshoq aurora nur — Buyurtmalar sahifasi bilan bir xil. */
-    background:
-      radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
-      radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
+    /* Aurora nur OLIB TASHLANDI (Ulug'bek 2026-07-12) — tekis neytral fon,
+       Buyurtmalar sahifasi bilan bir xil. */
+    background: transparent;
   }
 
   /* ── Glass header («Floating Glass») — Buyurtmalar sahifasi bilan bir xil ──
@@ -33,9 +32,10 @@
     display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
     background: rgba(255,255,255,.74);
     -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,.55);
+    /* Kulrang hairline (POS `.pos-card` kabi) + soyasiz — Buyurtmalar bilan bir xil. */
+    border: 1px solid rgba(0,0,0,.08);
     border-radius: 18px; padding: .85rem 1.05rem;
-    box-shadow: 0 10px 30px -12px rgba(20,16,40,.18);
+    box-shadow: none;
   }
   .stk-glass::before {
     content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1px;
@@ -51,16 +51,25 @@
     font-size: .74rem; font-weight: 800;
     letter-spacing: .05em; text-transform: uppercase; flex: none;
   }
-  /* Do'kon filtri — kapsula (yorliq + select bitta qutida). */
+  /* Do'kon filtri — groups/POS do'kon-picker uslubi (Ulug'bek 2026-07-12):
+     oq pill, ikonka + qiymat + shevron, YORLIQSIZ + yumshoq soya (Buyurtmalar bilan bir xil). */
   .stk-cap {
-    display: flex; align-items: center; gap: .55rem;
-    background: #FBFBFD; border: 1px solid #E6E6EC; border-radius: 14px;
-    padding: .34rem .35rem .34rem 1rem;
+    display: flex; align-items: center; gap: 10px;
+    height: 44px; min-width: 180px; padding: 0 14px;
+    background: #fff; border: 1px solid #ECECF0; border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05);
   }
-  .stk-cap label {
-    font-size: .72rem; color: #6A6676; font-weight: 800; margin: 0;
-    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  .stk-cap-ic { display: inline-flex; flex: none; }
+  .stk-cap-ic svg { width: 16px; height: 16px; color: #9B98A5; }
+  .stk-cap .fxsel { flex: 1 1 auto; min-width: 0; }
+  .stk-cap .fxsel-trigger {
+    width: 100%; min-width: 0; padding: 0; gap: 8px;
+    font-weight: 500; font-size: 14px; color: #1A1A22;
   }
+  .stk-cap .fxsel-trigger:hover { background: transparent; }
+  .stk-cap .fxsel-val { flex: 1 1 auto; min-width: 0; }
+  .stk-cap .fxsel-cv { color: #9B98A5; }
+  .stk-cap label { display: none; }
   .stk-cap select {
     appearance: none; -webkit-appearance: none;
     border: 0; border-radius: 10px; color: #1A1A22; cursor: pointer;
@@ -84,7 +93,7 @@
     position: absolute; z-index: 0; top: 5px; height: calc(100% - 10px);
     border-radius: 11px; opacity: 0;
     background: linear-gradient(135deg, #1E2435, #2b3450);
-    box-shadow: 0 8px 18px -6px rgba(24,28,48,.5);
+    box-shadow: none;   /* soyasiz — tekis dizayn (Ulug'bek 2026-07-12) */
     transition: left .3s cubic-bezier(.3,1.2,.4,1), width .3s cubic-bezier(.3,1.2,.4,1), opacity .2s ease;
   }
   .fbs-section-tabs a {
@@ -107,7 +116,7 @@
   /* ── Content card ───────────────────────────────────────────── */
   .stk-card {
     background: #fff; border: 1px solid #eaecf0; border-radius: 18px;
-    padding: 1rem 1.1rem; box-shadow: 0 1px 2px rgba(16,24,40,.04);
+    padding: 1rem 1.1rem; box-shadow: none;
   }
   /* ── Availability segment → «Segment Glide» trek ─────────────
      Hammasi / Mavjud / Tugagan — kartadan TASHQARIDA, glass panel ostida.
@@ -118,15 +127,15 @@
   .stk-seg {
     position: relative;
     display: inline-flex; gap: 5px; padding: 6px; flex: none;
-    background: rgba(243,244,248,.82);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    /* OQ fon — Buyurtmalar status-treki bilan bir xil (soyasiz, blursiz). */
+    background: #fff;
     border: 1px solid #ECECF2; border-radius: 16px;
   }
   .stk-thumbpill {
     position: absolute; z-index: 0; pointer-events: none; opacity: 0;
     border-radius: 11px;
     background: #1E2435;
-    box-shadow: 0 7px 18px -5px rgba(24,28,48,.45);
+    box-shadow: none;
     transition: left .28s cubic-bezier(.3,1.2,.4,1), width .28s cubic-bezier(.3,1.2,.4,1),
                 top .2s ease, height .2s ease, opacity .15s ease;
   }
@@ -141,47 +150,58 @@
   .stk-seg-btn.is-active { background: transparent; color: #fff; box-shadow: none; }
   /* Fallback: thumb yo'q bo'lsa (JS yuklanmadi) aktiv tugma o'zi bo'yaladi. */
   .stk-seg:not(:has(.stk-thumbpill)) .stk-seg-btn.is-active {
-    background: #1E2435; box-shadow: 0 7px 18px -5px rgba(24,28,48,.45);
+    background: #1E2435; box-shadow: none;
   }
-  /* «Boxed Module» — qidiruv + summary chiplari bitta yumshoq panelда. */
+  /* «Boxed Module» OLIB TASHLANDI (Ulug'bek 2026-07-12): oq o'rab turuvchi panel
+     yo'q — qidiruv maydoni + summary chiplari to'g'ridan-to'g'ri fonda turadi. */
   .stk-searchbox {
-    flex: 1 1 420px; min-width: 300px;
+    /* Kichikroq + o'ng chetga surildi (Ulug'bek 2026-07-12): endi o'smaydi
+       (flex-grow 0), `margin-left:auto` uni qatorning o'ng tarafiga itaradi. */
+    flex: 0 1 400px; min-width: 260px; margin-left: auto;
     display: flex; align-items: center; gap: 12px;
-    padding: 8px; border-radius: 16px;
-    background: #fff; border: 1px solid #edf0f6;
-    box-shadow: 0 1px 2px rgba(16,24,40,.04);
+    padding: 0; border-radius: 16px;
+    background: transparent; border: 0;
+    box-shadow: none;
   }
+  /* Groups sahifasidagi `.pp-search` bilan bir xil: oq flex-quti, ichida
+     ikonka + borderless input, fokus halqasi qutida (Ulug'bek 2026-07-12). */
   .stk-search {
-    position: relative; flex: 1 1 auto; min-width: 0;
+    flex: 1 1 auto; min-width: 0; height: 44px;
+    display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    background: #fff; border: 1px solid #ECECF0; border-radius: 14px;
+    transition: border-color .15s, box-shadow .15s;
   }
+  .stk-search:focus-within { border-color: #1A1A22; box-shadow: 0 0 0 4px rgba(26,26,34,.06); }
   .stk-search svg {
-    position: absolute; left: .8rem; top: 50%; transform: translateY(-50%);
-    color: #98a2b3; pointer-events: none;
+    position: static; transform: none; flex: none;
+    width: 16px; height: 16px; color: #9B98A5; pointer-events: none;
   }
   .stk-search input {
-    width: 100%; padding: .62rem .9rem .62rem 2.3rem;
-    border: 1px solid #e4e7ec; border-radius: 11px;
-    font-size: .9rem; color: #101828; background: #f7f8fb;
-    transition: border-color .15s, box-shadow .15s, background .15s;
+    flex: 1 1 auto; min-width: 0;
+    border: 0; outline: 0; background: transparent; padding: 0;
+    font-size: 14px; color: #1A1A22;
   }
-  .stk-search input:focus {
-    outline: none; border-color: #1E2435;
-    box-shadow: 0 0 0 4px rgba(30,36,53,.07); background: #fff;
-  }
+  .stk-search input:focus { outline: none; box-shadow: none; }
   /* Summary → yumaloq chiplar */
-  .stk-summary { display: inline-flex; align-items: center; gap: 7px; flex: none; white-space: nowrap; }
+  /* Summary chiplari («100+ SKU» / «100+ закончились») OLIB TASHLANDI (Ulug'bek 2026-07-12). */
+  .stk-summary { display: none; }
   .stk-chip {
     display: inline-flex; align-items: center; gap: 5px;
     padding: .34rem .7rem; border-radius: 999px;
     font-size: .78rem; font-weight: 700; background: #eef0f5; color: #475467; white-space: nowrap;
+    /* Kulrang hairline — bloklar bilan bir xil (Ulug'bek 2026-07-12). */
+    border: 1px solid rgba(0,0,0,.08);
   }
   .stk-chip b { color: #101828; }
   .stk-chip.rose { background: #fef3f2; color: #b42318; }
   .stk-chip.rose b { color: #b42318; }
-  .stk-chip.ghost { background: transparent; color: #98a2b3; font-weight: 600; }
+  .stk-chip.ghost { background: transparent; color: #98a2b3; font-weight: 600; border-color: transparent; }
   .stk-chip.ghost svg { opacity: .7; flex: none; }
 
   .stk-shop:focus { outline: none; }
+  /* Магазин + Excel/Загрузить wrapper — transparent on desktop (children stay
+     direct flex items); the mobile block turns it into its own row. */
+  .stk-cap-group { display: contents; }
 
   .stk-table-wrap { overflow-x: auto; border-radius: 12px; }
   .stk-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
@@ -461,21 +481,21 @@
 
   /* ── Dark mode ──────────────────────────────────────────────── */
   [data-bs-theme="dark"] .stk-page {
-    background:
-      radial-gradient(640px 300px at 6% -60px, rgba(91,124,240,.16), transparent 70%),
-      radial-gradient(560px 280px at 94% -50px, rgba(139,92,246,.14), transparent 70%);
+    background: transparent;   /* aurora olib tashlandi — tekis fon */
   }
   [data-bs-theme="dark"] .stk-glass {
     background: rgba(26,29,39,.74);
-    border-color: rgba(255,255,255,.08);
-    box-shadow: 0 10px 30px -12px rgba(0,0,0,.65);
+    border-color: #2d3148;
+    box-shadow: none;
   }
   [data-bs-theme="dark"] .stk-glass::before { opacity: .22; }
   [data-bs-theme="dark"] .stk-glass-title { color: #e8edf5; }
   [data-bs-theme="dark"] .stk-brand { background: rgba(99,132,255,.15); color: #93b4ff; }
-  [data-bs-theme="dark"] .stk-cap { background: #1e2130; border-color: #3a3f5c; }
-  [data-bs-theme="dark"] .stk-cap label { color: #94a3b8; }
+  [data-bs-theme="dark"] .stk-cap { background: #1e2130; border-color: #3a3f5c; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
   [data-bs-theme="dark"] .stk-cap select { color: #e2e8f0; }
+  [data-bs-theme="dark"] .stk-cap .fxsel-trigger { color: #e2e8f0; }
+  [data-bs-theme="dark"] .stk-cap-ic svg,
+  [data-bs-theme="dark"] .stk-cap .fxsel-cv { color: #94a3b8; }
   [data-bs-theme="dark"] .fbs-section-tabs { background: rgba(28,35,52,.7); border-color: #2b3346; }
   [data-bs-theme="dark"] .fbs-section-tabs a { color: #9aa3b2; }
   [data-bs-theme="dark"] .fbs-section-tabs a:hover:not(.active) { color: #e8edf5; }
@@ -483,18 +503,19 @@
   [data-bs-theme="dark"] .stk-warning { background: rgba(234,88,12,.12); border-color: rgba(234,88,12,.35); color: #fdba74; }
   [data-bs-theme="dark"] .stk-warning a { color: #fdba74; }
   [data-bs-theme="dark"] .stk-card { background: #161c2b; border-color: #2b3346; box-shadow: none; }
-  [data-bs-theme="dark"] .stk-seg { background: rgba(28,35,52,.82); border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-seg { background: #1c2334; border-color: #2b3346; }
   [data-bs-theme="dark"] .stk-thumbpill { background: #323B57; }
   [data-bs-theme="dark"] .stk-seg-btn { color: #9aa3b2; }
   [data-bs-theme="dark"] .stk-seg-btn:hover { color: #e8edf5; }
   [data-bs-theme="dark"] .stk-seg-btn.is-active { background: transparent; color: #fff; box-shadow: none; }
   [data-bs-theme="dark"] .stk-seg:not(:has(.stk-thumbpill)) .stk-seg-btn.is-active {
-    background: #323B57; box-shadow: 0 7px 18px -5px rgba(24,28,48,.55);
+    background: #323B57; box-shadow: none;
   }
-  [data-bs-theme="dark"] .stk-searchbox { background: #1c2334; border-color: #2b3346; box-shadow: none; }
-  [data-bs-theme="dark"] .stk-search input { background: #11172250; border-color: #2b3346; color: #e8edf5; }
-  [data-bs-theme="dark"] .stk-search input:focus { border-color: #5b6b8f; box-shadow: 0 0 0 4px rgba(120,140,210,.16); background: #1a2030; }
-  [data-bs-theme="dark"] .stk-chip { background: #232a3d; color: #cbd5e1; }
+  [data-bs-theme="dark"] .stk-searchbox { background: transparent; border-color: transparent; box-shadow: none; }
+  [data-bs-theme="dark"] .stk-search { background: #1c2334; border-color: #2b3346; }
+  [data-bs-theme="dark"] .stk-search:focus-within { border-color: #5b6b8f; box-shadow: 0 0 0 4px rgba(120,140,210,.16); }
+  [data-bs-theme="dark"] .stk-search input { background: transparent; border: 0; color: #e8edf5; }
+  [data-bs-theme="dark"] .stk-chip { background: #232a3d; color: #cbd5e1; border-color: rgba(255,255,255,.09); }
   [data-bs-theme="dark"] .stk-chip b { color: #e8edf5; }
   [data-bs-theme="dark"] .stk-chip.rose { background: rgba(180,35,24,.18); color: #fca5a5; }
   [data-bs-theme="dark"] .stk-chip.rose b { color: #fca5a5; }
@@ -535,14 +556,70 @@
   [data-bs-theme="dark"] .stk-state { color: #98a2b3; }
 
   /* ── Mobile ── */
+  /* Root guard (all sizes): shrinkable grid column so nothing (e.g. the hidden
+     rwd-card thead) forces the page wider than the viewport — mirrors /fbs. */
+  .stk-page { grid-template-columns: minmax(0, 1fr); }
+  .stk-page > * { min-width: 0; max-width: 100%; }
+
   @media (max-width: 768px) {
+    /* ── Glass header → compact 2-line app header (matches orders page) ── */
+    .stk-glass { row-gap: 8px; column-gap: .5rem; padding: .68rem .8rem; }
+    .stk-glass-title { font-size: 1.02rem; }
+    .stk-brand { display: none; }
+    .stk-glass-spacer { display: none; }
+    /* «Заказы / Склад» toggle → compact, pinned to the right of the title */
+    .fbs-section-tabs { flex: none; margin-left: auto; align-self: center; padding: 4px; gap: 3px; }
+    .fbs-section-tabs a { padding: .42rem .66rem; font-size: .82rem; gap: .32rem; }
+    .fbs-section-tabs a svg { width: 14px; height: 14px; }
+    /* Row 2: Магазин field (label over value, grows) + Excel/Загрузить (compact) */
+    .stk-cap-group { display: flex; flex: 1 1 100%; width: 100%; min-width: 0; gap: .5rem; align-items: stretch; }
+    .stk-cap {
+      flex: 1 1 auto; width: auto; min-width: 0;
+      flex-direction: row; align-items: center; gap: 8px;
+      height: 42px; padding: 0 12px;
+    }
+    /* the shop control is the fxsel «bare» widget — fill + ellipsize, don't grow */
+    .stk-cap .fxsel, .stk-cap .fxsel-trigger { width: 100%; min-width: 0; max-width: 100%; }
+    .stk-cap .fxsel-trigger { padding: .1rem 0; font-size: .92rem; gap: .3rem; }
+    .stk-cap .fxsel-val { flex: 1 1 auto; min-width: 0; }
+    .stk-cap select { width: 100%; min-width: 0; font-size: .92rem; padding: .1rem 1.4rem .1rem 0; }
+    .stk-xls { flex: none; gap: .4rem; align-items: stretch; }
+    .stk-xls-btn { padding: .5rem .58rem; font-size: .78rem; gap: .32rem; }
+    .stk-xls-btn svg { width: 14px; height: 14px; }
+    /* Excel (secondary export) → icon-only on phones so the shop field keeps
+       enough width to show its value; «Загрузить» (primary) stays labelled. */
+    .stk-xls-btn#stkExport { font-size: 0; padding: .5rem .62rem; }
+    .stk-xls-btn#stkExport svg { width: 16px; height: 16px; }
+
+    /* ── Filter tabs (Все/В наличии/Закончились) → shrink to fit, no scroll ── */
     .stk-trackrow { flex-wrap: wrap; }
-    .stk-seg { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; }
-    .stk-seg::-webkit-scrollbar { display: none; }
+    .stk-seg { display: flex; width: 100%; flex: 1 1 100%; gap: 3px; padding: 4px; }
+    .stk-seg-btn {
+      flex: 1 1 0; min-width: 0; justify-content: center;
+      padding: .5rem .3rem; font-size: .8rem; gap: .3rem;
+    }
     .stk-searchbox { flex: 1 1 100%; flex-wrap: wrap; }
     .stk-summary { overflow-x: auto; max-width: 100%; }
+
+    /* product table → cards: clip the rwd-card's hidden thead phantom scroll */
+    .stk-table-wrap { overflow-x: hidden; }
     /* long product name in the ТОВАР/SKU card cell wraps to its own line */
     .stk-table.rwd-card td { flex-wrap: wrap; }
+    /* the product block has a 260px min-width for the desktop table — drop it
+       on mobile so the name uses the full card width instead of being clipped */
+    .stk-prod { min-width: 0; }
+
+    /* «Save changes» bar → full-width so text + Отмена/Сохранить never overflow */
+    .stk-savebar {
+      left: 8px !important; right: 8px !important; bottom: 8px;
+      max-width: none; transform: translateY(160%);
+      flex-wrap: wrap; justify-content: center; gap: .55rem; padding: .7rem .75rem;
+    }
+    .stk-savebar.show { transform: translateY(0); }
+    .stk-savebar-text { flex: 1 1 100%; text-align: center; }
+    .stk-savebar-actions { flex: 1 1 100%; display: flex; gap: .5rem; }
+    .stk-savebar-actions .stk-cancel,
+    .stk-savebar-actions .stk-save { flex: 1 1 0; justify-content: center; min-height: 44px; }
   }
 </style>
 {% endblock %}
@@ -566,8 +643,11 @@
     </a>
     </nav>
     <span class="stk-glass-spacer"></span>
+    {# Магазин + Excel/Загрузить — `display:contents` on desktop (unchanged),
+       a forced full-width row 2 on mobile so they never squeeze onto row 1. #}
+    <div class="stk-cap-group">
     <div class="stk-cap">
-      <label for="stkShop">{{ labels.label_shop }}</label>
+      <span class="stk-cap-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
       <select id="stkShop" class="stk-shop" aria-label="{{ labels.label_shop }}" data-fxsel data-fxsel-variant="bare">
         <option value="">{{ labels.opt_all_shops }}</option>
       </select>
@@ -582,6 +662,7 @@
         {{ labels.import_btn }}
       </button>
       <input type="file" id="stkImportFile" accept=".xlsx,.xlsm" hidden>
+    </div>
     </div>
   </section>
 

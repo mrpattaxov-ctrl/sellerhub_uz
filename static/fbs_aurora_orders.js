@@ -163,8 +163,11 @@
     var rowRect = row.getBoundingClientRect();
     var r = el.getBoundingClientRect();
     thumb.style.opacity = "1";
-    thumb.style.left   = (r.left - rowRect.left - row.clientLeft) + "px";
-    thumb.style.top    = (r.top  - rowRect.top  - row.clientTop)  + "px";
+    // + scrollLeft/Top: on mobile the track scrolls horizontally, so the
+    // absolutely-positioned thumb lives in the (scrolled) content coordinate
+    // system — without this it drifts by scrollLeft after a scroll+tap.
+    thumb.style.left   = (r.left - rowRect.left - row.clientLeft + row.scrollLeft) + "px";
+    thumb.style.top    = (r.top  - rowRect.top  - row.clientTop  + row.scrollTop)  + "px";
     thumb.style.width  = r.width + "px";
     thumb.style.height = r.height + "px";
   }

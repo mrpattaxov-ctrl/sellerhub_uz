@@ -894,12 +894,48 @@
   .inv-rail-sum { font-size: 1.02rem; font-weight: 800; color: #6938ef; font-variant-numeric: tabular-nums; }
 
   /* tor ekran — rail pastga tushadi */
+  /* Root guard (all sizes): shrinkable page column so the wide desktop table
+     scrolls inside its wrap (769–1147px) instead of stretching the page. */
+  .inv-page { grid-template-columns: minmax(0, 1fr); }
+  .inv-page > * { min-width: 0; max-width: 100%; }
+  .inv-table-wrap { max-width: 100%; overflow-x: auto; }
+
   @media (max-width: 640px) {
+    /* cards: clip the rwd-card's hidden thead so no ~12px phantom h-scroll */
+    .inv-table-wrap { overflow-x: hidden; }
+
     .inv-ord-head, .inv-ocard { grid-template-columns: 40px minmax(0,1fr); }
     .inv-ocard-rail { grid-column: 1 / -1; box-shadow: none; border-top: 1px solid #eaecf0;
       flex-direction: row; flex-wrap: wrap; gap: .4rem 1rem; }
     .inv-ord-head-r { display: none; }
     .inv-dpill { min-width: auto; }
+    /* let the product block shrink so the qty pill isn't pushed off the edge */
+    .inv-pl .inv-oprod { min-width: 0; }
+
+    /* Пункт приёма: «Изменить» eats half the row and squeezes the address
+       into 4 cramped lines → drop it to a full-width row under the address. */
+    .inv-address-card { flex-wrap: wrap; align-items: flex-start; }
+    .inv-address-body { flex: 1 1 auto; }
+    .inv-pickup-edit-btn-v2 { flex: 1 1 100%; justify-content: center; margin-top: .55rem; min-height: 42px; }
+
+    /* Floating selection bar → full-width mobile toolbar (mirrors the orders
+       page): count on top, QR-size selector full-width, action buttons share
+       the row instead of falling off the right edge. */
+    .inv-bulkbar {
+      left: 8px !important; right: 8px !important; bottom: 8px;
+      max-width: none; transform: translateY(calc(100% + 40px));
+      flex-wrap: wrap; justify-content: center; gap: .5rem .55rem; padding: .7rem .75rem;
+    }
+    .inv-bulkbar.is-visible { transform: translateY(0); }
+    .inv-bulkbar .inv-bulk-count {
+      flex: 1 1 100%; text-align: center; margin: 0; padding: 0 0 .5rem;
+      border-right: 0; border-bottom: 1px solid rgba(255,255,255,.18);
+    }
+    .inv-bulkbar .inv-bulk-actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: center; gap: .5rem; }
+    .inv-bulkbar .qrsz { flex: 1 1 100%; }
+    .inv-bulkbar .qrsz-trigger { width: 100%; justify-content: center; }
+    .inv-bulkbar .inv-bulk-btn { flex: 1 1 auto; min-height: 44px; justify-content: center; }
+    body:has(.inv-bulkbar.is-visible) { padding-bottom: 200px; }
   }
 
   /* dark theme */

@@ -354,10 +354,24 @@
   }
   @media (max-width: 560px) {
     .fbs-od-rail-card { grid-template-columns: 1fr; }
+    /* grid items default to min-width:auto → they refuse to shrink below their
+       content and get clipped by the card's overflow:hidden (the «1 шт» pill and
+       «7 950 UZS» truncation). min-width:0 lets them fit the column and wrap. */
+    .fbs-od-rail-left, .fbs-od-rail-side { min-width: 0; }
     .fbs-od-rail-side {
       box-shadow: none; border-top: 1px solid #eaecf0;
       flex-direction: row; flex-wrap: wrap; gap: 10px 24px;
     }
+    .fbs-od-rail-side .rv.sum { font-size: 19px; }
+    /* Hero: extra right room + tighter eyebrow so «Создан …» clears the sheet's × */
+    .fbs-od-hero { padding: 18px 64px 18px 18px; }
+    .fbs-od-hero .hero-created { letter-spacing: .04em; font-size: 11px; }
+    .fbs-od-hero h1 { font-size: 25px; }
+    /* Product row: smaller thumb → the name/SKU get more of the narrow column */
+    .fbs-od-rl { gap: 11px; }
+    .fbs-od-rl .li-thumb { width: 52px; height: 52px; }
+    .fbs-od-rl .li-dpill { min-width: 0; padding: 5px 10px; }
+    .fbs-actions-bar { padding: 16px 16px 22px; }
   }
 
   /* Jami summa — ko'k panel (V3) */

@@ -58,9 +58,8 @@
   padding:6px;margin:0;
   border:1px solid var(--sx-bd);border-bottom:1px solid var(--sx-bd);
   border-radius:16px;
-  background:var(--sx-track);
-  background:color-mix(in srgb, var(--sx-track) 82%, transparent);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  /* OQ fon — boshqa bloklar (.fbs-card, .fbs-glass) kabi (Ulug'bek 2026-07-12) */
+  background:var(--sx-surface);
 }
 /* Sirpanuvchi gradient thumb — aktiv tab ostida suzadi. JS left/top/width/
    height'ni o'rnatadi; transition sirpanish effektini beradi. */
@@ -68,7 +67,7 @@
   position:absolute;z-index:0;pointer-events:none;opacity:0;
   border-radius:11px;
   background:var(--sx-active);
-  box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+  box-shadow:none;   /* soya olib tashlandi (Ulug'bek 2026-07-12) — tekis dizayn */
   transition:left .28s cubic-bezier(.3,1.2,.4,1),width .28s cubic-bezier(.3,1.2,.4,1),
              top .2s ease,height .2s ease,opacity .15s ease;
 }
@@ -87,7 +86,7 @@
 }
 /* Fallback: thumb yo'q bo'lsa (JS yuklanmadi) aktiv chip o'zi bo'yaladi. */
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-chip.active{
-  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+  background:var(--sx-active);
 }
 .fbs-page .fbs-status-chip-count{
   background:var(--sx-count-bg);color:var(--sx-count-fg);
@@ -108,7 +107,7 @@
   background:transparent;color:#fff;border-color:transparent;box-shadow:none;
 }
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-nav.is-active{
-  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+  background:var(--sx-active);
 }
 .fbs-page .fbs-status-nav.is-active .fbs-status-chip-count{background:rgba(255,255,255,.26);color:#fff;}
 
@@ -131,7 +130,7 @@
   background:transparent;color:#fff;box-shadow:none;
 }
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbsx-trigger.is-active{
-  background:var(--sx-active);box-shadow:0 7px 18px -5px rgba(24,28,48,.45);
+  background:var(--sx-active);
 }
 .fbs-page .fbsx-trigger .fbsx-cv{width:15px;height:15px;opacity:.7;transition:transform .2s ease;}
 .fbs-page .fbsx-dd.open .fbsx-trigger .fbsx-cv{transform:rotate(180deg);}

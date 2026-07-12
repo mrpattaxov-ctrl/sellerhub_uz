@@ -263,6 +263,11 @@
        bulk-bar=2070, img-pop=1080 — barchasidan PAST qoldiramiz). */
     position: relative; z-index: 30;
   }
+  /* O'ng-klaster konteyneri — DEFAULT + mobil'да `display:contents` (ko'rinmas):
+     ichidаги «Пункт приёма» tugmasi status-line'ning bevosita flex-elementiдек
+     qoladi, mobil qoidalar (flex:1 1 100%) o'zgармasдan ishlaydi. Laptop bloki
+     (≥769px) uni haqiqiy flex-konteynerга aylantiradi. */
+  .fbs-status-right { display: contents; }
 
   /* 📍 «Qabul punktlari» toolbar tugmasi — bulk-bar'dagi .is-postavka
      tugmaning nusxasi: o'sha dark slate (#334155), o'sha hover ko'tarilish
@@ -1067,6 +1072,36 @@
     box-shadow: 0 14px 32px rgba(0,0,0,.5);
   }
 
+  /* ── Desktop-only header regroup (Ulug'bek 2026-07-12) ─────────
+     Laptopда (≥769px): bo'lim tab'lari (Заказы/Склад) 1-qatorning O'NG chetiga;
+     Магазин+Схема pickerlari esa top-blokдан TASHQARI — pastдаги status-qatorига
+     (o'ng chetга) ko'chiriladi. Ko'chirishни kичик reparent-скрипт bajaradi
+     (mono-DOM, fxsel buzilmaydi). FAQAT ≥769px — mobil (<769px) da pickerlar
+     glass ичида qoladi, hech nima o'zgармaydi. */
+  @media (min-width: 769px) {
+    /* Spacer'ni yashiramiz — u section-tabs'дан keyin turиб bo'sh joyни yeб
+       qo'yгани учун `margin-left:auto` ишламай, toggle chapда qolарди. */
+    .fbs-glass-spacer { display: none; }
+    .fbs-section-tabs { margin-left: auto; }
+    /* O'ng-klaster: «Пункт приёма» + pickerlar bitta guruh, o'ng chetда
+       (margin-left:auto → chips chapда). Klaster bo'lиб yozilгani учун tor
+       ekranда birga o'raladi va o'ng-tekislanган qoladi (tugma yashиринлигidan
+       qat'i nazar). */
+    .fbs-status-line > .fbs-status-right {
+      display: flex; align-items: center; gap: .6rem; margin-left: auto; flex: none;
+    }
+    /* Ikki pill guruh — klaster ичида. */
+    .fbs-status-right > .fbs-cap-group {
+      display: flex; align-items: center; gap: .75rem; flex: none;
+    }
+    /* «Пункт приёма» — bo'yi + radiusi qatordagi boshqa elementlar (Магазин/Схема
+       pickerlari: 44px balandlik, 14px radius) bilan BIR XIL bo'lsin. Faqat
+       laptopda (klaster ичида) — mobil'даги to'liq-kenglik tugma tegилmaydi. */
+    .fbs-status-right > .fbs-dropoff-btn {
+      height: 44px; padding: 0 18px; border-radius: 14px;
+    }
+  }
+
   /* ── Mobile ── */
   @media (max-width: 768px) {
     /* header: shop picker drops to its own full-width row */
@@ -1369,6 +1404,11 @@
      belgilanmaguncha O'CHIQ. Ko'rinish/holatni updateBulkBar() boshqaradi;
      boshlang'ich display:none — default tab «Yangi» (CREATED). Bosilganda
      bulk-paneldagi tugma bilan AYNAN bir xil modal ochiladi. #}
+  {# O'ng-klaster: «Пункт приёма» tugmasi + (laptopда JS bilan) Магазин/Схема
+     pickerlari shu yerга tushadi — hammasi o'ng chetда bitta guruh. Mobil'да
+     `display:contents` — konteyner ko'rinmas, tugma to'g'ридан-to'g'ри status
+     qatorининг flex-elementiдек qoladi (mobil layout tegilmaydi). #}
+  <div class="fbs-status-right">
   <button type="button" id="fbsDropoffBtn" class="fbs-dropoff-btn" disabled
           style="display:none" data-tip="{{ list_labels.tip_pick_order_first }}">
     {# Uzum belgisi — status-dropdown'dagi «U» power-glyph bilan bir xil
@@ -1376,6 +1416,7 @@
     <span class="fbs-uzmark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" fill="none" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg></span>
     <span>{{ list_labels.dropoff_btn }}</span>
   </button>
+  </div>
   </div>
 
   <section class="fbs-card">
@@ -2554,6 +2595,16 @@
         if (oid) openOrderModal(oid);
       });
     });
+
+    // Refresh the bulk toolbar / «Пункт приёма» button AFTER every render.
+    // BUG FIX (Ulug'bek 2026-07-13): the empty-list path calls clearSelection()
+    // (→ updateBulkBar), but this has-orders path never did — so the dropoff
+    // button (initial inline display:none) stayed HIDDEN on a fresh PACKING
+    // load / tab-switch until the seller clicked a checkbox. Re-running
+    // updateBulkBar() here reveals it (visible + disabled hint) on load and
+    // reflects the restored selection. It reads _selectedIds, so it does NOT
+    // clear the selection that the render just restored.
+    updateBulkBar();
   }
 
   // ── Order-detail modal ───────────────────────────────────────────
@@ -4718,4 +4769,24 @@
 <script src="/static/fbs_aurora_pager.js"></script>
 <script src="/static/fbs_select.js"></script>
 <script src="/static/fbs_section_tabs.js"></script>
+{# Laptop-only: Магазин+Схема pickerlarни top-blokдан TASHQARI — pastдаги
+   status-qаторига (o'ng chetга) ko'chiramiz. Bitta DOM tugun ko'chади, shунинг
+   учун fxsel виджет buzilmaydi. <769px da ular glass ичида qoladi (mobil тегилмайди). #}
+<script>
+(function () {
+  var cap   = document.querySelector('.fbs-page .fbs-cap-group');
+  var glass = document.querySelector('.fbs-page .fbs-glass');
+  var right = document.querySelector('.fbs-page .fbs-status-line .fbs-status-right');
+  if (!cap || !glass || !right) return;
+  var mq = window.matchMedia('(min-width: 769px)');
+  function place() {
+    // Laptop: pickerlar o'ng-klaster ичига («Пункт приёма» yonига). Mobil: glass'га.
+    if (mq.matches) { if (cap.parentElement !== right) right.appendChild(cap); }
+    else            { if (cap.parentElement !== glass) glass.appendChild(cap); }
+  }
+  place();
+  (mq.addEventListener ? mq.addEventListener('change', place)
+                       : mq.addListener(place));
+})();
+</script>
 {% endblock %}

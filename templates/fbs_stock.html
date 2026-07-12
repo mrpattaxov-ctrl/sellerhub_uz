@@ -555,6 +555,28 @@
   [data-bs-theme="dark"] .stk-step:active { background: rgba(79,124,240,.26); color: #aebfff; }
   [data-bs-theme="dark"] .stk-state { color: #98a2b3; }
 
+  /* ── Desktop-only header regroup (Ulug'bek 2026-07-12) ─────────
+     Laptopда (≥769px): bo'lim tab'lari (Заказы/Склад) 1-qatorning O'NG chetiga;
+     Магазин+Excel/Загрузить esa top-blokдан TASHQARI — pastдаги filtr-qаторига
+     (.stk-trackrow, o'ng chetга) ko'chiriladi; qidiruv maydoni CHAP tomonga —
+     filtr tab'lari yonига — suriladi. Ko'chиришни reparent-скрипт bajaradi.
+     FAQAT ≥769px — mobil (<769px) da guruh glass ичида qoladi, tegilmaydi. */
+  @media (min-width: 769px) {
+    /* Spacer'ni yashiramiz — aks holда section-tabs'ni o'ngга ura olmaydi. */
+    .stk-glass-spacer { display: none; }
+    .fbs-section-tabs { margin-left: auto; }
+    /* Qidiruv o'ng-itarилишини bekor qilamiz — endi filtr tab'lari yonида (chapda). */
+    .stk-searchbox { margin-left: 0; }
+    /* Qidiruv maydoni bo'yi + radiusi yonидаги filtr tab'lari (.stk-seg: 55px,
+       16px) bilan BIR XIL bo'lsin — «Пункт приёма» tugmasи uchun qilgan kabi.
+       Faqat laptopда; mobil'даги to'liq-kenglik qidiruv tegилmaydi. */
+    .stk-search { height: 55px; border-radius: 16px; }
+    /* Filtr-qаторига ko'chганда: Магазин + Excel/Загрузить bitta guruh, o'ng chetда. */
+    .stk-trackrow > .stk-cap-group {
+      display: flex; align-items: center; gap: .6rem; margin-left: auto; flex: none;
+    }
+  }
+
   /* ── Mobile ── */
   /* Root guard (all sizes): shrinkable grid column so nothing (e.g. the hidden
      rwd-card thead) forces the page wider than the viewport — mirrors /fbs. */
@@ -1383,4 +1405,23 @@
 </script>
 <script src="/static/fbs_select.js"></script>
 <script src="/static/fbs_section_tabs.js"></script>
+{# Laptop-only: Магазин + Excel/Загрузить guruhini top-blokдан TASHQARI —
+   pastдаги filtr-qаторига (.stk-trackrow, o'ng chetга) ko'chiramiz. Bitta DOM
+   tugun ko'чади (fxsel buzilmaydi). <769px da glass ичида qoladi (mobil тегилмайди). #}
+<script>
+(function () {
+  var cap   = document.querySelector('.stk-page .stk-cap-group');
+  var glass = document.querySelector('.stk-page .stk-glass');
+  var track = document.querySelector('.stk-page .stk-trackrow');
+  if (!cap || !glass || !track) return;
+  var mq = window.matchMedia('(min-width: 769px)');
+  function place() {
+    if (mq.matches) { if (cap.parentElement !== track) track.appendChild(cap); }
+    else            { if (cap.parentElement !== glass) glass.appendChild(cap); }
+  }
+  place();
+  (mq.addEventListener ? mq.addEventListener('change', place)
+                       : mq.addListener(place));
+})();
+</script>
 {% endblock %}

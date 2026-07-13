@@ -9,10 +9,10 @@
   /* ===== Поставки — slate design (handoff pixel-perfect) ===== */
   /* Fon base'dan keladi (FBS/DBS bilan bir xil: och #EFEEF5 / qorong'i #0E0E14);
      ustiga FBS sahifasidagi kabi yuqori burchaklarda aurora nur qo'yamiz. */
+  /* Aurora nur-gradientlari olib tashlandi (Ulug'bek 2026-07-13) — sarlavha
+     qatori sahifa foni bilan TOZA qo'shilib ketsin (binafsha/ko'k dog' yo'q). */
   .pkx-app { font-family:'Manrope', system-ui, sans-serif; color:#1C2030; font-size:14px; -webkit-font-smoothing:antialiased;
-    background:
-      radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
-      radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
+    background:transparent;
     /* Yon padding base'ning container-fluid px-3'idan keladi (FBS bilan bir xil en). */
     padding:0 0 24px; }
   .pkx-wrap { max-width:none; margin:0; }
@@ -27,12 +27,19 @@
      bir xil: aktiv tab ostida sirpanuvchi navy gradient plita (.pkx-seg-thumb).
      Tab bosilganda view to'liq qayta chiziladi, shuning uchun plita oldingi
      pozitsiyadan yangisiga JS'da (placeSegThumb) sirpatiladi. */
-  .pkx-seg { position:relative; display:inline-flex; gap:4px; padding:5px;
-    background:rgba(238,241,248,.82);
-    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
-    border:1px solid #e4e9f3; border-radius:15px; }
-  .pkx-seg-btn { position:relative; z-index:1; background:none; border:none;
-    border-radius:11px; padding:9px 20px; font-size:14px; font-weight:700;
+  /* Bo'yi/radiusi o'ng-klaster (do'kon pickeri, qora tugma) bilan bir xil:
+     44px trek, ichida 36px plita — FBS «Заказы/Склад» toggle'i kabi. */
+  /* Trek OQ (kulrang emas — Ulug'bek 2026-07-13): do'kon pickeri / status
+     dropdown'i bilan bir xil oq pill; faqat tanlangan tab navy plita bilan
+     ajralib turadi. */
+  .pkx-seg { position:relative; display:inline-flex; align-items:center; gap:4px;
+    height:44px; padding:4px;
+    background:#fff;
+    border:1px solid #ECECF0; border-radius:14px;
+    box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
+  .pkx-seg-btn { position:relative; z-index:1; display:inline-flex; align-items:center;
+    height:36px; background:none; border:none;
+    border-radius:11px; padding:0 18px; font-size:14px; font-weight:700;
     cursor:pointer; color:#5A5F72; font-family:inherit;
     transition:color .2s ease; }
   .pkx-seg-btn:hover:not(.is-active) { color:#101828; }
@@ -69,6 +76,57 @@
   .pkx-vseg-btn:hover:not(.is-active) { color:#101828; }
   .pkx-vseg-btn.is-active { background:#1e293b; color:#fff; }
   .pkx-h1 { margin:0; font-size:23px; font-weight:800; letter-spacing:-.02em; }
+  /* ── Sahifa sarlavha QATORI (Ulug'bek 2026-07-13) ──────────────────────
+     FBS «Заказы» sahifasi bilan bir xil: oq glass-karta YO'Q (fon bilan
+     qo'shilib ketgan), va hamma narsa BITTA qatorda:
+       chapda  → «Поставки» + FBO belgisi + FBO/Возвраты/Авто-слот tablari
+       o'ngda  → do'kon pickeri + qora «Создать поставку» tugmasi
+     Barcha o'ng-klaster elementlari 44px balandlik / 14px radius — ilovaning
+     boshqa pickerlari (`.fbs-cap`) bilan aynan bir xil. */
+  .pkx-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .pkx-head-left { display:flex; align-items:center; gap:12px; min-width:0; }
+  .pkx-head-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .pkx-head .pkx-h1 { font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+  /* FBO belgisi — sarlavha yonidagi mayda kapsula (FBS «FBS / DBS» kabi). */
+  .pkx-tag { background:rgba(65,105,225,.1); color:#4169E1; font-weight:800; font-size:11px;
+    letter-spacing:.05em; padding:5px 12px; border-radius:999px; text-transform:uppercase; white-space:nowrap; }
+  /* Do'kon pickeri — `.fbs-cap` bilan bir xil oq pill: ikonka + nom + shevron. */
+  .pkx-shopsel { display:flex; align-items:center; gap:10px; height:44px; padding:0 14px;
+    background:#fff; border:1px solid #ECECF0; border-radius:14px; cursor:pointer; position:relative;
+    box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
+  .pkx-shopsel-ic { display:inline-flex; flex:none; color:#9B98A5; }
+  .pkx-shopsel-val { font-weight:500; font-size:14px; color:#1A1A22;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pkx-shopsel-cv { flex:none; color:#9B98A5; }
+  /* Status filtri (Все поставки / Создана / Принята / Отменена) — segment
+     o'rniga DROPDOWN (Ulug'bek 2026-07-13). Ko'rinishi do'kon pickeri
+     (`.pkx-shopsel`) bilan AYNAN bir xil: oq pill, 44px, 14px radius,
+     nozik soya, o'ng chetда shevron. */
+  .pkx-dd { display:flex; align-items:center; justify-content:space-between; gap:10px;
+    height:44px; min-width:190px; padding:0 14px;
+    background:#fff; border:1px solid #ECECF0; border-radius:14px; cursor:pointer; position:relative;
+    box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
+  .pkx-dd-val { font-weight:500; font-size:14px; color:#1A1A22;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pkx-dd-cv { flex:none; color:#9B98A5; }
+  /* Ochiluvchi menyu — do'kon menyusi bilan bir xil (pkxShopMenu). */
+  .pkx-dd-menu { position:absolute; top:100%; left:0; right:0; margin-top:6px; z-index:50;
+    background:#fff; border:1px solid #e6e6ec; border-radius:12px;
+    box-shadow:0 12px 30px rgba(22,22,40,.15); padding:6px;
+    max-height:300px; overflow:auto; }
+  .pkx-dd-opt { padding:9px 12px; border-radius:8px; font-weight:600; font-size:14px;
+    color:#1A1A22; cursor:pointer; white-space:nowrap; }
+  .pkx-dd-opt:hover { background:#f6f7f9; }
+  .pkx-dd-opt.is-sel { background:#f3f4f6; font-weight:700; }
+  /* «Yumshoq» dropdown — Возвраты tab'idagi TUR va STATUS filtrlari uchun
+     BIR XIL trigger (Ulug'bek 2026-07-13): och-kulrang plita, shevron o'ngda. */
+  .pkx-softdd { display:flex; align-items:center; gap:10px; background:#f3f4f6; border:none;
+    border-radius:11px; padding:10px 14px; font-family:inherit; font-size:14px;
+    font-weight:700; color:#5A5F72; cursor:pointer; white-space:nowrap; }
+  .pkx-softdd:hover { background:#eceef2; }
+  /* Qora «Создать поставку» tugmasi — picker bilan bir bo'yda. */
+  .pkx-head .pkx-head-btn { display:flex; align-items:center; gap:8px; height:44px; padding:0 18px;
+    border-radius:14px; white-space:nowrap; }
   .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
   .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
   .pkx-muted { color:#9499AE; font-weight:600; }
@@ -209,12 +267,28 @@
 
   /* ── Mobile ── */
   @media (max-width: 768px) {
-    /* header row: let the shop selector wrap below the title instead of
-       overflowing the right edge */
-    .pkx-glass { flex-wrap: wrap !important; }
-    .pkx-glass > * { min-width: 0; }
+    /* Sarlavha qatori telefonda uch qavatga bo'linadi:
+         1) «Поставки» + FBO belgisi
+         2) bo'lim tablari (sig'masa yonlamasiga sirg'aladi)
+         3) do'kon pickeri + qora tugma */
+    .pkx-head { gap: 10px; }
+    .pkx-head-left { flex: 1 1 100%; }
+    .pkx-head .pkx-h1 { font-size: 22px; }
+    .pkx-head .pkx-seg { flex: 1 1 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .pkx-head .pkx-seg::-webkit-scrollbar { display: none; }
+    .pkx-head-right { flex: 1 1 100%; margin-left: 0; flex-wrap: wrap; }
+    .pkx-head .pkx-shopsel { flex: 1 1 auto; min-width: 0; }
+    .pkx-head-btn { flex: none; }
+    /* Status-filtr dropdown'i telefonda to'liq kenglikда (qidiruv ostida). */
+    .pkx-dd { flex: 1 1 100%; min-width: 0; }
     /* dense supply grids already scroll inside .pkx-scroll; keep them contained */
     .pkx-scroll { -webkit-overflow-scrolling: touch; }
+  }
+  /* Eng tor telefonlar (≤480px): picker + tugma bir qatorga sig'maydi —
+     har biri to'liq kenglikda o'z qatorida turadi. */
+  @media (max-width: 480px) {
+    .pkx-head .pkx-shopsel { flex: 1 1 100%; }
+    .pkx-head-btn { flex: 1 1 100%; justify-content: center; }
   }
 </style>
 {% endblock %}
@@ -270,8 +344,28 @@
   const _ls = (k)=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } };
   const _savedShop = _ls('pkxShop');
   const _savedTab  = _ls('pkxTab');
+
+  // ── Do'kon tanlovi SAHIFALAR ARO umumiy (Ulug'bek 2026-07-13) ─────────
+  // «Мои товары» (groups) va «Акции» (sales) sahifalari tanlangan do'konni
+  // `sh_shop` cookie'sida (qiymat = Shop.uzum_id, 1 yil) saqlaydi. Postavki
+  // ham SHU cookie'ni o'qiydi/yozadi — bir joyda do'kon almashtirilsa,
+  // uchala sahifada ham o'sha do'kon qoladi.
+  function readShopCookie(){
+    const m = document.cookie.match(/(?:^|;\s*)sh_shop=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function saveShopCookie(v){
+    if(!v) return;
+    document.cookie = 'sh_shop=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax';
+  }
+  const _cookieShop = readShopCookie();                      // groups/sales'dagi tanlov
+  const _isShop = (v)=>!!v && SHOPS.some(s=>s.uzum_id===v);  // «all» yoki begona id — rad etamiz
+  const _initShop = _isShop(_cookieShop) ? _cookieShop
+                  : _isShop(_savedShop)  ? _savedShop
+                  : (SHOPS.length ? SHOPS[0].uzum_id : '');
+
   const S = {
-    shop: SHOPS.some(s=>s.uzum_id===_savedShop) ? _savedShop : (SHOPS.length ? SHOPS[0].uzum_id : ''),
+    shop: _initShop,
     tab: (['fbo','returns','grab'].indexOf(_savedTab)>=0 ? _savedTab : 'fbo'),
     view:'list', listStyle:'clean', filter:'all', search:'',
     invoices:[], invPage:0, invGen:0, sel:{},
@@ -377,6 +471,8 @@
   const Q = obj => Object.entries(obj).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
 
   const FILTER_STATUSES = { all:'', created:'CREATED', accepted:'ACCEPTED', canceled:'CANCELED' };
+  // Dropdown yorliqlari (segment chip'lari o'rniga).
+  const FILTER_LABEL = { all:'Все поставки', created:'Создана', accepted:'Принята', canceled:'Отменена' };
   async function loadInvoices(reset){
     if(reset){ S.invPage=0; S.invoices=[]; S.invHasMore=true; }
     else if(S.invLoading || S.invHasMore===false) return;
@@ -399,6 +495,9 @@
   };
   const RET_STATUS_ORDER = ['CREATED','SENT','IN_PROGRESS','MOVED_TO_DELIVERY','ASSEMBLED','COMPLETED','UTILIZED','CANCELED'];
   const RET_TYPE_LABEL = { RETURN:'Возврат', DEFECTED:'Брак', FBS:'FBS' };
+  // Tur-filtri dropdown'ining yorliqlari (segment chip'lari o'rniga). Kalit ''
+  // = «hammasi» (server'ga type yuborilmaydi).
+  const RET_TYPE_FILTER_LABEL = { '':'Все типы', RETURN:'Возвраты', DEFECTED:'Брак', FBS:'FBS' };
 
   // Server-side filtrlangan + sahifalangan возврат ro'yxati (FBO bilan bir xil naqsh).
   async function loadReturns(reset){
@@ -525,39 +624,36 @@
   // Do'kon-tanlagich (ro'yxat + yaratish sahifalarida bir xil). shopMenu() shuni anchor qiladi.
   function shopSelHtml(){
     const shopName = (SHOPS.find(s=>s.uzum_id===S.shop)||{}).name || S.shop || '—';
-    return `<div id="pkxShopSel" style="display:flex;align-items:center;gap:12px;border:1px solid #e6e6ec;border-radius:12px;padding:9px 14px;cursor:pointer;background:#fff;position:relative">
-        <span style="color:#9499AE;font-weight:700;font-size:11px;letter-spacing:.04em">МАГАЗИН</span>
-        <span style="font-weight:800;font-size:14px">${esc(shopName)}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    return `<div id="pkxShopSel" class="pkx-shopsel">
+        <span class="pkx-shopsel-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+        <span class="pkx-shopsel-val">${esc(shopName)}</span>
+        <svg class="pkx-shopsel-cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>`;
   }
 
   // ════════════ LIST VIEW ════════════
   function viewList(){
     const tabBtn = (active,label,on)=>`<button data-on="${on}" class="pkx-seg-btn${active?' is-active':''}">${label}</button>`;
+    // Bitta qator: sarlavha + FBO belgisi + bo'lim tablari | do'kon pickeri +
+    // qora tugma. Oq glass-karta olib tashlandi — fon bilan qo'shilib ketdi.
     const header = `
-      <div class="pkx-card pkx-glass" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:14px">
-          <div style="width:46px;height:46px;border-radius:13px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:24px">🚚</div>
-          <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
-            <h1 class="pkx-h1">Поставки</h1>
-            <span style="background:rgba(65,105,225,.1);color:#4169E1;font-weight:800;font-size:11px;letter-spacing:.05em;padding:5px 12px;border-radius:999px;text-transform:uppercase">FBO</span>
-            <span class="pkx-muted" style="font-size:13px">пополнение склада</span>
-          </div>
+      <div class="pkx-head">
+        <div class="pkx-head-left">
+          <h1 class="pkx-h1">Поставки</h1>
+          <span class="pkx-tag">FBO</span>
         </div>
-        ${shopSelHtml()}
-      </div>`;
-    const tabs = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap">
         <div class="pkx-seg">
           ${tabBtn(S.tab==='fbo','FBO','tab-fbo')}
           ${tabBtn(S.tab==='returns','Возвраты','tab-returns')}
           ${tabBtn(S.tab==='grab','Авто-слот','tab-grab')}
         </div>
-        ${S.tab==='grab' ? '' : `<button data-on="${S.tab==='returns'?'ret-create':'create'}" class="pkx-btn pkx-btn-primary" style="display:flex;align-items:center;gap:8px;padding:11px 18px">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>${S.tab==='returns'?'Создать возврат':'Создать поставку'}</button>`}
+        <div class="pkx-head-right">
+          ${shopSelHtml()}
+          ${S.tab==='grab' ? '' : `<button data-on="${S.tab==='returns'?'ret-create':'create'}" class="pkx-btn pkx-btn-primary pkx-head-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>${S.tab==='returns'?'Создать возврат':'Создать поставку'}</button>`}
+        </div>
       </div>`;
-    return header + tabs + (S.tab==='fbo' ? fboCard() : S.tab==='grab' ? grabCard() : returnsCard());
+    return header + (S.tab==='fbo' ? fboCard() : S.tab==='grab' ? grabCard() : returnsCard());
   }
 
   function viewSwitchHtml(){
@@ -663,8 +759,11 @@
         ${card('Всего поставок',tot)}${card('Принято на складе',acc,'#1A7F4B')}${card('В ожидании',cre,'#B6852A')}
         <div style="border:1px solid #1e293b;border-radius:14px;padding:15px 16px;background:#1e293b"><div style="color:rgba(255,255,255,.65);font-weight:700;font-size:12px;margin-bottom:8px">Сумма за период</div><div style="font-size:19px;font-weight:800;letter-spacing:-.02em;color:#fff">${fmtSom(sum)}</div></div></div>`;
     }
-    const chip=(active,label,on)=>`<button data-on="${on}" class="pkx-chip${active?' is-active':''}">${label}</button>`;
-    const chips = `<div class="pkx-trek" data-glide="filter">${chip(S.filter==='all','Все','f-all')}${chip(S.filter==='created','Создана','f-created')}${chip(S.filter==='accepted','Принята','f-accepted')}${chip(S.filter==='canceled','Отменена','f-canceled')}</div>`;
+    // Status filtri — segment o'rniga dropdown (do'kon pickeri uslubida).
+    const chips = `<div id="pkxFilterDd" class="pkx-dd">
+        <span class="pkx-dd-val">${FILTER_LABEL[S.filter]||FILTER_LABEL.all}</span>
+        <svg class="pkx-dd-cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>`;
 
     const toolbar = `<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap">
         <div class="pkx-search" style="width:240px;max-width:100%">
@@ -727,18 +826,21 @@
     }).join('') : `<div class="pkx-msg">${(S.retLoading||S.retHasMore)?'Загрузка…':'Нет данных'}</div>`;
     const more = (S.retHasMore && S.returns.length) ? `<div id="pkxRetMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
 
-    // type chiplari (Все / Возврат / Брак / FBS) — yagona tanlov, server-side
-    const tchip=(active,label,on)=>`<button data-on="${on}" class="pkx-chip${active?' is-active':''}">${label}</button>`;
-    const tchips=`<div class="pkx-trek" data-glide="rettype">${tchip(S.retType==='','Все','rt-all')}${tchip(S.retType==='RETURN','Возвраты','rt-return')}${tchip(S.retType==='DEFECTED','Брак','rt-defected')}${tchip(S.retType==='FBS','FBS','rt-fbs')}</div>`;
+    // Tur filtri (Все типы / Возвраты / Брак / FBS) — segment o'rniga DROPDOWN
+    // (Ulug'bek 2026-07-13), «Все статусы» dropdown'i BILAN BIR XIL ko'rinishда
+    // va undan CHAPDA turadi.
+    const tchips=`<div class="pkx-retstatus" id="pkxRetType" style="position:relative">
+      <button type="button" data-on="rtype-toggle" class="pkx-softdd">${esc(RET_TYPE_FILTER_LABEL[S.retType]||RET_TYPE_FILTER_LABEL[''])}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
     // status dropdown (Все статусы / …)
     const stLabel = S.retStatus ? RET_STATUS_LABEL[S.retStatus] : 'Все статусы';
     const statusDd=`<div class="pkx-retstatus" id="pkxRetStatus" style="position:relative">
-      <button type="button" data-on="rstatus-toggle" style="display:flex;align-items:center;gap:10px;background:#f3f4f6;border:none;border-radius:11px;padding:10px 14px;font-weight:700;color:#5A5F72;cursor:pointer">${esc(stLabel)}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
+      <button type="button" data-on="rstatus-toggle" class="pkx-softdd">${esc(stLabel)}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
+    // Ikki dropdown yonma-yon: TUR (chapda) → STATUS (o'ngda).
     const toolbar=`<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap">
       <div class="pkx-search" style="width:240px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRetSearch" type="search" name="pkx-ret-search" placeholder="Номер возврата" value="${esc(S.retSearch)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+      ${tchips}
       ${statusDd}
-      <div style="flex:1"></div>
-      ${tchips}</div>`;
+      <div style="flex:1"></div></div>`;
     return `<div class="pkx-card" style="overflow:hidden">${toolbar}<div class="pkx-scroll"><div style="min-width:1100px">${head}${body}${more}</div></div></div>`;
   }
 
@@ -980,6 +1082,7 @@
 
   function render(){
     try{ if(S.shop) localStorage.setItem('pkxShop',S.shop); localStorage.setItem('pkxTab',S.tab); }catch(_){}  // F5'da tiklash uchun
+    saveShopCookie(S.shop);   // groups/sales bilan umumiy tanlov (sh_shop)
     el.innerHTML = S.view==='list'?viewList(): S.view==='create'?viewCreate(): S.view==='detail'?viewDetail()
       : S.view==='retdetail'?viewRetDetail(): S.view==='retcreate'?viewRetCreate():'';
     wire();
@@ -1033,10 +1136,7 @@
         else if(on==='d-act'){ window.open(`/postavki/api/invoice/${S.detail.id}/act?shop=${encodeURIComponent(S.shop)}`,'_blank'); }
         else if(on==='d-qr'){ openQrBar(); }
         // ── Возвраты ──
-        else if(on==='rt-all'){ await setRetType(''); }
-        else if(on==='rt-return'){ await setRetType('RETURN'); }
-        else if(on==='rt-defected'){ await setRetType('DEFECTED'); }
-        else if(on==='rt-fbs'){ await setRetType('FBS'); }
+        else if(on==='rtype-toggle'){ e.stopPropagation(); retTypeMenu(); }
         else if(on==='rstatus-toggle'){ e.stopPropagation(); retStatusMenu(); }
         else if(on==='ret-create'){ openRetCreate(); }
         else if(on==='retd-cancel'){ await doCancelReturn({id:S.retDetail.id}, true); }
@@ -1049,6 +1149,7 @@
     el.querySelectorAll('[data-grabcancel2]').forEach(b=>b.addEventListener('click',()=>cancelGrabPlanShop(b.dataset.shop, parseInt(b.dataset.grabcancel2))));
     // shop selector
     const ss=el.querySelector('#pkxShopSel'); if(ss) ss.addEventListener('click',shopMenu);
+    const fd=el.querySelector('#pkxFilterDd'); if(fd) fd.addEventListener('click',filterMenu);
     // search
     const sb=el.querySelector('#pkxSearch'); if(sb) sb.addEventListener('input',e=>{ S.search=e.target.value; const card=el.querySelector('.pkx-card[style*="overflow:hidden"]'); refreshFboBody(); });
     // rst search — lokal-birinchi (oniy filtr, faqat qatorlar) + fonda server backfill
@@ -1658,6 +1759,20 @@
     setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxRetStatusMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
   }
 
+  // Tur filtri dropdown'i (Все типы / Возвраты / Брак / FBS) — status
+  // menyusi bilan aynan bir xil naqsh.
+  function retTypeMenu(){
+    const anchor=el.querySelector('#pkxRetType'); if(!anchor) return;
+    const existing=document.getElementById('pkxRetTypeMenu'); if(existing){ existing.remove(); return; }
+    const menu=document.createElement('div'); menu.id='pkxRetTypeMenu';
+    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
+    menu.innerHTML=Object.keys(RET_TYPE_FILTER_LABEL).map(k=>
+      `<div data-rtt="${k}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${k===S.retType?'background:#f3f4f6':''}">${esc(RET_TYPE_FILTER_LABEL[k])}</div>`).join('');
+    anchor.appendChild(menu);
+    menu.querySelectorAll('[data-rtt]').forEach(it=>it.addEventListener('click',async ev=>{ ev.stopPropagation(); menu.remove(); await setRetType(it.dataset.rtt); }));
+    setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxRetTypeMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
+  }
+
   // ── Возврат yaratish sehrgari ──
   async function openRetCreate(){ S.ramt={}; S.robj={}; S.rskus=[]; S.rskuHasMore=true; S.rskuSearch=''; S.retBannerHidden=false; S.view='retcreate';
     // brauzer «orqaga» tugmasi uchun tuzoq — popstate'ни ushlab, saytdan chiqib
@@ -1815,6 +1930,25 @@
       }
     }));
     setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxShopMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
+  }
+
+  // Status filtri dropdown'i (Все поставки / Создана / Принята / Отменена) —
+  // do'kon menyusi bilan bir xil naqsh: trigger'ga anchor, tashqariga bosilsa yopiladi.
+  function filterMenu(e){
+    e.stopPropagation();
+    const anchor=el.querySelector('#pkxFilterDd'); if(!anchor) return;
+    const existing=anchor.querySelector('.pkx-dd-menu'); if(existing){ existing.remove(); return; }
+    const menu=document.createElement('div'); menu.className='pkx-dd-menu';
+    menu.innerHTML=Object.keys(FILTER_LABEL).map(k=>
+      `<div class="pkx-dd-opt${k===S.filter?' is-sel':''}" data-f="${k}">${FILTER_LABEL[k]}</div>`).join('');
+    anchor.appendChild(menu);
+    menu.querySelectorAll('[data-f]').forEach(it=>it.addEventListener('click',async ev=>{
+      ev.stopPropagation(); const f=it.dataset.f; menu.remove();
+      if(f!==S.filter) await setFilter(f);
+    }));
+    setTimeout(()=>document.addEventListener('click',function h(){
+      const m=document.querySelector('.pkx-dd-menu'); if(m)m.remove(); document.removeEventListener('click',h);
+    }),0);
   }
 
   async function safe(fn){ try{ await fn(); }catch(e){ /* surfaced via render or alert */ console.error(e); } }

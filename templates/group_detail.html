@@ -12,9 +12,13 @@
      Two themes, driven by the global [data-bs-theme] on <html>.
      light → Uzum Market (violet brand)   dark → Трейдер (trading desk)
      ───────────────────────────────────────────────────────────────── */
+  /* De-purple (Ulug'bek 2026-07-13): sarlavha qatori (ustun nomlari), toolbar
+     pillari va qidiruv maydoni binafsha tusda edi — ular endi NEYTRAL kulrang.
+     Bir xil yorqinlikдаги kulranglar olindi, shuning uchun kontrast o'zgarmaydi.
+     Brend binafshasi (--gd-accent: tugma/havola/fokus) ATAYIN saqlanди. */
   [data-bs-theme="light"] .gd-scope, .gd-scope {
-    --gd-bg:#f5f3fb; --gd-surface:#ffffff; --gd-surface-2:#faf8ff;
-    --gd-line:#ece6f7; --gd-line-2:#f3eefb;
+    --gd-bg:#f5f3fb; --gd-surface:#ffffff; --gd-surface-2:#f4f5f7;
+    --gd-line:#e6e8ec; --gd-line-2:#f1f2f4;
     --gd-ink:#13092e; --gd-ink-2:#3a2d67; --gd-muted:#6b5e94; --gd-faint:#a89dc8;
     --gd-accent:#7000ff; --gd-accent-soft:#ede0ff; --gd-link:#5b63e6;
     --gd-green:#0d8a4a; --gd-green-soft:#dbf3e3;
@@ -23,8 +27,8 @@
     --gd-shadow-sm:0 1px 2px rgba(70,36,168,.06);
     --gd-shadow-md:0 1px 2px rgba(70,36,168,.08), 0 6px 22px rgba(70,36,168,.07);
     --gd-radius:24px;
-    --gd-input-bg:#f1ebfd;
-    --gd-row-hover:#faf7ff;
+    --gd-input-bg:#ffffff;
+    --gd-row-hover:#f7f8fa;
     --gd-uzum-tint:#f1eaff;
     --gd-wh-tint:#e6f5fc;
     --gd-solid-bg:#13092e; --gd-solid-fg:#ffffff;
@@ -333,7 +337,9 @@
   .gd-search svg { position:absolute; left:10px; color:var(--gd-faint); pointer-events:none; }
   .gd-search input {
     appearance:none; width:240px; height:32px; padding:0 12px 0 32px;
-    background:var(--gd-input-bg); border:.5px solid transparent; border-radius:999px;
+    /* Fon endi oq — oq karta ustida ko'rinиб turиши uchun hairline chegara kerak
+       (ilgari fon binafsha tusli bo'lgani uchun chegara `transparent` edi). */
+    background:var(--gd-input-bg); border:.5px solid var(--gd-line); border-radius:999px;
     font-size:12.5px; outline:none; color:var(--gd-ink); font-family:inherit;
   }
   .gd-search input:focus { border-color:var(--gd-accent); box-shadow:0 0 0 3px var(--gd-accent-soft); }

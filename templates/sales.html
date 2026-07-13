@@ -67,7 +67,9 @@
 .sl-card-banner img { width:100%; height:100%; object-fit:cover; }
 .sl-card-body { padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; }
 .sl-card-title { font-size:15px; font-weight:600; line-height:1.3; }
-.sl-card-dates { font-size:12px; color:var(--sl-muted); }
+/* The run of the campaign is what a seller scans for first — so it leads the
+   card: bigger, near-black, semibold (was 12px muted grey). */
+.sl-card-dates { font-size:15px; font-weight:600; color:var(--sl-text); letter-spacing:-.01em; }
 .sl-badges { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .sl-badge { font-size:11px; font-weight:700; letter-spacing:.03em; padding:3px 9px; border-radius:999px; text-transform:uppercase; }
 .sl-badge.created { background:var(--sl-info-bg); color:var(--sl-info-fg); }
@@ -84,6 +86,9 @@
 .sl-detail-head { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
 .sl-detail-head .sl-back { padding-right:16px; border-right:1px solid var(--sl-border); }
 .sl-detail-title { font-size:22px; margin:0; }
+/* Uzum's own campaign name — secondary to the date range now leading the header. */
+.sl-detail-sub { font-size:13px; font-weight:500; color:var(--sl-muted); min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:320px; }
 .sl-detail-head .sl-store-picker { margin-left:auto; }
 .sl-rule { font-size:13px; color:var(--sl-muted); margin:0; white-space:nowrap; }
 .sl-rule b { color:var(--sl-warn-fg); }
@@ -201,6 +206,23 @@
 .sl-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--sl-text); color:var(--sl-surface);
   padding:10px 18px; border-radius:12px; font-size:13px; font-weight:500; box-shadow:var(--sl-shadow); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1200; max-width:90vw; text-align:center; }
 .sl-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Draft dialog — same shape as the supply wizard's «Черновик восстановлен»
+   card (postavki .pkx-cfm-*), in the sales palette so it themes in dark. */
+.sl-modal-bg { position:fixed; inset:0; z-index:1300; background:rgba(20,20,35,.45);
+  display:flex; align-items:center; justify-content:center; padding:24px; }
+.sl-cfm-card { position:relative; width:min(400px,100%); background:var(--sl-surface); color:var(--sl-text);
+  border-radius:20px; padding:28px 26px 22px; box-shadow:0 24px 70px rgba(15,15,30,.32);
+  text-align:center; animation:slCfmPop .18s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes slCfmPop { from{ opacity:0; transform:translateY(10px) scale(.96);} to{ opacity:1; transform:none;} }
+.sl-cfm-icon { width:56px; height:56px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; font-size:26px; font-weight:800; background:var(--sl-ok-bg); color:var(--sl-ok-fg); }
+.sl-cfm-title { margin:0 0 8px; font-size:18px; font-weight:800; letter-spacing:-.01em; }
+.sl-cfm-msg { margin:0 0 22px; font-size:14px; line-height:1.55; color:var(--sl-text-2); font-weight:500; }
+.sl-cfm-actions { display:flex; gap:10px; }
+.sl-cfm-actions .sl-btn { flex:1; height:auto; padding:12px 16px; border-radius:12px; }
+.sl-btn-soft { background:var(--sl-active); color:var(--sl-text-2); }
+.sl-btn-soft:hover { background:var(--sl-hover); }
 </style>
 {% endblock %}
 
@@ -256,6 +278,7 @@
         {{ 'Aksiyalarga qaytish' if is_uz else 'К списку акций' }}
       </button>
       <h2 class="sl-h1 sl-detail-title" id="slDetailTitle"></h2>
+      <div class="sl-detail-sub" id="slDetailName"></div>
       <div class="sl-rule" id="slDetailRule"></div>
 
       {% if shops | length > 1 %}
@@ -333,6 +356,11 @@
     open: UZ ? 'Ochish' : 'Открыть',
     noLimits: UZ ? 'Narx limitlari topilmadi' : 'Лимиты цен не найдены',
     added: UZ ? 'Aksiyaga qo\'shildi' : 'Добавлено в акцию',
+    draftRestored: UZ ? 'Qoralama tiklandi' : 'Черновик восстановлен',
+    draftMsg: UZ ? 'Aksiyaga tanlagan mahsulotlaringiz va narxlaringiz saqlanib qolgan — davom etishingiz mumkin.'
+                 : 'Товары и цены, которые вы выбрали для акции, сохранились — можно продолжить.',
+    draftKeep: UZ ? 'Davom etish' : 'Продолжить',
+    draftDrop: UZ ? 'Boshidan boshlash' : 'Начать заново',
     enterPrice: UZ ? 'Narx kiriting' : 'Укажите цену',
     apply: UZ ? 'Qo\'llash' : 'Применить',
     remove: UZ ? 'Aksiyadan olib tashlash' : 'Убрать из акции',
@@ -349,6 +377,38 @@
   function el(id){ return document.getElementById(id); }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
   function title(o){ if(!o) return ''; return (UZ ? (o.uz||o.ru) : (o.ru||o.uz)) || ''; }
+
+  // ── Human-readable campaign dates (Ulug'bek 2026-07-13) ────────────────
+  // Uzum hands us calendar strings (2026-07-13). Nobody reads a campaign as
+  // "2026-07-13 → 2026-07-21", so we spell it out: «13 июля – 21 июля 2026».
+  // The year is printed once at the end when both ends share it.
+  var MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  var MONTHS_UZ = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'];
+  function parseDay(iso){
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); if(!m) return null;
+    return { y:Number(m[1]), m:Number(m[2])-1, d:Number(m[3]) };
+  }
+  function dayText(p, withYear){
+    if(!p) return '';
+    var s = UZ ? (p.d + '-' + MONTHS_UZ[p.m]) : (p.d + ' ' + MONTHS_RU[p.m]);
+    return withYear ? (s + ' ' + p.y) : s;
+  }
+  // Uzum's RU campaign names carry the dates as a prefix («13.07-21.07 Чилля
+  // неделя 3», «30.06 – 05.08.2026_Распродажа…») while the UZ ones don't
+  // («Chilla hafta 3»). We already print the run in words above the name, so
+  // strip that prefix — the RU card then reads as cleanly as the UZ one.
+  // NOTE: display only. saleKeyOf() keeps using the RAW title, so saved
+  // drafts / re-opened campaigns keep matching.
+  var DATE_PREFIX = /^\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?\s*[–—-]\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?\s*[_\-–—:.]?\s*/;
+  function cleanTitle(o){ return title(o).replace(DATE_PREFIX, '').trim() || title(o); }
+
+  function dateRange(s){
+    var a = parseDay(s && s.start_date), b = parseDay(s && s.finish_date);
+    if(!a && !b) return '';
+    if(!a || !b) return dayText(a||b, true);
+    var sameYear = a.y===b.y;
+    return dayText(a, !sameYear) + ' – ' + dayText(b, true);   // en dash
+  }
   function floor10(x){ return Math.max(0, Math.floor((Number(x)||0)/10)*10); }
   function pctOf(c, n){ c=Number(c)||0; n=Number(n)||0; if(c<=0) return 0; return Math.round((c-n)/c*100); }
   // «К выводу» = new_price × (1 − commission) − logistics_per_unit. null when
@@ -431,6 +491,15 @@
   // in every shop, even though its per-shop sale id differs.
   function saleKeyOf(s){ if(!s) return null; var t=s.title||{}; return (t.ru||t.uz||'')+'|'+(s.start_date||'')+'|'+(s.finish_date||''); }
 
+  // ── Open campaign survives F5/reload (Ulug'bek 2026-07-13) ──────────────
+  // Previously any refresh inside a campaign dumped you back to the sales
+  // grid. We remember which campaign is open (by its cross-shop key, so it
+  // still resolves after a shop switch) and re-open it on boot.
+  var OPEN_KEY = 'slOpenSale';
+  function saveOpenSale(s){ try{ var k=saleKeyOf(s); if(k) localStorage.setItem(OPEN_KEY, k); }catch(_){} }
+  function clearOpenSale(){ try{ localStorage.removeItem(OPEN_KEY); }catch(_){} }
+  function readOpenSale(){ try{ return localStorage.getItem(OPEN_KEY) || ''; }catch(_){ return ''; } }
+
   // ── sales list ──
   function loadSales(afterLoad){
     showError('');
@@ -469,8 +538,8 @@
       (banner ? '<div class="sl-card-banner"><img src="'+esc(banner)+'" alt="" loading="lazy"></div>' : '') +
       '<div class="sl-card-body">'+
         '<div class="sl-badges"><span class="sl-badge '+st+'">'+esc(stLabel)+'</span>'+
-          '<span class="sl-card-dates">'+esc(s.start_date||'')+' → '+esc(s.finish_date||'')+'</span></div>'+
-        '<div class="sl-card-title">'+esc(title(s.title))+'</div>'+
+          '<span class="sl-card-dates">'+esc(dateRange(s))+'</span></div>'+
+        '<div class="sl-card-title">'+esc(cleanTitle(s.title))+'</div>'+
         '<div class="sl-card-stats">'+
           '<span>'+(UZ?'Mos':'Подходит')+': <b>'+(s.suitable_count==null?'—':s.suitable_count)+'</b></span>'+
           '<span>'+(UZ?'Qo\'shilgan':'Добавлено')+': <b>'+(s.involved_count==null?'—':s.involved_count)+'</b></span>'+
@@ -484,10 +553,13 @@
 
   // ── sale detail ──
   function openSale(s){
+    saveOpenSale(s);                          // reload → we come back here
     el('slSalesView').style.display='none';
     el('slDetailView').style.display='';
     el('slPageHead').style.display='none';   // page title/subtitle is redundant inside a sale
-    el('slDetailTitle').textContent = title(s.title);
+    // The heading is the campaign's run, in words; its Uzum name sits under it.
+    el('slDetailTitle').textContent = dateRange(s) || cleanTitle(s.title);
+    el('slDetailName').textContent = cleanTitle(s.title);
     selected = {}; order = []; limitsCache = {}; confirmingPid = null;
     el('slSuitList').innerHTML=''; el('slSelTable').innerHTML='';
     el('slDetailLoading').style.display=''; el('slAddBar').style.display='none';
@@ -505,7 +577,14 @@
       el('slDetailRule').innerHTML = (UZ?'Minimal chegirma':'Мин. скидка')+': <b>'+(res.j.default_min_discount)+'%</b>';
       // On first open, pre-load the products already in the sale into the
       // right table (with their existing sale prices) so they're visible/editable.
-      if(firstLoad){ prepopulateAdded(); }
+      // Draft merged back in → tell the user, and let them drop it. Dropping
+      // clears the cache and re-opens the campaign as it stands on Uzum.
+      var card = saleState.sale_card;
+      if(firstLoad){
+        prepopulateAdded();
+        // Dropping clears the cache first, so the re-open comes back clean.
+        if(restoreDraft()) draftDialog(function(){ clearDraft(); openSale(card); });
+      }
       renderSuitable();
       renderSelected();
     }).catch(function(err){ el('slDetailLoading').style.display='none'; showError(String(err)); });
@@ -520,14 +599,114 @@
         purchase_price: (p.purchase_price||0),
         already_in: true, loading:false,
         skus: (p.skus||[]).map(function(s){
+          var np = (s.sale_price>0 ? s.sale_price : (s.max_price>0 ? s.max_price : (s.current_price||0)));
           return { sku_id:s.sku_id, sku_title:s.sku_title, characteristics:s.characteristics, image:s.image||'',
                    current_price:s.current_price||0, max_price:s.max_price||0,
                    commission_rate:(s.commission_rate!=null?s.commission_rate:null), logistics_per_unit:(s.logistics_per_unit!=null?s.logistics_per_unit:null),
-                   new_price:(s.sale_price>0 ? s.sale_price : (s.max_price>0 ? s.max_price : (s.current_price||0))) };
+                   // orig_price = the price this SKU already has in the sale. The
+                   // add button only wakes up when something differs from it.
+                   orig_price: np, new_price: np };
         })
       };
       if(order.indexOf(pid)<0) order.push(pid); // already-in products keep their order, below newly added
     });
+  }
+
+  // ── Draft cache (Ulug'bek 2026-07-13) ────────────────────────────────
+  // Same idea as the supply wizard: whatever you've picked and priced in a
+  // campaign is kept in localStorage per shop+campaign, so a hard refresh or
+  // a trip to another page doesn't throw the work away. Only *unsubmitted*
+  // work is stored — products already in the sale are re-fetched from Uzum,
+  // and are only cached when you've actually changed one of their prices.
+  function draftKey(){
+    var k = saleKeyOf(saleState && saleState.sale_card);
+    return k ? ('slDraft_' + shopId + '_' + k) : null;
+  }
+  // "Worth submitting": a newly picked product with a price, or an
+  // already-in-sale product whose price you edited.
+  function isDirty(e){
+    if(!e || !e.skus || !e.skus.length) return false;
+    if(!e.already_in) return e.skus.some(function(s){ return s.new_price>0; });
+    return e.skus.some(function(s){ return s.new_price>0 && s.new_price !== s.orig_price; });
+  }
+  function saveDraftNow(){
+    var key = draftKey(); if(!key) return;
+    try{
+      var items = order.filter(function(pid){ return selected[pid] && isDirty(selected[pid]); })
+        .map(function(pid){
+          var e = selected[pid];
+          return { pid:pid, already_in:!!e.already_in, purchase_price:(e.purchase_price||0),
+                   product:{ product_id:e.product.product_id, title:e.product.title, image:e.product.image },
+                   skus:e.skus.map(function(s){ return {
+                     sku_id:s.sku_id, sku_title:s.sku_title, characteristics:s.characteristics, image:s.image||'',
+                     current_price:s.current_price||0, max_price:s.max_price||0,
+                     commission_rate:s.commission_rate, logistics_per_unit:s.logistics_per_unit,
+                     orig_price:s.orig_price, new_price:s.new_price }; }) };
+        });
+      if(items.length) localStorage.setItem(key, JSON.stringify({items:items}));
+      else localStorage.removeItem(key);
+    }catch(_){}
+  }
+  var _draftT = null;
+  function saveDraft(){ clearTimeout(_draftT); _draftT=setTimeout(function(){ _draftT=null; saveDraftNow(); }, 250); }
+  function saveDraftFlush(){ clearTimeout(_draftT); _draftT=null; saveDraftNow(); }
+  function clearDraft(){ clearTimeout(_draftT); _draftT=null; var k=draftKey(); if(k){ try{ localStorage.removeItem(k); }catch(_){} } }
+  // Merge the draft on top of the freshly fetched campaign.
+  function restoreDraft(){
+    var key = draftKey(); if(!key) return false;
+    try{
+      var raw = localStorage.getItem(key); if(!raw) return false;
+      var d = JSON.parse(raw); if(!d || !d.items || !d.items.length) return false;
+      d.items.slice().reverse().forEach(function(it){     // reverse → unshift keeps saved order
+        var pid = String(it.pid);
+        var ex = selected[pid];
+        if(ex && ex.skus){
+          // Already in the sale → keep the server's rows, re-apply edited prices.
+          var by = {}; ex.skus.forEach(function(s){ by[s.sku_id]=s; });
+          (it.skus||[]).forEach(function(s){ if(by[s.sku_id] && s.new_price>0) by[s.sku_id].new_price = s.new_price; });
+        } else {
+          selected[pid] = { product:it.product, purchase_price:it.purchase_price||0,
+                            loading:false, already_in:!!it.already_in, skus:(it.skus||[]) };
+          if(order.indexOf(pid)<0) order.unshift(pid);
+        }
+      });
+      return true;
+    }catch(_){ return false; }
+  }
+  // Pending debounced write must hit disk before the tab goes away.
+  window.addEventListener('pagehide', function(){ if(_draftT) saveDraftFlush(); });
+
+  // Restore dialog — mirrors the supply wizard's «Черновик восстановлен» card,
+  // but here you can also throw the draft away and start from the sale as it
+  // stands on Uzum. Esc / backdrop / ✕ = keep the draft (the safe default).
+  function draftDialog(onDrop){
+    var ov = document.createElement('div'); ov.className = 'sl-modal-bg';
+    ov.innerHTML =
+      '<div class="sl-cfm-card" role="dialog" aria-modal="true" aria-label="'+esc(T.draftRestored)+'">'+
+        '<div class="sl-cfm-icon">✓</div>'+
+        '<h3 class="sl-cfm-title">'+esc(T.draftRestored)+'</h3>'+
+        '<p class="sl-cfm-msg">'+esc(T.draftMsg)+'</p>'+
+        '<div class="sl-cfm-actions">'+
+          '<button type="button" class="sl-btn sl-btn-soft" data-act="drop">'+esc(T.draftDrop)+'</button>'+
+          '<button type="button" class="sl-btn sl-btn-primary" data-act="keep">'+esc(T.draftKeep)+'</button>'+
+        '</div>'+
+      '</div>';
+    // MUST hang off .sl-page — the --sl-* palette is scoped to it, so a dialog
+    // parented to <body> would render with unresolved vars (transparent card).
+    root.appendChild(ov);
+    var done = false;
+    function close(drop){
+      if(done) return; done = true;
+      ov.remove(); document.removeEventListener('keydown', onKey);
+      if(drop) onDrop();
+    }
+    function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(false); } }
+    ov.addEventListener('click', function(e){ if(e.target===ov) close(false); });
+    ov.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click', function(){ close(b.dataset.act==='drop'); });
+    });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function(){ try{ ov.querySelector('[data-act="keep"]').focus(); }catch(_){} }, 30);
   }
 
   // LEFT: suitable list
@@ -591,7 +770,9 @@
     var box = el('slSelTable');
     var pids = order.filter(function(pid){ return selected[pid]; }); // display order: newest first
     el('slSelCount').textContent = pids.length;
-    if(!pids.length){ box.innerHTML='<div class="sl-empty-sm">'+T.selectLeft+'</div>'; el('slAddBar').style.display='none'; return; }
+    // Nothing selected → hide the bar AND park the button in its dead state
+    // (it's skipped by updateFooter's early exit below).
+    if(!pids.length){ box.innerHTML='<div class="sl-empty-sm">'+T.selectLeft+'</div>'; el('slAddBar').style.display='none'; el('slAddBtn').disabled=true; return; }
     var dmin = (saleState && saleState.default_min_discount) || 1;
 
     var html = '<div class="sl-thead"><span>'+T.colSku+'</span><span class="sl-r">'+T.colCur+'</span><span class="sl-r">'+T.colCost+'</span><span class="sl-r">'+T.colNew+'</span><span class="sl-r">'+T.colDisc+'</span><span class="sl-r">'+T.colPayout+'</span></div>';
@@ -739,9 +920,15 @@
 
   function updateFooter(){
     var pids=Object.keys(selected);
-    var ready = pids.length>0 && pids.every(function(pid){ var e=selected[pid]; return e.skus && e.skus.length; });
+    // The button only lights up when there is something NEW to submit: a
+    // freshly picked product with a price, or an edited price on one that's
+    // already in the sale. Products merely shown because they're already in
+    // the sale leave it disabled (nothing to send).
+    var stillLoading = pids.some(function(pid){ return selected[pid].loading; });
+    var ready = !stillLoading && pids.some(function(pid){ return isDirty(selected[pid]); });
     el('slFooterInfo').innerHTML = T.selected+': <b>'+pids.length+'</b> '+T.products;
     el('slAddBtn').disabled = !ready;
+    saveDraft();          // every mutation funnels through here → cache stays fresh
   }
 
   // search (debounced) — preserves current selection
@@ -749,7 +936,7 @@
   el('slProdSearch').addEventListener('input', function(){ clearTimeout(psTimer); var q=this.value;
     psTimer=setTimeout(function(){ if(saleState&&saleState.sale_card){ el('slDetailLoading').style.display=''; el('slSuitList').innerHTML=''; fetchSuitable(saleState.sale_card, q, false); } },400); });
 
-  function backToList(){ el('slDetailView').style.display='none'; el('slSalesView').style.display=''; el('slPageHead').style.display=''; saleState=null; selected={}; order=[]; confirmingPid=null; }
+  function backToList(){ saveDraftFlush(); clearOpenSale(); el('slDetailView').style.display='none'; el('slSalesView').style.display=''; el('slPageHead').style.display=''; saleState=null; selected={}; order=[]; confirmingPid=null; }
   el('slBack').addEventListener('click', backToList);
 
   // submit
@@ -765,13 +952,22 @@
     .then(function(r){return r.json().then(function(j){return {status:r.status,j:j};});})
     .then(function(res){
       el('slAddBtn').disabled=false;
-      if(res.status>=200 && res.status<300){ toast(T.added); openSale(saleState.sale_card); }
+      // Submitted → the draft is no longer pending work; drop it before the
+      // campaign is re-fetched (otherwise it would be merged back in).
+      if(res.status>=200 && res.status<300){ clearDraft(); toast(T.added); openSale(saleState.sale_card); }
       else { toast(res.j.error || 'Error'); }
     }).catch(function(err){ el('slAddBtn').disabled=false; toast(String(err)); });
   });
 
-  // init
-  if(shopId) loadSales(); else { el('slSalesLoading').style.display='none'; showError(UZ?'Do\'kon topilmadi':'Магазин не найден'); }
+  // init — after the grid loads, re-open the campaign we were in before the
+  // reload (if it still exists in this shop; otherwise just show the grid).
+  if(shopId){
+    var wanted = readOpenSale();
+    loadSales(wanted ? function(){
+      var match = allSales.filter(function(s){ return saleKeyOf(s)===wanted; })[0];
+      if(match) openSale(match); else clearOpenSale();
+    } : undefined);
+  } else { el('slSalesLoading').style.display='none'; showError(UZ?'Do\'kon topilmadi':'Магазин не найден'); }
 })();
 </script>
 {% endblock %}

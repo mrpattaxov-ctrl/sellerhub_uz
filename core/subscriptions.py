@@ -107,13 +107,16 @@ def write_session_subscription(session_obj, status: dict | None) -> None:
         # Defensive: if state ever disagrees with is_unlimited, prefer unlimited.
         session_obj[SESSION_SUB_PLAN_KEY] = "unlimited"
 
+# «2 лет» (24 oy) va «5 лет» (60 oy) tariflari olib tashlandi (Ulug'bek 2026-07-13).
+# Bu ro'yxat — yagona manba: obuna sahifasidagi kartalar SHU YERDAN chiziladi
+# (`_subscription_plan_rows`) va sotib olish ham shu kalitlar bo'yicha tekshiriladi
+# (`_subscription_plan_by_key`) — ya'ni kartalar ham yo'qoladi, ularni to'g'ridan-
+# to'g'ri API orqali sotib olib ham bo'lmaydi.
 SUBSCRIPTION_PLAN_OPTIONS = (
     {"key": "1m", "label": "1 месяц", "months": 1, "duration_days": 30, "discount_percent": 0},
     {"key": "3m", "label": "3 месяца", "months": 3, "duration_days": 90, "discount_percent": 10},
     {"key": "6m", "label": "6 месяцев", "months": 6, "duration_days": 180, "discount_percent": 20},
     {"key": "12m", "label": "1 год", "months": 12, "duration_days": 365, "discount_percent": 30},
-    {"key": "24", "label": "2 лет", "months": 24, "duration_days": 730, "discount_percent": 40},
-    {"key": "60m", "label": "5 лет", "months": 60, "duration_days": 1825, "discount_percent": 50},
 )
 
 SUBSCRIPTION_CODE_DURATION_OPTIONS = (

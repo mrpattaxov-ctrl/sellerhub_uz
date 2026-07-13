@@ -5,6 +5,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Sana-oralig'i tanlagichi — ilovadagi boshqa kalendarlar bilan AYNI (flatpickr, range) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="/static/daterange.css?v=1">
 <style>
   /* ===== Поставки — slate design (handoff pixel-perfect) ===== */
   /* Fon base'dan keladi (FBS/DBS bilan bir xil: och #EFEEF5 / qorong'i #0E0E14);
@@ -129,6 +132,35 @@
     border-radius:14px; white-space:nowrap; }
   .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
   .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
+  /* Jadval sarlavhasi — pastga aylantirilganда YOPISHIB turadi.
+     Yuqoridagi `.pp-topbar` sticky va 64px balandlikda, shuning uchun `top:64px`
+     (z-index esa undan past: 5 < 30 → topbar ustidan o'tmaydi).
+     MUHIM: sticky ishlashi uchun ota-elementларда `overflow:hidden` BO'LMASLIGI
+     kerak — shu bois yaratish kartalaridan u olib tashlangan. */
+  .pkx-thead { position:sticky; top:64px; z-index:5; background:#f8fafc; }
+  /* Gorizontal aylantirishда sarlavha qatorlarga hamohang siljiydi (JS: translateX).
+     Sarlavhani rows bilan BITTA scroll-konteynerga qo'ysak sticky ishlamay
+     qolardi (scroll-konteyner sticky'ни «yutadi»), shuning uchun ular ajratilgan. */
+  .pkx-thead-clip { overflow:hidden; }
+  /* Kartaning pastki burchaklari — endi overflow:hidden yo'q, radiusni o'zimiz beramiz */
+  .pkx-rowsend { border-bottom-left-radius:var(--card-radius,22px); border-bottom-right-radius:var(--card-radius,22px); overflow:hidden; }
+  /* Yarim-avtomat guruh sarlavhasi: nom PASTKI qator (SKU + «N SKU» chip) kengligida
+     kesiladi — undan uzun ham, qisqa ham emas. `width:0; min-width:100%` — nom
+     konteyner kengligiga TA'SIR QILMAYDI (shrink-to-fit'да 0 sanaladi), shuning
+     uchun konteyner kengligini chiplar qatori belgilaydi, nom esa aynan shu
+     kenglikda «…» bilan kesiladi. */
+  .pkx-ginfo { display:inline-block; max-width:100%; min-width:0; }
+  .pkx-gname { display:block; width:0; min-width:100%; font-weight:700; font-size:14px;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pkx-grow2 { display:flex; align-items:center; gap:7px; margin-top:3px; white-space:nowrap; }
+  /* Rejim almashtirgich (Ручной/Полуавтомат/Авто) — tor ekranда tavsif matni yashiriladi */
+  .pkx-modettl { font-weight:800; font-size:13.5px; }
+  .pkx-modesub { font-size:11.5px; margin-top:2px; color:#9499AE; }
+  @media (max-width:760px){
+    .pkx-modesub { display:none; }
+    .pkx-modettl { font-size:12.5px; text-align:center; }
+    .pkx-mode { text-align:center !important; padding:10px 8px !important; }
+  }
   .pkx-muted { color:#9499AE; font-weight:600; }
   .pkx-row-hover:hover { background:#f8fafc; }
   .pkx-btn { border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; }
@@ -378,6 +410,10 @@
     rskus:[], rskuPage:0, rskuGen:0, rskuHasMore:true, rskuLoading:false, rskuSearch:'', rskuSrchBusy:false,
     ramt:{}, robj:{}, rskuTotal:0, retBannerHidden:false,  // ramt: {skuId:amount}, robj: {skuId: to'liq sku DTO}
     step:'products', restock:[], rstPage:0, rstGen:0, rstHasMore:true, rstLoading:false, rstSearch:'', rstSrchBusy:false, qty:{}, price:{}, meta:{}, showReview:false, reviewHi:false,
+    // Yaratish rejimi: 'manual' (qo'lda, Uzum uslubi) | 'semi' (yarim-avtomat, guruhlangan tavsiya)
+    mode:'manual', plan:null, planDays:30, planGen:0, planLoading:false, planErr:'', planWh:'warehouse', semiSearch:'', expand:{},
+    // Kalendar oralig'i (chipdan USTUN). planCustom=true bo'lsa chiplar so'nadi.
+    planFrom:null, planTo:null, planCustom:false,
     prep:null, slots:[], calMonth:null, daySel:null, slotSel:null,
     slotModal:null,  // {mode:'create'|'change', invoiceId, num, stockId, poolSource}
   };
@@ -922,7 +958,28 @@
           ? `<div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#1e293b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#1e293b"></div>`
           : `<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#B8BCC9;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#e8eaf0;color:#9499AE;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#e9ecf2"></div>`}</div>
       </div></div>`;
-    return `<div>${stepper}${S.step==='time'?createTime():createProducts()}</div>` + (S.showReview?reviewModalHtml():'');
+    const body = S.step==='time' ? createTime()
+      : (modeSwitchHtml() + (S.mode==='semi' ? semiProducts() : createProducts()));
+    return `<div>${stepper}${body}</div>` + (S.showReview?reviewModalHtml():'');
+  }
+
+  // ── Rejim almashtirgich: Ручной | Полуавтомат | Авто ──────────────────
+  // Faqat 1-qadam (Товары) tanasini almashtiradi; miqdorlar savati (S.qty),
+  // pastki panel, «Дальше» va 2-qadam — barcha rejimlar uchun UMUMIY.
+  const MODES=[
+    {id:'manual', title:'Ручной',      sub:'Как на Uzum — выбираете сами'},
+    {id:'semi',   title:'Полуавтомат', sub:'Расчёт по продажам, вы подтверждаете'},
+    {id:'auto',   title:'Авто',        sub:'Скоро'},
+  ];
+  function modeSwitchHtml(){
+    const tabs=MODES.map(m=>{
+      const on=S.mode===m.id, off=m.id==='auto';
+      return `<button class="pkx-mode" data-on="mode-${m.id}" ${off?'disabled':''} style="flex:1;text-align:left;border:none;border-radius:12px;padding:11px 15px;cursor:${off?'not-allowed':'pointer'};background:${on?'#fff':'transparent'};box-shadow:${on?'0 2px 8px rgba(22,22,40,.10)':'none'};opacity:${off?'.45':'1'}">
+        <div class="pkx-modettl" style="color:${on?'#1C2030':'#5A6588'}">${m.title}</div>
+        <div class="pkx-modesub">${m.sub}</div>
+      </button>`;
+    }).join('');
+    return `<div class="pkx-card" style="padding:6px;margin-bottom:14px;background:#f1f3f7;display:flex;gap:6px">${tabs}</div>`;
   }
 
   const RST_GRID='grid-template-columns:1fr 110px 110px 145px 185px';
@@ -942,18 +999,29 @@
   }
   function createProducts(){
     const GRID=RST_GRID;
-    const head=`<div style="display:grid;${GRID};align-items:center;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div class="pkx-thead" style="display:grid;${GRID};align-items:center;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const visible = rstFiltered();
     const searching = S.rstSearch.trim()!=='';
     const rowsHtml = visible.length ? visible.map(rstRowHtml).join('')
       : `<div class="pkx-msg">${searching ? (S.rstSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rstLoading||S.rstHasMore)?'Загрузка…':'Нет данных')}</div>`;
     const more = (S.rstHasMore && S.restock.length && !searching) ? `<div id="pkxRstMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
-    const rows = `<div id="pkxRstRows">${rowsHtml}</div>${more}`;
+    const rows = `<div id="pkxRstRows" class="pkx-rowsend">${rowsHtml}</div>${more}`;
 
+    const card=`<div class="pkx-card" style="margin-bottom:14px">
+      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Выберите товары для поставки</h2>
+        <div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Не объединяйте в одну поставку крупногабаритный товар с малогабаритным и среднегабаритным.</div></div></div>
+      <div style="padding:0 22px 6px"><div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRstSearch" type="search" name="pkx-rst-search" value="${esc(S.rstSearch)}" placeholder="SKU или название товара" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div></div>
+      ${head}${rows}</div>`;
+    return card+bottomBar();
+  }
+
+  // Pastki «yopishqoq» panel — qo'lda va yarim-avtomat rejimlar uchun UMUMIY
+  // (savat bitta: S.qty), shuning uchun rejim almashsa ham tanlov saqlanadi.
+  function bottomBar(){
     const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
     const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
     const canNext=totalUnits>0;
-    const bar=`<div style="position:sticky;bottom:14px;display:flex;align-items:center;gap:18px;background:#1e293b;border-radius:14px;padding:14px 20px;box-shadow:0 12px 34px rgba(22,22,40,.22);margin-top:14px">
+    return `<div style="position:sticky;bottom:14px;display:flex;align-items:center;gap:18px;background:#1e293b;border-radius:14px;padding:14px 20px;box-shadow:0 12px 34px rgba(22,22,40,.22);margin-top:14px">
       <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Выбрано SKU:</span> ${selectedCount} / 100</div>
       <div style="width:1px;height:18px;background:rgba(255,255,255,.16)"></div>
       <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Количество единиц:</span> ${totalUnits} шт</div>
@@ -962,13 +1030,162 @@
       <div style="flex:1"></div>
       <button data-on="next" ${canNext?'':'disabled'} style="background:${canNext?'#fff':'rgba(255,255,255,.12)'};color:${canNext?'#1e293b':'#A9AEC4'};border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:${canNext?'pointer':'not-allowed'}">Дальше</button>
     </div>`;
+  }
 
-    const card=`<div class="pkx-card" style="overflow:hidden;margin-bottom:14px">
-      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Выберите товары для поставки</h2>
-        <div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Не объединяйте в одну поставку крупногабаритный товар с малогабаритным и среднегабаритным.</div></div></div>
-      <div style="padding:0 22px 6px"><div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRstSearch" type="search" name="pkx-rst-search" value="${esc(S.rstSearch)}" placeholder="SKU или название товара" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div></div>
-      ${head}${rows}</div>`;
-    return card+bar;
+  // ════════════ YARIM-AVTOMAT (semi) — guruhlangan tavsiya ════════════
+  // Hisob serverda: (N kunlik sotuv − Uzum qoldig'i), bizning ombor bilan
+  // cheklangan → `recommend`. Ko'rinish — «Расходы» sahifasi uslubi:
+  // asosiy mahsulot qatori (jami) + ochiladigan SKU qatorlari (pikerlar).
+  const SEMI_GRID='grid-template-columns:minmax(260px,1fr) 116px 122px 116px 96px 190px';
+  const SEMI_DAYS=[7,10,15,30,60];
+
+  // Rejani bir marta yuklaydi (takroriy chaqiruvlar bitta so'rovga qo'shiladi).
+  // «Создать поставку» bosilishi bilan FONda ishga tushadi → «Полуавтомат»ga
+  // o'tilganда odatda tayyor bo'ladi (server tomonда sku-list ham keshlangan).
+  let _planPromise=null;
+  // Do'kon almashsa / sehrgar qayta ochilsa — uchib ketayotgan so'rovni BEKOR
+  // qilamiz (planGen++ → javobi tashlanadi), aks holda eski do'kon rejasi
+  // yangisining ustiga tushib qolardi.
+  function invalidatePlan(){ S.planGen++; _planPromise=null; S.plan=null; S.planErr=''; S.planLoading=false;
+    S.planFrom=null; S.planTo=null; S.planCustom=false; S.planDays=30; }   // kalendar tanlovi ham tozalanadi
+  function ensurePlan(){
+    if(S.plan) return Promise.resolve();
+    if(_planPromise) return _planPromise;
+    S.planLoading=true;
+    _planPromise = loadPlan().then(()=>{
+      _planPromise=null;
+      if(S.view==='create' && S.step==='products' && S.mode==='semi') render();
+    });
+    return _planPromise;
+  }
+
+  // Oyna o'zgardi (chip yoki kalendar) → faqat sotuv qayta hisoblanadi.
+  // SKU ro'yxati serverda keshlangan, shuning uchun bu ~0.05s (Uzum'ga bormaydi).
+  // Kiritilgan miqdorlar (S.qty) SAQLANADI — faqat tavsiya yangilanadi.
+  async function reloadPlan(){
+    S.plan=null; S.planLoading=true; render();
+    await loadPlan();
+    if(S.view==='create' && S.step==='products' && S.mode==='semi') render();
+  }
+
+  async function loadPlan(){
+    const gen=++S.planGen;
+    S.planLoading=true; S.planErr='';
+    try{
+      const q={shop:S.shop, days:S.planDays};
+      if(S.planFrom && S.planTo){ q.date_from=S.planFrom; q.date_to=S.planTo; }   // kalendar chipdan ustun
+      const j=await api(`/postavki/api/restock-plan?`+Q(q));
+      if(gen!==S.planGen) return;
+      S.plan=j.groups||[]; S.planWh=j.wh_source||'warehouse';
+      // Oynani SERVER hisoblaganidek qabul qilamiz (teskari oraliq/chegaralar u yerda)
+      S.planDays=j.days||S.planDays; S.planCustom=!!j.custom;
+      if(j.custom){ S.planFrom=j.date_from; S.planTo=j.date_to; }
+    }catch(e){
+      if(gen!==S.planGen) return;
+      S.plan=[]; S.planErr=e.message||'Ошибка';
+    }finally{ if(gen===S.planGen) S.planLoading=false; }
+  }
+
+  function semiFiltered(){
+    const q=S.semiSearch.trim().toLowerCase();
+    const gs=S.plan||[];
+    if(!q) return gs;
+    const terms=q.split(/\s+/).filter(Boolean);
+    return gs.filter(g=>{
+      const hay=[g.name,g.short_sku].concat(g.variants.map(v=>`${v.sku} ${v.barcode} ${v.color}`)).join(' ').toLowerCase();
+      return terms.every(t=>hay.includes(t));
+    });
+  }
+  function groupSel(g){ return g.variants.reduce((a,v)=>a+(S.qty[v.skuId]>0?S.qty[v.skuId]:0),0); }
+
+  function semiVarRowHtml(g,v){
+    const q=S.qty[v.skuId]!=null?S.qty[v.skuId]:'';
+    const rec=v.recommend>0?`<div class="pkx-muted" style="font-size:11.5px;margin-top:5px">Рекомендуем ${v.recommend} шт</div>`
+      : (v.need>0?`<div style="font-size:11.5px;margin-top:5px;color:#C98A2B">Нет на складе</div>`:'');
+    const blk=v.blocked?`<span title="${esc(v.blockReason||'Заблокирован')}" style="display:inline-flex;align-items:center;gap:4px;background:#FCE8E8;color:#D14343;font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:6px;margin-left:8px">Заблокирован</span>`:'';
+    return `<div class="pkx-prow pkx-vrow" data-key="${esc(g.key)}" style="display:${S.expand[g.key]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0;padding-left:33px">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}${blk}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
+      <div style="font-weight:700;font-size:13px">${v.sales}</div>
+      <div style="font-weight:700;font-size:13px">${v.uzum_qty}</div>
+      <div style="font-weight:700;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
+      <div style="font-weight:800;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
+      <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${v.skuId}" data-key="${esc(g.key)}" data-price="${v.price||0}" data-name="${esc(g.name||'')}" data-skutitle="${esc(v.sku||'')}" data-bc="${esc(v.barcode||'')}" data-img="${esc(v.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
+    </div>`;
+  }
+
+  // «Добавить N» (tavsiyani qo'yish) ↔ «Убрать» (tozalash) — guruh holatiga qarab
+  function groupBtnHtml(g){
+    const canAdd=g.recommend>0;
+    return groupSel(g)>0
+      ? `<button data-gclr="${esc(g.key)}" style="border:1px solid #e6e6ec;background:#fff;color:#5A6588;border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">Убрать</button>`
+      : `<button data-gadd="${esc(g.key)}" ${canAdd?'':'disabled'} style="border:none;background:${canAdd?'#1A7F4B':'#eef0f4'};color:${canAdd?'#fff':'#B8BCC9'};border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:${canAdd?'pointer':'not-allowed'}">Добавить${canAdd?` ${g.recommend}`:''}</button>`;
+  }
+  function semiGroupRowHtml(g){
+    const open=!!S.expand[g.key];
+    const sel=groupSel(g);
+    const btn=`<span class="pkx-gbtn" data-key="${esc(g.key)}">${groupBtnHtml(g)}</span>`;
+    return `<div class="pkx-prow pkx-grow${sel>0?' is-dirty':''}" data-gkey="${esc(g.key)}" style="display:grid;${SEMI_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0">
+        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        ${tile(g.image,48)}
+        <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
+          <div class="pkx-grow2">${g.short_sku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.short_sku)}</span>`:''}<span style="font-size:11px;font-weight:700;color:#9499AE;background:#f1f3f7;padding:2px 7px;border-radius:999px">${g.vcount} SKU</span></div></div>
+      </div>
+      <div style="font-weight:700;font-size:13.5px">${g.sales}</div>
+      <div style="font-weight:700;font-size:13.5px">${g.uzum_qty}</div>
+      <div style="font-weight:700;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
+      <div style="font-weight:800;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
+      <div style="display:flex;align-items:center;gap:10px" data-stopgrow="1">
+        <span class="pkx-gsel" data-key="${esc(g.key)}" style="font-weight:800;font-size:13.5px;min-width:44px;color:${sel>0?'#1A7F4B':'#B8BCC9'}">${sel>0?sel+' шт':'—'}</span>
+        ${btn}
+      </div>
+    </div>`;
+  }
+
+  function semiProducts(){
+    // Kalendar oralig'i tanlansa — chiplar so'nadi (ikkalasi bir vaqtda faol emas)
+    const chips=SEMI_DAYS.map(d=>{ const on=(!S.planCustom && S.planDays===d);
+      return `<button data-days="${d}" style="border:1px solid ${on?'#1e293b':'#e6e6ec'};background:${on?'#1e293b':'#fff'};color:${on?'#fff':'#5A6588'};border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">${d} дн.</button>`;
+    }).join('');
+    // Ilovadagi UMUMIY kalendar (static/daterange.js) — o'zimizniki yozilmagan
+    const cal=(window.SHDateRange
+      ? SHDateRange.html({from:S.planCustom?S.planFrom:null, to:S.planCustom?S.planTo:null, placeholder:'Свой период'})
+      : '');
+    // Sarlavha oynani AYNAN aytadi: chip → «за 30 дн.», kalendar → «1 июн — 30 июн»
+    const soldHead = (S.planCustom && window.SHDateRange)
+      ? `ПРОДАНО<br>${esc(SHDateRange.label(S.planFrom,S.planTo))}`
+      : `ПРОДАНО<br>за ${S.planDays} дн.`;
+    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',soldHead,'ОСТАТОК<br>UZUM','НА<br>СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th" style="line-height:1.35">${h}</div>`).join('')}</div>`;
+
+    const gs=semiFiltered();
+    let rowsHtml;
+    if(S.planLoading) rowsHtml=`<div class="pkx-msg">Считаем потребность по продажам…</div>`;
+    else if(S.planErr) rowsHtml=`<div class="pkx-msg">Ошибка: ${esc(S.planErr)}</div>`;
+    else if(!gs.length) rowsHtml=`<div class="pkx-msg">${S.semiSearch.trim()?'Ничего не найдено':'Нет данных'}</div>`;
+    else rowsHtml=gs.map(g=>semiGroupRowHtml(g)+g.variants.map(v=>semiVarRowHtml(g,v)).join('')).join('');
+
+    const need=(S.plan||[]).reduce((a,g)=>a+g.need,0);
+    const rec=(S.plan||[]).reduce((a,g)=>a+g.recommend,0);
+    const ready=(!S.planLoading && !S.planErr && (S.plan||[]).length);
+    // Ombor qoldig'i to'ldirilmagan bo'lsa — cheklov o'rniga to'liq ehtiyoj
+    // tavsiya qilinadi; buni yashirmaymiz.
+    const summary = !ready ? ''
+      : (S.planWh==='none'
+        ? `<div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Нужно довезти <b>${need} шт</b>, но остатки своего склада не заполнены — отправлять нечего, поэтому рекомендация везде <b>0</b>. Заполните остатки в разделе «Склад»: рекомендация появится сразу. Можно и вручную — раскройте товар и укажите количество по SKU.</div></div>`
+        : `<div style="display:flex;align-items:flex-start;gap:11px;background:#EEF6F1;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1A7F4B" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#1A7F4B;font-weight:600;font-size:13px">Нужно довезти <b>${need} шт</b> по всем товарам. Со своего склада можно отправить <b>${rec} шт</b> — нажмите «Добавить» у товара или раскройте его и выберите SKU вручную.</div></div>`);
+
+    const card=`<div class="pkx-card" style="margin-bottom:14px">
+      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Что нужно довезти</h2>
+        <div class="pkx-muted" style="font-size:13px;margin-top:5px">Потребность = продажи за период − остаток на Uzum. К отправке рекомендуем не больше, чем есть на нашем складе.</div>
+        ${summary}</div>
+      <div style="padding:0 22px 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxSemiSearch" type="search" name="pkx-semi-search" value="${esc(S.semiSearch)}" placeholder="SKU или название товара" autocomplete="off" spellcheck="false"/></div>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${chips}${cal}</div>
+      </div>
+      <div class="pkx-thead pkx-thead-clip"><div id="pkxSemiHead" style="min-width:1040px">${head}</div></div>
+      <div id="pkxSemiScroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:1040px"><div id="pkxSemiRows">${rowsHtml}</div></div></div></div>`;
+    return card+bottomBar();
   }
 
   function reviewModalHtml(){
@@ -1082,7 +1299,7 @@
 
   function render(){
     try{ if(S.shop) localStorage.setItem('pkxShop',S.shop); localStorage.setItem('pkxTab',S.tab); }catch(_){}  // F5'da tiklash uchun
-    saveShopCookie(S.shop);   // groups/sales bilan umumiy tanlov (sh_shop)
+    saveRoute();              // F5/🔄 dan keyin O'SHA sahifada qolamiz (ro'yxatga tashlamaymiz)
     el.innerHTML = S.view==='list'?viewList(): S.view==='create'?viewCreate(): S.view==='detail'?viewDetail()
       : S.view==='retdetail'?viewRetDetail(): S.view==='retcreate'?viewRetCreate():'';
     wire();
@@ -1090,6 +1307,44 @@
   }
 
   function go(view){ if(view!=='detail') closeQrBar(); S.view=view; render(); }
+
+  // ── Sahifa holati F5/🔄 dan OMON qoladi (Ulug'bek 2026-07-13) ──────────
+  // Ilgari reload BARCHA holatda ro'yxatga qaytarardi — «Новая поставка»
+  // sehrgarida turgan bo'lsangiz ham. Endi joriy ko'rinish (create / retcreate /
+  // detail / retdetail) localStorage'da saqlanadi va boot'da tiklanadi.
+  // Miqdorlar allaqachon qoralamada (pkxCreateDraft_*) saqlanadi.
+  const ROUTE_KEY='pkxRoute';
+  function saveRoute(){
+    try{
+      const v=S.view;
+      if(v==='create')        localStorage.setItem(ROUTE_KEY, JSON.stringify({view:v, mode:S.mode, planDays:S.planDays}));
+      else if(v==='retcreate')localStorage.setItem(ROUTE_KEY, JSON.stringify({view:v}));
+      else if(v==='detail' && S.detailId!=null)     localStorage.setItem(ROUTE_KEY, JSON.stringify({view:v, id:S.detailId}));
+      else if(v==='retdetail' && S.retDetailId!=null) localStorage.setItem(ROUTE_KEY, JSON.stringify({view:v, id:S.retDetailId}));
+      else localStorage.removeItem(ROUTE_KEY);      // ro'yxat — tiklashga hojat yo'q
+    }catch(_){}
+  }
+  function readRoute(){
+    try{ const r=localStorage.getItem(ROUTE_KEY); if(!r) return null; const o=JSON.parse(r);
+      return (o && ['create','retcreate','detail','retdetail'].indexOf(o.view)>=0) ? o : null;
+    }catch(_){ return null; }
+  }
+  // Boot'da saqlangan ko'rinishni tiklaymiz. Har biri o'z ochish oqimini
+  // (openDetail/openRetCreate…) takrorlaydi; xatolik bo'lsa — ro'yxatga tushamiz.
+  async function restoreRoute(r){
+    if(r.view==='create'){
+      S.view='create'; S.step='products'; S.showReview=false; S.rstSearch='';
+      S.mode=(r.mode==='semi'?'semi':'manual'); S.planDays=r.planDays||30; S.semiSearch=''; S.expand={};
+      invalidatePlan(); ensurePlan();
+      render(); await safe(()=>loadRestock(true)); restoreCreateDraft(); render(); fillCreateStock();
+      return true;
+    }
+    if(r.view==='retcreate'){ await openRetCreate(); return true; }
+    // Detal yuklanmasa (o'chirilgan / boshqa do'kon) — ro'yxatga qaytamiz.
+    if(r.view==='detail'){ await openDetail(r.id); return S.view==='detail' && !!S.detail; }
+    if(r.view==='retdetail'){ await openRetDetail(r.id); return S.view==='retdetail' && !!S.retDetail; }
+    return false;
+  }
 
   async function openDetail(id){ S.detailId=id; S.detail=null; S.products=[]; go('detail'); try{ await loadDetail(id); }catch(e){ el.innerHTML=`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`; return;} render(); }
 
@@ -1101,7 +1356,17 @@
         if(on==='tab-fbo'){ S.tab='fbo'; render(); if(!S.invoices.length){await safe(()=>loadInvoices(true));} safe(()=>loadGrabPlans()).then(()=>render()); render(); }
         else if(on==='tab-returns'){ S.tab='returns'; render(); if(!S.returns.length){ await safe(()=>loadReturns(true)); } render(); }
         else if(on==='tab-grab'){ S.tab='grab'; render(); await safe(()=>loadAllPlans()); render(); }
-        else if(on==='create'){ S.view='create'; S.step='products'; S.qty={}; S.price={}; S.meta={}; S.rstSearch=''; S.showReview=false; render(); await safe(()=>loadRestock(true)); const cd=restoreCreateDraft(); render(); if(cd){ pkxAlert({variant:'success',icon:'✓',title:'Черновик восстановлен',message:'Ранее введённые количества к поставке восстановлены — можно продолжить.'}); fillCreateStock(); } }
+        else if(on==='create'){ S.view='create'; S.step='products'; S.qty={}; S.price={}; S.meta={}; S.rstSearch=''; S.showReview=false;
+          S.mode='manual'; S.planDays=30; S.semiSearch=''; S.expand={};   // har safar qo'lda rejimdan boshlanadi
+          invalidatePlan(); ensurePlan();   // «Полуавтомат» hisobini FONda boshlaymiz — bosilganда tayyor turadi
+          render(); await safe(()=>loadRestock(true)); const cd=restoreCreateDraft(); render(); if(cd){ pkxAlert({variant:'success',icon:'✓',title:'Черновик восстановлен',message:'Ранее введённые количества к поставке восстановлены — можно продолжить.'}); fillCreateStock(); } }
+        // ── Rejim: qo'lda ↔ yarim-avtomat (savat UMUMIY — miqdorlar saqlanadi) ──
+        else if(on==='mode-manual'){ if(S.mode==='manual') return; S.mode='manual'; render(); }
+        else if(on==='mode-semi'){
+          if(S.mode==='semi') return;
+          S.mode='semi'; render();   // fon-yuklash tugagan bo'lsa — darhol ko'rinadi
+          ensurePlan();              // tugamagan bo'lsa — tayyor bo'lgach o'zi qayta chizadi
+        }
         else if(on==='back'){ if(retDirty()) saveRetDraftFlush(); if(createDirty()) saveCreateDraftFlush(); go('list'); refreshList(); }   // tasdiqsiz chiqamiz — qoralama jim saqlanadi
         else if(on==='back-products'){ S.step='products'; render(); }
         else if(on==='vs-clean'){ S.listStyle='clean'; render(); }
@@ -1194,8 +1459,9 @@
     }); }
     // bulk-select (faqat «Создана») — checkbox + select-all + suzuvchi panel
     wireSelection();
-    // qty inputs (create products)
+    // qty inputs (create products) + yarim-avtomat guruh qatorlari
     bindQty();
+    wireSemi();
     // calendar day/slot
     el.querySelectorAll('[data-day]').forEach(d=>d.addEventListener('click',()=>{ S.daySel=d.dataset.day; S.slotSel=null; render(); }));
     el.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click',()=>{ S.slotSel=parseInt(b.dataset.slot); render(); }));
@@ -1238,6 +1504,117 @@
     // «kutyapti» badge bosilsa — avto-band rejani bekor qiladi (detalga o'tmaydi).
     el.querySelectorAll('[data-grabcancel]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); cancelGrabPlan(parseInt(b.dataset.grabcancel)); }));
     updateSelUI();
+  }
+
+  // ── Yarim-avtomat: guruh ochish/yopish, «Добавить/Убрать», davr chiplari ──
+  // flatpickr kalendar div'ini <body>ga qo'shadi → har render'да eskisini
+  // O'CHIRIB tashlaymiz, aks holda ular yig'ilib qoladi.
+  let _shdrInst=null, _shdrEl=null;
+  function killDateRange(){ if(_shdrInst){ _shdrInst.destroy(); } _shdrInst=null; _shdrEl=null; }
+
+  function wireSemi(){
+    if(S.view!=='create' || S.step!=='products' || S.mode!=='semi'){ killDateRange(); return; }
+
+    // guruh qatori → SKU qatorlarini ochib-yopadi (Расходы sahifasidagi kabi)
+    el.querySelectorAll('.pkx-grow').forEach(row=>{
+      if(row._bound) return; row._bound=1;
+      row.addEventListener('click', e=>{
+        if(e.target.closest('[data-stopgrow]')) return;   // «Добавить»/«Убрать» qatorni ochmaydi
+        const key=row.dataset.gkey;
+        const open=!S.expand[key];
+        if(open) S.expand[key]=true; else delete S.expand[key];
+        const chev=row.querySelector('.pkx-chev'); if(chev) chev.style.transform=open?'rotate(90deg)':'';
+        el.querySelectorAll(`.pkx-vrow[data-key="${CSS.escape(key)}"]`).forEach(vr=>{ vr.style.display=open?'grid':'none'; });
+      });
+    });
+
+    // Davr chiplari (7/10/15/30/60/90) — tavsiyani qayta hisoblaydi.
+    // Kiritilgan miqdorlar (S.qty) SAQLANADI — faqat tavsiya o'zgaradi.
+    el.querySelectorAll('[data-days]').forEach(b=>{
+      if(b._bound) return; b._bound=1;
+      b.addEventListener('click', async ()=>{
+        const d=parseInt(b.dataset.days);
+        if(d===S.planDays && !S.planCustom) return;
+        // chip bosildi → kalendar tanlovi bekor bo'ladi
+        S.planDays=d; S.planFrom=null; S.planTo=null; S.planCustom=false;
+        await reloadPlan();
+      });
+    });
+
+    // ── Kalendar (umumiy SHDateRange) — «Свой период» ──
+    const cal=el.querySelector('.shdr');
+    if(cal && window.SHDateRange && cal!==_shdrEl){
+      killDateRange();   // eski render'даги instansiyani yo'q qilamiz
+      _shdrEl=cal;
+      _shdrInst=SHDateRange.wire(cal, {
+        from:S.planCustom?S.planFrom:null, to:S.planCustom?S.planTo:null,
+        onPick: async (from,to)=>{ S.planFrom=from; S.planTo=to; S.planCustom=true; await reloadPlan(); },
+        onClear: async ()=>{ S.planFrom=null; S.planTo=null; S.planCustom=false; S.planDays=30; await reloadPlan(); },
+      });
+    }
+
+    // Sarlavha alohida (sticky) konteynerda turadi → jadval yon tomonga
+    // aylantirilganда uni QO'LDA hamohang siljitamiz, aks holda ustunlar
+    // qatorlardan «qochib» ketardi.
+    const hscroll=el.querySelector('#pkxSemiScroll'), hhead=el.querySelector('#pkxSemiHead');
+    if(hscroll && hhead && !hscroll._bound){ hscroll._bound=1;
+      hscroll.addEventListener('scroll', ()=>{ hhead.style.transform=`translateX(${-hscroll.scrollLeft}px)`; }, {passive:true});
+    }
+
+    const ss=el.querySelector('#pkxSemiSearch');
+    if(ss && !ss._bound){ ss._bound=1;
+      ss.addEventListener('input', e=>{ S.semiSearch=e.target.value; renderSemiRows(); });
+      if(S.semiSearch){ ss.focus(); ss.setSelectionRange(ss.value.length, ss.value.length); } }
+  }
+
+  // «Добавить»/«Убрать» — delegatsiya (tugmalar qayta chizilgach ham ishlaydi)
+  el.addEventListener('click', e=>{
+    const add=e.target.closest('[data-gadd]'), clr=e.target.closest('[data-gclr]');
+    if(!add && !clr) return;
+    e.stopPropagation();
+    const key=(add||clr).dataset.gadd || (add||clr).dataset.gclr;
+    const g=(S.plan||[]).find(x=>x.key===key); if(!g) return;
+    if(add){ g.variants.forEach(v=>{ if(v.recommend>0) applySemiQty(g,v,v.recommend); }); }
+    else   { g.variants.forEach(v=>{ S.qty[v.skuId]=0; }); }
+    saveCreateDraft();
+    // faqat shu guruh qatorlarini yangilaymiz — scroll/fokus joyida qoladi
+    el.querySelectorAll(`.pkx-vrow[data-key="${CSS.escape(key)}"] .pkx-qty`).forEach(inp=>{
+      const n=S.qty[inp.dataset.sku]||0;
+      inp.value = n>0 ? String(n) : '';
+      const row=inp.closest('.pkx-prow'); if(row) row.classList.toggle('is-dirty', n>0);
+    });
+    updateBar();
+  });
+
+  // Miqdorni savatga yozadi (meta bilan — review/create shu yerdan o'qiydi)
+  function applySemiQty(g, v, n){
+    S.qty[v.skuId]=n;
+    S.meta[v.skuId]={price:v.price||0, name:g.name||'', skutitle:v.sku||'', bc:v.barcode||'', image:v.image||''};
+  }
+
+  // Faqat jadval tanasini qayta chizadi (qidiruv fokusi va scroll saqlanadi)
+  function renderSemiRows(){
+    const cont=el.querySelector('#pkxSemiRows'); if(!cont) return;
+    const gs=semiFiltered();
+    cont.innerHTML = gs.length
+      ? gs.map(g=>semiGroupRowHtml(g)+g.variants.map(v=>semiVarRowHtml(g,v)).join('')).join('')
+      : `<div class="pkx-msg">${S.semiSearch.trim()?'Ничего не найдено':'Нет данных'}</div>`;
+    bindQty(); wireSemi();
+    updateBar();
+  }
+
+  // Guruh qatoridagi «К отправке» jami + tugma (Добавить↔Убрать) jonli yangilanadi
+  function updateSemiTotals(){
+    if(S.mode!=='semi' || !S.plan) return;
+    el.querySelectorAll('.pkx-gsel').forEach(span=>{
+      const g=S.plan.find(x=>x.key===span.dataset.key); if(!g) return;
+      const sel=groupSel(g);
+      span.textContent = sel>0 ? sel+' шт' : '—';
+      span.style.color = sel>0 ? '#1A7F4B' : '#B8BCC9';
+      const row=span.closest('.pkx-grow'); if(row) row.classList.toggle('is-dirty', sel>0);
+      const bwrap=row && row.querySelector(`.pkx-gbtn[data-key="${CSS.escape(g.key)}"]`);
+      if(bwrap){ const next=groupBtnHtml(g); if(bwrap.innerHTML!==next) bwrap.innerHTML=next; }
+    });
   }
 
   function wireReview(){
@@ -1298,6 +1675,7 @@
   }
 
   function updateBar(){
+    updateSemiTotals();   // yarim-avtomatda guruh jamilari ham jonli yangilanadi
     const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
     const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
     const bar=el.querySelector('[data-on="next"]'); if(!bar) return;
@@ -1342,7 +1720,7 @@
       loadRskus(false).then(()=>{ if(S.view==='retcreate') renderRskuRows(); });
     }
     // Yangi поставка — mahsulot tanlash ro'yxati (create/products)
-    else if(S.view==='create' && S.step==='products' && S.rstHasMore && !S.rstLoading && !S.rstSearch.trim()){
+    else if(S.view==='create' && S.step==='products' && S.mode==='manual' && S.rstHasMore && !S.rstLoading && !S.rstSearch.trim()){
       const before=S.restock.length;
       loadRestock(false).then(()=>{ if(S.view==='create'&&S.step==='products'&&!S.rstSearch.trim()) appendRstRows(S.restock.slice(before)); });
     }
@@ -1915,9 +2293,15 @@
     menu.querySelectorAll('[data-shop]').forEach(it=>it.addEventListener('click',async ev=>{
       ev.stopPropagation(); if(it.dataset.shop===S.shop){ menu.remove(); return; }
       S.shop=it.dataset.shop; menu.remove();
+      // Do'kon TANLANGANDA (faqat shunda) umumiy cookie'ga yozamiz — groups/sales
+      // ham shu do'konga o'tadi. Har render'да yozsak, postavki o'zining DEFAULT
+      // do'konini boshqa sahifalarga majburlab qo'yardi (bag).
+      saveShopCookie(S.shop);
       if(S.view==='create'){
         // yaratish oqimini yangi do'kon uchun tozalab, restock'ni qayta yuklaymiz
         S.step='products'; S.qty={}; S.price={}; S.meta={}; S.rstSearch=''; S.showReview=false;
+        S.semiSearch=''; S.expand={};   // reja boshqa do'konники edi
+        invalidatePlan(); ensurePlan();
         render(); await safe(()=>loadRestock(true)); restoreCreateDraft(); render(); fillCreateStock();
       } else if(S.view==='retcreate'){
         // возврат sehrgarini yangi do'kon uchun tozalab, SKU'larni qayta yuklaymiz
@@ -2112,11 +2496,30 @@
   document.addEventListener('mouseout',(e)=>{ if(_zoomTarget(e)) _hideZoom(); });
   window.addEventListener('scroll', _hideZoom, true);
 
-  (async function(){ if(!S.shop){ el.innerHTML='<div class="pkx-msg">Нет магазинов</div>'; return; } render();
+  (async function(){ if(!S.shop){ el.innerHTML='<div class="pkx-msg">Нет магазинов</div>'; return; }
+    // F5/🔄 dan oldin qaysi ko'rinishda edik? — o'sha yerga qaytamiz (sehrgar,
+    // detal…). Ro'yxatni FONda yuklab qo'yamiz — «‹ Назад» darhol ishlasin.
+    const _route = readRoute();
+    if(_route){
+      let ok=false;
+      try{ ok = await restoreRoute(_route); }catch(e){ console.error(e); }
+      if(ok){
+        safe(()=>loadInvoices(true)).then(()=>{ if(S.view==='list') render(); });
+        return;
+      }
+      S.view='list';   // tiklab bo'lmadi (o'chirilgan/boshqa do'kon) → ro'yxat
+    }
+    render();
     if(S.tab==='returns') await safe(()=>loadReturns(true));        // saqlangan tab'ga mos ma'lumot
     else if(S.tab==='grab') await safe(()=>loadAllPlans());
     else { await safe(()=>loadInvoices(true)); safe(()=>loadGrabPlans()).then(()=>render()); }  // grabPlans BLOKLAMAYDI: ro'yxat darhol, chip keyin
     render(); })();
 })();
 </script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+<script src="/static/daterange.js?v=1"></script>
 {% endblock %}

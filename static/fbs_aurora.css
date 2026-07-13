@@ -75,29 +75,38 @@
 .fbs-page .fbs-status-chip,
 .fbs-page .fbs-status-nav,
 .fbs-page .fbsx-dd{position:relative;z-index:1;}
+/* TIPOGRAFIKA — «Мои товары» (groups.html `.pp-tab`) bilan BIR XIL
+   (Ulug'bek 2026-07-13): 14px, faol bo'lmagani 500, FAOLI 600. Ilgari
+   hammasi 700 edi — qator og'ir/«qalin» ko'rinardi. Faqat shrift o'zgaradi;
+   ranglar, padding, radius va thumb-plita TEGILMAYDI. */
 .fbs-page .fbs-status-chip{
   border:0;background:transparent;color:var(--sx-chip);
-  padding:.62rem 1.05rem;border-radius:11px;font-weight:700;font-size:.9rem;
+  padding:.62rem 1.05rem;border-radius:11px;font-weight:500;font-size:14px;
   transition:background .15s ease,color .15s ease,box-shadow .15s ease;
 }
 .fbs-page .fbs-status-chip:hover{background:transparent;color:var(--sx-chip-hover);}
 .fbs-page .fbs-status-chip.active{
   background:transparent;color:#fff;border-color:transparent;box-shadow:none;
+  font-weight:600;
 }
 /* Fallback: thumb yo'q bo'lsa (JS yuklanmadi) aktiv chip o'zi bo'yaladi. */
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-chip.active{
   background:var(--sx-active);
 }
+/* Son-nishoni — groups `.pp-tab-badge` bilan bir xil: 12px / 600. */
 .fbs-page .fbs-status-chip-count{
   background:var(--sx-count-bg);color:var(--sx-count-fg);
   min-width:20px;padding:0 7px;border-radius:999px;
-  font-weight:700;font-size:.72rem;line-height:20px;
+  font-weight:600;font-size:12px;line-height:20px;
 }
 .fbs-page .fbs-status-chip.active .fbs-status-chip-count{background:rgba(255,255,255,.26);color:#fff;}
 
 /* «Поставка» nav — endi boshqalardek (neytral + son) */
 .fbs-page .fbs-status-nav{
-  background:transparent;border:0;color:var(--sx-chip);font-weight:700;
+  background:transparent;border:0;color:var(--sx-chip);font-weight:500;
+  /* font-size ATAYIN yoziladi: shablonda `.fbs-status-nav{font-size:.78rem}`
+     bor, uni bosib o'tmasak «Поставки» qo'shnilaridan kichik qolardi. */
+  font-size:14px;
   padding:.62rem 1.05rem;border-radius:11px;box-shadow:none;
   transition:background .15s ease,color .15s ease,box-shadow .15s ease;
 }
@@ -105,6 +114,7 @@
 .fbs-page .fbs-status-nav:hover{background:transparent;color:var(--sx-chip-hover);transform:none;box-shadow:none;}
 .fbs-page .fbs-status-nav.is-active{
   background:transparent;color:#fff;border-color:transparent;box-shadow:none;
+  font-weight:600;
 }
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbs-status-nav.is-active{
   background:var(--sx-active);
@@ -121,13 +131,14 @@
 .fbs-page .fbsx-trigger{
   display:inline-flex;align-items:center;gap:9px;
   padding:.62rem .9rem .62rem 1.05rem;border:0;background:transparent;cursor:pointer;
-  border-radius:11px;font-weight:700;font-size:.9rem;color:var(--sx-chip);
+  border-radius:11px;font-weight:500;font-size:14px;color:var(--sx-chip);
   transition:background .15s ease,color .15s ease,box-shadow .15s ease;
 }
 .fbs-page .fbsx-trigger:hover{color:var(--sx-chip-hover);background:rgba(255,255,255,.55);}
 [data-bs-theme="dark"] .fbs-page .fbsx-trigger:hover{background:rgba(255,255,255,.05);}
 .fbs-page .fbsx-trigger.is-active{
   background:transparent;color:#fff;box-shadow:none;
+  font-weight:600;
 }
 .fbs-page .fbs-status-row:not(:has(.fbsx-thumb)) .fbsx-trigger.is-active{
   background:var(--sx-active);
@@ -155,6 +166,19 @@
 .fbs-page .fbsx-mi .fbsx-ct{
   padding:2px 9px;border-radius:999px;background:var(--sx-ct-bg);color:var(--sx-ct-fg);
   font-weight:700;font-size:.72rem;min-width:auto;line-height:1.4;
+  /* Sonlar O'NG chetga tekislanadi (Ulug'bek 2026-07-13).
+     Ilgari ular o'ng chetdan 44px BERIDA turardi — «o'rtada osilgandek»
+     ko'rinardi. Sabab: ulardan KEYIN kelgan `.fbsx-ck` (tanlov belgisi)
+     `opacity:0` bo'lsa-da, `flex:none` bo'lgani uchun joyni BAND qilardi
+     (18px + 2px margin + 12px gap) — ustiga item padding'i (12px).
+     Yechim: nishonni oxirgi flex-element qilamiz (`order`), shunda
+     belgining bo'sh joyi YORLIQ bilan NISHON ORASIGA tushadi — u yerda
+     ko'rinmaydi (yorliq chapga, nishon o'ngga tekislangan). Belgini
+     butunlay olib tashlamaymiz: aks holda TANLANGAN qatorning nishoni
+     boshqalardan 32px chapга sakrab, ustun buzilardi. */
+  order:1;
+  /* Turli xonali sonlar (5 / 236) ustunda tekis tursin. */
+  font-variant-numeric:tabular-nums;
 }
 .fbs-page .fbsx-ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;}
 .fbs-page .fbsx-ic svg{width:16px;height:16px;}

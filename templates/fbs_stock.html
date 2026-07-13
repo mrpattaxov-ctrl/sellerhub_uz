@@ -143,11 +143,15 @@
     position: relative; z-index: 1;
     display: inline-flex; align-items: center; gap: .45rem;
     padding: .62rem 1.05rem; border-radius: 11px; border: none; background: transparent;
-    color: #5A5762; font-weight: 700; font-size: .9rem; cursor: pointer;
+    /* TIPOGRAFIKA — «Мои товары» (groups.html `.pp-tab`) bilan BIR XIL
+       (Ulug'bek 2026-07-13): 14px, faol emas — 500, FAOL — 600. Ilgari 700
+       edi (juda qalin). Buyurtmalar status-chiplari ham shu qiymatlarga
+       keltirildi (fbs_aurora.css) — uch sahifa bitta tipografik tilda. */
+    color: #5A5762; font-weight: 500; font-size: 14px; cursor: pointer;
     transition: color .2s ease; white-space: nowrap;
   }
   .stk-seg-btn:hover { color: #1A1A22; }
-  .stk-seg-btn.is-active { background: transparent; color: #fff; box-shadow: none; }
+  .stk-seg-btn.is-active { background: transparent; color: #fff; box-shadow: none; font-weight: 600; }
   /* Fallback: thumb yo'q bo'lsa (JS yuklanmadi) aktiv tugma o'zi bo'yaladi. */
   .stk-seg:not(:has(.stk-thumbpill)) .stk-seg-btn.is-active {
     background: #1E2435; box-shadow: none;
@@ -156,8 +160,13 @@
      yo'q — qidiruv maydoni + summary chiplari to'g'ridan-to'g'ri fonda turadi. */
   .stk-searchbox {
     /* Kichikroq + o'ng chetga surildi (Ulug'bek 2026-07-12): endi o'smaydi
-       (flex-grow 0), `margin-left:auto` uni qatorning o'ng tarafiga itaradi. */
-    flex: 0 1 400px; min-width: 260px; margin-left: auto;
+       (flex-grow 0), `margin-left:auto` uni qatorning o'ng tarafiga itaradi.
+       400px → 356px (Ulug'bek 2026-07-13): qator uchun juda uzun edi.
+       356px — placeholder KESILMAYdigan eng tor o'lcham: matn RU'da 290px,
+       UZ'da 289px joy oladi, input esa 356 − 56 = ~300px. Bundan torroq
+       qilish uchun placeholder matnini qisqartirish kerak bo'ladi.
+       Mobil'da bu qiymat ishlamaydi — u yerda `flex: 1 1 100%`. */
+    flex: 0 1 356px; min-width: 240px; margin-left: auto;
     display: flex; align-items: center; gap: 12px;
     padding: 0; border-radius: 16px;
     background: transparent; border: 0;
@@ -314,13 +323,21 @@
   .stk-prod-meta { color: #98a2b3; font-size: .74rem; margin-top: .15rem; letter-spacing: .02em; font-weight: 500; }
   .stk-prod-meta span + span::before { content: "·"; margin: 0 .35rem; }
 
-  /* Shtrix-kod — kod-badge (yumshoq kulrang kapsula, monospace) */
+  /* Shtrix-kod — SODDA MATN (Ulug'bek 2026-07-13). Ilgari kulrang kapsula
+     («blok») ichida monospace shrift bilan turardi. Ikki muammo bor edi:
+       (a) har bir satrda «blok» — jadval shovqinli ko'rinardi;
+       (b) `ui-monospace`/SF Mono/Menlo shriftlari NOLni ichidan CHIZIQ bilan
+           («slashed zero») chizadi — o'sha «diagonal chiziq».
+     Yechim: kapsula olib tashlandi, interfeys shrifti qaytdi. `tabular-nums`
+     saqlanadi — raqamlar ustunda baribir tekis turadi, lekin nol KESILMAYDI. */
   .stk-barcode {
-    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-    color: #475467; font-size: .8rem; white-space: nowrap;
-    display: inline-block; padding: .22rem .55rem;
-    background: #f4f6fa; border: 1px solid #eaecf0; border-radius: 7px;
-    letter-spacing: .015em;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 0;   /* nol ustidan chiziq chizilmasin */
+    color: #475467; font-size: .82rem; white-space: nowrap;
+    display: inline; padding: 0;
+    background: none; border: 0; border-radius: 0;
+    letter-spacing: .01em;
   }
 
   /* ── FBS/DBS sxema chiplari (Abdulaziz 2026-06-13) ───────────────────
@@ -332,9 +349,13 @@
   .stk-scheme-toggle {
     display: inline-flex; align-items: center; gap: .45rem;
     padding: .3rem .65rem .3rem .5rem;
-    border: 1.5px solid #e4e7ec; border-radius: 999px; background: #fff;
+    /* Ramka 1.5px → 1px (Ulug'bek 2026-07-13): qalin chiziqlar chipni
+       «multfilm»simon qilib qo'yardi. Ingichka chiziq — jadval uchun jiddiyroq. */
+    border: 1px solid #e4e7ec; border-radius: 999px; background: #fff;
     font-size: .78rem; font-weight: 700; letter-spacing: .02em;
-    color: #98a2b3; cursor: pointer; user-select: none;
+    /* «FBS»/«DBS» matni kulrang (#98a2b3) edi — o'qilmasди. Endi TO'Q rang:
+       yozuv yorliq emas, MA'LUMOT (qaysi sxema yoqilgan). */
+    color: #344054; cursor: pointer; user-select: none;
     transition: background .15s ease, border-color .15s ease,
                 color .15s ease, box-shadow .15s ease;
   }
@@ -351,7 +372,10 @@
   .stk-scheme-toggle input {
     appearance: none; -webkit-appearance: none; -moz-appearance: none;
     width: 18px; height: 18px; margin: 0; flex: none;
-    border: 2px solid #cdd5e3; border-radius: 6px;
+    /* Katakcha ramkasi 2px → 1px — chip bilan bir xil «ingichka» tilda.
+       (Chrome border-width'ni butun px'ga yaxlitlaydi, shuning uchun 1.5px
+       baribir 1px bo'lib chizilardi — to'g'ridan-to'g'ri 1px yozamiz.) */
+    border: 1px solid #cdd5e3; border-radius: 6px;
     background: #fff; cursor: pointer; position: relative;
     transition: border-color .15s ease, background .15s ease,
                 box-shadow .15s ease, transform .12s ease;
@@ -526,13 +550,15 @@
   [data-bs-theme="dark"] .stk-table tbody tr.is-dirty { background: rgba(245,158,11,.10); }
   [data-bs-theme="dark"] .stk-prod-title { color: #e8edf5; }
   [data-bs-theme="dark"] .stk-prod-meta { color: #6b7589; }
-  [data-bs-theme="dark"] .stk-barcode { color: #9aa3b2; background: #1a2030; border-color: #2b3346; }
+  /* Qorong'i rejim — kapsula bu yerda ham YO'Q (sodda matn). */
+  [data-bs-theme="dark"] .stk-barcode { color: #9aa3b2; background: none; border: 0; }
   [data-bs-theme="dark"] .stk-thumb { background: #1a2030; border-color: #2b3346; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
   [data-bs-theme="dark"] .stk-thumb-ph { background: linear-gradient(135deg, #1a2030, #141a26); border-color: #2b3346; }
   [data-bs-theme="dark"] .stk-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #6384ff; }
   [data-bs-theme="dark"] .stk-zoom { background: #141a26; border-color: #2b3346; box-shadow: 0 18px 50px rgba(0,0,0,.62); }
   [data-bs-theme="dark"] .stk-zoom img { background: #0f1420; }
-  [data-bs-theme="dark"] .stk-scheme-toggle { background: #1a1d27; border-color: #2d3148; color: #6b7589; }
+  /* Qorong'i rejimda ham matn KONTRAST bo'lsin (#6b7589 kulrang edi). */
+  [data-bs-theme="dark"] .stk-scheme-toggle { background: #1a1d27; border-color: #2d3148; color: #cbd5e1; }
   [data-bs-theme="dark"] .stk-scheme-toggle:not(.is-off):not(.is-disabled) {
     background: linear-gradient(135deg, rgba(65,105,225,.22), rgba(99,132,255,.13));
     border-color: rgba(99,132,255,.48); color: #aebfff;
@@ -576,15 +602,18 @@
     /* Dark tema base qoidasi (yuqori spetsifiklik) fon/borderни qaytaради —
        laptopда uni ham shaffofga o'tkazamiz. */
     [data-bs-theme="dark"] .stk-glass { background: transparent; border-color: transparent; }
-    /* Sahifa sarlavhasi (Склад) — «Мои товары» (groups.html `.pp-h1`) bilan AYNAN
-       bir xil: 28px / 700 / -0.02em / 1.15 (Buyurtmalar bilan bir xil). */
-    .stk-glass-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+    /* Sahifa sarlavhasi (Склад) — 28px'дан 34px'ga KATTALASHDI (Ulug'bek
+       2026-07-13): o'ng chetdagi 55px'lik toggle bilan muvozanatда bo'lsin.
+       Buyurtmalar sahifasidagi `.fbs-glass-title` bilan AYNAN bir xil. */
+    .stk-glass-title { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+    /* «FBS / DBS» nishoni — Buyurtmalar sahifasi bilan bir xil o'lchamда. */
+    .stk-brand { font-size: .8rem; padding: .42rem .9rem; }
     /* Spacer'ni yashiramiz — aks holда section-tabs'ni o'ngга ura olmaydi. */
     .stk-glass-spacer { display: none; }
     /* «Заказы / Склад» toggle — laptopда pastдаги «Все магазины + Excel + Загрузить»
        klasteri (406px) bilan BIR XIL kenglikда, o'ng chetга tekislanган (uning
        ustiga to'g'ri keladi). Ikки tugma teng 50/50 (Buyurtmalar bilan bir xil). */
-    .fbs-section-tabs { flex: none; width: 500px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
+    .fbs-section-tabs { flex: none; width: 420px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
     /* «Заказы / Склад» toggle — KATTAROQ + aktiv plita «ko'tarilган» (Buyurtmalar
        sahifasi bilan AYNAN bir xil, Ulug'bek 2026-07-12): tugmalar yiriкроq,
        tanlanган navy plita konteynerdan bir oz TASHQARIга chiqиб soyа bilan turadi

@@ -1093,17 +1093,20 @@
     /* Dark tema base qoidasi (yuqori spetsifiklik) fon/borderни qaytaради —
        laptopда uni ham shaffofga o'tkazamiz. */
     [data-bs-theme="dark"] .fbs-glass { background: transparent; border-color: transparent; }
-    /* Sahifa sarlavhasi (Заказы) — «Мои товары» (groups.html `.pp-h1`) bilan
-       AYNAN bir xil: 28px / 700 / -0.02em / 1.15 (Ulug'bek 2026-07-12).
-       Mobil sarlavha o'z o'lchamida qoladi. */
-    .fbs-glass-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+    /* Sahifa sarlavhasi (Заказы) — 28px'дан 34px'ga KATTALASHDI (Ulug'bek
+       2026-07-13): o'ng chetdagi «Заказы / Склад» toggle 55px bo'yли, unga
+       nisbatan 28px sarlavha juda kichik ko'rinарди. Ikki FBS sahifasida
+       (Заказы + Склад) AYNAN bir xil. Mobil sarlavha o'z o'lchamida qoladi. */
+    .fbs-glass-title { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+    /* «FBS / DBS» nishoni — sarlavha bilan proporsiyaда o'sadi. */
+    .fbs-brand { font-size: .8rem; padding: .42rem .9rem; }
     /* Spacer'ni yashiramiz — u section-tabs'дан keyin turиб bo'sh joyни yeб
        qo'yгани учун `margin-left:auto` ишламай, toggle chapда qolарди. */
     .fbs-glass-spacer { display: none; }
     /* «Заказы / Склад» toggle — laptopда pastдаги «Все магазины + FBS/DBS»
        dropdown-klasteri (372px) bilan BIR XIL kenglikда, o'ng chetга tekislanган
        (uning ustiga to'g'ri keladi). Ikки tugma teng 50/50 (Ulug'bek 2026-07-12). */
-    .fbs-section-tabs { flex: none; width: 500px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
+    .fbs-section-tabs { flex: none; width: 420px; margin-left: auto; height: 55px; box-sizing: border-box; padding: 4px; border-radius: 16px; background: #fff; }
     /* «Заказы / Склад» toggle — KATTAROQ + aktiv plita «ko'tarilган» (Ulug'bek
        2026-07-12): tugmalar yiriкроq (padding+shrift), tanlanган navy plita
        konteynerdan bir oz TASHQARIга chiqиб, soyа bilan «proud» turadi — Chat/Work
@@ -1125,17 +1128,33 @@
        ekranда birga o'raladi va o'ng-tekislanган qoladi (tugma yashиринлигidan
        qat'i nazar). */
     .fbs-status-line > .fbs-status-right {
-      display: flex; align-items: center; gap: .6rem; margin-left: auto; flex: none;
+      display: flex; align-items: center; gap: .6rem; margin-left: auto;
+      /* BAG FIX (Ulug'bek 2026-07-13): yon panel OCHIQ laptopда (~1440–1500px)
+         qatorда joy yetmasдi (kerak ~1254px, bor ~1209px) — klaster `flex:none`
+         bo'lгani учун QISQARA olmasдi va BUTUNICHA pastki qatorга tushиб keтарди.
+         Endi klaster qisqаra oladi: pickerlar 180px basis'дан 150px'gacha
+         torayadi (matn ичida truncate), tugma esa ixchamroq. */
+      flex: 0 1 auto; min-width: 0;
     }
-    /* Ikki pill guruh — klaster ичида. */
+    /* Ikki pill guruh — QAT'IY 370px (Ulug'bek 2026-07-13). Gap 9.6px, demak
+       har bir picker (370 − 9.6) / 2 = ~180px — teng ikki pill. */
     .fbs-status-right > .fbs-cap-group {
-      display: flex; align-items: center; gap: .75rem; flex: none;
+      display: flex; align-items: center; gap: .6rem; flex: none; width: 370px;
+    }
+    /* Ikkalasi guruhni TENG bo'lishadi (~180px). Matn sig'masa — ellipsis. */
+    .fbs-status-right .fbs-cap {
+      flex: 1 1 0; min-width: 0; max-width: none;
+    }
+    .fbs-status-right .fbs-cap .fxsel-val {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     /* «Пункт приёма» — bo'yi + radiusi qatordagi boshqa elementlar (Магазин/Схема
        pickerlari: 44px balandlik, 14px radius) bilan BIR XIL bo'lsin. Faqat
-       laptopda (klaster ичида) — mobil'даги to'liq-kenglik tugma tegилmaydi. */
+       laptopda (klaster ичида) — mobil'даги to'liq-kenglik tugma tegилmaydi.
+       Padding/shrift ixchamlashди (18→14px, .88→.82rem) — qator sig'sin. */
     .fbs-status-right > .fbs-dropoff-btn {
-      height: 44px; padding: 0 18px; border-radius: 14px;
+      height: 44px; padding: 0 14px; border-radius: 14px;
+      font-size: .82rem; gap: .4rem; flex: none; white-space: nowrap;
     }
     /* Status-segment (Новый/Сборка/…/Другие статусы) qatorининг bo'yi ham
        «Все магазины»/«Схема» pickerlari (44px) bilan BIR XIL bo'lsin (Ulug'bek
@@ -1148,6 +1167,10 @@
     .fbs-status-line .fbs-status-row .fbs-status-nav,
     .fbs-status-line .fbs-status-row .fbsx-trigger {
       padding-top: .3rem; padding-bottom: .3rem;
+      /* Gorizontal padding .7→.55rem (Ulug'bek 2026-07-13): 5 ta chip'дан ~24px
+         qaytadi — 1440px laptopда ham qator BITTA chiziqда qoladi (aks holda
+         14px yetmasдi). Matn/shrift o'zгармaydi. */
+      padding-left: .55rem; padding-right: .55rem;
     }
   }
 

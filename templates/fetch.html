@@ -361,6 +361,23 @@
       background: #ECFDF3; color: #027A48; font-weight: 600; white-space: nowrap;
     }
     .openapi-picker-item .opi-badge--muted { background: #F2F4F7; color: #475467; }
+    /* «лимит» — «занят»dan BOSHQA sabab: do'kon bo'sh, ammo tarifda slot yo'q.
+       Shuning uchun rangi ham boshqa (kulrang emas, sarg'ish) — foydalanuvchi
+       «band» va «limit tugadi»ni bir qarashda ajratsin. */
+    .openapi-picker-item .opi-badge--limit { background: #FEF0C7; color: #B54708; }
+
+    /* Slot hisobi: limit tugaganда (yoki topilgandan kam slot qolganda)
+       ro'yxat tepasida bitta qator tushuntirish. */
+    .opi-limit-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; font-size: 13px; font-weight: 600;
+      background: #FFFAEB; color: #B54708;
+      border-bottom: 1px solid #FEDF89;
+    }
+    .opi-limit-banner[hidden] { display: none; }
+    .opi-limit-banner--info {
+      background: #F9FAFB; color: #475467; border-bottom-color: #EAECF0;
+    }
 
     /* Klaviatura fokusi ko'rinadigan bo'lsin */
     .shop-modal-x:focus-visible,
@@ -421,6 +438,17 @@
     [data-bs-theme="dark"] .openapi-picker-item:hover { background: #21252f; }
     [data-bs-theme="dark"] .openapi-picker-item.selected { background: #1b2a3f; }
     [data-bs-theme="dark"] .openapi-picker-item.disabled { background: #161922; color: #64748b; }
+    /* «band»/«qo'shilgan» chiplariда dark variant umuman yo'q edi — qorong'i
+       fonda OQ tabletka bo'lиб qolar edi. Endi ikkalasi ham mavzuга mos. */
+    [data-bs-theme="dark"] .openapi-picker-item .opi-badge { background: #072e20; color: #4ade80; }
+    [data-bs-theme="dark"] .openapi-picker-item .opi-badge--muted { background: #232838; color: #94a3b8; }
+    [data-bs-theme="dark"] .openapi-picker-item .opi-badge--limit { background: #3a2a08; color: #fdb022; }
+    [data-bs-theme="dark"] .opi-limit-banner {
+      background: #2a1f06; color: #fdb022; border-bottom-color: #4a3708;
+    }
+    [data-bs-theme="dark"] .opi-limit-banner--info {
+      background: #161922; color: #94a3b8; border-bottom-color: #232838;
+    }
 
     /* Custom confirm dialog (matches the page's form-shell aesthetic) */
     .app-confirm-backdrop {
@@ -680,6 +708,8 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
+      {# Slot hisobi — limit tugaganda yoki topilgan do'kondan kam slot qolganda. #}
+      <div class="opi-limit-banner" id="openapiLimitBanner" hidden></div>
       <div class="openapi-picker-toolbar">
         <span id="openapiPickerCount">0 / 0</span>
         <div class="d-flex gap-3">
@@ -767,6 +797,9 @@
       openapiPickLabel: {{ t.fetch_openapi_pick_label | tojson }},
       openapiSelectedSuffix: {{ t.fetch_openapi_selected_suffix | tojson }},
       openapiSelectedSummaryPrefix: {{ t.fetch_openapi_selected_summary_prefix | tojson }},
+      openapiLimitChip: {{ t.fetch_openapi_limit_chip | tojson }},
+      openapiLimitExhausted: {{ t.fetch_openapi_limit_exhausted | tojson }},
+      openapiLimitHint: {{ t.fetch_openapi_limit_hint | tojson }},
     };
 
     function getShopLimit() {
@@ -1061,6 +1094,24 @@
       return _openapiDiscovered.filter((s) => !s.already_added && !s.owned_by_other).length;
     }
 
+    // Tarifda qolgan bo'sh slotlar. Manba — <body> dataset'i: `data-max-shops`
+    // (0 = cheksiz) va `data-shop-count`, u har bir do'kon ro'yxati qayta
+    // chizilganda yangilanadi (`loadShops`), shu jumladan attach'dan keyин ham.
+    // Server baribir o'z `headroom` tekshiruvini qiladi — bu FAQAT UI to'sig'i.
+    function _opiSlotsLeft() {
+      const limit = getShopLimit();          // 0 → cheksiz (admin/unlimited)
+      if (!limit) return Infinity;
+      const count = Number(document.body.dataset.shopCount || "0");
+      return Math.max(0, limit - count);
+    }
+
+    // Nechta do'konni belgilash MUMKIN: slotlar va topilgan bo'sh do'konlardan
+    // qaysi biri kichik bo'lsa — o'sha. (Limit 10, topilgani 3 bo'lsa, hisob
+    // «0 / 3» bo'lsin, «0 / 10» emas.)
+    function _opiSelectableCap() {
+      return Math.min(_opiSlotsLeft(), _opiPickableCount());
+    }
+
     // ── Modal ochish/yopish (sahifa scroll'i qulflanadi, Esc yopadi) ─────
     let _shopModalLastFocus = null;
     function _openShopModal() {
@@ -1085,28 +1136,64 @@
       const count = document.getElementById("openapiPickerCount");
       const summary = document.getElementById("openapiSelectionSummary");
       const attachBtn = document.getElementById("btnAttachSelected");
+      const banner = document.getElementById("openapiLimitBanner");
       const selected = _opiSelected.size;
       const pickable = _opiPickableCount();
+      const slots = _opiSlotsLeft();
+      const cap = _opiSelectableCap();
+      // Slot tugadi → belgilanmagan qatorlar HOZIR bloklanadi. Bu «already_added»/
+      // «owned_by_other»dan farq qiladi: ular qat'iy (render paytida ma'lum), bu esa
+      // HAR BIR bosishda o'zgaradi — bittasini yechsa, qolganlari yana ochiladi.
+      const capped = selected >= slots;
 
       // Ochish tugmasi tanlov holatini ko'rsatadi (modal yopiq bo'lsa ham).
       label.textContent = selected
-        ? `${selected} / ${pickable} ${_FT.openapiSelectedSuffix}`
+        ? `${selected} / ${cap} ${_FT.openapiSelectedSuffix}`
         : _FT.openapiPickerPlaceholder;
-      count.textContent = `${selected} / ${pickable}`;
+      count.textContent = `${selected} / ${cap}`;
       // Hech nima tanlanmaganда sarlavha ostи bo'sh qolmasin — ko'rsatma beramiz.
       summary.textContent = selected
         ? `${_FT.openapiSelectedSummaryPrefix} ${selected}`
         : _FT.openapiPickLabel;
       attachBtn.disabled = selected === 0;
 
+      // Banner: slot umuman yo'q → limit tugadi; topilganidan kam → nechta qolgani.
+      if (banner) {
+        const limit = getShopLimit();
+        const shopCount = Number(document.body.dataset.shopCount || "0");
+        if (slots === 0) {
+          banner.textContent = _FT.openapiLimitExhausted
+            .replace("{count}", shopCount).replace("{limit}", limit);
+          banner.classList.remove("opi-limit-banner--info");
+          banner.hidden = false;
+        } else if (slots < pickable) {
+          banner.textContent = _FT.openapiLimitHint.replace("{count}", slots);
+          banner.classList.add("opi-limit-banner--info");
+          banner.hidden = false;
+        } else {
+          banner.hidden = true;
+        }
+      }
+
       // Reflect tick state into checkbox elements and row .selected class
       document.querySelectorAll(".openapi-picker-item").forEach((el) => {
         const id = el.dataset.uzumId;
+        const isSel = _opiSelected.has(id);
         const cb = el.querySelector('input[type="checkbox"]');
-        if (cb && !cb.disabled) cb.checked = _opiSelected.has(id);
-        el.classList.toggle("selected", _opiSelected.has(id));
+        el.classList.toggle("selected", isSel);
+
+        // Qat'iy o'chirilgan qatorlarга (band/qo'shilgan) tegmaymiz.
+        if (!el.classList.contains("opi-static-off")) {
+          const blocked = capped && !isSel;
+          el.classList.toggle("disabled", blocked);
+          if (cb) { cb.disabled = blocked; cb.checked = isSel; }
+          const chip = el.querySelector(".opi-badge--limit");
+          if (chip) chip.hidden = !blocked;
+          el.setAttribute("aria-disabled", blocked ? "true" : "false");
+          el.setAttribute("tabindex", blocked ? "-1" : "0");
+        }
         if (el.hasAttribute("aria-checked")) {
-          el.setAttribute("aria-checked", _opiSelected.has(id) ? "true" : "false");
+          el.setAttribute("aria-checked", isSel ? "true" : "false");
         }
       });
     }
@@ -1139,13 +1226,18 @@
             ? `<span class="opi-badge opi-badge--muted">${_FT.openapiOwnedByOther}</span>`
             : "";
         const row = document.createElement("div");
-        row.className = "openapi-picker-item" + (disabled ? " disabled" : "");
+        // `opi-static-off` = QAT'IY o'chirilgan (band / allaqachon qo'shilgan).
+        // Limit sabab bloklanish esa dinamik — uni `_updateOpiPickerUi` qo'yadi,
+        // shuning uchun bu ikkisini adashtirmaslik kerak.
+        row.className = "openapi-picker-item"
+          + (disabled ? " disabled opi-static-off" : "");
         row.dataset.uzumId = s.uzum_id;
         row.innerHTML = `
           <input type="checkbox" ${disabled ? "disabled" : ""}>
           <span class="opi-name">${_escapeHtml(s.name) || ("Shop " + _escapeHtml(s.uzum_id))}</span>
           <span class="opi-id">ID: ${_escapeHtml(s.uzum_id)}</span>
           ${badge}
+          ${disabled ? "" : `<span class="opi-badge opi-badge--limit" hidden>${_FT.openapiLimitChip}</span>`}
         `;
         if (!disabled) {
           // Klaviatura bilan ham tanlanadigan bo'lsin.
@@ -1155,7 +1247,9 @@
           const toggle = () => {
             const id = row.dataset.uzumId;
             if (_opiSelected.has(id)) _opiSelected.delete(id);
-            else _opiSelected.add(id);
+            // Slot qolmagan bo'lsa — yangisini belgilashga yo'l yo'q.
+            else if (_opiSelected.size < _opiSlotsLeft()) _opiSelected.add(id);
+            else return;
             _updateOpiPickerUi();
           };
           row.addEventListener("click", toggle);
@@ -1187,9 +1281,14 @@
       });
 
       document.getElementById("openapiSelectAllBtn").addEventListener("click", () => {
-        _openapiDiscovered.forEach((s) => {
-          if (!s.already_added && !s.owned_by_other) _opiSelected.add(s.uzum_id);
-        });
+        // «Hammasi» = qancha slot bo'lsa, shuncha — birinchi N ta bo'sh do'kon.
+        // Avval tozalaymiz, aks holda oldingi tanlov N'ni to'ldirib qo'yib,
+        // ro'yxatning boshi tushib qolishi mumkin edi.
+        _opiSelected.clear();
+        _openapiDiscovered
+          .filter((s) => !s.already_added && !s.owned_by_other)
+          .slice(0, _opiSelectableCap())
+          .forEach((s) => _opiSelected.add(s.uzum_id));
         _updateOpiPickerUi();
       });
       document.getElementById("openapiClearAllBtn").addEventListener("click", () => {

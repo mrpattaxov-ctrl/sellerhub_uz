@@ -671,6 +671,11 @@ TRANSLATIONS = {
         "fetch_openapi_no_shops": "Для этого токена магазины не найдены.",
         "fetch_openapi_already_added": "уже добавлен",
         "fetch_openapi_owned_by_other": "занят",
+        # Tarif limiti: bo'sh slot qolmaganda qatorlar «лимит» chipi bilan
+        # o'chiriladi (bu «занят»dan BOSHQA sabab — do'kon bo'sh, slot yo'q).
+        "fetch_openapi_limit_chip": "лимит",
+        "fetch_openapi_limit_exhausted": "Лимит исчерпан: {count} из {limit} магазинов",
+        "fetch_openapi_limit_hint": "Осталось слотов: {count}",
         "fetch_openapi_token_required": "Введите OpenAPI токен.",
         "fetch_openapi_select_at_least_one": "Отметьте хотя бы один магазин.",
         "fetch_openapi_added_prefix": "Добавлено магазинов:",
@@ -1391,6 +1396,9 @@ TRANSLATIONS = {
         "fetch_openapi_no_shops": "Bu token uchun do'konlar topilmadi.",
         "fetch_openapi_already_added": "qo'shilgan",
         "fetch_openapi_owned_by_other": "band",
+        "fetch_openapi_limit_chip": "limit",
+        "fetch_openapi_limit_exhausted": "Limit tugadi: {limit} tadan {count} ta do'kon",
+        "fetch_openapi_limit_hint": "Qolgan slotlar: {count}",
         "fetch_openapi_token_required": "OpenAPI tokenni kiriting.",
         "fetch_openapi_select_at_least_one": "Kamida bitta do'konni belgilang.",
         "fetch_openapi_added_prefix": "Qo'shildi:",

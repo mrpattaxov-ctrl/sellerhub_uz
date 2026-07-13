@@ -1,0 +1,77 @@
+/* SHDateRange — trigger + flatpickr ko'rinishi (ilovadagi kalendar bilan bir xil).
+   Ranglar group_detail/invoice_restock sahifalaridagi kalendardan olingan; yangi
+   narsa o'ylab topilmagan. */
+
+.shdr {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid #e6e6ec;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #5A6588;
+  transition: border-color .15s, box-shadow .15s;
+}
+.shdr:hover { border-color: #c9cdd9; }
+.shdr.is-active {
+  border-color: #1e293b;
+  box-shadow: 0 0 0 3px rgba(30, 41, 59, .10);
+  color: #1C2030;
+}
+.shdr > svg { color: #9499AE; flex: none; }
+.shdr.is-active > svg { color: #1e293b; }
+
+.shdr-input {
+  border: 0; outline: 0; background: transparent;
+  color: inherit; font: inherit;
+  min-width: 128px; width: 128px;
+  cursor: pointer; text-align: center; padding: 0;
+}
+.shdr-input::placeholder { color: #9499AE; font-weight: 600; }
+
+.shdr-clear {
+  appearance: none; border: 0; background: transparent; padding: 0;
+  width: 17px; height: 17px; border-radius: 5px;
+  color: #9499AE; cursor: pointer; line-height: 0;
+  display: none; align-items: center; justify-content: center;
+}
+.shdr.is-active .shdr-clear { display: inline-flex; }
+.shdr-clear:hover { color: #C0353A; background: #FDECEC; }
+
+/* ── flatpickr popover — ilovaning boshqa kalendarlari bilan bir xil ── */
+.flatpickr-calendar {
+  max-width: calc(100vw - 20px) !important;   /* telefonда ekrandan chiqib ketmasin */
+  border-radius: 12px !important;
+  border: 1px solid #ececf0 !important;
+  box-shadow: 0 12px 34px rgba(22, 22, 40, .18) !important;
+  font-family: inherit !important;
+  font-size: 12.5px !important;
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: #1e293b !important;
+  border-color: #1e293b !important;
+  color: #fff !important;
+}
+.flatpickr-day.inRange {
+  background: #eef1f8 !important;
+  border-color: #eef1f8 !important;
+  color: #1e293b !important;
+  box-shadow: -5px 0 0 #eef1f8, 5px 0 0 #eef1f8 !important;
+}
+.flatpickr-day.today { border-color: #1A7F4B !important; }
+.flatpickr-day:hover { background: #f3f4f6 !important; border-color: #f3f4f6 !important; }
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay { color: #c9cdd9 !important; }
+
+[data-bs-theme="dark"] .shdr { background: #18181F; border-color: #25252F; color: #C9CDD9; }
+[data-bs-theme="dark"] .shdr:hover { border-color: #3a3a46; }
+[data-bs-theme="dark"] .shdr.is-active { border-color: #6E8FE8; box-shadow: 0 0 0 3px rgba(110, 143, 232, .18); color: #F0EDF5; }
+[data-bs-theme="dark"] .shdr.is-active > svg { color: #6E8FE8; }

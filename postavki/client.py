@@ -180,14 +180,50 @@ def restock_skus(
     availableToStock, quantityToStock, quantityActive, purchasePrice,
     recommendQty (Uzum tavsiyasi), forecastOutOfStock, dimensionalGroup.
     """
+    data = _sku_list_page(shop_uzum_id, page, size, search, groups)
+    return (data.get("skuList") or []) if isinstance(data, dict) else []
+
+
+def _sku_list_page(shop_uzum_id: str, page: int, size: int, search: str, groups: str) -> dict:
+    """Bitta sahifa — XOM javob (`skuList` + `totalPages`)."""
     url = (
         f"{_BASE}/{shop_uzum_id}/v2/invoice/sku-list"
         f"?page={int(page)}&size={int(size)}&search={quote(search, safe='')}&dimensionalGroups={groups}"
     )
     data = _get(url)
-    if isinstance(data, dict):
-        return data.get("skuList") or []
-    return []
+    return data if isinstance(data, dict) else {}
+
+
+# Uzum javobidagi `skuLimit: 100` — sahifa CHEGARASI EMAS (u bitta поставкага
+# sig'adigan SKU soni, UI'даги «Выбрано SKU: 0/100»). Probe (2026-07-13):
+# size=2000 → 1200 SKU'ning HAMMASI bitta javobda keldi. Shu bois sahifalab
+# yurmaymiz — bitta katta so'rov bilan olamiz (ketma-ket 13 so'rov ≈ 19.4s edi).
+_BULK_SIZE = 10000   # bitta so'rovда 10 000 SKU — amalda hamma do'kon shu yerga sig'adi
+_MAX_PAGES = 20      # 200 000 SKU — cheksiz sikldan himoya
+
+
+def restock_skus_all(
+    shop_uzum_id: str,
+    size: int = _BULK_SIZE,
+    search: str = "",
+    groups: str = "SMALL,MEDIUM",
+) -> list[dict]:
+    """BARCHA SKU'lar — BITTA so'rovda (yarim-avtomat rejasi uchun).
+
+    Do'konda 10 000 dan ham ko'p SKU bo'lsa — qolgan sahifalar KETMA-KET
+    olinadi (shuncha so'rov, qancha kerak bo'lsa). Amalda bu deyarli hech
+    qachon yuz bermaydi: eng katta do'kon 1200 SKU.
+    """
+    first = _sku_list_page(shop_uzum_id, 0, size, search, groups)
+    out = list(first.get("skuList") or [])
+
+    total_pages = int(first.get("totalPages") or 1)
+    for p in range(1, min(total_pages, _MAX_PAGES)):
+        items = (_sku_list_page(shop_uzum_id, p, size, search, groups) or {}).get("skuList") or []
+        if not items:
+            break
+        out.extend(items)
+    return out
 
 
 # ── Yaratish oqimi (Faza 2) — REAL поставка yaratadi ─────────────────

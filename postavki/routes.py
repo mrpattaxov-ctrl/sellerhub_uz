@@ -18,7 +18,7 @@ from datetime import date
 from extensions import SessionLocal
 from models import Shop, Variant, PostavkaGrabPlan
 from core.auth_helpers import _user_shop_ids
-from postavki import client, akt_cache, slot_grabber, autoslot_client
+from postavki import client, akt_cache, slot_grabber, autoslot_client, restock_plan
 from postavki.autoslot import store
 
 postavki_bp = Blueprint("postavki_bp", __name__)
@@ -144,6 +144,37 @@ def postavki_restock_api():
     except Exception as _e:
         print(f"[postavki/restock] block-merge err={_e}", flush=True)
     return jsonify({"items": items, "page": page, "size": size})
+
+
+@postavki_bp.get("/postavki/api/restock-plan")
+@login_required
+def postavki_restock_plan_api():
+    """Yarim-avtomat rejim: guruhlangan SKU'lar + «qancha kerak» tavsiyasi.
+
+    Hisob `/invoice/restock` bilan bir xil: (oxirgi N kun sotuvi − Uzum qoldig'i),
+    bizning ombor qoldig'i bilan cheklangan. Qatorlar Uzum sku-list'idan
+    olinadi, ya'ni har biri поставка qatoriga aylana oladi.
+    """
+    shop = (request.args.get("shop") or "").strip()
+    if not shop:
+        return jsonify({"error": "shop kerak"}), 400
+    if not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    days = restock_plan.resolve_days(request.args.get("days"))
+    groups = (request.args.get("groups") or "SMALL,MEDIUM").strip()
+    refresh = (request.args.get("refresh") or "") in ("1", "true", "yes")
+    # Kalendar oraliq (ilovadagi boshqa sahifalar bilan bir xil: YYYY-MM-DD).
+    # Berilgan bo'lsa `days` chipidan USTUN turadi.
+    date_from = (request.args.get("date_from") or "").strip() or None
+    date_to = (request.args.get("date_to") or "").strip() or None
+    try:
+        plan = restock_plan.build_plan(
+            shop, days=days, groups=groups, refresh=refresh,
+            date_from=date_from, date_to=date_to,
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+    return jsonify(plan)
 
 
 # ── Yaratish API'lari (Faza 2) — REAL поставка yaratadi ──────────────

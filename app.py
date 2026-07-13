@@ -28,11 +28,14 @@ from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_pag
 from core.uzum_openapi import FBS_ORDER_STATUSES as _FBS_ORDER_STATUSES
 from core.fbs_sync import (
     fetch_all_pages as _fbs_fetch_all_pages,
+    fetch_all_pages_checked as _fbs_fetch_all_pages_checked,
     upsert_orders as _fbs_upsert_orders,
     FBS_ALL_SYNC_STATUSES as _FBS_ALL_SYNC_STATUSES,
     FBS_ACTIVE_SYNC_STATUSES as _FBS_ACTIVE_SYNC_STATUSES,
     fbs_statuses_for_tick as _fbs_statuses_for_tick,
     fbs_statuses_due as _fbs_statuses_due,
+    select_sweep_shops as _fbs_select_sweep_shops,
+    may_prune_status as _fbs_may_prune_status,
 )
 from core.auth_helpers import (
     _json_response, _jwt_expires_in_seconds, _get_fresh_api_key, _get_admin_token,
@@ -4654,6 +4657,22 @@ _fbs_reconcile_empty_strikes: dict[tuple, int] = {}
 
 _FBS_PAGE_SIZE = 50  # kept for legacy callers; new code reads it from core.fbs_sync.
 
+# Sweep EVERY shop the token can see (Abdulaziz 2026-07-13), instead of only
+# the ones that pass the stock/open-order gate below. Measured before the
+# change: 4 of 7 shops were never background-synced at all — one user's ONLY
+# shop among them, so their FBS data was refreshed exclusively by opening the
+# page. The gate was there to save Uzum calls, but the sync is TOKEN-BATCHED
+# (one call per status carries every shopId), so a skipped shop saved no
+# request — it only blinded us. Cost of dropping it, measured live: +0 calls
+# on a token that already sweeps, ~290/day (0.3% of quota) on one that didn't,
+# plus a one-off ~11-page backfill.
+#
+# Kill-switch: FBS_SYNC_ALL_SHOPS=0 restores the old gate without a code
+# revert. Default 1.
+_FBS_SYNC_ALL_SHOPS = os.environ.get("FBS_SYNC_ALL_SHOPS", "1").strip().lower() not in (
+    "0", "false", "no", "off", "",
+)
+
 
 def _fbs_shop_has_fbs_stock(db, shop_id_int: int) -> bool:
     """True iff any variant in this shop has ``quantity_fbs > 0``.
@@ -4748,21 +4767,30 @@ def _fbs_sync_one_token(
     """
     import time as _t
 
-    # Per-shop fbs_active gate (one cheap indexed query each). Active
-    # shops get their IDs into the batched Uzum call; inactive ones
-    # only get the state touch at the end.
+    # Which shops go into the batched Uzum call. Default: ALL of them
+    # (_FBS_SYNC_ALL_SHOPS) — batching means extra shops cost extra shopIds,
+    # not extra requests. Every shop still gets its state row touched.
     with SessionLocal() as db:
-        # A shop is swept if it either still HAS FBS stock, or still has
-        # OPEN active orders to reconcile. The second clause is the phantom
-        # fix: a zero-stock shop with an order frozen in an active status
-        # stays in the sweep so the reconcile below can prune it, then drops
-        # out once it's clean. See _fbs_shop_has_open_active_orders.
-        active_shops = [
-            s for s in shops
-            if _fbs_shop_has_fbs_stock(db, s.id)
-            or _fbs_shop_has_open_active_orders(db, s.uzum_id)
-        ]
-    active_uzum_ids = [str(s.uzum_id) for s in active_shops]
+        # ``fbs_active`` keeps its original meaning — "this shop holds FBS
+        # stock" — rather than silently becoming "we swept it". Nothing reads it
+        # as a gate; it's a display/diagnostic flag, and conflating the two would
+        # mark every shop FBS-active once the sweep stopped discriminating.
+        stock_flags = {s.id: _fbs_shop_has_fbs_stock(db, s.id) for s in shops}
+        # The legacy gate (FBS_SYNC_ALL_SHOPS=0): stock, or an open active order
+        # to reconcile. Only computed when it can actually change the outcome —
+        # the default sweeps everything and doesn't need the extra query.
+        gated: set[str] = set()
+        if not _FBS_SYNC_ALL_SHOPS:
+            gated = {
+                str(s.uzum_id) for s in shops
+                if stock_flags.get(s.id)
+                or _fbs_shop_has_open_active_orders(db, s.uzum_id)
+            }
+
+    active_uzum_ids = _fbs_select_sweep_shops(
+        [str(s.uzum_id) for s in shops], gated, sweep_all=_FBS_SYNC_ALL_SHOPS,
+    )
+    active_shops = [s for s in shops if str(s.uzum_id) in set(active_uzum_ids)]
 
     counts: dict[str, int] = {str(s.uzum_id): 0 for s in shops}
     all_orders: list[dict] = []
@@ -4796,15 +4824,35 @@ def _fbs_sync_one_token(
                 # reconcile step can prune departures. Active queues are tiny
                 # (a handful of orders), so paging all of them is cheap. Slow/
                 # terminal statuses keep the quota-saving early stop.
-                page_orders = _fbs_fetch_all_pages(
+                page_orders, complete = _fbs_fetch_all_pages_checked(
                     token, active_uzum_ids,
                     status=status_name, stop_on_known=not is_active,
+                    # bg: hold this sweep to 1 call/sec — half of Uzum's 2/s
+                    # budget — so a seller's click always finds room instead of
+                    # taking a 429 behind us. The worker's cadence is 23-63 min;
+                    # it can afford to wait, the seller cannot.
+                    bg=True,
                 )
                 all_orders.extend(page_orders)
-                if is_active:
+                # The reconcile below DELETES rows absent from this set, so it
+                # may only run on a drain that saw EVERYTHING (see
+                # core.fbs_sync.may_prune_status). A truncated drain — page cap,
+                # or a transient empty-200 landing mid-drain — is not the truth,
+                # and pruning off it would delete LIVE orders. The worker used to
+                # call ``fetch_all_pages``, which throws the ``complete`` flag
+                # away, so it pruned off partial sets; the interactive path never
+                # did. Same guard, both paths now (2026-07-13).
+                if _fbs_may_prune_status(status_name, complete=complete):
                     fetched_active[status_name] = {
-                        str(o.get("id")) for o in page_orders if o.get("id") is not None
+                        str(o.get("id")) for o in page_orders
+                        if o.get("id") is not None
                     }
+                elif is_active:
+                    print(
+                        f"[FBS Worker] {status_name} drain INCOMPLETE "
+                        f"({len(page_orders)} order(s)) — skipping prune "
+                        f"shops={','.join(active_uzum_ids)}"
+                    )
             except Exception as e:
                 print(
                     f"[FBS Worker] token={token[:8]}.. "
@@ -4836,16 +4884,21 @@ def _fbs_sync_one_token(
         # the ``replace_orders`` semantics the module docstring promised).
         # Gated on ``fetched_active`` — a 429/exception never populates it, so
         # a rate-limit hiccup skips the prune and can NEVER wipe live orders.
+        # Departed rows are SETTLED, not blindly deleted: one carrying an
+        # invoice_number moved into a накладная (PACKING → PENDING_DELIVERY,
+        # a status this worker never syncs), and deleting it destroyed the only
+        # proof that the накладная is this seller's — their own invoice detail
+        # then 403'd as "foreign shop" (2026-07-13). See
+        # core.fbs_data._settle_departed_status_rows.
         if active_uzum_ids and fetched_active:
-            from models import FbsOrder as _FbsOrder
-            from sqlalchemy import delete as _sql_delete
+            from core.fbs_data import _settle_departed_status_rows
             gkey = tuple(sorted(active_uzum_ids))   # stable per shop-group key
             for status_name, fresh_ids in fetched_active.items():
                 strike_key = (gkey, status_name)
                 if not fresh_ids:
-                    # Empty result → the riskiest delete (wipe the WHOLE status
+                    # Empty result → the riskiest case (settle the WHOLE status
                     # for these shops). Guard against a one-off buggy empty-200:
-                    # only mass-delete after TWO consecutive empty fetches.
+                    # only act after TWO consecutive empty fetches.
                     strikes = _fbs_reconcile_empty_strikes.get(strike_key, 0) + 1
                     if strikes < 2:
                         _fbs_reconcile_empty_strikes[strike_key] = strikes
@@ -4855,37 +4908,23 @@ def _fbs_sync_one_token(
                             f"shops={','.join(active_uzum_ids)}"
                         )
                         continue
-                    # Second consecutive empty → trust it and wipe the status.
-                    _fbs_reconcile_empty_strikes.pop(strike_key, None)
-                    stmt = (
-                        _sql_delete(_FbsOrder)
-                        .where(_FbsOrder.shop_id.in_(active_uzum_ids))
-                        .where(_FbsOrder.status == status_name)
-                    )
-                else:
-                    # Non-empty authoritative set → safe targeted prune, and
-                    # reset the empty-strike counter for this status.
-                    _fbs_reconcile_empty_strikes.pop(strike_key, None)
-                    stmt = (
-                        _sql_delete(_FbsOrder)
-                        .where(_FbsOrder.shop_id.in_(active_uzum_ids))
-                        .where(_FbsOrder.status == status_name)
-                        .where(~_FbsOrder.order_id.in_(fresh_ids))
-                    )
-                res = db.execute(stmt)
-                pruned = res.rowcount or 0
-                if pruned:
+                # Authoritative set (or a twice-confirmed empty) → settle.
+                _fbs_reconcile_empty_strikes.pop(strike_key, None)
+                rehomed, pruned = _settle_departed_status_rows(
+                    db, active_uzum_ids, status_name, fresh_ids or None,
+                    token=token,
+                )
+                if pruned or rehomed:
                     print(
-                        f"[FBS Worker] reconcile: pruned {pruned} stale "
-                        f"{status_name} row(s) (left status on Uzum) "
-                        f"shops={','.join(active_uzum_ids)}"
+                        f"[FBS Worker] reconcile: {status_name} — pruned {pruned} "
+                        f"phantom row(s), re-homed {rehomed} row(s) into "
+                        f"PENDING_DELIVERY shops={','.join(active_uzum_ids)}"
                     )
         now = datetime.utcnow()
-        active_id_set = {s.id for s in active_shops}
         for shop in shops:
             _fbs_touch_shop_state(
                 db, shop.id,
-                fbs_active=(shop.id in active_id_set),
+                fbs_active=bool(stock_flags.get(shop.id, False)),
                 last_synced=now,
             )
         db.commit()

@@ -1033,6 +1033,14 @@ STOCK_LABELS: dict[str, dict[str, str]] = {
         "saving":                    "Saqlanmoqda…",
         "err_http":                  "Xato (HTTP {n})",
         "saved_ok":                  "{n} ta qoldiq saqlandi ✓",
+        "mode_linked":               "Omborda",
+        "mode_linked_hint":          "Faqat FBS/DBS sxemasiga ulangan tovarlar (Uzum «Ombor»i)",
+        "mode_all":                  "Barcha tovarlar",
+        "mode_all_hint":             "Katalogdagi hamma SKU — omborga yangi tovar qo'shish uchun",
+        "removed_ok":                "{n} ta tovar ombordan olib tashlandi ✓",
+        "saved_mixed":               "{n} ta qoldiq saqlandi, {m} ta tovar ombordan olib tashlandi ✓",
+        "save_no_effect":            "Uzum o'zgarishni qabul qilmadi — hech narsa yangilanmadi",
+        "scheme_removed":            "Ombordan olib tashlanadi (sxemadan uziladi)",
         "net_err_prefix":            "Tarmoq xatosi:",
         # JS — fetch flow
         "uzum_no_response":          "Uzum javob bermadi.",
@@ -1105,6 +1113,14 @@ STOCK_LABELS: dict[str, dict[str, str]] = {
         "saving":                    "Сохранение…",
         "err_http":                  "Ошибка (HTTP {n})",
         "saved_ok":                  "Сохранено остатков: {n} ✓",
+        "mode_linked":               "На складе",
+        "mode_linked_hint":          "Только товары, привязанные к схеме FBS/DBS (склад Uzum)",
+        "mode_all":                  "Все товары",
+        "mode_all_hint":             "Все SKU каталога — чтобы добавить новый товар на склад",
+        "removed_ok":                "Убрано со склада: {n} ✓",
+        "saved_mixed":               "Сохранено остатков: {n}, убрано со склада: {m} ✓",
+        "save_no_effect":            "Uzum не принял изменения — ничего не обновлено",
+        "scheme_removed":            "Будет убран со склада (отвязка от схемы)",
         "net_err_prefix":            "Сетевая ошибка:",
         # JS — fetch flow
         "uzum_no_response":          "Uzum не ответил.",
@@ -1644,6 +1660,37 @@ def _parse_order_ids_param(raw: str | None) -> set[str]:
 fbs_bp = Blueprint("fbs_bp", __name__)
 
 
+@fbs_bp.before_request
+def _claim_uzum_budget_for_this_screen():
+    """Tell the FBS sync worker to step aside: a seller is on the screen.
+
+    Uzum's budget is 2 req/s per token and the background sweep used to spend it
+    all, so a chip press landed as the third call in that second and took a
+    429 + retry (~2s instead of ~0.3s). The worker now yields while this flag is
+    hot — see ``core.fbs_locks.pace_background_call``. It costs the worker
+    nothing: its statuses run on 23-63 minute cadences.
+
+    Scoped to the FBS blueprint on purpose (Abdulaziz 2026-07-13: "faqat FBS/DBS
+    tizimida o'zgartirish"). The products/finance syncs share the same token
+    bucket but are left alone.
+
+    Best-effort and never fatal: an anonymous request, a user with no token, or
+    a Redis hiccup just means no claim is made.
+    """
+    try:
+        if not current_user.is_authenticated:
+            return
+        uid = int(current_user.get_id())
+        with SessionLocal() as db:
+            user = db.get(User, uid)
+            token = (user.uzum_openapi_token or "").strip() if user else ""
+        if token:
+            from core.fbs_locks import mark_interactive_activity
+            mark_interactive_activity(token)
+    except Exception:
+        pass
+
+
 # Default status when the user lands on /fbs without picking one — the
 # new-order queue is what sellers care about most.
 DEFAULT_STATUS = "CREATED"
@@ -1960,37 +2007,34 @@ def fbs_orders_api():
     date_from_ms = _parse_yyyy_mm_dd_to_ms(request.args.get("date_from"), end_of_day=False)
     date_to_ms = _parse_yyyy_mm_dd_to_ms(request.args.get("date_to"), end_of_day=True)
 
-    # "all" → aggregate the DB across every shop this user can access.
-    # On ?refresh=1, sync the orders list from Uzum ONLY when the
-    # current chip is one of the 3 active-work statuses (CREATED /
-    # PACKING / PENDING_DELIVERY) — Abdulaziz 2026-05-26: "faqat shu
-    # 3 knopka, qolgani har 10 daqiqada bg worker". For the other 8
-    # chips the press is a pure DB read; the 10-min worker keeps them
-    # current enough.
+    # "all" → aggregate across every shop this user can access.
     #
-    # Single-page variant: for active chips, low volume means one page
-    # (~50 orders) is usually the full set anyway; even if it isn't,
-    # the visible page-0 list is what the seller is staring at, so
-    # that's what we make live.
+    # ACTIVE chips (Yangi / Yig'ilmoqda / Yo'lda + Jo'natishga tayyor) are
+    # ALWAYS reconciled against Uzum first — every press, no ?refresh gate
+    # (Abdulaziz 2026-07-13: "har bosilganda jonli olinsin, Uzum bilan 100%
+    # bir xil bo'lsin"). ``refresh_shops_status_live`` drains the whole status
+    # (not just the visible page) so the set is authoritative, then deletes the
+    # rows Uzum no longer reports — which is what actually kills the phantom.
+    # The old path here refreshed only page 0 and SKIPPED the prune whenever
+    # that page came back full, so a status with more orders than the page size
+    # could never shed a phantom.
+    #
+    # Terminal chips stay a pure DB read: their queues run to thousands of rows
+    # (a drain would be punishingly slow) and sellers don't watch them live —
+    # the 10-min worker keeps them current enough.
     if shop_id == "all":
         user_shops = _current_user_shop_uzum_ids()
-        if (
-            _refresh_requested()
-            and user_shops
-            and status_val in _FBS_REFRESH_ON_PRESS_SYNC
-        ):
+        if user_shops and status_val in _FBS_REFRESH_ON_PRESS_SYNC:
             uid = int(current_user.get_id())
             with SessionLocal() as db:
                 user = db.get(User, uid)
                 token = (user.uzum_openapi_token or "").strip() if user else ""
             if token:
-                from core.fbs_data import _refresh_shops_status_first_page, invalidate_fbs_cache
+                from core.fbs_data import refresh_shops_status_live, invalidate_fbs_cache
                 try:
-                    _refresh_shops_status_first_page(
-                        token, list(user_shops), status_val, size=size,
-                    )
+                    refresh_shops_status_live(token, list(user_shops), status_val)
                 except Exception as e:
-                    print(f"[orders-all/sync-refresh] shops={user_shops} status={status_val}: {e!r}")
+                    print(f"[orders-all/live] shops={user_shops} status={status_val}: {e!r}")
                 for sid in user_shops:
                     try:
                         invalidate_fbs_cache(sid)
@@ -2021,11 +2065,12 @@ def fbs_orders_api():
         # checks the message to distinguish.
         return _json_response({"error": err}, 404 if "not accessible" in err else 400)
 
-    # ?refresh=1: pass through to the data layer, which (Stage 4c) runs
-    # a just-in-time Uzum sync for this (shop, status), writes to
-    # ``fbs_orders``, then reads back. Stale SWR entries are wiped
-    # inside get_fbs_orders before the read.
-    refresh = _refresh_requested()
+    # Active chips are ALWAYS live (same rule as the "all" branch above): the
+    # data layer reconciles the status against Uzum — full drain, upsert, prune
+    # what Uzum no longer reports — and reads back with SWR bypassed. ?refresh=1
+    # still forces the live path for a terminal chip, so an explicit refresh of
+    # e.g. CANCELED keeps working.
+    refresh = _refresh_requested() or status_val in _FBS_REFRESH_ON_PRESS_SYNC
 
     try:
         orders, total, used_url = get_fbs_orders(
@@ -4043,20 +4088,31 @@ def fbs_invoice_create_api():
         # without this the brand-new invoice would be hidden until the next
         # worker tick (~10 min). Stamping it makes the new накладная appear
         # on the very next list reload.
+        #
+        # NOT gated on ``status == 'PACKING'``: creating the invoice takes a few
+        # seconds of paced Uzum I/O, and the active chips are now live-drained on
+        # every press, so a refresh landing in that window already re-homed these
+        # rows to PENDING_DELIVERY. The old status gate then matched ZERO rows and
+        # the number was never stamped — leaving the seller's own brand-new
+        # накладная without its ownership proof. The order-id + shop scope is the
+        # real guard; the status is just what we're setting.
         try:
             from sqlalchemy import update as _sql_update
             values = {"status": "PENDING_DELIVERY"}
             if invoice_number:
                 values["invoice_number"] = str(invoice_number)
             with SessionLocal() as _db:
-                _db.execute(
+                res = _db.execute(
                     _sql_update(FbsOrder)
                     .where(FbsOrder.order_id.in_(str_ids))
                     .where(FbsOrder.shop_id.in_(user_shops))
-                    .where(FbsOrder.status == "PACKING")
                     .values(**values)
                 )
                 _db.commit()
+            stamped = res.rowcount or 0
+            if stamped != len(str_ids):
+                print(f"[invoice/create] reflect stamped {stamped}/{len(str_ids)} "
+                      f"row(s) — invoice={invoice_number}")
             for _sid in shop_ids:
                 invalidate_fbs_cache(_sid)
         except Exception as _e:
@@ -4128,6 +4184,97 @@ def _owned_invoice_numbers(user_shops: list[str]) -> set[str]:
     """
     from core.fbs_data import get_owned_invoice_numbers
     return get_owned_invoice_numbers(user_shops)
+
+
+def _invoice_numbers_from_orders(orders, shop_uzum_ids) -> set[str]:
+    """Pure: owned ``invoiceNumber`` set from a list of Uzum order dicts,
+    scoped to ``shop_uzum_ids``.
+
+    Each ``/v2/fbs/orders`` order carries its own ``shopId`` + ``invoiceNumber``,
+    so this yields exactly the invoices those shops own — WITHOUT touching the
+    DB. An order counts only when its ``shopId`` is one of the user's shops:
+    the batched fetch only ever *requests* the user's shopIds, but this guard
+    is fail-safe against Uzum ever echoing an unexpected shop.
+
+    Unit-tested in isolation (no Uzum, no Postgres).
+    """
+    id_set = {str(s).strip() for s in (shop_uzum_ids or []) if s is not None and str(s).strip()}
+    if not id_set:
+        return set()
+    out: set[str] = set()
+    for o in (orders or []):
+        num = o.get("invoiceNumber")
+        if not num:
+            continue
+        sid = o.get("shopId")
+        if sid is not None and str(sid) in id_set:
+            out.add(str(num))
+    return out
+
+
+def _live_owned_invoice_numbers(token: str, shop_uzum_ids: list[str]) -> set[str]:
+    """LIVE owned-invoice set: batched ``/v2/fbs/orders?status=PENDING_DELIVERY``
+    for the user's shops, projected to ``invoiceNumber`` via
+    :func:`_invoice_numbers_from_orders`.
+
+    WHY (verified live 2026-07-12): the DB-backed :func:`_owned_invoice_numbers`
+    MISSES a postavka the seller created directly on Uzum — PENDING_DELIVERY is
+    never background-synced, so that order's ``invoice_number`` never lands in
+    ``fbs_orders`` and the накладная list filter wrongly drops the seller's OWN
+    invoice as "foreign". One batched call (~420ms for 4 shops, vs ~3.6s
+    per-shop) rebuilds the *fresh* owned set straight from Uzum, so a
+    just-created postavka shows up immediately. Foreign shops can't leak: we
+    only request the user's shopIds, and Uzum 403s a shopId outside the token's
+    account anyway.
+
+    Best-effort: any Uzum hiccup returns an empty set so the caller falls back
+    to the DB-only owned set (no worse than before this helper existed).
+    """
+    ids = [str(s).strip() for s in (shop_uzum_ids or []) if s is not None and str(s).strip()]
+    if not ids or not token:
+        return set()
+    try:
+        from core.fbs_sync import fetch_all_pages
+        orders = fetch_all_pages(token, ids, status="PENDING_DELIVERY", fail_fast=True)
+    except Exception as e:
+        print(f"[invoices/list] live owned-invoice fetch failed shops={ids}: {e!r}")
+        return set()
+    return _invoice_numbers_from_orders(orders, ids)
+
+
+def _live_owned_invoice_evidence(
+    token: str, shop_uzum_ids: list[str],
+) -> tuple[set[str], set[str]]:
+    """LIVE ownership evidence straight from Uzum: ``(invoice_numbers, order_ids)``
+    for every PENDING_DELIVERY order belonging to the user's shops.
+
+    :func:`_live_owned_invoice_numbers` gives only the numbers, which is enough
+    for the LIST filter. The by-id guard needs the order ids too, because Uzum's
+    invoice payload does not always carry ``number`` (prod logs 2026-07-13 show
+    ``number=None`` on the detail call) — without an id-based signal such an
+    invoice can never be proven ours and 403s even though it IS ours.
+
+    Both sets are scoped by per-order ``shopId``, so a foreign shop on the same
+    Uzum account cannot leak in.
+
+    Best-effort: any Uzum hiccup returns empty sets → the caller falls back to
+    the DB-only decision, i.e. no worse than before this helper existed.
+    """
+    ids = [str(s).strip() for s in (shop_uzum_ids or []) if s is not None and str(s).strip()]
+    if not ids or not token:
+        return (set(), set())
+    try:
+        from core.fbs_sync import fetch_all_pages
+        orders = fetch_all_pages(token, ids, status="PENDING_DELIVERY", fail_fast=True)
+    except Exception as e:
+        print(f"[invoice-guard] live ownership fetch failed shops={ids}: {e!r}")
+        return (set(), set())
+    allowed = set(ids)
+    order_ids = {
+        str(o.get("id")) for o in orders
+        if o.get("id") is not None and str(o.get("shopId") or "") in allowed
+    }
+    return (_invoice_numbers_from_orders(orders, ids), order_ids)
 
 
 def _decide_invoice_ownership(
@@ -4211,6 +4358,26 @@ def _user_owns_invoice(
         owned_order_ids = {str(r[0]) for r in rows}
 
     owns = _decide_invoice_ownership(invoice_number, inv_order_ids, owned_numbers, owned_order_ids)
+
+    # LIVE fallback before denying. The DB signals only know about orders WE
+    # synced: a накладная the seller built in the Uzum app (or one whose local
+    # rows were lost) has no local trace at all, so both signals miss and the
+    # seller's OWN invoice 403s — it shows in the list (which already consults
+    # Uzum) but refuses to open. Ask Uzum who owns it: one batched
+    # PENDING_DELIVERY call (~400ms), only on the DB miss, and only for the
+    # user's own shopIds. Foreign invoices still get denied — they are absent
+    # from this evidence exactly because they belong to another shop.
+    if not owns:
+        live_numbers, live_order_ids = _live_owned_invoice_evidence(token, user_shops)
+        owns = _decide_invoice_ownership(
+            invoice_number, inv_order_ids,
+            owned_numbers | live_numbers,
+            owned_order_ids | live_order_ids,
+        )
+        if owns:
+            print(f"[invoice-guard] ALLOW invoice={invoice_id} via LIVE evidence "
+                  f"(number={invoice_number!r}) — DB had no local trace")
+
     if not owns:
         print(f"[invoice-guard] DENY invoice={invoice_id} "
               f"(number={invoice_number!r}, {len(inv_order_ids)} order(s), "
@@ -4291,7 +4458,14 @@ def fbs_invoices_list_api():
     # account; restrict to invoices belonging to the user's registered shops.
     # Without this, a 5th (un-added) shop's накладные leak into the list.
     user_shops = _current_user_shop_uzum_ids()
+    # Owned-invoice set = DB (synced history) ∪ LIVE (fresh PENDING_DELIVERY).
+    # The live union is what makes a postavka the seller just created on Uzum
+    # appear immediately: its invoice_number isn't in the DB yet (PENDING_DELIVERY
+    # is never bg-synced), so without this the filter would drop the seller's OWN
+    # накладная as "foreign" (verified live 2026-07-12). Foreign shops still can't
+    # leak — the live fetch only requests the user's shopIds.
     owned_numbers = _owned_invoice_numbers(user_shops)
+    owned_numbers |= _live_owned_invoice_numbers(token, user_shops)
     before = len(invoices)
     invoices = _filter_invoices_to_owned(invoices, owned_numbers)
     dropped = before - len(invoices)
@@ -5003,6 +5177,10 @@ def fbs_sku_stocks_list_api():
     search = (request.args.get("search") or "").strip()
     shop_f = (request.args.get("shop") or "").strip()
     avail = (request.args.get("avail") or "all").strip().lower()
+    # «Ombor» (default) = FAQAT sxemaga ulangan SKU — Uzum'ning o'z sahifasi
+    # ham shunday (`linked=true`). `linked=0` → «Barcha tovarlar» ko'rinishi,
+    # omborga yangi SKU qo'shish uchun kerak.
+    linked_only = (request.args.get("linked") or "1").strip() != "0"
 
     user_shop_db_ids = _user_shop_ids(uid)
     with SessionLocal() as db:
@@ -5019,8 +5197,17 @@ def fbs_sku_stocks_list_api():
         # «Tugagan» = amount==0 (portal SOLD_OUT yaramaydi).
         return [s for s in rows if int(s.get("amount") or 0) == 0]
 
-    # ── «Hammasi» / «Tugagan» (qidiruvsiz, do'konsiz) → v3, 100/sahifa ────
-    use_v3 = (not search) and (not shop_f) and (avail in ("all", "out")) and openapi_token
+    # ── Endpoint tanlash ─────────────────────────────────────────────────
+    # «Ombor» ko'rinishi (linked_only, default) → DOIM portal: `linked=true`
+    # faqat o'sha yerda bor, OpenAPI v3'da bunday filtr YO'Q. seller_id
+    # bo'lmasa (portal ishlamaydi) — v3 ga tushib, ulanganlarni Python'da
+    # ajratamiz (sekinroq, lekin ishlaydi).
+    # «Barcha tovarlar» ko'rinishi → eski gibrid: toza-ko'rish v3 (100/sahifa),
+    # qidiruv/do'kon/«Mavjud» portal (server-side).
+    if linked_only:
+        use_v3 = (not seller_id) and bool(openapi_token)
+    else:
+        use_v3 = (not search) and (not shop_f) and (avail in ("all", "out")) and openapi_token
     if use_v3:
         try:
             raw, _ = fetch_fbs_sku_stocks_page(
@@ -5048,6 +5235,11 @@ def fbs_sku_stocks_list_api():
         else:
             if shops_v3:
                 shops_out = shops_v3
+            if linked_only:
+                # v3'da `linked` filtri yo'q → o'zimiz ajratamiz (sxemaga
+                # ulanmagan SKU omborda EMAS).
+                skus = [s for s in skus
+                        if s.get("fbsLinked") or s.get("dbsLinked")]
             if avail == "out":
                 skus = _out_only(skus)
             # hasMore = XOM sahifa to'liq (100) → yana bor (filtr qisqartirsa ham).
@@ -5071,6 +5263,7 @@ def fbs_sku_stocks_list_api():
         skus, has_more = fetch_portal_sku_stocks_page(
             seller_id=seller_id, shop_uzum_ids=uzum_ids,
             page=page, search=search, in_stock_only=(avail == "in"),
+            linked_only=linked_only,
         )
     except Exception as e:
         print(f"[sku-stocks/list] portal error: {e!r}", flush=True)
@@ -5085,7 +5278,8 @@ def fbs_sku_stocks_list_api():
         skus = _out_only(skus)
 
     print(f"[sku-stocks/list] user_id={uid} portal page={page} q={search!r} "
-          f"shop={shop_f!r} avail={avail} sent={len(skus)} hasMore={has_more}", flush=True)
+          f"shop={shop_f!r} avail={avail} linked={linked_only} "
+          f"sent={len(skus)} hasMore={has_more}", flush=True)
     resp = {"ok": True, "skus": skus, "page": page, "hasMore": has_more}
     if page == 0:
         resp["shops"] = shops_out   # shop dropdown only needs filling once
@@ -5330,11 +5524,12 @@ def fbs_sku_stocks_import_apply_api():
         print(f"[sku-stocks/import-apply] unexpected error: {e!r}")
         return _json_response({"error": str(e)[:200], "applied": applied}, 502)
 
-    # Mirror the saved amounts into the «Ombor» SWR cache (same as the
-    # single-save endpoint). Partial-failure paths skip this on purpose —
-    # the next page-open's background revalidate re-syncs the cache anyway.
-    _patch_sku_stock_cache_amounts(uid, changes)
-
+    # (Ilgari bu yerda `_patch_sku_stock_cache_amounts(uid, changes)` turardi —
+    # «Ombor» SWR keshiga ko'chirish. Kesh 2026-07-03 da butunlay olib
+    # tashlangan, funksiya ham o'chirilgan, lekin chaqiruv qolib ketgan edi:
+    # Uzum'ga yozuv KETGANDAN KEYIN NameError → foydalanuvchi 500 ko'rar,
+    # aslida import muvaffaqiyatli bo'lgan edi. Kesh yo'q — ko'chiradigan joy
+    # ham yo'q.)
     print(f"[sku-stocks/import-apply] user_id={uid} applied={applied}", flush=True)
     return _json_response({"ok": True, "applied": applied, "used_url": last_url})
 

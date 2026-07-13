@@ -199,6 +199,56 @@ def fbs_statuses_due(
     return tuple(s for s in FBS_ALL_SYNC_STATUSES if s in due)
 
 
+def select_sweep_shops(
+    shop_uzum_ids: list[str] | tuple,
+    gated_shop_uzum_ids: set[str] | frozenset,
+    *,
+    sweep_all: bool,
+) -> list[str]:
+    """Which shops ride in this tick's batched Uzum call.
+
+    ``sweep_all=True`` (the default since 2026-07-13) → every shop on the token.
+    The old behaviour, kept behind ``FBS_SYNC_ALL_SHOPS=0``, swept only the
+    "gated" shops: those with FBS stock or an open active order.
+
+    Why the gate went away: it was there to save Uzum calls, but the sync is
+    TOKEN-BATCHED — one call per status carries every shopId as a repeated
+    query param — so dropping a shop removed no request, it only removed the
+    shop's data. Measured on prod: 4 of 7 shops never got background-synced,
+    including one user's ONLY shop, whose FBS rows were therefore refreshed
+    exclusively by opening the page. The interactive chip press has never had a
+    gate; this makes the worker agree with it.
+
+    Order is preserved (callers log the id list, and stable order keeps the
+    reconcile's shop-group key stable). Pure function: no DB, no env, no clock.
+    """
+    ids = [str(s) for s in shop_uzum_ids]
+    if sweep_all:
+        return ids
+    gated = {str(s) for s in gated_shop_uzum_ids}
+    return [s for s in ids if s in gated]
+
+
+def may_prune_status(status: str, *, complete: bool) -> bool:
+    """May the reconcile DELETE rows this status's drain didn't return?
+
+    Two conditions, both necessary:
+
+      * the status is an ACTIVE queue — a terminal status runs to thousands of
+        rows, so its drain is page-capped and never authoritative;
+      * the drain is COMPLETE (:func:`fetch_all_pages_checked`) — a truncated
+        set (page cap, or a transient empty-200 landing mid-drain) is not the
+        truth, and deleting the rows it "didn't return" would destroy LIVE
+        orders.
+
+    The interactive path has always honoured both (core.fbs_data.
+    refresh_shops_status_live). The worker honoured only the first: it called
+    ``fetch_all_pages``, which throws the ``complete`` flag away, so a partial
+    drain was treated as authoritative. Same guard, both paths (2026-07-13).
+    """
+    return bool(complete) and status in FBS_ACTIVE_SYNC_STATUSES
+
+
 def parse_iso_naive_utc(s):
     """Parse Uzum's order timestamps into naive UTC datetimes.
 
@@ -291,7 +341,8 @@ def _all_orders_known_in_status(shop_uzum_id, status: str, orders: list[dict]) -
 def fetch_all_pages(token: str, shop_uzum_id, *,
                     status: str, date_from_ms: int | None = None,
                     stop_on_known: bool = False,
-                    fail_fast: bool = False) -> list[dict]:
+                    fail_fast: bool = False,
+                    bg: bool = False) -> list[dict]:
     """Drain the /v2/fbs/orders paginator for a single (shop, status).
 
     Stops on the first short page (< _FBS_PAGE_SIZE) or once 50 pages
@@ -325,13 +376,57 @@ def fetch_all_pages(token: str, shop_uzum_id, *,
     # equals the page-size returned, NOT the total dataset across all
     # pages. Pagination drives off the short-page / empty-page signal,
     # never off totalAmount.
+    orders, _complete = fetch_all_pages_checked(
+        token, shop_uzum_id,
+        status=status, date_from_ms=date_from_ms,
+        stop_on_known=stop_on_known, fail_fast=fail_fast,
+        bg=bg,
+    )
+    return orders
+
+
+def fetch_all_pages_checked(
+    token: str, shop_uzum_id, *,
+    status: str, date_from_ms: int | None = None,
+    stop_on_known: bool = False,
+    fail_fast: bool = False,
+    max_pages: int = 50,
+    bg: bool = False,
+) -> tuple[list[dict], bool]:
+    """:func:`fetch_all_pages`, plus whether the drain is COMPLETE.
+
+    A caller that PRUNES off the result (deletes local rows the drain didn't
+    return) may only do so when the drained set is the whole truth. It is not,
+    in three cases, and each returns ``complete=False``:
+
+      * we stopped at ``max_pages`` — there may be more behind the cap;
+      * we stopped because ``stop_on_known`` short-circuited — that's an
+        incremental sync, not a full drain;
+      * we stopped on an EMPTY page after a FULL one. Uzum's paginator gives no
+        total, so an empty page is either "the end, and the count divided evenly
+        by the page size" or "a transient empty-200 mid-drain". Indistinguishable
+        — and treating a truncated set as authoritative would DELETE the live
+        orders that page never returned. Only a SHORT (non-empty) final page
+        proves we saw the end.
+
+    An empty FIRST page is complete: the status really has nothing (callers
+    still second-source that with ``/count`` before acting on it).
+
+    ``bg=True`` marks this as a BACKGROUND drain (the sync worker). It then
+    paces itself to 1 call/sec — half of Uzum's 2/s budget — so the other half
+    stays free for whoever is waiting on a screen. Without it the sweep runs at
+    the ceiling and a seller's click lands as the third call in that second → 429.
+    """
     all_orders: list[dict] = []
     page = 0
-    MAX_PAGES = 50
-    while page < MAX_PAGES:
-        # Bosqich A.11 — pacing is handled centrally by the shared per-token
-        # bucket inside _fbs_orders_request_with_auth, so the worker and a
-        # live Yangilash are serialised cross-process without a gate here.
+    complete = False
+    while page < max_pages:
+        # The shared per-token bucket (inside _fbs_orders_request_with_auth)
+        # enforces Uzum's 2/s ceiling for everyone. A background drain yields on
+        # top of that so it never spends the whole budget.
+        if bg:
+            from core.fbs_locks import pace_background_call
+            pace_background_call(token)
         body, _ = fetch_fbs_orders_page(
             token, shop_uzum_id,
             status=status, page=page, size=_FBS_PAGE_SIZE,
@@ -340,14 +435,18 @@ def fetch_all_pages(token: str, shop_uzum_id, *,
         )
         orders, _ = extract_fbs_orders_list(body)
         if not orders:
+            # Empty page 0 → the status is genuinely empty. Empty page N>0 →
+            # ambiguous (see docstring), so the set is not authoritative.
+            complete = (page == 0)
             break
         all_orders.extend(orders)
         if len(orders) < _FBS_PAGE_SIZE:
+            complete = True
             break
         if stop_on_known and _all_orders_known_in_status(shop_uzum_id, status, orders):
             break
         page += 1
-    return all_orders
+    return (all_orders, complete)
 
 
 def dict_from_order(shop_uzum_id, o: dict) -> dict:
@@ -567,6 +666,15 @@ def upsert_orders(db, shop_uzum_id, *, orders: list[dict]) -> int:
             for c in FbsOrder.__table__.columns
             if c.name not in ("id", "order_id")
         }
+        # invoice_number is ownership evidence, not just data: it is the only
+        # server-side proof that a накладная belongs to this seller
+        # (``_user_owns_invoice``). Uzum omits it from some status payloads, and
+        # a blind overwrite would NULL it out on the next drain of such a status
+        # — the seller's own invoice would then 403 as "foreign shop". Keep the
+        # value we already hold whenever the incoming payload has none.
+        update_cols["invoice_number"] = func.coalesce(
+            stmt.excluded.invoice_number, FbsOrder.invoice_number,
+        )
         stmt = stmt.on_conflict_do_update(
             index_elements=["order_id"],
             set_=update_cols,

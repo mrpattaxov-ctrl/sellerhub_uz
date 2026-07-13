@@ -46,6 +46,97 @@ _token_next_slot: dict[str, float] = {}
 _pace_lock = threading.Lock()
 
 
+# ── Background yield gate (2026-07-13) ───────────────────────────────
+# Uzum's real budget, read off its own response headers, is 2 req/s per token
+# (replenish-rate 2, burst-capacity 2) — and the shared bucket is configured to
+# spend exactly that. So a background sweep, whose calls land ~0.5s apart, sits
+# ON the ceiling: the seller's click arrives as the third request in that second
+# and takes a 429 (absorbed by a retry, but the press stretches to ~2.5s).
+#
+# The worker has no deadline — its statuses are on 23-63 minute cadences — so it
+# gives way: background callers pace themselves to ONE call per second, leaving
+# the other half of the budget permanently free for whoever is actually waiting
+# on a screen. Abdulaziz 2026-07-13: "worker 1/s da qilsin, bizga tezlik muhim
+# emas."
+#
+# Keyed separately (``bg:<token>``) so an interactive call NEVER waits behind a
+# worker slot — the two paths reserve from different sequences.
+_BG_MIN_UZUM_CALL_INTERVAL_SEC = 1.0
+
+
+# ── Interactive priority (2026-07-13) ────────────────────────────────
+# Pacing the worker to 1/s leaves half the budget free, but a seller clicking
+# through chips can want more than that half, and then the two still collide
+# (measured: 1 press in 5 took a 429 + retry → ~2s instead of ~0.3s).
+#
+# So the worker doesn't just walk slower, it STEPS ASIDE: while an FBS screen is
+# actively talking to Uzum, background calls wait and the seller gets the whole
+# 2/s. The worker loses nothing — its statuses are on 23-63 minute cadences.
+#
+# The flag lives in Redis, not in memory: the seller's request is served by some
+# gunicorn worker process while the sync loop runs in another, so an in-process
+# flag would be invisible to exactly the process that must see it. No Redis →
+# the yield is skipped (the 1/s pacing still applies), never an error.
+#
+# _BG_MAX_YIELD_SEC caps the stepping-aside so a seller who never stops clicking
+# cannot starve the worker: past that, background work proceeds regardless.
+_ACTIVE_TTL_SEC = 5          # how long one interactive call keeps the lane busy
+_BG_MAX_YIELD_SEC = 30.0     # never let background starve longer than this
+_BG_YIELD_POLL_SEC = 0.25
+
+
+def _active_key(token: str) -> str:
+    """Redis key for "an FBS screen is using this token right now".
+
+    The token is hashed — a raw OpenAPI token must not sit in a Redis key.
+    """
+    import hashlib
+    return f"fbs:interactive:{hashlib.sha1((token or '').encode()).hexdigest()[:16]}"
+
+
+def mark_interactive_activity(token: str) -> None:
+    """Claim the token's Uzum budget for a live FBS screen for the next few
+    seconds. Called on every interactive FBS request; best-effort by design —
+    if Redis is down the worker simply doesn't yield.
+    """
+    if not token:
+        return
+    try:
+        from core.redis_client import redis_client
+        redis_client.setex(_active_key(token), _ACTIVE_TTL_SEC, "1")
+    except Exception:
+        pass
+
+
+def _interactive_active(token: str) -> bool:
+    try:
+        from core.redis_client import redis_client
+        return bool(redis_client.exists(_active_key(token)))
+    except Exception:
+        return False
+
+
+def pace_background_call(token: str, *, _sleep=_time.sleep,
+                         _monotonic=_time.monotonic) -> float:
+    """Gate a BACKGROUND (worker/prefetch) Uzum call.
+
+    Two steps: step aside while a seller is actively using this token (bounded
+    by ``_BG_MAX_YIELD_SEC``), then hold to ≤1 call/sec so even an idle-looking
+    moment keeps headroom.
+
+    Interactive requests must never call this — they are what it protects.
+    """
+    waited = 0.0
+    while waited < _BG_MAX_YIELD_SEC and _interactive_active(token):
+        _sleep(_BG_YIELD_POLL_SEC)
+        waited += _BG_YIELD_POLL_SEC
+    if waited:
+        print(f"[fbs_locks] background yielded {waited:.1f}s to a live FBS screen")
+    return pace_uzum_call(
+        f"bg:{token}", min_interval=_BG_MIN_UZUM_CALL_INTERVAL_SEC,
+    )
+
+
 def get_token_lock(token: str) -> threading.Lock:
     """Return the lock for ``token`` (creating it on first use).
 

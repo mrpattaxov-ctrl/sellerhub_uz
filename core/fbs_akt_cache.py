@@ -177,6 +177,11 @@ def prefetch_akts_for_token(
         status_done = False
         while page < max_pages:
             try:
+                # Background warm — see core.fbs_locks.pace_background_call: hold
+                # to 1 call/sec so the sweep leaves half of Uzum's 2/s budget free
+                # for whoever is waiting on a screen.
+                from core.fbs_locks import pace_background_call
+                pace_background_call(token)
                 invs, _ = fetch_fbs_invoices_list(
                     token, statuses=[status], page=page, fail_fast=False
                 )
@@ -202,6 +207,8 @@ def prefetch_akts_for_token(
                 if get_cached_akt(user_id, iid, date_updated=du) is not None:
                     continue
                 try:
+                    from core.fbs_locks import pace_background_call
+                    pace_background_call(token)
                     pdf = fetch_akt_live(token, iid)
                     store_akt(user_id, iid, du, pdf)
                     fetched += 1

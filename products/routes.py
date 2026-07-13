@@ -1170,10 +1170,31 @@ def api_enrolled_products():
     return _json_response({"enrolled": by_product})
 
 
+def _mask_openapi_token(token: str | None) -> str:
+    """Render a saved OpenAPI token as `abcd••••••••wxyz` for display.
+
+    Only the first and last 4 characters ever reach the browser — the middle is
+    replaced by a FIXED-width run of dots, so the mask neither leaks the token's
+    true length nor overflows the input on very long tokens. Tokens too short to
+    mask safely (< 12 chars) are dotted out entirely rather than half-revealed.
+    """
+    tok = (token or "").strip()
+    if not tok:
+        return ""
+    if len(tok) < 12:
+        return "•" * len(tok)
+    return f"{tok[:4]}{'•' * 12}{tok[-4:]}"
+
+
 @products_bp.get("/fetch")
 @login_required
 def fetch_page():
-    return render_template("fetch.html")
+    return render_template(
+        "fetch.html",
+        openapi_token_masked=_mask_openapi_token(
+            getattr(current_user, "uzum_openapi_token", None)
+        ),
+    )
 
 @products_bp.get("/groups/<int:group_id>")
 @login_required

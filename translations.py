@@ -678,6 +678,15 @@ TRANSLATIONS = {
         "fetch_openapi_reason_already": "уже добавлен",
         "fetch_openapi_reason_owned": "принадлежит другому пользователю",
         "fetch_openapi_reason_limit": "достигнут лимит",
+        # Токен виден в списке магазинов, но продавец не выдал ему доступ к
+        # этому магазину — Uzum отвечает 403. Сообщение строится как ОДНА
+        # строка: «что» + «что делать». Идентификаторы подставляются один раз
+        # (в префикс), поэтому в подсказке их нет (Ulug'bek 2026-07-13).
+        "fetch_openapi_reason_no_permission": "нет доступа",
+        "fetch_openapi_no_permission_prefix": "Токен без доступа к магазинам:",
+        "fetch_openapi_no_permission_hint": (
+            "Создайте OpenAPI-токен заново и отметьте в нём эти магазины."
+        ),
         "fetch_openapi_picker_placeholder": "Выберите магазины…",
         "fetch_openapi_selected_suffix": "выбрано",
         "fetch_openapi_selected_summary_prefix": "Будет добавлено:",
@@ -1389,6 +1398,14 @@ TRANSLATIONS = {
         "fetch_openapi_reason_already": "allaqachon qo'shilgan",
         "fetch_openapi_reason_owned": "boshqa foydalanuvchiga tegishli",
         "fetch_openapi_reason_limit": "limit tugadi",
+        # Ruscha izohga qarang: token do'konlar ro'yxatida ko'rinadi, lekin
+        # sotuvchi unga SHU do'kon uchun ruxsat bermagan — Uzum 403 qaytaradi.
+        # Xabar BITTA qator: «nima bo'ldi» + «nima qilish kerak».
+        "fetch_openapi_reason_no_permission": "ruxsat yo'q",
+        "fetch_openapi_no_permission_prefix": "Token bu do'konlarga ruxsatsiz:",
+        "fetch_openapi_no_permission_hint": (
+            "OpenAPI tokenni qaytadan yarating va bu do'konlarni belgilang."
+        ),
         "fetch_openapi_picker_placeholder": "Do'konlarni tanlang…",
         "fetch_openapi_selected_suffix": "tanlangan",
         "fetch_openapi_selected_summary_prefix": "Qo'shiladi:",

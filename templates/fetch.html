@@ -38,6 +38,40 @@
       background: #fff;
       box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06);
     }
+    /* Tipografika (Ulug'bek 2026-07-13): Bootstrap'ning `h5.card-title` standarti
+       500 og'irlik + `letter-spacing:normal` berardi — sarlavha ingichka va
+       «bo'sh» ko'rinardi. Sahifa H1 tizimiga tenglashtiramiz: 700 / -0.02em.
+       Label ham Bootstrap'ning 16px/400 o'rniga 14px/500. */
+    .form-shell .card-title {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      color: #101828;
+    }
+    .form-shell .card-body > .text-secondary {
+      font-size: 14px;
+      line-height: 1.45;
+      color: #667085 !important;
+    }
+    .form-shell .form-label {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.006em;
+      line-height: 1.4;
+      color: #344054;
+      margin-bottom: 6px;
+    }
+    .form-shell .form-control {
+      font-size: 15px;
+      letter-spacing: -0.006em;
+    }
+    /* Maskalangan token — nuqtalar biroz «havodor» bo'lsin. */
+    .form-shell .form-control.is-masked { letter-spacing: 0.02em; color: #475467; }
+    [data-bs-theme="dark"] .form-shell .form-control.is-masked { color: #cbd5e1; }
+    [data-bs-theme="dark"] .form-shell .card-title { color: #e2e8f0; }
+    [data-bs-theme="dark"] .form-shell .form-label { color: #cbd5e1; }
+    [data-bs-theme="dark"] .form-shell .card-body > .text-secondary { color: #94a3b8 !important; }
     .fetch-btn {
       border-radius: 9px;
       padding: 8px 12px;
@@ -192,59 +226,201 @@
     }
 
     /* OpenAPI shop picker — matches the groups.html style but multi-select */
-    .openapi-picker { position: relative; display: block; width: 100%; }
-    .openapi-picker-btn {
-      display: flex; align-items: center; gap: 14px;
-      background: #fff; border: 2px solid #D0D5DD; border-radius: 14px;
-      padding: 0 22px; height: 64px; cursor: pointer; width: 100%;
-      font-size: 18px; font-weight: 600; color: #101828;
-      transition: border-color .2s, box-shadow .2s;
+    /* ══ Do'kon tanlash MODALI (Ulug'bek 2026-07-13) ═══════════════════════
+       Ilgari bu dropdown edi: ochilganda «Qo'shish» tugmasini BERKITARDI —
+       tanlab, o'sha zahoti qo'shib bo'lmasdi. Endi fokus-oyna:
+         • laptop → markazда dialog (18px radius — `form-shell` bilan bir xil)
+         • mobil  → pastdan chiqadigan sheet (22px yuqori radius + tutqich,
+                    FBS mobil sheet'i bilan bir xil «vibe»)
+       Ro'yxat scroll bo'ladi, footer STICKY — asosiy tugma HAR DOIM ko'rinadi.
+       ══════════════════════════════════════════════════════════════════════ */
+    .shop-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(16, 24, 40, 0.55);
+      display: none; z-index: 1055;
+      align-items: center; justify-content: center;
+      padding: 16px;
+      animation: shopModalFade .18s ease-out;
     }
-    .openapi-picker-btn:hover { border-color: #667085; }
-    .openapi-picker-btn svg { color: #98A2B3; flex-shrink: 0; }
-    .openapi-picker-btn .opi-label { flex: 1; text-align: left; }
-    .openapi-picker-btn .opi-caret { transition: transform .2s; }
-    .openapi-picker.open .openapi-picker-btn .opi-caret { transform: rotate(180deg); }
-    .openapi-picker-menu {
-      display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-      background: #fff; border: 1px solid #EAECF0; border-radius: 14px;
-      box-shadow: 0 12px 32px rgba(16,24,40,.16); z-index: 200;
-      max-height: 700px; overflow-y: auto;
+    .shop-modal-backdrop.open { display: flex; }
+    @keyframes shopModalFade { from { opacity: 0; } to { opacity: 1; } }
+    .shop-modal {
+      width: 100%; max-width: 520px;
+      max-height: min(86vh, 720px);
+      display: flex; flex-direction: column;
+      background: #fff;
+      border: 1px solid #EAECF0;
+      border-radius: 18px;
+      box-shadow: 0 24px 48px rgba(16, 24, 40, 0.18);
+      overflow: hidden;
+      animation: shopModalPop .18s ease-out;
     }
-    .openapi-picker.open .openapi-picker-menu { display: block; }
+    @keyframes shopModalPop {
+      from { transform: translateY(8px) scale(.98); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .shop-modal-grab { display: none; }        /* faqat mobilda */
+    .shop-modal-head {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 20px 20px 14px;
+      border-bottom: 1px solid #EAECF0;
+    }
+    .shop-modal-title {
+      margin: 0; font-size: 19px; font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.3; color: #101828;
+    }
+    .shop-modal-sub {
+      margin: 2px 0 0; font-size: 13.5px; color: #667085; line-height: 1.4;
+    }
+    .shop-modal-x {
+      margin-left: auto; flex-shrink: 0;
+      width: 34px; height: 34px; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: 1px solid transparent; color: #98A2B3;
+      cursor: pointer; transition: background .15s, color .15s;
+    }
+    .shop-modal-x:hover { background: #F2F4F7; color: #475467; }
     .openapi-picker-toolbar {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 16px 22px; border-bottom: 1px solid #EAECF0;
-      font-size: 16px; color: #344054; background: #F9FAFB; font-weight: 600;
-      position: sticky; top: 0;
+      padding: 10px 20px; border-bottom: 1px solid #EAECF0;
+      font-size: 13.5px; color: #475467; background: #F9FAFB; font-weight: 600;
     }
     .openapi-picker-toolbar button {
       background: none; border: none; color: #175CD3; font-weight: 600;
-      cursor: pointer; padding: 0; font-size: 16px;
+      cursor: pointer; padding: 0; font-size: 13.5px;
     }
     .openapi-picker-toolbar button:hover { text-decoration: underline; }
+    .shop-modal-list { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1 1 auto; }
+    .shop-modal-foot {
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid #EAECF0; background: #fff;
+    }
+    .shop-modal-foot .fetch-btn { padding: 10px 16px; font-size: 0.9rem; }
+    /* ── Inline xato paneli ───────────────────────────────────────────────
+       Ilgari bu Bootstrap'ning tayyor `.alert-danger`si edi — tekis pushti
+       plita, ikonkasiz, ierarxiyasiz; sahifaning qolgan qismidan «eskicha»
+       ajralib turardi (Ulug'bek 2026-07-13). Endi u TOAST bilan bir tilda
+       gapiradi: oq yuza, chapda qizil aksent chiziq, yumshoq ikonka-plitka,
+       14px radius va nozik soya. Matn ikki qavat: NIMA bo'ldi (to'q) va
+       NIMA qilish kerak (o'chiqroq). */
+    .fetch-alert {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px;
+      background: #fff;
+      border: 1px solid #FECDCA;
+      border-left: 4px solid #F04438;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05);
+    }
+    .fetch-alert-ic {
+      flex: none; width: 32px; height: 32px; border-radius: 10px;
+      display: grid; place-items: center;
+      background: #FEE4E2; color: #D92D20;
+    }
+    .fetch-alert-ic svg { width: 18px; height: 18px; }
+    .fetch-alert-body { min-width: 0; }
+    .fetch-alert-title {
+      margin: 0; font-size: 14px; font-weight: 600; line-height: 1.45;
+      color: #101828; overflow-wrap: anywhere;
+    }
+    .fetch-alert-desc {
+      margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: #667085;
+    }
+    [data-bs-theme="dark"] .fetch-alert {
+      background: #1A1D27; border-color: #5A2320; border-left-color: #F04438;
+      box-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    [data-bs-theme="dark"] .fetch-alert-ic { background: rgba(240,68,56,.18); color: #FDA29B; }
+    [data-bs-theme="dark"] .fetch-alert-title { color: #F0F2FA; }
+    [data-bs-theme="dark"] .fetch-alert-desc { color: #98A2B3; }
+
     .openapi-picker-item {
-      display: flex; align-items: center; gap: 18px;
-      padding: 22px 22px; cursor: pointer;
-      font-size: 17px; color: #101828; transition: background .15s;
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; cursor: pointer;
+      font-size: 15px; color: #101828; transition: background .15s;
       border-bottom: 1px solid #F2F4F7;
     }
     .openapi-picker-item:last-child { border-bottom: none; }
     .openapi-picker-item:hover { background: #F9FAFB; }
+    /* Tanlov belgisi = checkbox + fon. Chap accent chiziq ham qo'shilганda
+       qatorlar bir-biriга ulanиб, uzluksiz ko'k «relьs» bo'lиб ko'rinди —
+       ortiqcha bezak sifatida olib tashlandi. */
     .openapi-picker-item.selected { background: #EFF8FF; }
     .openapi-picker-item.disabled {
       background: #F9FAFB; color: #98A2B3; cursor: not-allowed;
     }
     .openapi-picker-item input[type="checkbox"] {
-      width: 24px; height: 24px; flex-shrink: 0; accent-color: #175CD3;
+      width: 20px; height: 20px; flex-shrink: 0; accent-color: #175CD3;
+      pointer-events: none;   /* qator o'zi toggle qiladi — ikki marta emas */
     }
-    .openapi-picker-item .opi-name { flex: 1; font-weight: 700; font-size: 17px; }
-    .openapi-picker-item .opi-id { color: #98A2B3; font-size: 14px; }
+    .openapi-picker-item .opi-name { flex: 1; font-weight: 600; font-size: 15px; }
+    .openapi-picker-item .opi-id { color: #98A2B3; font-size: 13px; }
     .openapi-picker-item .opi-badge {
-      font-size: 13px; padding: 6px 12px; border-radius: 999px;
-      background: #ECFDF3; color: #027A48; font-weight: 600;
+      font-size: 12px; padding: 4px 10px; border-radius: 999px;
+      background: #ECFDF3; color: #027A48; font-weight: 600; white-space: nowrap;
     }
     .openapi-picker-item .opi-badge--muted { background: #F2F4F7; color: #475467; }
+
+    /* Klaviatura fokusi ko'rinadigan bo'lsin */
+    .shop-modal-x:focus-visible,
+    .openapi-picker-item:focus-visible,
+    .openapi-picker-toolbar button:focus-visible {
+      outline: 2px solid #175CD3; outline-offset: 2px; border-radius: 6px;
+    }
+
+    /* ── Mobil: pastki sheet ── */
+    @media (max-width: 768px) {
+      .shop-modal-backdrop { align-items: flex-end; padding: 0; }
+      .shop-modal {
+        max-width: 100%;
+        max-height: 88vh;
+        border-radius: 22px 22px 0 0;
+        border-bottom: 0;
+        animation: shopSheetUp .26s cubic-bezier(.16, 1, .3, 1);
+      }
+      @keyframes shopSheetUp {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+      }
+      .shop-modal-grab {
+        display: block; width: 40px; height: 4px; margin: 8px auto 0;
+        border-radius: 99px; background: #D0D5DD; flex-shrink: 0;
+      }
+      .shop-modal-head { padding: 12px 16px 12px; }
+      .openapi-picker-toolbar, .openapi-picker-item { padding-left: 16px; padding-right: 16px; }
+      .shop-modal-foot {
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      }
+      /* Telefonda asosiy harakat keng, «Bekor qilish» esa o'z eniда — teng 50/50
+         bo'lсa uzun label ikки qatorга sinиб ketарди. */
+      .shop-modal-foot .fetch-btn { padding: 13px 14px; font-size: .85rem; }
+      .shop-modal-foot #shopModalCancel { flex: 0 0 auto; }
+      .shop-modal-foot #btnAttachSelected { flex: 1 1 auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .shop-modal-backdrop, .shop-modal { animation: none; }
+    }
+
+    /* ── Dark ── */
+    [data-bs-theme="dark"] .shop-modal { background: #1a1d27; border-color: #2d3148; }
+    [data-bs-theme="dark"] .shop-modal-head,
+    [data-bs-theme="dark"] .shop-modal-foot { border-color: #2d3148; }
+    [data-bs-theme="dark"] .shop-modal-foot { background: #1a1d27; }
+    [data-bs-theme="dark"] .shop-modal-title { color: #e2e8f0; }
+    [data-bs-theme="dark"] .shop-modal-sub { color: #94a3b8; }
+    [data-bs-theme="dark"] .shop-modal-grab { background: #3a4055; }
+    [data-bs-theme="dark"] .shop-modal-x:hover { background: #262a38; color: #cbd5e1; }
+    [data-bs-theme="dark"] .openapi-picker-toolbar {
+      background: #161922; border-color: #2d3148; color: #94a3b8;
+    }
+    [data-bs-theme="dark"] .openapi-picker-item {
+      color: #e2e8f0; border-bottom-color: #262a38;
+    }
+    [data-bs-theme="dark"] .openapi-picker-item:hover { background: #21252f; }
+    [data-bs-theme="dark"] .openapi-picker-item.selected { background: #1b2a3f; }
+    [data-bs-theme="dark"] .openapi-picker-item.disabled { background: #161922; color: #64748b; }
 
     /* Custom confirm dialog (matches the page's form-shell aesthetic) */
     .app-confirm-backdrop {
@@ -450,45 +626,35 @@
       <div class="card-body">
         <h5 class="card-title mb-1">{{ t.fetch_openapi_title }}</h5>
         <div class="text-secondary small mb-3">{{ t.fetch_openapi_desc }}</div>
+        {# Seller ID: fonda avtomatik aniqlanadi (moliya API → `_ensure_seller_id`),
+           shuning uchun bu yerda maydon YO'Q — token bitta keng maydon (2026-07-13). #}
         <div class="row g-2 align-items-end">
-          <div class="col-md-6">
+          <div class="col-md-9">
             <label class="form-label">{{ t.fetch_openapi_token_label }}</label>
-            <input type="password" id="openapiToken" class="form-control" placeholder="{% if current_user.uzum_openapi_token %}{{ t.fetch_openapi_token_saved_hint }}{% else %}{{ t.fetch_openapi_token_placeholder }}{% endif %}" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">{{ t.fetch_openapi_seller_id_label }}</label>
-            <input type="number" id="openapiSellerId" class="form-control" placeholder="{{ t.fetch_openapi_seller_id_placeholder }}" autocomplete="off" value="{{ current_user.uzum_seller_id or '' }}">
+            {# Saqlangan token `abcd••••••••wxyz` ko'rinishida ko'rsatiladi (mask
+               serverda tayyorlanadi — to'liq token brauzerga UMUMAN kelmaydi).
+               Fokusда maydon tozalanadi va password'ga o'tadi; bo'sh qoldirilsa
+               backend saqlangan tokenни ishlatadi (Ulug'bek 2026-07-13). #}
+            <input type="{% if openapi_token_masked %}text{% else %}password{% endif %}"
+                   id="openapiToken" class="form-control{% if openapi_token_masked %} is-masked{% endif %}"
+                   value="{{ openapi_token_masked }}"
+                   data-masked="{{ openapi_token_masked }}"
+                   placeholder="{{ t.fetch_openapi_token_placeholder }}"
+                   autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other">
           </div>
           <div class="col-md-3">
             <button class="fetch-btn fetch-btn--primary w-100" id="btnDiscoverShops">{{ t.fetch_openapi_discover_btn }}</button>
           </div>
         </div>
-        <div class="text-secondary small mt-1">{{ t.fetch_openapi_seller_id_hint }}</div>
-        <div id="openapiResult" class="mt-3" style="display:none;">
-          <label class="form-label">{{ t.fetch_openapi_pick_label }}</label>
-          <div class="openapi-picker" id="openapiPicker">
-            <div class="openapi-picker-btn" id="openapiPickerBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              <span class="opi-label" id="openapiPickerLabel">{{ t.fetch_openapi_picker_placeholder }}</span>
-              <svg class="opi-caret" width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-            <div class="openapi-picker-menu" id="openapiPickerMenu">
-              <div class="openapi-picker-toolbar">
-                <span id="openapiPickerCount">0 / 0</span>
-                <div class="d-flex gap-3">
-                  <button type="button" id="openapiSelectAllBtn">{{ t.fetch_openapi_select_all }}</button>
-                  <button type="button" id="openapiClearAllBtn">{{ t.fetch_openapi_clear_all }}</button>
-                </div>
-              </div>
-              <div id="openapiShopsList"></div>
-            </div>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-3 gap-2 flex-wrap">
-            <small class="text-secondary" id="openapiSelectionSummary"></small>
-            <button class="fetch-btn fetch-btn--primary" id="btnAttachSelected">{{ t.fetch_openapi_attach_btn }}</button>
-          </div>
+        {# Topilgan do'konlar — endi INLINE dropdown emas: shu yerда faqat qisqa
+           natija satri, tanlash esa modal oynada (tugmani berkitmaydi). #}
+        <div id="openapiResult" class="d-flex align-items-center justify-content-between gap-2 flex-wrap mt-3" style="display:none;">
+          <small class="text-secondary" id="openapiFoundText"></small>
+          <button class="fetch-btn fetch-btn--primary" id="btnOpenShopModal">
+            <span id="openapiPickerLabel">{{ t.fetch_openapi_picker_placeholder }}</span>
+          </button>
         </div>
-        <div id="openapiError" class="alert alert-danger mt-3" style="display:none;"></div>
+        <div id="openapiError" class="fetch-alert mt-3" style="display:none;"></div>
       </div>
     </div>
 
@@ -499,6 +665,35 @@
   </div>
 
   <div class="app-toast-container" id="appToastContainer" aria-live="polite" aria-atomic="false"></div>
+
+  {# ══ Do'kon tanlash modali — laptopда dialog, mobilда pastki sheet ══ #}
+  <div class="shop-modal-backdrop" id="shopModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="shopModalTitle">
+    <div class="shop-modal">
+      <div class="shop-modal-grab" aria-hidden="true"></div>
+      <div class="shop-modal-head">
+        <div>
+          {# Placeholder satri «…» bilan tugaydi (tugma uchun) — sarlavha uchun uni kesamiz. #}
+          <h2 class="shop-modal-title" id="shopModalTitle">{{ t.fetch_openapi_picker_placeholder | trim | trim('…') | trim('.') }}</h2>
+          <p class="shop-modal-sub" id="openapiSelectionSummary"></p>
+        </div>
+        <button type="button" class="shop-modal-x" id="shopModalClose" aria-label="{{ t.nav_cancel }}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="openapi-picker-toolbar">
+        <span id="openapiPickerCount">0 / 0</span>
+        <div class="d-flex gap-3">
+          <button type="button" id="openapiSelectAllBtn">{{ t.fetch_openapi_select_all }}</button>
+          <button type="button" id="openapiClearAllBtn">{{ t.fetch_openapi_clear_all }}</button>
+        </div>
+      </div>
+      <div class="shop-modal-list" id="openapiShopsList"></div>
+      <div class="shop-modal-foot">
+        <button type="button" class="fetch-btn fetch-btn--back" id="shopModalCancel">{{ t.nav_cancel }}</button>
+        <button type="button" class="fetch-btn fetch-btn--primary" id="btnAttachSelected">{{ t.fetch_openapi_attach_btn }}</button>
+      </div>
+    </div>
+  </div>
 
   <div class="app-confirm-backdrop" id="appConfirmBackdrop" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle">
     <div class="app-confirm-dialog">
@@ -565,7 +760,11 @@
       openapiReasonAlready: {{ t.fetch_openapi_reason_already | tojson }},
       openapiReasonOwned: {{ t.fetch_openapi_reason_owned | tojson }},
       openapiReasonLimit: {{ t.fetch_openapi_reason_limit | tojson }},
+      openapiReasonNoPermission: {{ t.fetch_openapi_reason_no_permission | tojson }},
+      openapiNoPermissionPrefix: {{ t.fetch_openapi_no_permission_prefix | tojson }},
+      openapiNoPermissionHint: {{ t.fetch_openapi_no_permission_hint | tojson }},
       openapiPickerPlaceholder: {{ t.fetch_openapi_picker_placeholder | tojson }},
+      openapiPickLabel: {{ t.fetch_openapi_pick_label | tojson }},
       openapiSelectedSuffix: {{ t.fetch_openapi_selected_suffix | tojson }},
       openapiSelectedSummaryPrefix: {{ t.fetch_openapi_selected_summary_prefix | tojson }},
     };
@@ -784,19 +983,72 @@
     let _openapiDiscovered = [];
     const _opiSelected = new Set();  // uzum_ids currently ticked
 
-    function _setOpenapiError(msg) {
+    // `msg`  — WHAT happened (strong line).
+    // `desc` — WHAT to do about it (muted second line). Optional: the generic
+    //          callers pass only `msg` and get a single-line alert.
+    function _setOpenapiError(msg, desc) {
       const el = document.getElementById("openapiError");
       if (!el) return;
-      if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
-      el.style.display = "block";
-      el.textContent = msg;
+      el.replaceChildren();
+      if (!msg) { el.style.display = "none"; return; }
+      // `.fetch-alert` is a flex row — the element carries inline
+      // `display:none`, so restore it to `flex` (NOT `block`, which would
+      // collapse the icon/text row).
+      el.style.display = "flex";
+
+      const ic = document.createElement("span");
+      ic.className = "fetch-alert-ic";
+      // Static markup (no user data) — safe to set as HTML.
+      ic.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="12" cy="12" r="10"></circle>'
+        + '<line x1="12" y1="8" x2="12" y2="12"></line>'
+        + '<line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+
+      const body = document.createElement("div");
+      body.className = "fetch-alert-body";
+      const title = document.createElement("p");
+      title.className = "fetch-alert-title";
+      title.textContent = msg;   // carries server data (shop ids) — never innerHTML
+      body.appendChild(title);
+      if (desc) {
+        const d = document.createElement("p");
+        d.className = "fetch-alert-desc";
+        d.textContent = desc;
+        body.appendChild(d);
+      }
+      el.append(ic, body);
     }
 
     function _reasonLabel(reason) {
       if (reason === "already_added") return _FT.openapiReasonAlready;
       if (reason === "owned_by_other") return _FT.openapiReasonOwned;
       if (reason === "limit_reached") return _FT.openapiReasonLimit;
+      if (reason === "no_permission") return _FT.openapiReasonNoPermission;
       return reason || "";
+    }
+
+    // A seller recognises "DIAMOND", not "13505" — so the MESSAGE shows names
+    // (Ulug'bek 2026-07-13). No backend change needed: the picker already
+    // fetched the names into `_openapiDiscovered`, so we just look the id up
+    // here. Falls back to the id if a shop somehow has no name.
+    function _shopName(uzumId) {
+      const hit = _openapiDiscovered.find((s) => s.uzum_id === uzumId);
+      return (hit && hit.name) ? hit.name : String(uzumId);
+    }
+
+    // "уже добавлен: LUXUZ, BLUMMY; лимит: mixbox" — the reason once, then its
+    // shops. Beats "LUXUZ (уже добавлен), BLUMMY (уже добавлен), …".
+    function _groupByReason(list) {
+      const by = new Map();
+      list.forEach((s) => {
+        const k = s.reason || "";
+        if (!by.has(k)) by.set(k, []);
+        by.get(k).push(_shopName(s.uzum_id));
+      });
+      return [...by.entries()]
+        .map(([reason, names]) => `${_reasonLabel(reason)}: ${names.join(", ")}`)
+        .join("; ");
     }
 
     function _escapeHtml(s) {
@@ -809,6 +1061,25 @@
       return _openapiDiscovered.filter((s) => !s.already_added && !s.owned_by_other).length;
     }
 
+    // ── Modal ochish/yopish (sahifa scroll'i qulflanadi, Esc yopadi) ─────
+    let _shopModalLastFocus = null;
+    function _openShopModal() {
+      const bd = document.getElementById("shopModalBackdrop");
+      if (!bd || !_openapiDiscovered.length) return;
+      _shopModalLastFocus = document.activeElement;
+      bd.classList.add("open");
+      document.body.style.overflow = "hidden";   // orqa fon scroll qilmasin
+      const close = document.getElementById("shopModalClose");
+      if (close) close.focus();
+    }
+    function _closeShopModal() {
+      const bd = document.getElementById("shopModalBackdrop");
+      if (!bd) return;
+      bd.classList.remove("open");
+      document.body.style.overflow = "";
+      if (_shopModalLastFocus && _shopModalLastFocus.focus) _shopModalLastFocus.focus();
+    }
+
     function _updateOpiPickerUi() {
       const label = document.getElementById("openapiPickerLabel");
       const count = document.getElementById("openapiPickerCount");
@@ -817,13 +1088,15 @@
       const selected = _opiSelected.size;
       const pickable = _opiPickableCount();
 
+      // Ochish tugmasi tanlov holatini ko'rsatadi (modal yopiq bo'lsa ham).
       label.textContent = selected
         ? `${selected} / ${pickable} ${_FT.openapiSelectedSuffix}`
         : _FT.openapiPickerPlaceholder;
       count.textContent = `${selected} / ${pickable}`;
+      // Hech nima tanlanmaganда sarlavha ostи bo'sh qolmasin — ko'rsatma beramiz.
       summary.textContent = selected
         ? `${_FT.openapiSelectedSummaryPrefix} ${selected}`
-        : "";
+        : _FT.openapiPickLabel;
       attachBtn.disabled = selected === 0;
 
       // Reflect tick state into checkbox elements and row .selected class
@@ -832,24 +1105,31 @@
         const cb = el.querySelector('input[type="checkbox"]');
         if (cb && !cb.disabled) cb.checked = _opiSelected.has(id);
         el.classList.toggle("selected", _opiSelected.has(id));
+        if (el.hasAttribute("aria-checked")) {
+          el.setAttribute("aria-checked", _opiSelected.has(id) ? "true" : "false");
+        }
       });
     }
 
     function _renderDiscoveredShops(shops) {
       const wrap = document.getElementById("openapiResult");
       const list = document.getElementById("openapiShopsList");
-      const picker = document.getElementById("openapiPicker");
+      const foundText = document.getElementById("openapiFoundText");
+      const openBtn = document.getElementById("btnOpenShopModal");
       list.innerHTML = "";
       _openapiDiscovered = shops || [];
       _opiSelected.clear();
 
       if (!_openapiDiscovered.length) {
-        wrap.style.display = "block";
-        picker.classList.remove("open");
-        list.innerHTML = `<div class="openapi-picker-item disabled">${_FT.openapiNoShops}</div>`;
-        _updateOpiPickerUi();
+        wrap.style.display = "flex";
+        foundText.textContent = _FT.openapiNoShops;
+        openBtn.style.display = "none";
+        _closeShopModal();
         return;
       }
+
+      openBtn.style.display = "";
+      foundText.textContent = _FT.openapiPickLabel;
 
       _openapiDiscovered.forEach((s) => {
         const disabled = s.already_added || s.owned_by_other;
@@ -868,91 +1148,118 @@
           ${badge}
         `;
         if (!disabled) {
-          row.addEventListener("click", (ev) => {
-            // Toggle selection — but don't close the menu
-            ev.stopPropagation();
+          // Klaviatura bilan ham tanlanadigan bo'lsin.
+          row.setAttribute("role", "checkbox");
+          row.setAttribute("tabindex", "0");
+          row.setAttribute("aria-checked", "false");
+          const toggle = () => {
             const id = row.dataset.uzumId;
             if (_opiSelected.has(id)) _opiSelected.delete(id);
             else _opiSelected.add(id);
             _updateOpiPickerUi();
+          };
+          row.addEventListener("click", toggle);
+          row.addEventListener("keydown", (ev) => {
+            if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); toggle(); }
           });
         }
         list.appendChild(row);
       });
 
-      wrap.style.display = "block";
-      picker.classList.add("open"); // open by default so the user sees the list immediately
+      wrap.style.display = "flex";
       _updateOpiPickerUi();
+      _openShopModal();   // topilgan zahoti modal ochiladi
     }
 
-    // ── Picker open/close + toolbar handlers ─────────────────────────────
-    (function bindOpenapiPicker() {
-      const picker = document.getElementById("openapiPicker");
-      const btn = document.getElementById("openapiPickerBtn");
-      const menu = document.getElementById("openapiPickerMenu");
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        picker.classList.toggle("open");
-      });
-      // Click inside the menu should not close it
-      menu.addEventListener("click", (e) => e.stopPropagation());
-      document.addEventListener("click", () => picker.classList.remove("open"));
+    // ── Modal ochish/yopish + toolbar handlerlari ────────────────────────
+    (function bindShopModal() {
+      const backdrop = document.getElementById("shopModalBackdrop");
 
-      document.getElementById("openapiSelectAllBtn").addEventListener("click", (e) => {
-        e.stopPropagation();
+      document.getElementById("btnOpenShopModal").addEventListener("click", _openShopModal);
+      document.getElementById("shopModalClose").addEventListener("click", _closeShopModal);
+      document.getElementById("shopModalCancel").addEventListener("click", _closeShopModal);
+      // Fon bosilsa yopiladi (modal ichi emas).
+      backdrop.addEventListener("click", (e) => {
+        if (e.target === backdrop) _closeShopModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && backdrop.classList.contains("open")) _closeShopModal();
+      });
+
+      document.getElementById("openapiSelectAllBtn").addEventListener("click", () => {
         _openapiDiscovered.forEach((s) => {
           if (!s.already_added && !s.owned_by_other) _opiSelected.add(s.uzum_id);
         });
         _updateOpiPickerUi();
       });
-      document.getElementById("openapiClearAllBtn").addEventListener("click", (e) => {
-        e.stopPropagation();
+      document.getElementById("openapiClearAllBtn").addEventListener("click", () => {
         _opiSelected.clear();
         _updateOpiPickerUi();
       });
     })();
 
-    // Smart Seller ID input: if the user pastes a cabinet URL (with
-    // ?sId=N), extract just the N. Otherwise (raw number) leave as-is.
-    // Triggers on input, paste, and blur so any path the user takes
-    // ends up with just the digits in the field.
-    (function setupSellerIdAutoExtract(){
-      const input = document.getElementById("openapiSellerId");
+    // Saqlangan token maskasi: maydon `abcd••••••••wxyz` ko'rsatadi. Fokusда uni
+    // tozalab password'ga o'tamiz (yangi token kiritish uchun); bo'sh qoldirilsa
+    // maska qaytadi va so'rovда token YUBORILMAYDI — backend saqlanганини oladi.
+    // Mask formulasi serverdagi `_mask_openapi_token` bilan AYNAN bir xil.
+    function _maskToken(tok) {
+      const t = (tok || "").trim();
+      if (!t) return "";
+      if (t.length < 12) return "•".repeat(t.length);
+      return t.slice(0, 4) + "•".repeat(12) + t.slice(-4);
+    }
+    // Yangi token kiritilган bo'lsa maskani QAYTA hisoblaymiz (aks holda eski
+    // maska ko'rinib qolardi), so'ng maydonni maska holatiga qaytaramiz.
+    function _restoreTokenMask() {
+      const input = document.getElementById("openapiToken");
       if (!input) return;
-      const RE_SID = /[?&]sId=(\d+)/i;
-      const normalize = () => {
-        const raw = (input.value || "").trim();
-        if (!raw) return;
-        const m = raw.match(RE_SID);
-        if (m && m[1]) {
-          input.value = m[1];
-        } else if (!/^\d+$/.test(raw)) {
-          // Not a URL and not pure digits — keep digits only as a
-          // best-effort recovery (e.g. user pasted "sId 95673" or
-          // "ID: 95673"). If nothing matches, clear so they retry.
-          const digits = raw.match(/\d+/g);
-          if (digits && digits.length) input.value = digits[digits.length - 1];
+      const typed = (input.value || "").trim();
+      if (typed && typed !== input.dataset.masked) {
+        input.dataset.masked = _maskToken(typed);
+      }
+      const masked = input.dataset.masked || "";
+      if (masked) {
+        input.type = "text";
+        input.value = masked;
+        input.classList.add("is-masked");
+      } else {
+        input.value = "";
+      }
+    }
+    (function setupTokenMask(){
+      const input = document.getElementById("openapiToken");
+      if (!input) return;
+      input.addEventListener("focus", () => {
+        const masked = input.dataset.masked || "";
+        if (masked && input.value === masked) {
+          input.value = "";
+          input.type = "password";
+          input.classList.remove("is-masked");
         }
-      };
-      input.addEventListener("paste", () => setTimeout(normalize, 0));
-      input.addEventListener("input", normalize);
-      input.addEventListener("blur", normalize);
+      });
+      input.addEventListener("blur", () => {
+        if (!input.value.trim() && (input.dataset.masked || "")) _restoreTokenMask();
+      });
     })();
 
     document.getElementById("btnDiscoverShops").addEventListener("click", async () => {
       const tokenInput = document.getElementById("openapiToken");
-      const sellerIdInput = document.getElementById("openapiSellerId");
       const btn = document.getElementById("btnDiscoverShops");
       _setOpenapiError("");
-      const token = (tokenInput.value || "").trim();
-      const sellerId = (sellerIdInput?.value || "").trim();
-      if (!token) { _setOpenapiError(_FT.openapiTokenRequired); return; }
+      const masked = tokenInput.dataset.masked || "";
+      let token = (tokenInput.value || "").trim();
+      // Maska = «tegilmagan» degani → tokenни yubormaymiz.
+      if (masked && token === masked) token = "";
+      // Token faqat saqlangani ham bo'lmasa majburiy.
+      if (!token && !masked) { _setOpenapiError(_FT.openapiTokenRequired); return; }
 
       const prev = btn.textContent;
       btn.disabled = true;
       btn.textContent = _FT.openapiDiscovering;
       try {
-        const data = await api("/api/shops/openapi/discover", "POST", { token, seller_id: sellerId || null });
+        // seller_id yuborilmaydi — backend uni moliya API'дан o'zi aniqlaydi.
+        // token bo'sh bo'lsa ham backend user qatoridagi saqlangan tokenга tushadi.
+        const data = await api("/api/shops/openapi/discover", "POST", { token });
         _renderDiscoveredShops(data.shops || []);
       } catch (e) {
         _setOpenapiError(_FT.errorPrefix + " " + e.message);
@@ -983,18 +1290,40 @@
         const data = await api("/api/shops/openapi/attach", "POST", { shops: picks });
         const addedCount = (data.added || []).length;
         const skipped = data.skipped || [];
+        // Shops the token has no permission for — the seller didn't tick them
+        // when creating the OpenAPI token, so Uzum 403s every fetch. The seller
+        // has to go re-issue the token, so say so — ONCE (Ulug'bek 2026-07-13).
+        const noPerm = skipped.filter((s) => s.reason === "no_permission");
+        const others = skipped.filter((s) => s.reason !== "no_permission");
 
-        let msg = `${_FT.openapiAddedPrefix} ${addedCount}.`;
-        if (skipped.length) {
-          const parts = skipped.map((s) => `${s.uzum_id} (${_reasonLabel(s.reason)})`);
-          msg += ` ${_FT.openapiSkippedPrefix} ${parts.join(", ")}.`;
+        // Say each thing once: reason first, then the ids it applies to.
+        // (Repeating "(токен без доступа к магазину)" after every id turned a
+        // 5-shop result into an unreadable wall of text.)
+        const parts = [];
+        if (addedCount) parts.push(`${_FT.openapiAddedPrefix} ${addedCount}`);
+        if (others.length) parts.push(`${_FT.openapiSkippedPrefix} ${_groupByReason(others)}`);
+
+        if (noPerm.length) {
+          const ids = noPerm.map((s) => _shopName(s.uzum_id)).join(", ");
+          // Two levels: WHAT happened, then WHAT to do. The toast is one line
+          // (no room for hierarchy); the inline alert renders them as a strong
+          // title + muted action line.
+          const permTitle = `${_FT.openapiNoPermissionPrefix} ${ids}`;
+          const permMsg = `${permTitle}. ${_FT.openapiNoPermissionHint}`;
+          appToast(parts.length ? `${parts.join(". ")}. ${permMsg}` : permMsg, "error", 9000);
+          _setOpenapiError(permTitle, _FT.openapiNoPermissionHint);
+          // Nothing attached at all → keep the picker OPEN so the explanation
+          // stays put instead of vanishing with the toast.
+          // (The `finally` below re-enables the button.)
+          if (addedCount === 0) return;
+        } else {
+          appToast(`${parts.join(". ")}.`, addedCount > 0 ? "success" : "info", 5000);
         }
-        appToast(msg, addedCount > 0 ? "success" : "info", 5000);
 
         // Refresh shop list + token already persisted server-side
+        _closeShopModal();
         document.getElementById("openapiResult").style.display = "none";
-        document.getElementById("openapiPicker").classList.remove("open");
-        document.getElementById("openapiToken").value = "";
+        _restoreTokenMask();
         _openapiDiscovered = [];
         _opiSelected.clear();
         await loadShops();

@@ -364,6 +364,55 @@ def _call_v1_shops(token: str) -> dict | list:
     )
 
 
+def verify_shop_access(token: str, shop_uzum_id: str | int) -> tuple[bool, str | None]:
+    """Is *token* actually PERMITTED to read *shop_uzum_id*?
+
+    Why this exists (Ulug'bek 2026-07-13). When a seller creates an OpenAPI
+    token in the Uzum cabinet they tick WHICH shops that token may touch.
+    But `/v1/shops` lists EVERY shop on the account — permitted or not — so
+    the shop-picker happily offers shops the token can never read. Attaching
+    one used to "succeed", then every background fetch died with HTTP 403
+    (`forbidden-001` / "Shop is not available" / "Token not found") and the
+    user just saw an empty page with no explanation.
+
+    Uzum exposes no endpoint that reports a token's shop grants, so the only
+    way to know is to CALL a shop-scoped endpoint and read the answer. We use
+    the products list with size=1 — the cheapest such call.
+
+    Returns ``(ok, reason)``:
+      ``(True,  None)``        — token can read this shop
+      ``(False, "forbidden")`` — token is valid but NOT granted this shop
+      ``(False, "error")``     — inconclusive (network/5xx). Callers MUST NOT
+                                 treat this as a permission denial; a transient
+                                 Uzum blip should never block a legitimate add.
+    """
+    token = _clean(token)
+    url = (f"{OPENAPI_BASE}/v1/product/shop/{shop_uzum_id}"
+           f"?size=1&page=0&sortBy=ID&order=DESC&filter=ALL")
+
+    last_status = 0
+    for label, builder in _AUTH_VARIANTS:
+        try:
+            headers = builder(token)
+        except Exception as e:
+            print(f"[UzumOpenAPI] verify header-builder error on {label}: {e}")
+            continue
+        status, _text, parsed = _try_request(
+            url, headers, debug_label=f"verify_access[{shop_uzum_id}]/{label}"
+        )
+        if 200 <= status < 300:
+            return (True, None)
+        last_status = status
+        # Same rotation rule as everywhere else: only try the next auth
+        # variant on auth-shaped failures.
+        if not _is_token_not_found(status, parsed):
+            break
+
+    if last_status in (401, 403):
+        return (False, "forbidden")
+    return (False, "error")
+
+
 
 #actual conncetion to the api to get products json openapi
 def fetch_products_page(token: str, shop_uzum_id: str | int, *,

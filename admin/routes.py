@@ -385,6 +385,8 @@ def attach_shops_via_openapi():
     if not isinstance(items, list) or not items:
         return _json_response({"error": "shops[] required"}, 400)
 
+    from core.uzum_openapi import verify_shop_access
+
     uid = int(current_user.get_id())
     is_admin = _current_user_is_admin()
 
@@ -394,6 +396,8 @@ def attach_shops_via_openapi():
 
     with SessionLocal() as db:
         settings = _get_or_create_subscription_settings(db)
+        user = db.get(User, uid)
+        token = ((user.uzum_openapi_token or "").strip() if user else "")
         # Snapshot current count once; we'll decrement headroom as we add.
         if not is_admin:
             _, current_count, limit = _can_user_add_shop(
@@ -422,10 +426,30 @@ def attach_shops_via_openapi():
                 if existing.owner_id is not None and not is_admin:
                     skipped.append({"uzum_id": uzum_id, "reason": "owned_by_other"})
                     continue
-                # Claim an unowned shop (regular user) or leave admin-assignable
-                if headroom <= 0 and not is_admin:
-                    skipped.append({"uzum_id": uzum_id, "reason": "limit_reached"})
+
+            if headroom <= 0 and not is_admin:
+                skipped.append({"uzum_id": uzum_id, "reason": "limit_reached"})
+                continue
+
+            # ── Permission gate (Ulug'bek 2026-07-13) ─────────────────────
+            # `/v1/shops` lists the shops the picker offers, but the OpenAPI
+            # token only works for the shops the seller TICKED when creating
+            # it. Without this probe an unpermitted shop attached
+            # "successfully", then every background fetch 403'd forever and
+            # the user just saw an empty page (and burned a shop slot).
+            # Verify BEFORE we write the row or fire the seed.
+            # NOTE: only an explicit `forbidden` blocks the add — an
+            # inconclusive result ("error": network/5xx) must not punish a
+            # legitimate shop, so we let it through as before.
+            if token:
+                ok, why = verify_shop_access(token, uzum_id)
+                if not ok and why == "forbidden":
+                    print(f"[AdminShop] attach REFUSED shop={uzum_id}: token has no permission for it")
+                    skipped.append({"uzum_id": uzum_id, "reason": "no_permission"})
                     continue
+
+            if existing is not None:
+                # Claim an unowned shop (regular user) or leave admin-assignable
                 if existing.owner_id is None:
                     existing.owner_id = uid
                 if name and not existing.name:
@@ -434,10 +458,6 @@ def attach_shops_via_openapi():
                 added.append({"uzum_id": uzum_id, "id": existing.id})
                 seeds.append((uzum_id, existing.id))
                 headroom -= 1
-                continue
-
-            if headroom <= 0 and not is_admin:
-                skipped.append({"uzum_id": uzum_id, "reason": "limit_reached"})
                 continue
 
             shop = Shop(

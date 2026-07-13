@@ -81,6 +81,28 @@ class TestFetchPage:
         assert "searchText=%D0%BA%D0%BE%D0%BB%D1%8C%D1%86%D0%BE%2016" in u
         assert rows[0]["skuId"] == 8816678
 
+    def test_linked_true_by_default_is_the_ombor_list(self):
+        # `linked=true` = «Ombor» ro'yxatining O'ZAGI: faqat FBS/DBS sxemasiga
+        # ulangan SKU. Busiz butun katalog (~2200) keladi VA ombordan
+        # o'chirilgan (sxemadan uzilgan) tovar ro'yxatda qolib ketadi — aynan
+        # shu bug 2026-07-13 da HAR bilan aniqlangan. Uzum'ning o'z sahifasi
+        # ham shu parametrni yuboradi.
+        seen = {}
+        def fake(url, method="GET", **kw):
+            seen["url"] = url
+            return {"payload": {"skus": [PORTAL_ROW]}}
+        self._call(fake)
+        assert "linked=true" in seen["url"]
+
+    def test_linked_false_returns_whole_catalogue(self):
+        # «Barcha tovarlar» ko'rinishi — omborga YANGI SKU qo'shish uchun.
+        seen = {}
+        def fake(url, method="GET", **kw):
+            seen["url"] = url
+            return {"payload": {"skus": [PORTAL_ROW]}}
+        self._call(fake, linked_only=False)
+        assert "linked=" not in seen["url"]
+
     def test_in_stock_only_uses_in_stock_enum(self):
         # «Mavjud» → IN_STOCK (amount>0). SOLD_OUT is NEVER used (it's a
         # curated «manually zeroed» subset, not amount==0 — probe 2026-07-03).

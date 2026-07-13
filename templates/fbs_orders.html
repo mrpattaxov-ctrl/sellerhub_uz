@@ -3096,6 +3096,14 @@
       sizePostavkaFrame();
       _fr.addEventListener("load", () => _fr.classList.add("is-loaded"), { once: true });
     }
+    // «Поставки» nav-badge (= PENDING_DELIVERY buyurtма soni) JONLI kelsin —
+    // ichki накладные ro'yxati kabi. Boshqa chip'lardan farqli, bu badge'ni
+    // loadOrders boshqarmaydi (nav-chip loadOrders'ни chaqirmaydi), shuning
+    // uchun uni ochilganda alohida jonli /count bilan yangilaymiz. Serverda
+    // PENDING_DELIVERY allaqachon jonli-count ro'yxatida (_FBS_REFRESH_ON_PRESS_SYNC).
+    if (shopSel.value && HAS_TOKEN) {
+      loadCounts(true, { statuses: ["PENDING_DELIVERY"], silent: true });
+    }
   }
   function exitPostavkaView(){
     if (!postavkaActive) return;
@@ -4233,18 +4241,25 @@
   });
 
   // «Soft» pager hook — fbs_aurora_pager.js shu funksiya orqali sahifaga o'tadi.
+  // Aktiv chipda sahifa almashtirish ham JONLI (Abdulaziz 2026-07-13): ilgari
+  // bu DB'dan o'qirdi, ya'ni 2-sahifadagi qatorlar fon-worker 10 daqiqa oldin
+  // yozgan surat bo'lishi mumkin edi. Endi har sahifa Uzumdan tortiladi.
   window.__fbsGoPage = function (p) {
     window.__fbsPage = Math.max(0, p | 0);
-    loadOrders(false);
+    loadOrders(FBS_LIVE_CHIPS.has(currentStatus));
   };
 
   // Active-work chips fetch LIVE from Uzum on click / page entry (Bosqich
   // A.12); terminal chips («Boshqa holatlar») stay on the DB read the bg
   // worker keeps fresh. PENDING_DELIVERY («Поставка») is the iframe view.
   const FBS_LIVE_CHIPS = new Set(["CREATED", "PACKING", "DELIVERING"]);
-  // Chips fetched live the moment the seller lands on the page (Yangi +
-  // Yig'ilmoqda) — the rest come from the DB until clicked.
-  const FBS_ENTRY_LIVE = ["CREATED", "PACKING"];
+  // Sahifaga kirishda / brauzer obnovit'da JONLI keladigan aktiv chip'lar —
+  // 4alasi ham (Abdulaziz 2026-07-13: «obnovit qilganimda ham Uzumdan jonli
+  // olsin»). Badge'lari jonli /count bilan, aktiv chip ro'yxati jonli refresh
+  // bilan keladi. Server 4alasiga jonli-count ruxsat beradi
+  // (_FBS_REFRESH_ON_PRESS_SYNC). Terminal chip'lar («Boshqa holatlar») DB'dan
+  // qoladi — og'ir (minglab qator) va kam o'zgaradi, bg worker yangilab turadi.
+  const FBS_ENTRY_LIVE = ["CREATED", "PACKING", "DELIVERING", "PENDING_DELIVERY"];
 
   // Wire up controls. Clicking an active-work chip fetches it LIVE — this
   // doubles as the manual refresh now that the «Yangilash» button is gone
@@ -4279,17 +4294,16 @@
   const _urlView = new URLSearchParams(location.search).get("view");
   if (_urlView === "postavka") {
     showPostavkaView();
-    // Even on the Поставка view, refresh the 2 entry-live chip badges
-    // (Yangi + Yig'ilmoqda) live so the seller sees current numbers.
+    // Поставка ko'rinishida ham barcha aktiv chip badge'lari (4alasi) jonli
+    // /count bilan kelsin — seller joriy raqamlarni Uzumdan ko'rsin.
     if (shopSel.value && HAS_TOKEN) loadCounts(true, { statuses: FBS_ENTRY_LIVE, silent: true });
   } else if (shopSel.value && HAS_TOKEN) {
-    // Page entry fetches ONLY Yangi (CREATED) + Yig'ilmoqda (PACKING) LIVE —
-    // the 2 chips the seller watches (Abdulaziz 2026-06-16). The list is live
-    // ONLY when landing on one of those two; landing on any other chip
-    // (Yo'lda, terminal) reads the DB the bg worker keeps fresh, so entry is
-    // never more than ~2 Uzum calls and never waits on a heavier status.
-    // Re-clicking a live chip (FBS_LIVE_CHIPS) still re-syncs it on demand.
-    loadOrders(FBS_ENTRY_LIVE.includes(currentStatus));
+    // Sahifaga kirish / brauzer obnovit (Abdulaziz 2026-07-13): 4ala aktiv
+    // chip JONLI. Aktiv chip ro'yxati jonli refresh bilan (agar u aktiv-ish
+    // chip bo'lsa — CREATED/PACKING/DELIVERING); qolgan aktiv badge'lar jonli
+    // /count bilan. Bu ~4 ta paced Uzum so'rovi (1 list + 3 count) — obnovit'da
+    // hamma raqam Uzumdan jonli bo'lishi uchun ataylab. Terminal chip'lar DB'dan.
+    loadOrders(FBS_LIVE_CHIPS.has(currentStatus));
     const entryCounts = FBS_ENTRY_LIVE.filter(s => s !== currentStatus);
     loadCounts(true, { statuses: entryCounts, silent: true });
   }

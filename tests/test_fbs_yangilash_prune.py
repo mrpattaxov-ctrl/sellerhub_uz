@@ -31,13 +31,19 @@ import core.fbs_data as fbs_data
 
 def _session_capturing_executes():
     """``with SessionLocal() as db:`` mock whose ``db.execute`` records every
-    statement and returns a result reporting ``rowcount=1``."""
+    statement and returns a result reporting ``rowcount=1``.
+
+    ``.all()`` answers the departed-row SELECT that the settle step runs before
+    it deletes anything (see core.fbs_data._settle_departed_status_rows): one
+    phantom, id 999.
+    """
     executed = []
 
     def _execute(stmt, *a, **k):
         executed.append(stmt)
         res = MagicMock()
         res.rowcount = 1
+        res.all.return_value = [("999",)]
         return res
 
     db = MagicMock(name="db")

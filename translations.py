@@ -351,6 +351,11 @@ TRANSLATIONS = {
         "wh_columns_label": "Колонки файла:",
         "wh_drop_title": "Перетащите файл .xlsx сюда",
         "wh_drop_or": "или выберите на компьютере",
+        # Sensorli ekran (telefon/planshet) — u yerda drag-and-drop ham,
+        # "kompyuter" ham yo'q. Shuning uchun mobil'да BOSHQA matn ko'rsatiladi
+        # (Ulug'bek 2026-07-13).
+        "wh_drop_title_touch": "Выберите файл .xlsx",
+        "wh_drop_or_touch": "нажмите, чтобы открыть «Файлы»",
         "wh_choose_file": "Выбрать файл",
         "wh_side_title": "Что делает импорт",
         "wh_side_desc": "Импорт сверяет строки сначала по SKU, затем по Barcode, если SKU не найден.",
@@ -1058,6 +1063,10 @@ TRANSLATIONS = {
         "wh_columns_label": "Fayl ustunlari:",
         "wh_drop_title": ".xlsx faylni shu yerga tashlang",
         "wh_drop_or": "yoki kompyuterdan tanlang",
+        # Sensorli ekran — drag-and-drop ham, "kompyuter" ham yo'q (yuqoridagi
+        # ruscha izohga qarang).
+        "wh_drop_title_touch": ".xlsx faylni tanlang",
+        "wh_drop_or_touch": "«Fayllar»ni ochish uchun bosing",
         "wh_choose_file": "Faylni tanlash",
         "wh_side_title": "Import nima qiladi",
         "wh_side_desc": "Import qatorlarni avval SKU bo'yicha, keyin SKU topilmasa Barcode bo'yicha solishtiradi.",

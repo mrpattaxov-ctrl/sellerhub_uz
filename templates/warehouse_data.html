@@ -346,6 +346,9 @@
 }
 .wx-btn-green:hover { background: var(--wx-green-hover); color: #fff; }
 
+/* Sensorli variant matnlari — DESKTOPда yashirin (mobil blokда almashadi). */
+.wx-drop-t-touch { display: none; }
+
 /* ── Responsive ── */
 @media (max-width: 860px) {
   .wx-steps { grid-template-columns: 1fr; gap: 14px; }
@@ -355,12 +358,72 @@
   .wx-step-body span { max-width: none; }
 }
 @media (max-width: 700px) {
-  .wx-stats { grid-template-columns: 1fr; }
+  .wx-page { gap: 14px; }
   .wx-head { flex-direction: column-reverse; align-items: stretch; }
   .wx-back { align-self: flex-start; }
-  .wx-card { padding: 20px; }
+  .wx-card { padding: 20px 16px; }
+
+  /* Statistika — 3 ta ALOHIDA karta o'rniga BITTA ixcham lenta (Ulug'bek
+     2026-07-13): ilgari ular ustma-ust ~320px bo'yni yeб, asosiy ish
+     (fayl yuklash) ekrandan pastга tushib keтарди. Endi bitta yuzada,
+     ingichka ajratkichlar bilan — 3 ta raqam bir qarashda o'qiladi. */
+  .wx-stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--wx-surface);
+    border: 1px solid var(--wx-border);
+    border-radius: 16px;
+    box-shadow: var(--wx-card-shadow);
+    overflow: hidden;
+  }
+  .wx-stat {
+    padding: 12px 10px;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--wx-border);
+    border-radius: 0;
+    box-shadow: none;
+    /* Yorliqlar har xil uzunlikда (masalan «СУММАРНЫЙ СКЛАД» ikки qatorга
+       o'raladi) — raqamlar esa BIR chiziqда turishi kerak. Shuning uchun
+       qiymatni pastга bosamiz: kartalar teng bo'yли (grid), demak barcha
+       raqamlar tekislanadi (Ulug'bek 2026-07-13). */
+    display: flex;
+    flex-direction: column;
+  }
+  .wx-stat-value { margin-top: auto; }
+  .wx-stat:first-child { border-left: 0; }
+  .wx-stat-label {
+    font-size: 9.5px; letter-spacing: .04em; line-height: 1.3; margin-bottom: 4px;
+  }
+  .wx-stat-value { font-size: 19px; }
+
+  /* Dropzone — sensorли ekranда «tashlang» (drag-and-drop) YO'Q va «kompyuter»
+     ham yo'q. Shuning uchun matn almashadi + blok tik yotadi. */
+  .wx-drop-t-pointer { display: none; }
+  .wx-drop-t-touch { display: inline; }
+  .wx-dropzone {
+    flex-direction: column;
+    padding: 24px 16px;
+    gap: 14px;
+    text-align: center;
+  }
+  .wx-drop-text { width: 100%; }
+  #wxChooseBtn { width: 100%; max-width: 260px; }
+
   .wx-actions { flex-direction: column; }
   .wx-actions .wx-btn-ghost { height: 48px; }
+  /* BAG (Ulug'bek 2026-07-13): ustunда `flex:1` asosiy o'q — VERTIKAL, ya'ni
+     `flex-basis:0%` `height:50px`ни bekor qilиб, tugmani MAZMUN bo'yiga
+     (~25px) siqиб qo'yарди — asosiy tugma barmoq uchun juda kichik edi.
+     Ustunда cho'zilishга hojat yo'q: flex'ни o'chiramiz, bo'y qaytadi. */
+  .wx-actions .wx-btn-green { flex: none; height: 50px; width: 100%; }
+}
+
+/* Eng tor telefonlar — statistika lentasi siqilmasin. */
+@media (max-width: 360px) {
+  .wx-stat { padding: 10px 7px; }
+  .wx-stat-label { font-size: 9px; letter-spacing: .02em; }
+  .wx-stat-value { font-size: 17px; }
 }
 </style>
 {% endblock %}
@@ -451,8 +514,17 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
         </span>
         <div class="wx-drop-text">
-          <p class="wx-drop-title" id="wxDropTitle">{{ t.wh_drop_title }}</p>
-          <p class="wx-drop-sub">{{ t.wh_drop_or }}</p>
+          {# Ikki variant: sichqoncha (drag-and-drop) va sensorli ekran. Faqat
+             bittasi ko'rinadi (CSS). Fayl tanlanганда JS ikkalasini ham fayl
+             nomiga almashtiradi. #}
+          <p class="wx-drop-title" id="wxDropTitle">
+            <span class="wx-drop-t-pointer">{{ t.wh_drop_title }}</span>
+            <span class="wx-drop-t-touch">{{ t.wh_drop_title_touch }}</span>
+          </p>
+          <p class="wx-drop-sub">
+            <span class="wx-drop-t-pointer">{{ t.wh_drop_or }}</span>
+            <span class="wx-drop-t-touch">{{ t.wh_drop_or_touch }}</span>
+          </p>
         </div>
         <button type="button" class="wx-btn wx-btn-ghost" id="wxChooseBtn">{{ t.wh_choose_file }}</button>
       </div>
@@ -479,15 +551,19 @@
   var chooseBtn = document.getElementById('wxChooseBtn');
   var title = document.getElementById('wxDropTitle');
   var form = document.getElementById('wxImportForm');
-  var defaultTitle = title.textContent;
+  // Sarlavha ICHIDA ikkita variant-span bor (pointer / touch) — shuning uchun
+  // matnни emas, RAZMETKAни saqlaymiz. Aks holda tiklaganда ikkala variant
+  // matni birga yopishиб qolарди (Ulug'bek 2026-07-13).
+  var defaultTitleHTML = title.innerHTML;
 
   function showFile() {
     if (input.files && input.files.length) {
+      // Fayl tanlandi — ikkala variant o'rniga bitta fayl nomi.
       title.textContent = input.files[0].name;
       dropzone.classList.add('wx-has-file');
       dropzone.classList.remove('wx-error');
     } else {
-      title.textContent = defaultTitle;
+      title.innerHTML = defaultTitleHTML;
       dropzone.classList.remove('wx-has-file');
     }
   }

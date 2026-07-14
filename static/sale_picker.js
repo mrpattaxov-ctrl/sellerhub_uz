@@ -66,7 +66,12 @@
     + ".sp-head h3{margin:0;font-size:18px;font-weight:700;}"
     + ".sp-head .sp-sub{font-size:13px;color:var(--sp-muted,#8E8B97);margin-top:4px;}"
     + ".sp-x{margin-left:auto;background:none;border:0;color:var(--sp-muted,#8E8B97);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;}"
-    + ".sp-body{padding:16px 26px 22px;overflow-y:auto;}"
+    /* padding-top:0 — ATAYLAB. Bu scroll konteyner; agar tepasida padding
+       bo'lsa, sticky sarlavha o'sha padding chetiga yopishadi va uning
+       USTIDAGI 16px yo'lakda qatorlar ko'rinib o'tadi. Tepa bo'shliq o'rniga
+       birinchi bolaga margin beriladi — u qatorlar bilan birga suriladi. */
+    + ".sp-body{padding:0 26px 22px;overflow-y:auto;}"
+    + ".sp-body>:first-child{margin-top:16px;}"
     + ".sp-sectlabel{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sp-muted,#8E8B97);margin:16px 0 8px;}"
     + ".sp-inbanner{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--sp-hl,#FFF7E6);color:var(--sp-warnfg,#B7791F);border-radius:11px;padding:10px 13px;font-size:13px;font-weight:600;}"
     + ".sp-inbanner .sp-chip{background:rgba(0,0,0,.06);border-radius:999px;padding:2px 9px;font-weight:700;}"
@@ -84,17 +89,25 @@
     + ".sp-disc-global input{width:74px;height:36px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:center;font-size:14px;font-weight:700;}"
     + ".sp-disc-apply{height:36px;padding:0 14px;border:0;border-radius:9px;background:var(--sp-accent,#4169E1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;}"
     + ".sp-hint{font-size:12px;color:var(--sp-muted,#8E8B97);}"
-    /* SKU JADVALI — «Акции» sahifasidagi tanlangan-SKU jadvali (.sl-thead /
-       .sl-srow) bilan bir xil ustunli tuzilma (Ulug'bek 2026-07-14):
-         SKU · Текущая цена · Себестоимость · Хранение · Новая цена · Скидка · К выводу
-       «Не больше X» — sotuvda qabul qilinadigan eng katta narx — o'sha-o'sha
-       narx maydoni OSTIDA qoladi. Qatorlar SAQLASH xarajati bo'yicha kamayish
-       tartibida: eng ko'p pul yeyayotgan SKU eng tepada. */
+    /* SKU JADVALI (Ulug'bek 2026-07-14). Ustunlar tartibi:
+         SKU · Хранение · [bo'sh] · Текущая цена · Новая цена · Скидка · К выводу · Себестоимость
+       SAQLASH ustuni SKU'ga yaqin turadi — jadval o'sha xarajat bo'yicha
+       saralanadi, shuning uchun ikkalasi yonma-yon o'qiladi. Ular bilan narx
+       bloki orasida CHO'ZILUVCHAN bo'sh yo'lak (3-track) bor: ortiqcha joy
+       SKU ustuniga emas, o'sha yo'lakka ketadi — shunda «Хранение» SKU'ni
+       quvib yuboradi, narxlar esa aniq ajralib turadi. Bo'sh yo'lak uchun
+       alohida element YO'Q: 3-bola 4-track'ga majburan qo'yiladi.
+       «Не больше X» — narx maydoni OSTIDA qoladi. */
     + ".sp-vtable{display:flex;flex-direction:column;border:1px solid var(--sp-border,#ECECF0);border-radius:14px;}"
-    + ".sp-thead,.sp-vrow{display:grid;grid-template-columns:minmax(0,1fr) 84px 96px 84px 138px 80px 88px;gap:12px;align-items:center;}"
-    /* Sarlavha qatori scroll'да yopishib turadi — .sp-vtable'да overflow YO'Q,
-       aks holda sticky ishlamaydi. Shuning uchun burchaklar qo'lда yumaloqlanadi. */
-    + ".sp-thead{position:sticky;top:0;z-index:2;padding:11px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sp-muted,#8E8B97);background:var(--sp-surface,#fff);border-bottom:1px solid var(--sp-border,#ECECF0);border-radius:13px 13px 0 0;}"
+    /* SKU ustuni max-content: ortiqcha joyni O'ZIGA olmaydi, 3-track'ka beradi —
+       shundagina «Хранение» SKU'ning yoniga keladi (aks holda 145px uzoqda qolardi). */
+    + ".sp-thead,.sp-vrow{display:grid;grid-template-columns:minmax(150px,max-content) 80px minmax(16px,1fr) 100px 134px 74px 92px 104px;gap:12px;align-items:center;}"
+    + ".sp-thead>:nth-child(3),.sp-vrow>:nth-child(3){grid-column:4;}"   /* 3-track'ni bo'sh qoldiradi */
+    /* Sarlavha qatori scroll'да yopishib turadi. Ikki shart: (1) .sp-vtable'да
+       overflow YO'Q; (2) .sp-body'да padding-top YO'Q — aks holda sticky o'sha
+       padding chetiga yopishadi va tepasida qatorlar ko'rinib o'tadi (aynan shu
+       nuqson tuzatildi). Burchaklar qo'lда yumaloqlanadi. */
+    + ".sp-thead{position:sticky;top:0;z-index:3;padding:11px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sp-muted,#8E8B97);background:var(--sp-thbg,#F2F2F6);border-bottom:1px solid var(--sp-border,#ECECF0);border-radius:13px 13px 0 0;}"
     + ".sp-thead .sp-r{text-align:right;}"
     + ".sp-vrow{padding:12px 16px;border-bottom:1px solid var(--sp-border,#ECECF0);transition:background .12s;}"
     + ".sp-vrow:last-child{border-bottom:0;border-radius:0 0 13px 13px;}"
@@ -136,17 +149,18 @@
        shu chegaradan pastда jadval 2 ustunli kartaga yig'iladi — Акции
        sahifasidagi kabi, ammo har bir katak ustida ustun NOMI bilan, aks holda
        yalang'och raqamlar nimani anglatishi bilinmaydi. */
-    + "@media (max-width:940px){"
+    + "@media (max-width:980px){"
       + ".sp-thead{display:none;}"
       /* align-items:start — «Новая цена» kataki (input + «Не больше») baland,
          markazga tekislansa yonidagi kataklar atrofida bo'sh joy qoladi. */
       + ".sp-vrow{grid-template-columns:1fr 1fr;gap:10px 12px;align-items:start;}"
+      + ".sp-vrow>:nth-child(3){grid-column:auto;}"   /* keng ekrandagi bo'sh yo'lak bekor qilinadi */
       + ".sp-vprod{grid-column:1 / -1;}"
       + ".sp-num,.sp-vnew,.sp-vdisc,.sp-vpayout{text-align:left;}"
       + ".sp-vrow [data-l]::before{content:attr(data-l);display:block;margin-bottom:3px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sp-muted,#8E8B97);}"
       + ".sp-price-input{width:100%;}"
     + "}"
-    + "[data-bs-theme='dark'] .sp-modal{--sp-surface:#18181F;--sp-text:#F0EDF5;--sp-text2:#B6B4C2;--sp-border:#25252F;--sp-muted:#8A8896;--sp-active:#22222D;--sp-hover:#1C1C26;--sp-accent:#6E8FE8;--sp-hl:rgba(251,191,36,.12);--sp-warnfg:#FBBF24;--sp-hlsoft:rgba(110,143,232,.12);--sp-expbg:rgba(252,165,165,.16);--sp-expfg:#FCA5A5;}"
+    + "[data-bs-theme='dark'] .sp-modal{--sp-surface:#18181F;--sp-thbg:#20202A;--sp-text:#F0EDF5;--sp-text2:#B6B4C2;--sp-border:#25252F;--sp-muted:#8A8896;--sp-active:#22222D;--sp-hover:#1C1C26;--sp-accent:#6E8FE8;--sp-hl:rgba(251,191,36,.12);--sp-warnfg:#FBBF24;--sp-hlsoft:rgba(110,143,232,.12);--sp-expbg:rgba(252,165,165,.16);--sp-expfg:#FCA5A5;}"
     + "[data-bs-theme='dark'] .sp-toast{background:#F0EDF5;color:#0E0E14;}";
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
@@ -329,9 +343,10 @@
     var vt=$("spVtable"); vt.innerHTML="";
     if(!skus.length){ vt.innerHTML="<div class='sp-msg'>"+T.noLimits+"</div>"; $("spAdd").disabled=true; return; }
     var head=document.createElement("div"); head.className="sp-thead";
-    head.innerHTML="<span>SKU</span><span class='sp-r'>"+T.colCur+"</span><span class='sp-r'>"+T.cost+"</span>"
-      +"<span class='sp-r'>"+T.storage+"</span><span class='sp-r'>"+T.colNew+"</span>"
-      +"<span class='sp-r'>"+T.colDisc+"</span><span class='sp-r'>"+T.payout+"</span>";
+    head.innerHTML="<span>SKU</span><span class='sp-r'>"+T.storage+"</span>"
+      +"<span class='sp-r'>"+T.colCur+"</span><span class='sp-r'>"+T.colNew+"</span>"
+      +"<span class='sp-r'>"+T.colDisc+"</span><span class='sp-r'>"+T.payout+"</span>"
+      +"<span class='sp-r'>"+T.cost+"</span>";
     vt.appendChild(head);
     byStorageDesc(skus).forEach(function(sk){
       var sid=sk.sku_id;
@@ -348,14 +363,14 @@
         "<div class='sp-vprod'><div class='sp-vthumb'>"+(ours.image_url?"<img src='"+esc(ours.image_url)+"'>":"")+"</div>"
           +"<div class='sp-vskuwrap'><div class='sp-vsku'>"+esc(skuName)+"</div>"
           +(color?"<div class='sp-vchar'>"+esc(color)+"</div>":"")+"</div></div>"
-        +"<div class='sp-num sp-vcur' data-l='"+T.colCur+"'>"+fmt(cur0)+"</div>"
-        +"<div class='sp-num sp-vcost' data-l='"+T.cost+"'>"+fmt((ours.cost_price||0)>0?ours.cost_price:null)+"</div>"
         +"<div class='sp-num sp-vexp"+(stor>0?"":" zero")+"' data-l='"+T.storage+"'>"+(stor>0?fmt(stor):"—")+"</div>"
+        +"<div class='sp-num sp-vcur' data-l='"+T.colCur+"'>"+fmt(cur0)+"</div>"
         +"<div class='sp-vnew' data-l='"+T.colNew+"'>"
           +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-comm='"+(sk.commission_rate!=null?sk.commission_rate:"")+"' data-logi='"+(sk.logistics_per_unit!=null?sk.logistics_per_unit:"")+"' value='"+def+"' min='0' step='10'>"
           +"<span class='sp-limit'>"+T.noMore+" "+fmt(maxp)+" "+cur+"</span></div>"
         +"<div class='sp-vdisc' data-l='"+T.colDisc+"'><b data-amt='"+sid+"'>0</b><small data-pct='"+sid+"'>0%</small></div>"
-        +"<div class='sp-vpayout' data-payout='"+sid+"' data-l='"+T.payout+"'>—</div>";
+        +"<div class='sp-vpayout' data-payout='"+sid+"' data-l='"+T.payout+"'>—</div>"
+        +"<div class='sp-num sp-vcost' data-l='"+T.cost+"'>"+fmt((ours.cost_price||0)>0?ours.cost_price:null)+"</div>";
       vt.appendChild(row);
     });
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){

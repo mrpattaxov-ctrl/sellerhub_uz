@@ -98,27 +98,65 @@
 .zk-spacer { flex:1 1 auto; }
 
 /* ── Jadval ── */
-.zk-card { background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:16px; overflow:hidden; }
-.zk-tablewrap { overflow-x:auto; }
-.zk-table { width:100%; border-collapse:collapse; min-width:1120px; table-layout:fixed; }
-.zk-table thead th { position:sticky; top:0; z-index:2; background:var(--zk-head-bg); text-align:left;
-  padding:13px 11px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-  color:var(--zk-text-muted); border-bottom:1px solid var(--zk-border); white-space:nowrap; }
+/* «Складские расходы»даги AYNAN o'sha retsept (Ulug'bek, 2026-07-14):
+   `overflow` bo'lgan ota-element `position:sticky`ни O'Z ICHIГА qamab qo'yadi.
+   Shu bois bu yerда HECH QAYERДА overflow yo'q — na kartaда, na wrapper'да.
+   Natijada sarlavha SAHIFАГА (viewport'ga) yopishadi: jadval tabiiy uzunligiча
+   cho'ziladi, sahifа oddiy scroll bo'ladi, faqat sarlavha qatori qotиб turadi.
+   Burchakларни radius bilan emas, chekka kataklarга radius berиб hosil qilamiz. */
+.zk-card { background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:16px; }
+.zk-tablewrap { }
+.zk-table { width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+/* 64px — ilovaning sticky top-bar balandligi (styles.css): sarlavha AYNAN uning
+   ostiga yopishadi. z-index 5 < top-bar'нинг 30'си, ya'ni ustiga chiqmaydi. */
+.zk-table thead th { position:sticky; top:64px; z-index:5; background:var(--zk-head-bg); text-align:left;
+  padding:14px 11px; font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--zk-text); border-bottom:1px solid var(--zk-border-strong); white-space:nowrap;
+  box-shadow:0 1px 0 var(--zk-border-strong); }   /* border-collapse:separate — chegara sticky'да yo'qolmasin */
 .zk-table th.zk-num, .zk-table td.zk-num { text-align:right; }
 .zk-table td { padding:12px 11px; border-bottom:1px solid var(--zk-border); vertical-align:middle; }
-/* Ustun kengliklari QAT'IY (table-layout:fixed) — «Sotib olish» va «Summa»
-   sahifaning JAVOBI, ular hech qachon o'ng chetdan chiqib ketmasligi kerak.
-   Nom ustuni — yagona cho'ziluvchi ustun, uzun nom «…» bilan qirqiladi. */
-.zk-table col.c-img  { width:56px; }
-.zk-table col.c-name { width:auto; }
-.zk-table col.c-cov  { width:126px; }
-.zk-table col.c-sold { width:82px; }
-.zk-table col.c-uzum { width:84px; }
-.zk-table col.c-wh   { width:88px; }
-.zk-table col.c-ord  { width:96px; }
-.zk-table col.c-prc  { width:96px; }
-.zk-table col.c-sum  { width:112px; }
 .zk-table tbody tr:last-child td { border-bottom:0; }
+.zk-table tbody tr:last-child td:first-child { border-bottom-left-radius:16px; }
+.zk-table tbody tr:last-child td:last-child  { border-bottom-right-radius:16px; }
+
+/* Ustun kengliklari — `table-layout:fixed`да BIRINCHI qator kataklaridan olinadi,
+   ya'ni to'g'ridan-to'g'ri `th`дан. Shu sababli ustunni `display:none` qilsak, u
+   BUTUNLAY yo'qoladi (colgroup ishlatilса, `col` kengligi baribir joy egallardi). */
+.zk-table th.c-img  { width:56px; }
+.zk-table th.c-cov  { width:126px; }
+.zk-table th.c-sold { width:82px; }
+.zk-table th.c-uzum { width:84px; }
+.zk-table th.c-wh   { width:88px; }
+.zk-table th.c-ord  { width:96px; }
+.zk-table th.c-prc  { width:96px; }
+.zk-table th.c-sum  { width:112px; }
+
+/* Jadval HAR DOIM sig'ishi kerak: gorizontal scroll'li wrapper qaytib kelса,
+   sticky sarlavha yana qamalиб qolади. Shuning uchun ekran torayганда ustunlar
+   MUHIMLIK tartibida olib tashlanadi. Eng oxиргиси — «Себест.» (guruh qatorида
+   baribir «—»), keyin «На Uzum» va «На складе» (ularни QOPLAMA chizig'и allaqachon
+   ko'rsatиб turadi), eng oxirида «Продано». «К заказу» va «Сумма» — sahifaning
+   JAVOBI — hech qachon yo'qolmaydi. Yon panel 220px (≤768px'да yo'qoladi). */
+@media (max-width:1400px) { .zk-table .c-prc  { display:none; } }
+@media (max-width:1240px) { .zk-table .c-uzum { display:none; } }
+@media (max-width:1120px) { .zk-table .c-wh   { display:none; } }
+@media (max-width:1010px) { .zk-table .c-cov  { display:none; } }
+@media (max-width:900px)  { .zk-table .c-sold { display:none; } }
+@media (min-width:769px) and (max-width:1240px) {
+  .zk-table thead th, .zk-table tbody td { padding-left:8px; padding-right:8px; }
+}
+/* Telefon: yon panel yo'q, lekin joy baribir yetmaydi. Bu yerда — expenses kabi —
+   HAMMA ustunni qaytaramiz va jadval O'Z ICHIДА yon tomonga scroll bo'ladi.
+   Scroll-konteyner paydo bo'lgani uchun sarlavha unга nisbatan yopishadi →
+   `top:0` va wrapper'га balandlik SHART, aks holda u umuman yopishmaydi. */
+@media (max-width:768px) {
+  .zk-tablewrap { overflow:auto; -webkit-overflow-scrolling:touch; max-height:calc(100vh - 150px);
+    border-radius:16px; }
+  .zk-table { min-width:1120px; }
+  .zk-table thead th { top:0; }
+  .zk-table .c-prc, .zk-table .c-uzum, .zk-table .c-wh,
+  .zk-table .c-cov, .zk-table .c-sold { display:table-cell; }
+}
 .zk-grow { cursor:pointer; transition:background .12s; }
 .zk-grow:hover { background:var(--zk-hover); }
 .zk-vrow { background:var(--zk-head-bg); }
@@ -145,15 +183,15 @@
 .zk-mismatch { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; cursor:help;
   background:var(--zk-warn-bg); color:var(--zk-warn-fg); white-space:nowrap; }
 
-.zk-n { font-size:14px; font-weight:600; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
-.zk-n-soft { color:var(--zk-text-muted); font-weight:500; }
+.zk-n { font-size:14px; font-weight:400; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.zk-n-soft { color:var(--zk-text-muted); font-weight:400; }
 .zk-cur { font-size:11px; color:var(--zk-text-muted); font-weight:500; margin-left:3px; }
 
 /* «К заказу» — sahifaning JAVOBI, shuning uchun yagona rangli raqam */
-.zk-ord { display:inline-block; min-width:56px; padding:5px 10px; border-radius:9px; font-size:14px; font-weight:800;
+.zk-ord { display:inline-block; min-width:56px; padding:5px 10px; border-radius:9px; font-size:14px; font-weight:400;
   background:var(--zk-ord-bg); color:var(--zk-ord-fg); font-variant-numeric:tabular-nums; text-align:right; }
-.zk-ord.is-zero { background:var(--zk-ok-bg); color:var(--zk-ok-fg); font-weight:700; }
-.zk-sum { font-size:14px; font-weight:700; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.zk-ord.is-zero { background:var(--zk-ok-bg); color:var(--zk-ok-fg); font-weight:400; }
+.zk-sum { font-size:14px; font-weight:400; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .zk-noprice { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px;
   background:var(--zk-warn-bg); color:var(--zk-warn-fg); white-space:nowrap; }
 
@@ -169,12 +207,12 @@
 .zk-cov .zk-cov-w { background:var(--zk-cov-wh); }
 .zk-cov .zk-cov-g { background:var(--zk-cov-gap); }
 .zk-cov-wrap { display:flex; flex-direction:column; gap:5px; }
-.zk-cov-lab { font-size:11px; font-weight:600; color:var(--zk-text-muted); font-variant-numeric:tabular-nums; }
-.zk-cov-lab b { color:var(--zk-cov-gap); font-weight:700; }
+.zk-cov-lab { font-size:11px; font-weight:400; color:var(--zk-text-muted); font-variant-numeric:tabular-nums; }
+.zk-cov-lab b { color:var(--zk-cov-gap); font-weight:400; }
 .zk-cov-lab.is-full b { color:var(--zk-ok-fg); }
 
 /* Izoh — o'lchagich nimani anglatishini BIR MARTA aytadi */
-.zk-legend { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:11px 16px;
+.zk-legend { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:11px 16px; border-radius:16px 16px 0 0;
   border-bottom:1px solid var(--zk-border); background:var(--zk-head-bg); font-size:12px; color:var(--zk-text-muted); font-weight:600; }
 .zk-legend span { display:flex; align-items:center; gap:6px; }
 .zk-legend i { width:10px; height:10px; border-radius:3px; display:block; }
@@ -242,20 +280,17 @@
     </div>
     <div class="zk-tablewrap">
       <table class="zk-table">
-        <colgroup>
-          <col class="c-img"><col class="c-name"><col class="c-cov"><col class="c-sold">
-          <col class="c-uzum"><col class="c-wh"><col class="c-ord"><col class="c-prc"><col class="c-sum">
-        </colgroup>
         <thead>
           <tr>
-            <th colspan="2">{{ 'Mahsulot' if is_uz else 'Товар' }}</th>
-            <th>{{ 'Qoplama' if is_uz else 'Покрытие' }}</th>
-            <th class="zk-num" id="zkSoldHead">{{ 'Sotildi' if is_uz else 'Продано' }}</th>
-            <th class="zk-num">{{ 'Uzum‘da' if is_uz else 'На Uzum' }}</th>
-            <th class="zk-num">{{ 'Omborda' if is_uz else 'На складе' }}</th>
-            <th class="zk-num">{{ 'Sotib olish' if is_uz else 'К заказу' }}</th>
-            <th class="zk-num">{{ 'Tannarx' if is_uz else 'Себест.' }}</th>
-            <th class="zk-num">{{ 'Summa' if is_uz else 'Сумма' }}</th>
+            <th class="c-img"></th>
+            <th class="c-name">{{ 'Mahsulot' if is_uz else 'Товар' }}</th>
+            <th class="c-cov">{{ 'Qoplama' if is_uz else 'Покрытие' }}</th>
+            <th class="zk-num c-sold" id="zkSoldHead">{{ 'Sotildi' if is_uz else 'Продано' }}</th>
+            <th class="zk-num c-uzum">{{ 'Uzum‘da' if is_uz else 'На Uzum' }}</th>
+            <th class="zk-num c-wh">{{ 'Omborda' if is_uz else 'На складе' }}</th>
+            <th class="zk-num c-ord">{{ 'Sotib olish' if is_uz else 'К заказу' }}</th>
+            <th class="zk-num c-prc">{{ 'Tannarx' if is_uz else 'Себест.' }}</th>
+            <th class="zk-num c-sum">{{ 'Summa' if is_uz else 'Сумма' }}</th>
           </tr>
         </thead>
         <tbody id="zkBody">
@@ -356,8 +391,8 @@
     const open = !!S.open[g.key];
     const multi = S.data && S.data.multi;
     return `<tr class="zk-grow${open?' is-open':''}" data-k="${esc(g.key)}">
-      <td style="padding-right:0">${thumb(g.image)}</td>
-      <td>
+      <td class="c-img" style="padding-right:0">${thumb(g.image)}</td>
+      <td class="c-name">
         <div class="zk-lead">
           <span class="zk-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
           <div class="zk-info">
@@ -371,20 +406,20 @@
           </div>
         </div>
       </td>
-      <td>${covHtml(g)}</td>
-      <td class="zk-num"><span class="zk-n">${num(g.sales)}</span></td>
-      <td class="zk-num"><span class="zk-n zk-n-soft">${num(g.uzum_qty)}</span></td>
-      <td class="zk-num">${whCell(g)}</td>
-      <td class="zk-num">${ordCell(g.to_order)}</td>
-      <td class="zk-num"><span class="zk-n zk-n-soft">—</span></td>
-      <td class="zk-num">${sumCell(g)}</td>
+      <td class="c-cov">${covHtml(g)}</td>
+      <td class="zk-num c-sold"><span class="zk-n">${num(g.sales)}</span></td>
+      <td class="zk-num c-uzum"><span class="zk-n zk-n-soft">${num(g.uzum_qty)}</span></td>
+      <td class="zk-num c-wh">${whCell(g)}</td>
+      <td class="zk-num c-ord">${ordCell(g.to_order)}</td>
+      <td class="zk-num c-prc"><span class="zk-n zk-n-soft">—</span></td>
+      <td class="zk-num c-sum">${sumCell(g)}</td>
     </tr>`;
   }
 
   function varRow(g, v){
     return `<tr class="zk-vrow" data-v="${esc(g.key)}">
-      <td></td>
-      <td>
+      <td class="c-img"></td>
+      <td class="c-name">
         <div class="zk-lead" style="padding-left:26px">
           ${thumb(v.image)}
           <div class="zk-info">
@@ -393,13 +428,13 @@
           </div>
         </div>
       </td>
-      <td>${covHtml(v)}</td>
-      <td class="zk-num"><span class="zk-n">${num(v.sales)}</span></td>
-      <td class="zk-num"><span class="zk-n zk-n-soft">${num(v.uzum_qty)}</span></td>
-      <td class="zk-num">${whCell(v)}</td>
-      <td class="zk-num">${ordCell(v.to_order)}</td>
-      <td class="zk-num">${v.price > 0 ? `<span class="zk-n zk-n-soft">${num(v.price)}<span class="zk-cur">${T.sum}</span></span>` : `<span class="zk-n zk-n-soft">—</span>`}</td>
-      <td class="zk-num">${sumCell(v)}</td>
+      <td class="c-cov">${covHtml(v)}</td>
+      <td class="zk-num c-sold"><span class="zk-n">${num(v.sales)}</span></td>
+      <td class="zk-num c-uzum"><span class="zk-n zk-n-soft">${num(v.uzum_qty)}</span></td>
+      <td class="zk-num c-wh">${whCell(v)}</td>
+      <td class="zk-num c-ord">${ordCell(v.to_order)}</td>
+      <td class="zk-num c-prc">${v.price > 0 ? `<span class="zk-n zk-n-soft">${num(v.price)}<span class="zk-cur">${T.sum}</span></span>` : `<span class="zk-n zk-n-soft">—</span>`}</td>
+      <td class="zk-num c-sum">${sumCell(v)}</td>
     </tr>`;
   }
 

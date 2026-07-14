@@ -59,7 +59,7 @@ from datetime import date, datetime, timedelta, timezone, time as dt_time
 from urllib.error import HTTPError
 
 import requests
-from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session
+from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session, send_from_directory
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect, or_, and_
@@ -347,6 +347,18 @@ print(f"[ADMIN] Secret admin entry: /admin-{_ADMIN_SECRET}/login\n", flush=True)
 login_manager.init_app(app)
 login_manager.login_view = "auth_bp.login"
 
+@app.route("/favicon.ico")
+def favicon():
+    """Browsers request /favicon.ico from the site root on their own, whatever
+    the <link> tags say — without this route it 404s app-wide and the tab falls
+    back to the generic globe. Exempted from the password-change and
+    subscription guards below (same as `static`), so the icon still renders on
+    the pages those guards redirect to."""
+    return send_from_directory(
+        app.static_folder, "favicon.ico", mimetype="image/vnd.microsoft.icon"
+    )
+
+
 @app.before_request
 def _make_session_permanent():
     """Mark every session permanent so the auth cookie survives a full
@@ -360,7 +372,7 @@ def _force_password_change():
         return None
     if not getattr(current_user, "must_change_password", False):
         return None
-    if request.endpoint in ("auth_bp.change_password", "change_password", "auth_bp.logout", "logout", "static"):
+    if request.endpoint in ("auth_bp.change_password", "change_password", "auth_bp.logout", "logout", "static", "favicon"):
         return None
     return redirect(url_for("auth_bp.change_password"))
 
@@ -376,6 +388,7 @@ def _enforce_active_subscription():
         "auth_bp.subscription_page",
         "auth_bp.subscription_expired_page",
         "static",
+        "favicon",
     }
     if request.endpoint in allowed_endpoints:
         return None

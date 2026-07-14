@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import select, func, desc
 
@@ -32,14 +32,31 @@ warehouse_bp = Blueprint("warehouse_bp", __name__)
 
 WAREHOUSE_EXPORT_HEADERS = ["SKU", "Barcode", "Name", "Warehouse Quantity"]
 
+# The exported sheet is written in the language the app is set to, so the seller
+# reads a spreadsheet in their own words. Import stays language-blind: every
+# variant below is an accepted header, so a Russian export re-imports, an Uzbek
+# one does too, and the older English files keep working untouched.
+_WAREHOUSE_EXPORT_HEADERS_BY_LANG = {
+    "ru": ["SKU", "Штрихкод", "Название", "Остаток на складе"],
+    "uz": ["SKU", "Shtrix-kod", "Nomi", "Ombordagi qoldiq"],
+}
+
 _WAREHOUSE_HEADER_ALIASES = {
-    "sku": {"sku", "article", "artikul"},
-    "barcode": {"barcode", "bar code", "ean", "ean13", "штрихкод", "shtrixkod"},
+    "sku": {"sku", "article", "artikul", "артикул"},
+    "barcode": {
+        "barcode", "bar code", "ean", "ean13",
+        "штрихкод", "штрих код", "shtrixkod", "shtrix kod",
+    },
     "quantity": {
         "warehouse quantity", "warehouse qty", "warehouse stock", "warehouse_quantity",
-        "qty", "quantity", "stock", "остаток", "склад", "количество", "soni"
+        "qty", "quantity", "stock", "остаток", "склад", "количество", "soni",
+        "остаток на складе", "ombordagi qoldiq", "ombor qoldigi", "qoldiq",
     },
 }
+
+
+def _warehouse_export_headers(lang: str) -> list[str]:
+    return _WAREHOUSE_EXPORT_HEADERS_BY_LANG.get(lang, WAREHOUSE_EXPORT_HEADERS)
 
 
 def _normalize_excel_header(value) -> str:
@@ -255,7 +272,7 @@ def warehouse_import():
             "warehouse_data.html",
             title="Импорт склада Excel",
             summary=summary,
-            expected_headers=WAREHOUSE_EXPORT_HEADERS,
+            expected_headers=_warehouse_export_headers(session.get("lang", "uz")),
         )
 
     file = request.files.get("file")
@@ -268,100 +285,147 @@ def warehouse_import():
         return redirect(url_for("warehouse_bp.warehouse_import"))
 
     try:
-        wb = openpyxl.load_workbook(file, data_only=True)
-        ws = wb[wb.sheetnames[0]]
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            raise ValueError("Excel file is empty.")
-
-        column_map = _detect_warehouse_import_columns(rows[0])
-        idx_sku = column_map["sku"]
-        idx_qty = column_map["quantity"]
-        idx_barcode = column_map.get("barcode")
-
-        stmt, allowed_shop_ids = _warehouse_scope_stmt(uid)
-        with SessionLocal() as db:
-            # Lock the scoped variant rows so a concurrent POS sale can't be
-            # silently overwritten by this absolute-set import (read-modify-write
-            # race). The .xlsx is already fully parsed above, so the lock is held
-            # only for the in-memory loop + commit. Order by id for deterministic
-            # lock acquisition (deadlock avoidance).
-            scoped_variants = db.execute(
-                stmt.with_for_update(of=Variant).order_by(Variant.id)
-            ).all()
-            sku_map = {
-                (variant.sku or "").strip().lower(): variant
-                for variant, _group in scoped_variants
-                if variant.sku
-            }
-            barcode_map = {
-                (variant.barcode or "").strip().lower(): variant
-                for variant, _group in scoped_variants
-                if variant.barcode
-            }
-
-            matched_count = 0
-            changed_count = 0
-            barcode_match_count = 0
-            missing_count = 0
-            skipped_count = 0
-            missing_examples: list[str] = []
-
-            for excel_row_number, row in enumerate(rows[1:], start=2):
-                if not row or all(cell in (None, "") for cell in row):
-                    continue
-
-                sku = str(row[idx_sku]).strip() if len(row) > idx_sku and row[idx_sku] else ""
-                barcode = ""
-                if idx_barcode is not None and len(row) > idx_barcode and row[idx_barcode]:
-                    barcode = str(row[idx_barcode]).strip()
-
-                qty_val = row[idx_qty] if len(row) > idx_qty else None
-                qty = _coerce_warehouse_import_qty(qty_val)
-                if qty is None:
-                    skipped_count += 1
-                    continue
-
-                variant = None
-                used_barcode = False
-                if sku:
-                    variant = sku_map.get(sku.lower())
-                if not variant and barcode:
-                    variant = barcode_map.get(barcode.lower())
-                    used_barcode = variant is not None
-
-                if not variant:
-                    missing_count += 1
-                    label = sku or barcode or f"row {excel_row_number}"
-                    if len(missing_examples) < 5:
-                        missing_examples.append(label)
-                    continue
-
-                matched_count += 1
-                if used_barcode:
-                    barcode_match_count += 1
-                if (variant.warehouse_quantity or 0) != qty:
-                    variant.warehouse_quantity = qty
-                    changed_count += 1
-
-            db.commit()
-
-        flash_parts = [
-            f"Импорт завершён: найдено {matched_count}, изменено {changed_count}, пропущено {skipped_count}."
-        ]
-        if barcode_match_count:
-            flash_parts.append(f"По штрихкоду сопоставлено {barcode_match_count}.")
-        if missing_count:
-            msg = f"Не найдено {missing_count}"
-            if missing_examples:
-                msg += f" ({', '.join(missing_examples)})"
-            flash_parts.append(msg + ".")
-        flash(" ".join(flash_parts))
-        return redirect(url_for("warehouse_bp.warehouse_import"))
-
+        stats = _apply_warehouse_xlsx(file, uid)
     except Exception as e:
         flash(f"Ошибка импорта: {str(e)}")
         return redirect(url_for("warehouse_bp.warehouse_import"))
+
+    flash(_warehouse_import_message(stats))
+    return redirect(url_for("warehouse_bp.warehouse_import"))
+
+
+def _warehouse_import_message(stats: dict) -> str:
+    parts = [
+        "Импорт завершён: найдено {matched}, изменено {changed}, пропущено {skipped}.".format(**stats)
+    ]
+    if stats["barcode_matched"]:
+        parts.append(f"По штрихкоду сопоставлено {stats['barcode_matched']}.")
+    if stats["missing"]:
+        msg = f"Не найдено {stats['missing']}"
+        if stats["missing_examples"]:
+            msg += f" ({', '.join(stats['missing_examples'])})"
+        parts.append(msg + ".")
+    return " ".join(parts)
+
+
+def _apply_warehouse_xlsx(file, uid: int) -> dict:
+    """Parse an uploaded .xlsx and set warehouse quantities from it.
+
+    Shared by the dedicated import page and the POS page's import button, so
+    both apply stock the exact same way. Raises on a malformed file; the caller
+    decides how to surface that.
+    """
+    wb = openpyxl.load_workbook(file, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        raise ValueError("Excel file is empty.")
+
+    column_map = _detect_warehouse_import_columns(rows[0])
+    idx_sku = column_map["sku"]
+    idx_qty = column_map["quantity"]
+    idx_barcode = column_map.get("barcode")
+
+    stmt, _allowed_shop_ids = _warehouse_scope_stmt(uid)
+    with SessionLocal() as db:
+        # Lock the scoped variant rows so a concurrent POS sale can't be
+        # silently overwritten by this absolute-set import (read-modify-write
+        # race). The .xlsx is already fully parsed above, so the lock is held
+        # only for the in-memory loop + commit. Order by id for deterministic
+        # lock acquisition (deadlock avoidance).
+        scoped_variants = db.execute(
+            stmt.with_for_update(of=Variant).order_by(Variant.id)
+        ).all()
+        sku_map = {
+            (variant.sku or "").strip().lower(): variant
+            for variant, _group in scoped_variants
+            if variant.sku
+        }
+        barcode_map = {
+            (variant.barcode or "").strip().lower(): variant
+            for variant, _group in scoped_variants
+            if variant.barcode
+        }
+
+        matched_count = 0
+        changed_count = 0
+        barcode_match_count = 0
+        missing_count = 0
+        skipped_count = 0
+        missing_examples: list[str] = []
+
+        for excel_row_number, row in enumerate(rows[1:], start=2):
+            if not row or all(cell in (None, "") for cell in row):
+                continue
+
+            sku = str(row[idx_sku]).strip() if len(row) > idx_sku and row[idx_sku] else ""
+            barcode = ""
+            if idx_barcode is not None and len(row) > idx_barcode and row[idx_barcode]:
+                barcode = str(row[idx_barcode]).strip()
+
+            qty_val = row[idx_qty] if len(row) > idx_qty else None
+            qty = _coerce_warehouse_import_qty(qty_val)
+            if qty is None:
+                skipped_count += 1
+                continue
+
+            variant = None
+            used_barcode = False
+            if sku:
+                variant = sku_map.get(sku.lower())
+            if not variant and barcode:
+                variant = barcode_map.get(barcode.lower())
+                used_barcode = variant is not None
+
+            if not variant:
+                missing_count += 1
+                label = sku or barcode or f"row {excel_row_number}"
+                if len(missing_examples) < 5:
+                    missing_examples.append(label)
+                continue
+
+            matched_count += 1
+            if used_barcode:
+                barcode_match_count += 1
+            if (variant.warehouse_quantity or 0) != qty:
+                variant.warehouse_quantity = qty
+                changed_count += 1
+
+        db.commit()
+
+    return {
+        "matched": matched_count,
+        "changed": changed_count,
+        "skipped": skipped_count,
+        "barcode_matched": barcode_match_count,
+        "missing": missing_count,
+        "missing_examples": missing_examples,
+    }
+
+
+@warehouse_bp.post("/api/warehouse/import")
+@login_required
+def warehouse_import_api():
+    """Same import, answered as JSON so the POS page can stay put.
+
+    The page-based route flashes and redirects, which would throw away a
+    half-filled POS table; here the caller gets the counts and shows a toast.
+    """
+    if not openpyxl:
+        return _json_response({"error": "openpyxl library not installed"}, 500)
+
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return _json_response({"error": "Выберите Excel файл .xlsx"}, 400)
+    if not file.filename.lower().endswith(".xlsx"):
+        return _json_response({"error": "Поддерживаются только файлы .xlsx"}, 400)
+
+    try:
+        stats = _apply_warehouse_xlsx(file, int(current_user.get_id()))
+    except Exception as exc:
+        return _json_response({"error": f"Ошибка импорта: {exc}"}, 400)
+
+    return _json_response({"ok": True, "message": _warehouse_import_message(stats), **stats})
 
 
 @warehouse_bp.route("/warehouse/export", methods=["GET"])
@@ -380,7 +444,7 @@ def warehouse_export():
         ws = wb.active
         ws.title = "Warehouse Data"
 
-        ws.append(WAREHOUSE_EXPORT_HEADERS)
+        ws.append(_warehouse_export_headers(session.get("lang", "uz")))
         for cell in ws[1]:
             cell.font = Font(bold=True)
 

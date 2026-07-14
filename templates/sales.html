@@ -424,16 +424,68 @@
   }
   function floor10(x){ return Math.max(0, Math.floor((Number(x)||0)/10)*10); }
   function pctOf(c, n){ c=Number(c)||0; n=Number(n)||0; if(c<=0) return 0; return Math.round((c-n)/c*100); }
-  // «К выводу» = new_price × (1 − commission) − logistics_per_unit. null when
-  // we have no finance-derived rates for this SKU (UI shows '—').
-  function computePayout(price, comm, logi){
-    if(comm==null || logi==null) return null;
-    return Math.max(0, Math.round((Number(price)||0)*(1-Number(comm)) - Number(logi)));
+  // «К выводу» — Uzum'dan SO'RALADI (POST .../calculate-to-withdraw), o'zimiz
+  // HISOBLAMAYMIZ. Ilgari uni moliya tarixidan chiqarilgan komissiya bo'yicha
+  // hisoblardik: sotuvi yo'q SKU'ga hech narsa chiqmasdi ('—'), bori ham
+  // Uzum'ning bugungi stavkasidan chetlashardi. Endi aniq son.
+  //   undefined → hali kelmagan ('…')   null → Uzum bermadi ('—')   son → aniq
+  var payoutBySku = {};                       // sku_id -> number | null
+  function payoutOf(skuId){ return payoutBySku[String(skuId)]; }
+  function payoutText(po){ return po===undefined ? '…' : (po===null ? '—' : fmt(po)); }
+  // Zarar: «К выводу» tannarxdan past. Payout yo'q bo'lsa — bilib bo'lmaydi,
+  // ogohlantirmaymiz. Tannarx nol bo'lsa ham shunday.
+  function isLoss(po, cost){ return (typeof po==='number') && Number(cost)>0 && po < Number(cost); }
+  // BITTA so'rov butun tanlangan jadval uchun: Uzum SKU'larni to'plam holida
+  // oladi, shuning uchun narx o'zgarishi = 1 ta so'rov, har SKU uchun emas.
+  var payoutTimer=null, payoutSeq=0;
+  function schedulePayouts(){ clearTimeout(payoutTimer); payoutTimer=setTimeout(fetchPayouts, 350); }
+  function fetchPayouts(){
+    if(!saleState || !saleState.sale) return;
+    var items=[];
+    Object.keys(selected).forEach(function(pid){
+      var e=selected[pid]; if(!e||!e.skus) return;
+      e.skus.forEach(function(s){
+        if(s.sku_id>0) items.push({product_id:Number(pid), sku_id:Number(s.sku_id), new_price:Math.max(0,Math.round(Number(s.new_price)||0))});
+      });
+    });
+    if(!items.length) return;
+    var seq=++payoutSeq;      // tez yozishda eskirgan javob yangisini bosib ketmasin
+    fetch('/api/sales/'+saleState.sale.id+'/calculate-to-withdraw', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({shop_id:shopId, items:items})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(seq!==payoutSeq) return;
+      var p=(d&&d.payouts)||{};
+      items.forEach(function(it){
+        var k=String(it.sku_id);
+        payoutBySku[k] = (p[k]===undefined || p[k]===null) ? null : Number(p[k]);
+      });
+      repaintPayouts();
+    })
+    .catch(function(){
+      if(seq!==payoutSeq) return;
+      items.forEach(function(it){ payoutBySku[String(it.sku_id)]=null; });
+      repaintPayouts();
+    });
   }
-  function payoutText(po){ return po==null ? '—' : fmt(po); }
-  // Zarar: «К выводу» tannarxdan past. Rate'lar yo'q bo'lsa (payout null) —
-  // hisoblab bo'lmaydi, ogohlantirmaymiz. Tannarx nol bo'lsa ham shunday.
-  function isLoss(po, cost){ return po!=null && Number(cost)>0 && po < Number(cost); }
+  // Kelgan summalarni jadvalga chizadi (qatorni qayta render qilmasdan).
+  function repaintPayouts(){
+    var table=el('slSelTable'); if(!table) return;
+    Object.keys(selected).forEach(function(pid){
+      var e=selected[pid]; if(!e||!e.skus) return;
+      var cost=(e.purchase_price>0?e.purchase_price:0);
+      e.skus.forEach(function(s, si){
+        var row=table.querySelector('.sl-srow[data-pid="'+pid+'"][data-si="'+si+'"]'); if(!row) return;
+        var po=payoutOf(s.sku_id);
+        paintPayout(row.querySelector('[data-payout]'), po, cost);
+        row.classList.toggle('loss', isLoss(po, cost));
+      });
+    });
+    updateFooter();
+  }
+
   // Bitta joyda: «К выводу» kataki + zarar belgisi. Render ham, tahrir ham shuni ishlatadi.
   function paintPayout(payEl, po, cost){
     if(!payEl) return;
@@ -595,7 +647,7 @@
     .then(function(res){
       el('slDetailLoading').style.display='none';
       if(!res.ok){ showError(res.j.error||'Error'); return; }
-      saleState = res.j; saleState.sale_card = s;
+      saleState = res.j; saleState.sale_card = s; payoutBySku = {};   // «К выводу» aksiyaga bog'liq
       el('slDetailRule').innerHTML = (UZ?'Minimal chegirma':'Мин. скидка')+': <b>'+(res.j.default_min_discount)+'%</b>';
       // On first open, pre-load the products already in the sale into the
       // right table (with their existing sale prices) so they're visible/editable.
@@ -832,7 +884,7 @@
       e.skus.forEach(function(s, si){
         var warn = (s.max_price>0 && s.new_price>s.max_price);
         var amt = Math.max(0, (s.current_price||0) - (s.new_price||0));
-        var po0 = computePayout(s.new_price, s.commission_rate, s.logistics_per_unit);
+        var po0 = payoutOf(s.sku_id);
         var cost0 = (e.purchase_price>0 ? e.purchase_price : 0);
         var loss0 = isLoss(po0, cost0);
         var simg = s.image || img; // per-SKU image, product image as fallback
@@ -864,6 +916,7 @@
     box.querySelectorAll('.sl-confirm').forEach(function(st){ st.addEventListener('keydown', function(ev){ if(ev.key==='Escape'){ confirmingPid=null; renderSelected(); } }); });
     el('slAddBar').style.display='';
     updateFooter();
+    fetchPayouts();             // yangi qatorlar '…' bilan chiqadi, so'ng aniq son keladi
   }
 
   function onPriceInput(inp, clamp){
@@ -879,10 +932,11 @@
       var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
       if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-v));
       if(pctEl) pctEl.textContent=pctOf(s.current_price,v)+'%';
-      var po=computePayout(v, s.commission_rate, s.logistics_per_unit), cost=(e.purchase_price>0?e.purchase_price:0);
+      var po=payoutOf(s.sku_id), cost=(e.purchase_price>0?e.purchase_price:0);
       paintPayout(payEl, po, cost);
       row.classList.toggle('loss', isLoss(po, cost));
     }
+    schedulePayouts();          // narx o'zgardi → Uzum'dan yangi «К выводу»
     updateFooter();
   }
 
@@ -904,10 +958,11 @@
       var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
       if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-np));
       if(pctEl) pctEl.textContent=pctOf(s.current_price,np)+'%';
-      var po=computePayout(np, s.commission_rate, s.logistics_per_unit), cost=(e.purchase_price>0?e.purchase_price:0);
+      var po=payoutOf(s.sku_id), cost=(e.purchase_price>0?e.purchase_price:0);
       paintPayout(payEl, po, cost);
       row.classList.toggle('loss', isLoss(po, cost));   // ommaviy % ham zararga tushirishi mumkin
     });
+    schedulePayouts();
     updateFooter();
   }
 

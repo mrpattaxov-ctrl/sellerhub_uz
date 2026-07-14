@@ -15,6 +15,8 @@
  *   GET  /api/product/<productId>/eligible-sales
  *   GET  /api/sales/<saleId>/product/<productId>/sku-limits
  *   POST /api/sales/<saleId>/add   (products:[{product_id, skus:[{sku_id,new_price}]}])
+ *   POST /api/sales/<saleId>/calculate-to-withdraw  → «К выводу» per SKU, from
+ *        Uzum itself (NOT derived from our finance history — see uzum_marketing).
  */
 (function () {
   if (window.UzumSalePicker) return;
@@ -225,7 +227,7 @@
   function showToast(m){ toast.textContent = m; toast.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){toast.classList.remove("show");},4500); }
 
   var $ = function(id){ return document.getElementById(id); };
-  var state = { shopId:null, productId:null, data:null, selected:null, storageBySku:{}, limitsBySale:{} };
+  var state = { shopId:null, productId:null, data:null, selected:null, storageBySku:{}, limitsBySale:{}, payoutBySku:{} };
 
   // Cross-open cache so prefetch (on hover/page-load) and the actual modal open
   // share results — the first click then pops instantly. In-flight promises are
@@ -401,6 +403,7 @@
 
   function renderTable(skus){
     var vt=$("spVtable"); vt.innerHTML="";
+    state.payoutBySku={};   // «К выводу» aksiyaga BOG'LIQ — boshqa aksiya tanlansa eskisi yaramaydi
     if(!skus.length){ vt.innerHTML="<div class='sp-msg'>"+T.noLimits+"</div>"; $("spAdd").disabled=true; return; }
     var head=document.createElement("div"); head.className="sp-thead";
     head.innerHTML="<span>SKU</span><span class='sp-r'>"+T.storage+"</span>"
@@ -426,7 +429,7 @@
         +"<div class='sp-num sp-vexp"+(stor>0?"":" zero")+"' data-l='"+T.storage+"'>"+(stor>0?fmt(stor):"—")+"</div>"
         +"<div class='sp-num sp-vcur' data-l='"+T.colCur+"'>"+fmt(cur0)+"</div>"
         +"<div class='sp-vnew' data-l='"+T.colNew+"'>"
-          +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-comm='"+(sk.commission_rate!=null?sk.commission_rate:"")+"' data-logi='"+(sk.logistics_per_unit!=null?sk.logistics_per_unit:"")+"' data-cost='"+((ours.cost_price||0)>0?ours.cost_price:"")+"' value='"+def+"' min='0' step='10'>"
+          +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-cost='"+((ours.cost_price||0)>0?ours.cost_price:"")+"' value='"+def+"' min='0' step='10'>"
           +"<span class='sp-limit'>"+T.noMore+" "+fmt(maxp)+" "+cur+"</span></div>"
         +"<div class='sp-vdisc' data-l='"+T.colDisc+"'><b data-amt='"+sid+"'>0</b><small data-pct='"+sid+"'>0%</small></div>"
         +"<div class='sp-vpayout' data-payout='"+sid+"' data-l='"+T.payout+"'>—</div>"
@@ -435,8 +438,8 @@
     });
     sizeSkuColumn(vt);
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){
-      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateLossBanner(); });
-      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateLossBanner(); });
+      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); schedulePayouts(); });
+      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); schedulePayouts(); });
     });
     refreshAll();
     $("spAdd").disabled = false;
@@ -456,7 +459,7 @@
       if(max>0 && np>max) np=max;
       inp.value=np; updateRowPct(inp.dataset.sku);
     });
-    updateLossBanner();          // ommaviy % ham zararga tushirishi mumkin
+    schedulePayouts();           // ommaviy % ham zararga tushirishi mumkin
   }
 
   function updateRowPct(sid){
@@ -469,23 +472,64 @@
     var amt=document.querySelector("[data-amt='"+sid+"']");
     if(amt) amt.textContent=fmt(Math.max(0, c-np));
     var row=inp.closest(".sp-vrow"); if(row) row.classList.toggle("warn", max>0 && np>max);
-    var pay=document.querySelector("[data-payout='"+sid+"']");
-    var po=payoutOf(inp), cost=Number(inp.dataset.cost)||0;
-    var loss = po!=null && cost>0 && po<cost;   // har bir sotuvdan zarar
-    if(pay){
-      pay.textContent = (po==null ? "—" : fmt(po));
-      if(loss) pay.insertAdjacentHTML("beforeend", "<small class='sp-lossnote'>"+esc(T.belowCost)+"</small>");
-    }
-    if(row) row.classList.toggle("loss", loss);
+    paintPayout(sid);
   }
 
-  // «К выводу» = narx × (1 − komissiya) − logistika. Rate'lar yo'q bo'lsa null
-  // (UI '—' ko'rsatadi) — u holda zararni BILIB bo'lmaydi, ogohlantirmaymiz.
-  function payoutOf(inp){
-    var comm=inp.dataset.comm, logi=inp.dataset.logi;
-    if(comm==="" || comm==null || logi==="" || logi==null) return null;
-    var np=Number(inp.value)||0;
-    return Math.max(0, Math.round(np*(1-parseFloat(comm)) - parseFloat(logi)));
+  // «К выводу» — Uzum'dan SO'RALADI (calculate-to-withdraw), hisoblanmaydi.
+  // Bu yerda faqat KESH chiziladi; keshni schedulePayouts() to'ldiradi.
+  //   undefined → hali kelmagan  ("…")
+  //   null      → Uzum javob bermadi ("—")
+  //   son       → Uzum bergan aniq summa (MANFIY ham bo'lishi mumkin)
+  function paintPayout(sid){
+    var pay=document.querySelector("[data-payout='"+sid+"']");
+    var inp=document.querySelector(".sp-price-input[data-sku='"+sid+"']");
+    if(!pay||!inp) return;
+    var po=state.payoutBySku[String(sid)];
+    var cost=Number(inp.dataset.cost)||0;
+    var loss = (typeof po==="number") && cost>0 && po<cost;   // har bir sotuvdan zarar
+    pay.textContent = (po===undefined ? "…" : (po===null ? "—" : fmt(po)));
+    if(loss) pay.insertAdjacentHTML("beforeend", "<small class='sp-lossnote'>"+esc(T.belowCost)+"</small>");
+    var row=inp.closest(".sp-vrow"); if(row) row.classList.toggle("loss", loss);
+  }
+
+  // Butun jadval uchun BITTA so'rov: Uzum SKU'larni to'plam holida qabul qiladi,
+  // shuning uchun narx o'zgarishi = 1 ta so'rov, har bir SKU uchun emas.
+  // Debounce — foydalanuvchi yozayotganda har bir tugmaga so'rov ketmasin.
+  var payoutTimer=null, payoutSeq=0;
+  function schedulePayouts(){
+    clearTimeout(payoutTimer);
+    payoutTimer=setTimeout(fetchPayouts, 350);
+  }
+  function fetchPayouts(){
+    var s=currentSale(); if(!s || !state.productId || !state.shopId) return;
+    var items=[];
+    document.querySelectorAll(".sp-price-input").forEach(function(inp){
+      var sid=Number(inp.dataset.sku), np=Math.max(0, Math.round(Number(inp.value)||0));
+      if(sid>0) items.push({product_id:Number(state.productId), sku_id:sid, new_price:np});
+    });
+    if(!items.length) return;
+    var seq=++payoutSeq;   // tez yozishда eskirgan javob yangisini bosib ketmasin
+    fetch("/api/sales/"+s.id+"/calculate-to-withdraw", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({shop_id:state.shopId, items:items})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(seq!==payoutSeq) return;
+      var p=(d&&d.payouts)||{};
+      items.forEach(function(it){
+        var k=String(it.sku_id);
+        // Uzum javob bermagan SKU → null → '—' (o'ylab topilgan son EMAS)
+        state.payoutBySku[k] = (p[k]===undefined || p[k]===null) ? null : Number(p[k]);
+      });
+      items.forEach(function(it){ paintPayout(it.sku_id); });
+      updateLossBanner();
+    })
+    .catch(function(){
+      if(seq!==payoutSeq) return;
+      items.forEach(function(it){ state.payoutBySku[String(it.sku_id)]=null; paintPayout(it.sku_id); });
+      updateLossBanner();
+    });
   }
 
   // Zarar qatorlari — pastdagi ogohlantirish tasmasida sanaladi. TAQIQ EMAS:
@@ -500,7 +544,7 @@
     else { w.style.display="none"; w.textContent=""; }
   }
 
-  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); updateLossBanner(); }
+  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); updateLossBanner(); fetchPayouts(); }
 
   function selectedSkus(){
     var out=[];

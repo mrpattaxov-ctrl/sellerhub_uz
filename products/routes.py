@@ -568,39 +568,6 @@ def _persist_uzum_costs(shop_ids, cost_by_pid: dict) -> None:
         pass
 
 
-def _sku_payout_rates(db, shop_uzum_id: str, days: int = 120) -> dict[str, dict]:
-    """Per-SKU commission rate + per-unit logistics from real finance history.
-
-    Uzum doesn't expose commission/logistics in the marketing SKU payload, so we
-    derive each SKU's deductions from our own finance/orders (which DO store them
-    per sale). «К выводу» = new_price × (1 − commission_rate) − logistics_per_unit.
-    Keyed by sku_title (= Variant.sku code), which the marketing payload also
-    returns. SKUs with no recent sales simply won't have a rate (UI shows '—')."""
-    today = _today_app_tz()
-    start_ts, _ = day_bounds_tashkent(today - timedelta(days=days))
-    _, end_ts = day_bounds_tashkent(today)
-    rates: dict[str, dict] = {}
-    try:
-        rows = read_sales_aggregated(
-            str(shop_uzum_id), start_ts, end_ts, group_by="sku", session=db
-        )
-    except Exception:
-        return rates
-    for r in rows:
-        title = r.get("sku_title")
-        rev = float(r.get("revenue_sum") or 0)
-        qty = int(r.get("qty_sum") or 0)
-        comm = float(r.get("commission_sum") or 0)
-        logi = float(r.get("logistics_sum") or 0)
-        if not title or rev <= 0 or qty <= 0:
-            continue
-        rates[str(title)] = {
-            "commission_rate": max(0.0, min(0.9, comm / rev)),
-            "logistics_per_unit": max(0.0, round(logi / qty)),
-        }
-    return rates
-
-
 @products_bp.get("/sales")
 @login_required
 def sales_page():
@@ -782,7 +749,7 @@ def api_sale_suitable(sale_id: int):
             })
 
         # Already-enrolled products (right panel) with their per-SKU sale prices.
-        payout_rates = _sku_payout_rates(db, raw_shop)
+        # No payout rates here — «К выводу» comes from Uzum's calculate-to-withdraw.
         added_products = []
         for p in involved:
             pid = str(p.get("productId"))
@@ -803,10 +770,6 @@ def api_sale_suitable(sale_id: int):
                     "sale_price": sp,
                     "discount_pct": disc,
                 }
-                rt = payout_rates.get(sk.get("skuTitle") or "")
-                if rt:
-                    row["commission_rate"] = rt["commission_rate"]
-                    row["logistics_per_unit"] = rt["logistics_per_unit"]
                 skus_out.append(row)
             added_products.append({
                 "product_id": p.get("productId"),
@@ -1136,19 +1099,59 @@ def api_sale_product_sku_limits(sale_id: int, product_id: int):
         return _json_response({"error": str(e)}, 502)
     except Exception as e:
         return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
-    # Attach per-SKU payout rates (commission + logistics) from finance history
-    # so the UI can show «К выводу» live as the price changes.
-    try:
-        with SessionLocal() as db:
-            rates = _sku_payout_rates(db, raw_shop)
-        for sk in out:
-            rt = rates.get(str(sk.get("sku_title") or ""))
-            if rt:
-                sk["commission_rate"] = rt["commission_rate"]
-                sk["logistics_per_unit"] = rt["logistics_per_unit"]
-    except Exception:
-        pass
+    # «К выводу» is NOT attached here any more. The UI asks Uzum for it directly
+    # (POST …/calculate-to-withdraw) as the price changes — see
+    # api_sale_calculate_to_withdraw. The old path derived it from a 120-day
+    # commission average, which was blank for never-sold SKUs and drifted from
+    # Uzum's real rate even when it had data.
     return _json_response({"skus": out})
+
+
+@products_bp.post("/api/sales/<int:sale_id>/calculate-to-withdraw")
+@login_required
+def api_sale_calculate_to_withdraw(sale_id: int):
+    """«К выводу» for the prices the user is typing — straight from Uzum.
+
+    Body: {"shop_id": "5983",
+           "items": [{"product_id": 347156, "sku_id": 1336731, "new_price": 15830}, ...]}
+    → {"payouts": {"<sku_id>": <to_withdraw>, ...}}
+
+    One round-trip for the whole table (Uzum takes the SKUs in a batch), so a
+    price edit costs ONE request, not one per SKU. The client debounces.
+
+    SKUs Uzum doesn't answer for are simply absent from `payouts`; the UI shows
+    '—' for those rather than a fabricated number.
+    """
+    data = request.get_json(silent=True) or {}
+    raw_shop = str(data.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+    if not shop:
+        return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    items: list[dict] = []
+    for it in (data.get("items") or []):
+        try:
+            pid = int(it.get("product_id"))
+            sid = int(it.get("sku_id"))
+            price = int(it.get("new_price"))
+        except (TypeError, ValueError):
+            continue                      # a bad sku_id would 500 the whole batch
+        if pid <= 0 or sid <= 0 or price < 0:
+            continue
+        items.append({"productId": pid, "skuId": sid, "newSalePrice": price})
+    if not items:
+        return _json_response({"payouts": {}})   # empty list → Uzum 400; don't send it
+
+    try:
+        from core.uzum_marketing import calculate_to_withdraw, UzumMarketingError
+        payouts = calculate_to_withdraw(raw_shop, sale_id, items)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+    return _json_response({"payouts": {str(k): v for k, v in payouts.items()}})
 
 
 @products_bp.get("/api/sales/enrolled-products")

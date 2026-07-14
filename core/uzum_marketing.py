@@ -488,6 +488,59 @@ def add_products_to_sale(
     return {"ok": True, "payload": (resp or {}).get("payload")}
 
 
+def calculate_to_withdraw(
+    shop_uzum_id: str | int,
+    sale_id: int,
+    items: list[dict],
+    *,
+    token: str | None = None,
+) -> dict[int, int]:
+    """«К выводу» per SKU for a hypothetical sale price — ASKED, not derived.
+
+    Captured contract (seller.uzum.uz HAR, 2026-07-14 — the real seller UI fires
+    this on every price edit):
+
+        POST /marketing/sales/{saleId}/calculate-to-withdraw
+        [{"productId":347156,"newSalePrice":15830,"skuId":1336731}, ...]
+        → {"payload":[{"productId","skuId","newSalePrice","toWithdraw"}, ...]}
+
+    This REPLACES the old approach of deriving a commission rate from our own
+    120-day finance history. That derivation was wrong twice over: it returned
+    nothing for SKUs with no sales (UI showed '—'), and even where it had data
+    the historical average drifted from the rate Uzum actually applies today
+    (15 830 → we said 6 853, Uzum says 6 622).
+
+    Notes on Uzum's behaviour, probed 2026-07-14:
+      * toWithdraw may be NEGATIVE (price 0 → −7500): logistics exceeds revenue.
+        Returned as-is — a negative payout is a real, and severe, loss signal.
+      * An unknown skuId → HTTP 500; an empty list → HTTP 400. Callers must not
+        send either (we guard on empty here).
+      * A price above the «Не больше» ceiling still calculates — Uzum does not
+        clamp. The ceiling is enforced separately, on submit.
+
+    Returns {sku_id: to_withdraw}. Raises UzumMarketingError on failure — the
+    caller decides whether to degrade to '—'.
+    """
+    if not items:
+        return {}
+    url = f"{_BASE}/{shop_uzum_id}/marketing/sales/{sale_id}/calculate-to-withdraw"
+    try:
+        resp = http_json(url, method="POST", body=items, headers=_headers(token))
+    except Exception as e:
+        raise UzumMarketingError(f"calculate-to-withdraw: {e!s}") from e
+    out: dict[int, int] = {}
+    for row in (resp or {}).get("payload") or []:
+        sid = row.get("skuId")
+        tw = row.get("toWithdraw")
+        if sid is None or tw is None:
+            continue
+        try:
+            out[int(sid)] = int(tw)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def remove_product_from_sale(
     shop_uzum_id: str | int,
     sale_id: int,

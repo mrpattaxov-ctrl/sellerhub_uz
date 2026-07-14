@@ -144,9 +144,13 @@
     border-radius:14px; white-space:nowrap; }
   .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
   .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
-  /* Avto-slot mahsulot jadvali sarlavhalari — qora (Ulug'bek 2026-07-14),
-     boshqa jadvallar kulrangdaligicha qoladi. */
-  .pkx-autohead .pkx-th { color:#1C2030; }
+  /* Postavka jadvallari sarlavhalari — qora (Ulug'bek 2026-07-14):
+     tuzish rejimlari (avto/yarim-avtomat/qo'lda) + ro'yxat (FBO) va
+     qaytarishlar (Возвраты). `.pkx-lhead` — ro'yxat/qaytarish sarlavha qatori. */
+  .pkx-autohead .pkx-th,
+  #pkxSemiHead .pkx-th,
+  #pkxRstHead .pkx-th,
+  .pkx-lhead .pkx-th { color:#1C2030; }
   /* Jadval sarlavhasi — pastga aylantirilganда YOPISHIB turadi.
      Yuqoridagi `.pp-topbar` sticky va 64px balandlikda, shuning uchun `top:64px`
      (z-index esa undan past: 5 < 30 → topbar ustidan o'tmaydi).
@@ -243,8 +247,7 @@
   @media (max-width:600px){
     .pkx-tools { padding:12px 14px 10px; gap:8px; }
     .pkx-note { padding:0 14px 10px; }
-    .pkx-autohd-rules { padding:10px 14px; gap:10px; flex-wrap:wrap; }
-    .pkx-autohd-rules-solo { padding:12px 14px; }
+    .pkx-autohd .pkx-tools { padding:12px 14px; }
     .pkx-autohd-meta { flex:1 1 100%; font-size:12px; }
     /* Qidiruv — to'liq kenglik; davr chiplari — sinmaydi, YONLAMASIGA sirg'aladi
        (sinsa sirpanuvchi plita (.pkx-glide) noto'g'ri joyда qolib ketardi). */
@@ -400,23 +403,40 @@
   /* ── «Авто» rejim ── */
   /* To'rtta qoida — bitta qatorda; torayganda 2×2, telefonда ustma-ust. */
   .pkx-rules { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
-  /* Avto-slot birlashgan sarlavha (Ulug'bek 2026-07-14): ilgari ikki ustma-ust
-     karta (4-ustunli statbar + oyna paneli) edi — endi BITTA ixcham karta:
-     yuqori qatorда «Что уйдёт» + oyna chiplari, pastда nozik ajratgich ostidа
-     ixcham qoidalar satri. Slot bir joyda — takror yo'q. */
-  .pkx-autohd-title { font-weight:800; font-size:15px; min-width:0; }
-  .pkx-autohd .pkx-tools { padding:12px 22px 8px; }
-  .pkx-autohd-rules { display:flex; align-items:center; gap:12px;
-    padding:9px 22px 11px; border-top:1px solid #f1f2f5; }
-  .pkx-autohd-rules-solo { border-top:none; padding:13px 22px; }
-  .pkx-autohd-meta { flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:600;
+  /* Avto sarlavhasi — BITTA qator (Ulug'bek 2026-07-15): chapда qoidalar +
+     «Изменить», o'ngда davr chiplari. Ilgari ikki qavat edi («Что уйдёт …»
+     tepada, qoidalar pastda) — jami sonlar pastki panelда baribir turibdi,
+     shu bois yuqori qator olib tashlandi. */
+  .pkx-autohd .pkx-tools { padding:13px 22px; }
+  .pkx-autohd-meta { flex:0 1 auto; min-width:0; font-size:12.5px; font-weight:600;
     color:#9499AE; line-height:1.5; cursor:help; }
   .pkx-autohd-meta b { color:#5A6588; font-weight:800; }
-  .pkx-autohd-meta svg { color:#B7A93A; vertical-align:-2px; margin:0 4px 0 3px; opacity:.85; }
   .pkx-autohd-edit { flex:none; padding:7px 14px; border-radius:9px; font-size:12.5px; }
+  /* Kompyuterда qator SINMAYDI: joy yetmasa kalendar pastga tushmaydi, balki
+     MATN o'z katagida o'raladi. Chiplar va kalendar SIQILMAYDI (aks holda ular
+     ichkarida ikki qatorga bo'linib, kartani cho'zib yuborardi). */
+  @media (min-width:1200px){
+    .pkx-autohd .pkx-tools { flex-wrap:nowrap; }
+    .pkx-autohd .pkx-trek, .pkx-autohd .shdr { flex:none; }
+  }
   /* Har накладной — o'z kartasi: sarlavha + o'z «Создать» tugmasi. */
   .pkx-invhead { display:flex; align-items:center; justify-content:space-between; gap:14px;
     padding:16px 22px; }
+  /* Jami satri — jadval OXIRIDA, har raqam o'zi yig'gan ustun TAGIDA turadi:
+     «Итого» → ТОВАР, SKU soni → SKU, jami dona → «К отправке». Chegara bilan
+     solishtirish (450 из 450) YO'Q — bu накладнойning O'Z yakuni, xolos. */
+  .pkx-asum { border-top:1.5px solid #E4E8F0; background:#FBFCFE; }
+  .pkx-asum-lab { font-weight:800; font-size:13.5px; color:#1C2030; }
+  .pkx-asum-val { font-weight:800; font-size:15px; color:#1A7F4B; white-space:nowrap; }
+  /* Jami SKU — chipning AYNAN o'zi (o'sha quti), faqat ranglarsiz: shunda uning
+     raqami ustundagi chip raqamlari bilan bir o'qда turadi. Oddiy matn bo'lganда
+     chipning ichki paddingi tufayli ~18px chapда qolib ketardi. */
+  .pkx-skuc.pkx-asum-n { background:none; color:#1C2030; padding:0 9px; }
+  /* Nechta SKU — o'z ustunidagi akssent chipi: qatorдagi yagona rangli element,
+     shu bois darhol ko'zga tashlanadi («ochsam arziydimi?» degan savolga javob). */
+  .pkx-skuc { display:inline-flex; align-items:center; justify-content:center; min-width:36px;
+    height:26px; padding:0 9px; border-radius:8px; background:#EAF0FE; color:#3558CC;
+    font-weight:800; font-size:13.5px; font-variant-numeric:tabular-nums; }
   .pkx-skip { padding:10px 18px 14px; }
   .pkx-skip > summary { cursor:pointer; font-weight:800; font-size:12.5px; color:#5A5F72; list-style:none; padding:4px 0; }
   .pkx-skip > summary::-webkit-details-marker { display:none; }
@@ -897,12 +917,12 @@
       ? `<span title="${SLOT_PASSED_HINT}" style="display:inline-flex;align-items:center;background:#FDECEC;color:#C0353A;border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px">просрочен</span>`
       : '';
     const slotCell = slot
-      ? `<span style="display:inline-flex;align-items:center;gap:7px"><span style="color:${passed?'#9499AE':'#1C2030'};font-weight:700;font-size:13px">${fmtSlot(slot)}</span>${passedChip}${grabChip}</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:7px"><span style="color:${passed?'#9499AE':'#1C2030'};font-weight:600;font-size:13px">${fmtSlot(slot)}</span>${passedChip}${grabChip}</span>`
       : (gplan
           ? `<span data-grabcancel="${gplan.id}" title="Авто-слот до ${esc(gplan.targetDay)} · нажмите чтобы отменить" style="display:inline-flex;align-items:center;gap:5px;background:#FFF4D6;color:#9A6B00;border-radius:8px;padding:4px 9px;font-weight:800;font-size:12px;cursor:pointer">⏳ ${esc(grabDayFmt(gplan.targetDay))}</span>`
           : `<span style="color:#B8BCC9;font-weight:600;font-size:13px">— нет слота —</span>`);
     const acc=it.totalAccepted||0, tot=it.totalToStock||0, pct=tot?Math.min(100,Math.round(acc/tot*100)):0, full=acc>=tot&&tot>0;
-    const prog = `<div style="font-weight:700;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`;
+    const prog = `<div style="font-weight:600;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`;
     const statusCell = statusDot(it);
     const canChange = created && !passed && (it.remainingAmountOfUpdates==null || it.remainingAmountOfUpdates>0);
     // O'tgan-slotli aktda tugma o'chiq + sabab tooltip'да (disabled tugma
@@ -922,12 +942,12 @@
     return `<div class="pkx-row-hover" data-row="${it.id}" data-num="${esc(it.invoiceNumber)}" data-stock="${stk.id||''}" data-pool="${esc(stk.poolSource||'FULLFILMENT')}"
         style="display:grid;${invGridCss()};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
       ${checkCell}
-      <div style="font-weight:800;font-size:14px;letter-spacing:-.01em"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(it.invoiceNumber)}</div>
+      <div style="font-weight:600;font-size:14px;letter-spacing:-.01em"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(it.invoiceNumber)}</div>
       <div style="color:#5A5F72;font-weight:600;font-size:13px">${esc(it.dateCreated)}</div>
       <div>${statusCell}</div>
       <div>${slotCell}</div>
       <div>${prog}</div>
-      <div style="font-weight:800;font-size:13px">${fmtSom(it.fullPrice)}</div>
+      <div style="font-weight:600;font-size:13px">${fmtSom(it.fullPrice)}</div>
       <div style="display:flex;gap:8px;justify-content:flex-end">${acts}</div>
     </div>`;
   }
@@ -951,7 +971,7 @@
       </div>`;
 
     const headCheck = selMode() ? `<div class="pkx-check-cell"><input id="pkxSelAll" type="checkbox" class="pkx-row-check" aria-label="Выбрать все"></div>` : '';
-    const head = `<div style="display:grid;${invGridCss()};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+    const head = `<div class="pkx-lhead" style="display:grid;${invGridCss()};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
         ${headCheck}${['№','ДАТА','СТАТУС','ТАЙМ-СЛОТ','ПРИНЯТО / ВСЕГО','СУММА',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
 
     const body = rows.length ? rows.map(invoiceRowHtml).join('') : `<div class="pkx-msg">${(S.invLoading||S.invHasMore)?'Загрузка…':'Нет данных'}</div>`;
@@ -977,7 +997,7 @@
   }
   function returnsCard(){
     const GRID='grid-template-columns:90px 175px 1.2fr 120px 145px 115px 155px 110px';
-    const head=`<div style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+    const head=`<div class="pkx-lhead" style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
       ${['ТИП','СТАТУС','НОМЕР','ДАТА','ВРЕМЯ ВЫДАЧИ','МЕСТО','ХРАНЕНИЕ','ЭТТН'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const now=Date.now();
     const body = S.returns.length ? S.returns.map(r=>{
@@ -985,14 +1005,14 @@
       const ps=r.paidStorage||{}; let storageDays=0;
       if(ps.startDate){ const end=ps.endDate||now; storageDays=Math.max(0,Math.floor((end-ps.startDate)/86400000)); }
       const storage = (ps.status==='ACTIVE'&&storageDays>0)
-        ? `<div style="display:flex;align-items:center;gap:6px;color:#E5484D;font-weight:800;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${storageDays} дней</div><div style="color:#B8BCC9;font-weight:600;font-size:11px;margin-top:2px">платное хранение</div>`
+        ? `<div style="display:flex;align-items:center;gap:6px;color:#E5484D;font-weight:600;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${storageDays} дней</div><div style="color:#B8BCC9;font-weight:600;font-size:11px;margin-top:2px">платное хранение</div>`
         : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
-      const issue = r.executionDate ? `<span style="color:#1C2030;font-weight:700;font-size:13px">${fmtDate(r.executionDate)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
-      const ettn = (r.ettnInfo) ? `<span style="color:#1C2030;font-weight:700;font-size:13px">${esc(r.ettnInfo.number||r.ettnInfo)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      const issue = r.executionDate ? `<span style="color:#1C2030;font-weight:600;font-size:13px">${fmtDate(r.executionDate)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      const ettn = (r.ettnInfo) ? `<span style="color:#1C2030;font-weight:600;font-size:13px">${esc(r.ettnInfo.number||r.ettnInfo)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
       return `<div class="pkx-row-hover" data-retrow="${esc(r.id)}" style="display:grid;${GRID};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
         <div style="font-weight:700;font-size:13px;color:#5A5F72">${esc(RET_TYPE_LABEL[r.type]||r.type||'—')}</div>
         <div>${retStatusBadge(r.status)}</div>
-        <div style="font-weight:800;font-size:14px">${esc(r.id)}</div>
+        <div style="font-weight:600;font-size:14px">${esc(r.id)}</div>
         <div style="color:#5A5F72;font-weight:600;font-size:13px">${fmtDate(r.dateCreated)}</div>
         <div>${issue}</div>
         <div style="display:flex;align-items:center;gap:5px;color:#5A5F72;font-weight:600;font-size:13px">${esc(place)}</div>
@@ -1131,8 +1151,8 @@
     return `<div class="pkx-prow${(S.qty[p.skuId]>0)?' is-dirty':''}" style="display:grid;${RST_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6${p.blocked?';background:#FDF5F5':''}">
       <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(p.image,64)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">SKU ${esc(p.skuTitle||'')} · ШК ${esc(p.barcode||'')}</div>${blkBadge}</div></div>
       <div><span style="display:inline-block;background:#EEF1F8;color:#5A6588;font-weight:700;font-size:12px;padding:4px 10px;border-radius:7px">${esc(gab)}</span></div>
-      <div style="font-weight:700;font-size:14px">${p.quantityActive!=null?p.quantityActive:'…'}</div>
-      <div style="font-weight:700;font-size:14px">${fmtN(p.purchasePrice)}</div>
+      <div style="font-weight:600;font-size:14px">${p.quantityActive!=null?p.quantityActive:'…'}</div>
+      <div style="font-weight:600;font-size:14px">${fmtN(p.purchasePrice)}</div>
       <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${p.skuId}" data-price="${p.purchasePrice||0}" data-name="${esc(p.productTitle||'')}" data-skutitle="${esc(p.skuTitle||'')}" data-bc="${esc(p.barcode||'')}" data-img="${esc(p.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
     </div>`;
   }
@@ -1187,7 +1207,16 @@
   // Hisob serverda: (N kunlik sotuv − Uzum qoldig'i), bizning ombor bilan
   // cheklangan → `recommend`. Ko'rinish — «Расходы» sahifasi uslubi:
   // asosiy mahsulot qatori (jami) + ochiladigan SKU qatorlari (pikerlar).
-  const SEMI_GRID='grid-template-columns:minmax(260px,1fr) 130px 122px 116px 96px 190px';
+  // «SKU» — ALOHIDA ustun (2-o'rin): nechta variant ichida — bir qarashda ko'rinadi
+  // va ustun bo'ylab solishtiriladi. Ilgari bu nom yonidagi kulrang yorliq edi.
+  const SEMI_GRID='grid-template-columns:minmax(240px,1fr) 84px 130px 122px 116px 96px 190px';
+  // Avto — o'sha ustunlar, lekin «НУЖНО» kengroq (136) va «К отправке» torroq (150):
+  // yig'indi AYNAN o'sha, shu bois oldingi ustunlar joyidan qimirlamaydi, ammo
+  // oxirgi ustun 40px o'ngroqdan boshlanadi — raqamlar esa ustun BOSHIDA turadi.
+  const AUTO_GRID='grid-template-columns:minmax(240px,1fr) 84px 130px 122px 116px 136px 150px';
+  // Variantlar guruh SARLAVHASI tagidan boshlanadi (chevron 22 + 11 + rasm 48 + 11),
+  // shunda ochilgan ro'yxat guruhga «tegishli» bo'lib ko'rinadi (zakupka'dagi kabi).
+  const VAR_PAD='padding-left:92px';
   const SEMI_DAYS=[7,10,15,30,60];
 
   // Rejani bir marta yuklaydi (takroriy chaqiruvlar bitta so'rovga qo'shiladi).
@@ -1255,11 +1284,12 @@
       : (v.need>0?`<div style="font-size:11.5px;margin-top:5px;color:#C98A2B">Нет на складе</div>`:'');
     const blk=v.blocked?`<span title="${esc(v.blockReason||'Заблокирован')}" style="display:inline-flex;align-items:center;gap:4px;background:#FCE8E8;color:#D14343;font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:6px;margin-left:8px">Заблокирован</span>`:'';
     return `<div class="pkx-prow pkx-vrow" data-key="${esc(g.key)}" style="display:${S.expand[g.key]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
-      <div style="display:flex;align-items:center;gap:11px;min-width:0;padding-left:33px">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}${blk}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
-      <div style="font-weight:700;font-size:13px">${v.sales}</div>
-      <div style="font-weight:700;font-size:13px">${v.uzum_qty}</div>
-      <div style="font-weight:700;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
-      <div style="font-weight:800;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
+      <div style="display:flex;align-items:center;gap:11px;min-width:0;${VAR_PAD}">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}${blk}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
+      <div></div>
+      <div style="font-weight:600;font-size:13px">${v.sales}</div>
+      <div style="font-weight:600;font-size:13px">${v.uzum_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
       <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${v.skuId}" data-key="${esc(g.key)}" data-price="${v.price||0}" data-name="${esc(g.name||'')}" data-skutitle="${esc(v.sku||'')}" data-bc="${esc(v.barcode||'')}" data-img="${esc(v.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
     </div>`;
   }
@@ -1280,14 +1310,15 @@
         <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         ${tile(g.image,48)}
         <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
-          <div class="pkx-grow2">${g.short_sku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.short_sku)}</span>`:''}<span style="font-size:11px;font-weight:700;color:#9499AE;background:#f1f3f7;padding:2px 7px;border-radius:999px">${g.vcount} SKU</span></div></div>
+          <div class="pkx-grow2">${g.short_sku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.short_sku)}</span>`:''}</div></div>
       </div>
-      <div style="font-weight:700;font-size:13.5px">${g.sales}</div>
-      <div style="font-weight:700;font-size:13.5px">${g.uzum_qty}</div>
-      <div style="font-weight:700;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
-      <div style="font-weight:800;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
+      <div><span class="pkx-skuc" title="${g.vcount} SKU внутри — раскройте строку">${g.vcount}</span></div>
+      <div style="font-weight:600;font-size:13.5px">${g.sales}</div>
+      <div style="font-weight:600;font-size:13.5px">${g.uzum_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
       <div style="display:flex;align-items:center;gap:10px" data-stopgrow="1">
-        <span class="pkx-gsel" data-key="${esc(g.key)}" style="font-weight:800;font-size:13.5px;min-width:44px;color:${sel>0?'#1A7F4B':'#B8BCC9'}">${sel>0?sel+' шт':'—'}</span>
+        <span class="pkx-gsel" data-key="${esc(g.key)}" style="font-weight:600;font-size:13.5px;min-width:44px;color:${sel>0?'#1A7F4B':'#B8BCC9'}">${sel>0?sel+' шт':'—'}</span>
         ${btn}
       </div>
     </div>`;
@@ -1309,7 +1340,7 @@
     const soldHead = (S.planCustom && window.SHDateRange)
       ? `ПРОДАНО<br>${esc(SHDateRange.label(S.planFrom,S.planTo))}`
       : `ПРОДАНО за ${S.planDays} дн.`;
-    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',soldHead,'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','SKU',soldHead,'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
 
     const gs=semiFiltered();
     let rowsHtml;
@@ -1404,23 +1435,26 @@
       </div></div>`;
   }
 
-  // Qoidalarni bitta ixcham satrда (birlashgan sarlavha + bo'sh/yuklanish
-  // holatlari uchun umumiy). `p` — preview (bo'lsa slot sanalari qo'shiladi).
-  // Slot xatti-harakati (bo'sh slot / avto-slot) — hover-tooltip'да saqlangan.
+  // Qoidalar — ODDIY TIL bilan. Ilgari: «лимит 450 шт · 50 SKU · мин 1 ⚡ слот
+  // сегодня → послезавтра · 15 июля — 17 июля» — qisqartma, belgi va TAKROR
+  // (nisbiy kun ham, sana ham). Endi ikki oddiy fakt: nima sig'adi va qachon
+  // ketadi. `p` — preview (bo'lsa aniq sanalar; bo'lmasa — nisbiy kunlar).
   function autoRulesMeta(p){
     const c=S.auto.cfg||{};
-    const slotWin=`${DAY_WORD(c.slotFrom|0)} → ${DAY_WORD(c.slotTo==null?2:c.slotTo)}`;
-    const dates=(p&&p.slotFromDate)?` · ${fmtISO(p.slotFromDate)} — ${fmtISO(p.slotToDate)}`:'';
-    const tip='Каждой поставке займём свободный слот; если свободных нет — она встанет в авто-слот.';
-    const bolt='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg>';
-    return `<span class="pkx-autohd-meta" title="${esc(tip)}">лимит <b>${c.maxUnits} шт</b> · <b>${c.maxSkus} SKU</b> · мин <b>${c.minPerSku}</b>${bolt}слот <b>${slotWin}</b>${dates}</span>`;
+    // «мин 1» hech narsani cheklamaydi — aytmaymiz ham (faqat >1 bo'lsa ko'rinadi).
+    const min=(c.minPerSku|0)>1 ? `, от <b>${c.minPerSku} шт</b> на SKU` : '';
+    const slot=(p&&p.slotFromDate)
+      ? fmtRange(p.slotFromDate,p.slotToDate)
+      : `${DAY_WORD(c.slotFrom|0)} — ${DAY_WORD(c.slotTo==null?2:c.slotTo)}`;
+    const tip='Свободное окно в этом диапазоне займём сами. Если свободных нет — поставка встанет в авто-слот Uzum.';
+    return `<span class="pkx-autohd-meta" title="${esc(tip)}">Одна поставка — до <b>${c.maxUnits} шт</b> и <b>${c.maxSkus} SKU</b>${min} · слот <b>${slot}</b></span>`;
   }
 
   function autoSummaryHtml(){
     return `<div class="pkx-card pkx-autohd" style="margin-bottom:14px">
-      <div class="pkx-autohd-rules pkx-autohd-rules-solo">
+      <div class="pkx-tools">
         ${autoRulesMeta(null)}
-        <button data-on="auto-rules-edit" class="pkx-btn pkx-btn-soft pkx-autohd-edit" style="margin-left:auto">Изменить</button>
+        <button data-on="auto-rules-edit" class="pkx-btn pkx-btn-soft pkx-autohd-edit">Изменить</button>
       </div>
     </div>`;
   }
@@ -1430,6 +1464,8 @@
 
   function autoProducts(){
     const A=S.auto;
+    // Boot'da (F5 → avto) qoidalar hali kelmagan: bo'sh «Правила» formasi chaqnamasin.
+    if(A.loading && !A.cfg) return `<div class="pkx-card" style="padding:22px"><div class="pkx-msg">Собираем поставку по продажам и складу…</div></div>`;
     if(A.editing || !A.configured) return autoRulesHtml();
     if(A.loading) return autoSummaryHtml()+`<div class="pkx-card" style="padding:22px"><div class="pkx-msg">Собираем поставку по продажам и складу…</div></div>`;
     if(A.err) return autoSummaryHtml()+`<div class="pkx-card" style="padding:22px"><div class="pkx-msg">${esc(A.err)}</div></div>`;
@@ -1452,12 +1488,11 @@
         <div class="pkx-invhead">
           <div style="min-width:0">
             <div style="font-weight:800;font-size:15px">Поставка ${inv.index+1}${invs.length>1?` <span class="pkx-muted" style="font-weight:700">из ${invs.length}</span>`:''}</div>
-            <div class="pkx-muted" style="font-size:12.5px;margin-top:2px">${inv.skuCount} SKU · ${inv.totalUnits} шт · лимит ${A.cfg.maxUnits} шт / ${A.cfg.maxSkus} SKU</div>
           </div>
           <button data-inv="${inv.index}" class="pkx-btn pkx-btn-primary" ${anyBusy?'disabled':''} style="padding:10px 20px;border-radius:11px;font-size:13.5px;flex:none;${anyBusy?'opacity:.5;cursor:not-allowed':''}">${busy?'Создаём…':'Создать'}</button>
         </div>
         <div class="pkx-thead pkx-thead-clip"><div class="pkx-autohead" style="min-width:${AUTO_MIN}px">${autoHeadHtml()}</div></div>
-        <div class="pkx-autoscroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:${AUTO_MIN}px">${rows}</div></div>
+        <div class="pkx-autoscroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:${AUTO_MIN}px">${rows}${autoSumRowHtml(inv)}</div></div>
       </div>`;
     }).join('');
 
@@ -1470,18 +1505,15 @@
       skipHtml=`<div class="pkx-card" style="margin-bottom:14px"><details class="pkx-skip"><summary>Не вошло ни в одну поставку · ${skipped.length} SKU</summary><div style="padding:4px 2px 2px">${items}</div></details></div>`;
     }
 
-    // Birlashgan ixcham sarlavha: yuqori qatorда «Что уйдёт» + oyna chiplari,
-    // pastда nozik ajratgich ostidа qoidalar satri + «Изменить». Ilgari bu
-    // ikki alohida karta edi (statbar + oyna) — joyni ~2× tejadik.
+    // Bitta qator: chapда qoidalar + «Изменить», o'ngда davr chiplari.
+    // «Что уйдёт · N поставки · X SKU · Y шт» sarlavhasi olib tashlandi — AYNAN
+    // o'sha uchta son pastki panelда doim ko'rinib turadi (Поставок/SKU/Единиц).
     const head=`<div class="pkx-card pkx-autohd" style="margin-bottom:14px">
       <div class="pkx-tools">
-        <div class="pkx-autohd-title">Что уйдёт · ${invs.length} ${plural(invs.length,'поставка','поставки','поставок')} · ${p.totalSkus} SKU · ${p.totalUnits} шт</div>
-        <div style="flex:1"></div>
-        ${autoDaysHtml()}
-      </div>
-      <div class="pkx-autohd-rules">
         ${autoRulesMeta(p)}
         <button data-on="auto-rules-edit" class="pkx-btn pkx-btn-soft pkx-autohd-edit">Изменить</button>
+        <div style="flex:1"></div>
+        ${autoDaysHtml()}
       </div>
     </div>`;
 
@@ -1524,43 +1556,63 @@
   }
 
   function autoHeadHtml(){
-    return `<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',autoSoldHead(),'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const cols=['ТОВАР','SKU',autoSoldHead(),'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'];
+    return `<div style="display:grid;${AUTO_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${cols.map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
   }
 
   // Yarim-avtomat bilan BIR XIL qator tili (rasm + guruh + variantlar), lekin
   // TAHRIRLANMAYDI: avto miqdorni o'zi qo'ygan, bu — chek.
   function autoGroupRowHtml(inv,g){
     const k=`a${inv.index}:${g.key}`, open=!!S.expand[k];
-    return `<div class="pkx-prow pkx-grow" data-akey="${esc(k)}" style="display:grid;${SEMI_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+    return `<div class="pkx-prow pkx-grow" data-akey="${esc(k)}" style="display:grid;${AUTO_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
       <div style="display:flex;align-items:center;gap:11px;min-width:0">
         <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         ${tile(g.image,48)}
         <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
-          <div class="pkx-grow2">${g.shortSku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.shortSku)}</span>`:''}<span style="font-size:11px;font-weight:700;color:#9499AE;background:#f1f3f7;padding:2px 7px;border-radius:999px">${g.vcount} SKU</span></div></div>
+          <div class="pkx-grow2">${g.shortSku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.shortSku)}</span>`:''}</div></div>
       </div>
-      <div style="font-weight:500;font-size:13.5px">${g.sales}</div>
-      <div style="font-weight:500;font-size:13.5px">${g.uzum_qty}</div>
-      <div style="font-weight:500;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
-      <div style="font-weight:500;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
-      <div style="font-weight:500;font-size:13.5px;color:#1A7F4B">${g.qty} шт</div>
+      <div><span class="pkx-skuc" title="${g.vcount} SKU внутри — раскройте строку">${g.vcount}</span></div>
+      <div style="font-weight:600;font-size:13.5px">${g.sales}</div>
+      <div style="font-weight:600;font-size:13.5px">${g.uzum_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
+      <div style="font-weight:600;font-size:13.5px;color:#1A7F4B">${g.qty} шт</div>
+    </div>`;
+  }
+
+  // Jadval oxiridagi jami — har raqam O'Z ustuni tagida: SKU soni → «SKU»,
+  // jami dona → «К отправке». Faqat накладнойning o'z yakuni (chegarasiz).
+  function autoSumRowHtml(inv){
+    return `<div class="pkx-asum" style="display:grid;${AUTO_GRID};align-items:center;padding:13px 22px">
+      <div class="pkx-asum-lab">Итого</div>
+      <div><span class="pkx-skuc pkx-asum-n">${inv.skuCount}</span></div>
+      <div></div><div></div><div></div><div></div>
+      <div class="pkx-asum-val">${inv.totalUnits} шт</div>
     </div>`;
   }
 
   function autoVarRowHtml(inv,g,v){
     const k=`a${inv.index}:${g.key}`;
     const part=v.partial?`<div class="pkx-muted" style="font-size:11.5px;margin-top:3px">из ${v.recommend|0} шт — остальное в след. поставке</div>`:'';
-    return `<div class="pkx-prow pkx-vrow" data-akey="${esc(k)}" style="display:${S.expand[k]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
-      <div style="display:flex;align-items:center;gap:11px;min-width:0;padding-left:33px">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
-      <div style="font-weight:500;font-size:13px">${v.sales}</div>
-      <div style="font-weight:500;font-size:13px">${v.uzum_qty}</div>
-      <div style="font-weight:500;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
-      <div style="font-weight:500;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
-      <div><span style="font-weight:500;font-size:13.5px;color:#1A7F4B">${v.qty} шт</span>${part}</div>
+    return `<div class="pkx-prow pkx-vrow" data-akey="${esc(k)}" style="display:${S.expand[k]?'grid':'none'};${AUTO_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0;${VAR_PAD}">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
+      <div></div>
+      <div style="font-weight:600;font-size:13px">${v.sales}</div>
+      <div style="font-weight:600;font-size:13px">${v.uzum_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
+      <div><span style="font-weight:600;font-size:13.5px;color:#1A7F4B">${v.qty} шт</span>${part}</div>
     </div>`;
   }
 
   const AUTO_MIN=1040;
   function fmtISO(s){ if(!s) return ''; const [y,m,d]=String(s).split('-').map(Number); return `${d} ${MONTHS_G[m-1]}`; }
+  // Bir oy ichidagi oraliq — oy nomi BIR MARTA: «15 — 17 июля» («15 июля — 17 июля» emas).
+  function fmtRange(a,b){
+    if(!a||!b) return fmtISO(a)||fmtISO(b);
+    const [,ma,da]=String(a).split('-').map(Number), [,mb,db]=String(b).split('-').map(Number);
+    return ma===mb ? `${da} — ${db} ${MONTHS_G[mb-1]}` : `${fmtISO(a)} — ${fmtISO(b)}`;
+  }
 
   async function loadAutoConfig(){
     const A=S.auto; A.loading=true; A.err='';
@@ -1906,9 +1958,12 @@
   async function restoreRoute(r){
     if(r.view==='create'){
       S.view='create'; S.step='products'; S.showReview=false; S.rstSearch='';
-      S.mode=(r.mode==='semi'?'semi':'manual'); S.planDays=r.planDays||30; S.semiSearch=''; S.expand={};
+      // Avto ham tiklanadi: ilgari u jimgina «qo'lda»ga tushib ketardi (F5 — rejim yo'qolardi).
+      S.mode=(r.mode==='semi'||r.mode==='auto')?r.mode:'manual'; S.planDays=r.planDays||30; S.semiSearch=''; S.expand={};
       invalidatePlan(); ensurePlan();
-      render(); await safe(()=>loadRestock(true)); restoreCreateDraft(); render(); fillCreateStock();
+      if(S.mode==='auto'){ S.auto.loading=true; render(); await safe(()=>enterAuto()); }
+      else render();
+      await safe(()=>loadRestock(true)); restoreCreateDraft(); render(); fillCreateStock();
       return true;
     }
     if(r.view==='retcreate'){ await openRetCreate(); return true; }

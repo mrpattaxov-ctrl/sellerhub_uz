@@ -36,10 +36,135 @@ def init_pos_routes(app_module):
     _app = app_module
 
 
+def _pos_user_shops(db, allowed_shop_ids) -> list[dict]:
+    if not allowed_shop_ids:
+        return []
+    rows = db.execute(
+        select(Shop.uzum_id, Shop.name)
+        .where(Shop.id.in_(allowed_shop_ids))
+        .order_by(Shop.name.is_(None), Shop.name, Shop.uzum_id)
+    ).all()
+    return [{"uzum_id": r.uzum_id, "name": r.name} for r in rows]
+
+
 @pos_bp.get("/pos")
 @login_required
 def pos_page():
-    return render_template("pos.html")
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    with SessionLocal() as db:
+        shops = _pos_user_shops(db, allowed_shop_ids)
+    return render_template("pos.html", shops=shops)
+
+
+def _common_sku_prefix(skus: list[str]) -> str:
+    """Group-level SKU shown on the summary row: the shared prefix of its
+    variants (``ABC-01-RED`` + ``ABC-01-BLUE`` -> ``ABC-01``). Empty when the
+    variants share nothing, which is the honest answer — a made-up label would
+    be worse than none.
+    """
+    skus = [s for s in skus if s]
+    if not skus:
+        return ""
+    if len(skus) == 1:
+        return skus[0]
+    prefix = skus[0]
+    for sku in skus[1:]:
+        while prefix and not sku.startswith(prefix):
+            prefix = prefix[:-1]
+        if not prefix:
+            return ""
+    return prefix.rstrip("-_/ .")
+
+
+@pos_bp.get("/api/pos/products")
+@login_required
+def pos_products():
+    """Every variant the caller owns, grouped by product.
+
+    The POS table is filtered and searched entirely in the browser, so this is
+    one read on page load rather than a request per keystroke — a barcode scan
+    has to resolve instantly, and a round-trip per scan does not.
+    """
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    if not allowed_shop_ids:
+        return _json_response({"groups": [], "multi": False, "totals": {"products": 0, "skus": 0, "stock": 0}})
+
+    want_shop = (request.args.get("shop") or "all").strip()
+
+    with SessionLocal() as db:
+        shops = _pos_user_shops(db, allowed_shop_ids)
+
+        stmt = (
+            select(Variant, ProductGroup, Shop)
+            .join(ProductGroup, Variant.group_id == ProductGroup.id)
+            .join(Shop, ProductGroup.shop_id == Shop.id)
+            .where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        )
+        if want_shop and want_shop != "all":
+            # Still bounded by allowed_shop_ids above, so an unowned uzum_id
+            # simply matches nothing rather than leaking another seller's stock.
+            stmt = stmt.where(Shop.uzum_id == want_shop)
+
+        # Newest product first, exactly as «Мои товары» (groups) orders: the Uzum
+        # sku-list position grows with recency, so DESC. Rows outside the
+        # sku-list (0) still sort last; id.desc() breaks ties. Variants keep
+        # their natural size/colour order inside each group.
+        stmt = stmt.order_by(
+            (ProductGroup.uzum_sort_order == 0).asc(),
+            ProductGroup.uzum_sort_order.desc(),
+            ProductGroup.id.desc(),
+            (func.coalesce(Variant.size, "") == "").asc(),
+            func.length(func.coalesce(Variant.size, "")).asc(),
+            func.lower(func.coalesce(Variant.size, "")).asc(),
+            (func.coalesce(Variant.color, "") == "").asc(),
+            func.lower(func.coalesce(Variant.color, "")).asc(),
+            func.lower(Variant.sku).asc(),
+            Variant.id.asc(),
+        )
+
+        groups: dict[int, dict] = {}
+        for variant, group, shop in db.execute(stmt).all():
+            entry = groups.get(group.id)
+            if entry is None:
+                entry = {
+                    "key": group.id,
+                    "name": group.name,
+                    "image": normalize_uzum_image_url(group.image_url),
+                    "shop": shop.name or shop.uzum_id,
+                    "stock": 0,
+                    "variants": [],
+                }
+                groups[group.id] = entry
+
+            attrs = [a for a in (variant.color, variant.size) if a]
+            stock = int(variant.warehouse_quantity or 0)
+            entry["stock"] += stock
+            entry["variants"].append({
+                "id": variant.id,
+                "name": ", ".join(attrs) or variant.sku,
+                "sku": variant.sku or "",
+                "barcode": variant.barcode or "",
+                "image": normalize_uzum_image_url(variant.image_url or group.image_url),
+                "stock": stock,
+            })
+
+    out = []
+    total_skus = 0
+    total_stock = 0
+    for entry in groups.values():
+        entry["vcount"] = len(entry["variants"])
+        entry["short_sku"] = _common_sku_prefix([v["sku"] for v in entry["variants"]])
+        total_skus += entry["vcount"]
+        total_stock += entry["stock"]
+        out.append(entry)
+
+    return _json_response({
+        "groups": out,
+        "multi": len(shops) > 1,
+        "totals": {"products": len(out), "skus": total_skus, "stock": total_stock},
+    })
 
 
 @pos_bp.get("/api/pos/search")

@@ -82,7 +82,11 @@
     + ".sp-sale-main{min-width:0;flex:1 1 auto;}.sp-sale-title{font-size:15px;font-weight:600;line-height:1.3;}.sp-sale-meta{font-size:12.5px;color:var(--sp-muted,#8E8B97);margin-top:3px;}"
     + ".sp-badge{font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:999px;text-transform:uppercase;margin-left:auto;flex-shrink:0;}"
     + ".sp-badge.active{background:#ECFDF3;color:#0F9A6A;}.sp-badge.created{background:#EAF0FF;color:#4169E1;}.sp-badge.in{background:#FFF7E6;color:#B7791F;}"
-    + ".sp-disc-global{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sp-active,#EFEEF2);border-radius:12px;padding:10px 13px;}"
+    /* Chegirma paneli — BOSHQARUV, jadval emas. Ilgari uning kulrangi (#EFEEF2)
+       jadval sarlavhasining kulrangiga (#F2F2F6) tegib turardi va ikkalasi bitta
+       kulrang bo'lakka qo'shilib ketardi. Endi u OQ (surface) + chegara: alohida
+       panel bo'lib o'qiladi, jadval sarlavhasi esa yagona kulrang bo'lib qoladi. */
+    + ".sp-disc-global{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sp-surface,#fff);border:1px solid var(--sp-border,#ECECF0);border-radius:12px;padding:12px 14px;}"
     + ".sp-disc-global label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}"
     + ".sp-disc-global input{width:74px;height:36px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:center;font-size:14px;font-weight:700;}"
     + ".sp-disc-apply{height:36px;padding:0 14px;border:0;border-radius:9px;background:var(--sp-accent,#4169E1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;}"
@@ -96,7 +100,7 @@
        quvib yuboradi, narxlar esa aniq ajralib turadi. Bo'sh yo'lak uchun
        alohida element YO'Q: 3-bola 4-track'ga majburan qo'yiladi.
        «Не больше X» — narx maydoni OSTIDA qoladi. */
-    + ".sp-vtable{display:flex;flex-direction:column;border:1px solid var(--sp-border,#ECECF0);border-radius:14px;}"
+    + ".sp-vtable{display:flex;flex-direction:column;border:1px solid var(--sp-border,#ECECF0);border-radius:14px;margin-top:12px;}"
     /* SKU ustuni kengligi — --sp-skuw, uni JS eng uzun SKU bo'yicha bir marta
        o'lchab qo'yadi (sizeTable). max-content ISHLAMAYDI: har bir qator ALOHIDA
        grid, shuning uchun har birida o'z eni chiqib, «Хранение» raqamlari

@@ -43,8 +43,6 @@
     active:     UZ ? "Faol" : "Идёт",
     created:    UZ ? "Tez orada" : "Скоро",
     minDisc:    UZ ? "min." : "мин.",
-    totalNow:   UZ ? "Jami hozir" : "Итого сейчас",
-    totalNew:   UZ ? "Jami yangi" : "Итого новая",
     over:       UZ ? "limitdan yuqori" : "выше лимита",
     payout:     UZ ? "Olishga" : "К выводу",
     // Jadval ustunlari — «Акции» sahifasidagi nomlar bilan bir xil.
@@ -138,10 +136,9 @@
     + ".sp-vrow.warn .sp-price-input{border-color:#F97066;}"
     + ".sp-vrow.warn .sp-limit{color:#B42318;font-weight:700;}"
     + ".sp-vrow.warn .sp-vdisc small{color:#B42318;}"
-    + ".sp-foot{padding:14px 22px;border-top:1px solid var(--sp-border,#ECECF0);display:flex;align-items:center;gap:14px;flex-wrap:wrap;}"
-    + ".sp-foot-sum{font-size:13px;color:var(--sp-text2,#5A5762);}.sp-foot-sum b{color:var(--sp-text,#1A1A22);font-variant-numeric:tabular-nums;}"
+    + ".sp-foot{padding:14px 22px;border-top:1px solid var(--sp-border,#ECECF0);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}"
     + ".sp-btn{height:40px;padding:0 18px;border-radius:11px;border:0;font-size:14px;font-weight:600;cursor:pointer;}"
-    + ".sp-btn-primary{background:var(--sp-accent,#4169E1);color:#fff;margin-left:auto;}.sp-btn-primary:disabled{opacity:.4;cursor:not-allowed;}"
+    + ".sp-btn-primary{background:var(--sp-accent,#4169E1);color:#fff;}.sp-btn-primary:disabled{opacity:.4;cursor:not-allowed;}"
     + ".sp-btn-ghost{background:var(--sp-surface,#fff);border:1px solid var(--sp-border,#ECECF0);color:var(--sp-text,#1A1A22);}"
     + ".sp-msg{padding:24px 8px;text-align:center;color:var(--sp-muted,#8E8B97);font-size:14px;}"
     + ".sp-err{padding:12px 14px;border-radius:10px;background:#FEF3F2;color:#B42318;font-size:14px;margin-bottom:10px;}"
@@ -173,7 +170,6 @@
     + "<div class='sp-head'><div><h3 id='spTitle'></h3><div class='sp-sub' id='spSub'></div></div><button class='sp-x' id='spX'>&times;</button></div>"
     + "<div class='sp-body' id='spBody'></div>"
     + "<div class='sp-foot' id='spFoot' style='display:none'>"
-    + "<div class='sp-foot-sum' id='spSum'></div>"
     + "<button class='sp-btn sp-btn-ghost' id='spCancel'></button>"
     + "<button class='sp-btn sp-btn-primary' id='spAdd'></button>"
     + "</div></div>";
@@ -391,8 +387,8 @@
     });
     sizeSkuColumn(vt);
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){
-      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateSummary(); });
-      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateSummary(); });
+      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); });
+      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); });
     });
     refreshAll();
     $("spAdd").disabled = false;
@@ -412,7 +408,6 @@
       if(max>0 && np>max) np=max;
       inp.value=np; updateRowPct(inp.dataset.sku);
     });
-    updateSummary();
   }
 
   function updateRowPct(sid){
@@ -434,7 +429,7 @@
       } else { pay.textContent="—"; }
     }
   }
-  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); updateSummary(); }
+  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); }
 
   function selectedSkus(){
     var out=[];
@@ -445,12 +440,6 @@
     });
     return out;
   }
-  function updateSummary(){
-    var tc=0,tn=0;
-    document.querySelectorAll(".sp-price-input").forEach(function(inp){ tc+=Number(inp.dataset.cur)||0; tn+=Number(inp.value)||0; });
-    var el=$("spSum"); if(el) el.innerHTML=T.totalNow+": <b>"+fmt(tc)+"</b> "+cur+" → "+T.totalNew+": <b>"+fmt(tn)+"</b> "+cur;
-  }
-
   $("spAdd").addEventListener("click", function(){
     var s=currentSale(); if(!s) return;
     var skus=selectedSkus(); if(!skus.length){ showToast(UZ?"Narx kiriting":"Укажите цену"); return; }

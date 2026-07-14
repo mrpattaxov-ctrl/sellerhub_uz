@@ -51,6 +51,27 @@
     colDisc:    UZ ? "Chegirma" : "Скидка",
   };
 
+  // Aksiya sanalari — Uzum'ning o'z kartasidagi kabi o'qiladigan ko'rinishda
+  // («13 июля – 21 июля 2026»), «2026-07-13 → 2026-07-21» emas. Yil bir xil
+  // bo'lsa OXIRIDA bir marta yoziladi; har xil bo'lsa ikkalasida ham.
+  var MONTHS = UZ
+    ? ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentabr","oktabr","noyabr","dekabr"]
+    : ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  function ymd(s){
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||""));
+    if(!m) return null;
+    var mo = Number(m[2]) - 1;
+    if(mo<0 || mo>11) return null;
+    return { y:m[1], d:String(Number(m[3])), mo:MONTHS[mo] };
+  }
+  function day(p){ return UZ ? (p.d + "-" + p.mo) : (p.d + " " + p.mo); }
+  function dateRange(start, finish){
+    var a=ymd(start), b=ymd(finish);
+    if(!a || !b) return [start,finish].filter(Boolean).join(" – ");   // noma'lum format — o'zini ko'rsatamiz
+    if(a.y !== b.y) return day(a)+" "+a.y+" – "+day(b)+" "+b.y;
+    return day(a)+" – "+day(b)+" "+b.y;
+  }
+
   function esc(s){ var d=document.createElement("div"); d.textContent = (s==null?"":String(s)); return d.innerHTML; }
   function fmt(n){ if(n==null||n==="") return "—"; return Number(n).toLocaleString("ru-RU").replace(/,/g," "); }
   function floor10(x){ return Math.max(0, Math.floor((Number(x)||0)/10)*10); }
@@ -86,11 +107,11 @@
        jadval sarlavhasining kulrangiga (#F2F2F6) tegib turardi va ikkalasi bitta
        kulrang bo'lakka qo'shilib ketardi. Endi u OQ (surface) + chegara: alohida
        panel bo'lib o'qiladi, jadval sarlavhasi esa yagona kulrang bo'lib qoladi. */
-    + ".sp-disc-global{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sp-surface,#fff);border:1px solid var(--sp-border,#ECECF0);border-radius:12px;padding:12px 14px;}"
+    + ".sp-disc-global{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;background:var(--sp-surface,#fff);border:1px solid var(--sp-border,#ECECF0);border-radius:12px;padding:12px 14px;}"
     + ".sp-disc-global label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}"
     + ".sp-disc-global input{width:74px;height:36px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:center;font-size:14px;font-weight:700;}"
     + ".sp-disc-apply{height:36px;padding:0 14px;border:0;border-radius:9px;background:var(--sp-accent,#4169E1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;}"
-    + ".sp-hint{font-size:12px;color:var(--sp-muted,#8E8B97);}"
+    + ".sp-hint{font-size:12px;color:var(--sp-muted,#8E8B97);margin-right:auto;}"   /* izohni chapga qadaydi → boshqaruv o'ngga ketadi */
     /* SKU JADVALI (Ulug'bek 2026-07-14). Ustunlar tartibi:
          SKU · Хранение · [bo'sh] · Текущая цена · Новая цена · Скидка · К выводу · Себестоимость
        SAQLASH ustuni SKU'ga yaqin turadi — jadval o'sha xarajat bo'yicha
@@ -153,6 +174,14 @@
        shu chegaradan pastда jadval 2 ustunli kartaga yig'iladi — Акции
        sahifasidagi kabi, ammo har bir katak ustida ustun NOMI bilan, aks holda
        yalang'och raqamlar nimani anglatishi bilinmaydi. */
+    /* Tor ekranda aksiya kartasi: banner (104px) + belgi bir qatorda matn
+       ustunini bo'g'ib qo'yadi — sarlavha va sana har bir so'zi alohida satrga
+       tushib ketardi. Shuning uchun matn PASTGA, to'liq enga o'tadi. */
+    + "@media (max-width:560px){"
+      + ".sp-sale{flex-wrap:wrap;gap:10px;}"
+      + ".sp-sale-banner{width:88px;height:50px;}"
+      + ".sp-sale-main{flex:1 1 100%;order:3;}"
+    + "}"
     + "@media (max-width:980px){"
       + ".sp-thead{display:none;}"
       /* align-items:start — «Новая цена» kataki (input + «Не больше») baland,
@@ -277,7 +306,7 @@
       row.innerHTML="<input type='radio' name='spSale' class='sp-sale-radio'>"
         +(banner?"<div class='sp-sale-banner'><img src='"+esc(banner)+"' alt='' loading='lazy'></div>":"")
         +"<div class='sp-sale-main'><div class='sp-sale-title'>"+esc(saleTitle(s))+"</div>"
-        +"<div class='sp-sale-meta'>"+esc(s.start_date||"")+" → "+esc(s.finish_date||"")+" · "+T.minDisc+" "+s.min_discount+"%</div></div>"
+        +"<div class='sp-sale-meta'>"+esc(dateRange(s.start_date, s.finish_date))+" · "+T.minDisc+" "+s.min_discount+"%</div></div>"
         +"<span class='sp-badge "+badgeCls+"'>"+esc(stLabel)+"</span>";
       row.addEventListener("click", function(){ selectSale(i); });
       sbox.appendChild(row);
@@ -285,9 +314,11 @@
     body.appendChild(sbox);
 
     var dc=document.createElement("div"); dc.className="sp-disc-global";
-    dc.innerHTML="<label>"+T.discAll+": <input type='number' id='spDiscAll' min='0' max='99' value='0'> %</label>"
-      +"<button type='button' class='sp-disc-apply' id='spApplyDisc'>"+T.apply+"</button>"
-      +"<span class='sp-hint'>"+T.orPerSku+"</span>";
+    // Boshqaruv o'ngda, izoh chapda: izoh margin-right:auto bilan chapga
+    // qadaladi, qolgani o'ng chekkaga yig'iladi.
+    dc.innerHTML="<span class='sp-hint'>"+T.orPerSku+"</span>"
+      +"<label>"+T.discAll+": <input type='number' id='spDiscAll' min='0' max='99' value='0'> %</label>"
+      +"<button type='button' class='sp-disc-apply' id='spApplyDisc'>"+T.apply+"</button>";
     var lab2=document.createElement("div"); lab2.className="sp-sectlabel"; lab2.textContent="SKU"; body.appendChild(lab2); body.appendChild(dc);
 
     var vt=document.createElement("div"); vt.className="sp-vtable"; vt.id="spVtable";

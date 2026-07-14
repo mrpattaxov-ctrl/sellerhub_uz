@@ -77,12 +77,22 @@ def print_labels():
         size_key = "30x20"
     lbl = LABEL_SIZES[size_key]
 
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    if not allowed_shop_ids:
+        return "No items", 400
+
     with SessionLocal() as db:
         # Fetch unique variants first
         unique_ids = list(set(ids))
         if not unique_ids:
              return "No items", 400
-        objs = db.execute(select(Variant).where(Variant.id.in_(unique_ids))).scalars().all()
+        objs = db.execute(
+            select(Variant)
+            .join(ProductGroup, Variant.group_id == ProductGroup.id)
+            .where(Variant.id.in_(unique_ids))
+            .where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        ).scalars().all()
         obj_map = {o.id: o for o in objs}
 
         # Rebuild list with duplicates based on input 'ids' order to support quantity
@@ -1907,6 +1917,9 @@ def uzum_sync_finance():
             if not shop_obj:
                 return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
 
+            if shop_obj.id not in _user_shop_ids(int(current_user.get_id())):
+                return _json_response({"error": "Access denied to this shop"}, 403)
+
             today = _today_app_tz()
             start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
             _, end_ts = day_bounds_tashkent(today)
@@ -2302,9 +2315,14 @@ def group_daily_stats(group_id: int):
 @products_bp.get("/api/groups/<int:group_id>/variants")
 @login_required
 def get_group_variants_api(group_id: int):
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+
     with SessionLocal() as db:
         group = db.get(ProductGroup, group_id)
-        group_img = group.image_url if group else None
+        if not group or group.shop_id not in allowed_shop_ids:
+            return _json_response({"error": "Group not found"}, 404)
+        group_img = group.image_url
         variants = db.execute(
             select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
         ).scalars().all()
@@ -2738,6 +2756,10 @@ def invoice_restock_upload_uzum():
         shop = db.get(Shop, int(shop_db_id))
         if not shop:
             return _json_response({"error": "Shop not found in DB"}, 404)
+        # This creates a real supply invoice in the shop's Uzum account, so the
+        # caller must actually own the shop — never trust the posted shop_id.
+        if shop.id not in _user_shop_ids(int(current_user.get_id())):
+            return _json_response({"error": "Access denied to this shop"}, 403)
         uzum_shop_id = shop.uzum_id
 
     data_rows = []

@@ -72,12 +72,24 @@
   /* Fallback: glide yo'q bo'lsa (JS ulgurmadi) aktiv chip o'zi bo'yaladi. */
   .pkx-trek:not(:has(.pkx-glide)) .pkx-chip.is-active {
     background:#1E2435; box-shadow:0 7px 18px -5px rgba(24,28,48,.45); }
-  /* «Вид» mini-segment tugmalari — hover'da matn qorayadi (FBS tablari kabi). */
-  .pkx-vseg-btn { background:none; border:none; border-radius:8px;
-    padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer;
-    color:#7A7F90; font-family:inherit; transition:color .15s ease, background .15s ease; }
-  .pkx-vseg-btn:hover:not(.is-active) { color:#101828; }
-  .pkx-vseg-btn.is-active { background:#1e293b; color:#fff; }
+  /* «Авто-слот» — jadval ustidagi o'ng burchakda TUGMA (Ulug'bek 2026-07-14).
+     Ilgari bu yerda «Вид» (Чистый/Сводка/Прогресс) toggle'i turardi; jadval
+     endi faqat «Прогресс» ko'rinishida chiziladi, toggle olib tashlandi va
+     uning o'rniga bo'lim tablaridan ko'chgan «Авто-слот» tugmasi qo'yildi.
+     Ko'rinishi yonidagi status dropdown'i (`.pkx-dd`) bilan AYNAN bir xil
+     (Ulug'bek 2026-07-14): och-kulrang plita, chegara va soya YO'Q, 44px,
+     14px radius. Bosilganда (avto-slot ro'yxati ochiq) — navy plita, ya'ni
+     tab segmentidagi aktiv holat tili saqlanadi. */
+  .pkx-autoslot { display:inline-flex; align-items:center; gap:9px; height:44px; padding:0 16px;
+    background:#f3f4f6; border:none; border-radius:14px; cursor:pointer;
+    font-family:inherit; font-size:14px; font-weight:700; color:#5A5F72; white-space:nowrap;
+    transition:color .15s ease, background .15s ease; }
+  .pkx-autoslot svg { flex:none; color:#9B98A5; transition:color .15s ease; }
+  .pkx-autoslot:hover:not(.is-active) { background:#eceef2; color:#101828; }
+  .pkx-autoslot:hover:not(.is-active) svg { color:#5A5F72; }
+  .pkx-autoslot.is-active { background:linear-gradient(135deg,#1E2435,#2b3450);
+    color:#fff; box-shadow:0 7px 18px -5px rgba(24,28,48,.45); }
+  .pkx-autoslot.is-active svg { color:#fff; }
   .pkx-h1 { margin:0; font-size:23px; font-weight:800; letter-spacing:-.02em; }
   /* ── Sahifa sarlavha QATORI (Ulug'bek 2026-07-13) ──────────────────────
      FBS «Заказы» sahifasi bilan bir xil: oq glass-karta YO'Q (fon bilan
@@ -102,14 +114,14 @@
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .pkx-shopsel-cv { flex:none; color:#9B98A5; }
   /* Status filtri (Все поставки / Создана / Принята / Отменена) — segment
-     o'rniga DROPDOWN (Ulug'bek 2026-07-13). Ko'rinishi do'kon pickeri
-     (`.pkx-shopsel`) bilan AYNAN bir xil: oq pill, 44px, 14px radius,
-     nozik soya, o'ng chetда shevron. */
+     o'rniga DROPDOWN. «Yumshoq» ko'rinish (Ulug'bek 2026-07-14): och-kulrang
+     plita, chegara/soya yo'q — `.pkx-softdd` (TUR filtri) bilan bir xil uslub,
+     ammo boshqa 44px kontrollar bilan tekislanishi uchun balandlik saqlangan. */
   .pkx-dd { display:flex; align-items:center; justify-content:space-between; gap:10px;
     height:44px; min-width:190px; padding:0 14px;
-    background:#fff; border:1px solid #ECECF0; border-radius:14px; cursor:pointer; position:relative;
-    box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
-  .pkx-dd-val { font-weight:500; font-size:14px; color:#1A1A22;
+    background:#f3f4f6; border:none; border-radius:14px; cursor:pointer; position:relative; }
+  .pkx-dd:hover { background:#eceef2; }
+  .pkx-dd-val { font-weight:700; font-size:14px; color:#5A5F72;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .pkx-dd-cv { flex:none; color:#9B98A5; }
   /* Ochiluvchi menyu — do'kon menyusi bilan bir xil (pkxShopMenu). */
@@ -132,6 +144,9 @@
     border-radius:14px; white-space:nowrap; }
   .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
   .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
+  /* Avto-slot mahsulot jadvali sarlavhalari — qora (Ulug'bek 2026-07-14),
+     boshqa jadvallar kulrangdaligicha qoladi. */
+  .pkx-autohead .pkx-th { color:#1C2030; }
   /* Jadval sarlavhasi — pastga aylantirilganда YOPISHIB turadi.
      Yuqoridagi `.pp-topbar` sticky va 64px balandlikda, shuning uchun `top:64px`
      (z-index esa undan past: 5 < 30 → topbar ustidan o'tmaydi).
@@ -149,17 +164,102 @@
      konteyner kengligiga TA'SIR QILMAYDI (shrink-to-fit'да 0 sanaladi), shuning
      uchun konteyner kengligini chiplar qatori belgilaydi, nom esa aynan shu
      kenglikda «…» bilan kesiladi. */
-  .pkx-ginfo { display:inline-block; max-width:100%; min-width:0; }
+  /* Flex-element sifatida bu blok MAZMUNIGA qarab qisqarardi — mazmuni esa
+     tor chiplar qatori (SKU belgilari). Natijada nom uchun ~90px qolib, u
+     («Мужское ко…») kesilardi, garchi ustunda 500px bo'sh joy bo'lsa ham.
+     `flex:1 + min-width:0` — nom bo'sh joyni oladi, kerak bo'lsagina qisqaradi. */
+  .pkx-ginfo { display:block; flex:1 1 auto; max-width:100%; min-width:0; }
   .pkx-gname { display:block; width:0; min-width:100%; font-weight:700; font-size:14px;
                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pkx-grow2 { display:flex; align-items:center; gap:7px; margin-top:3px; white-space:nowrap; }
-  /* Rejim almashtirgich (Ручной/Полуавтомат/Авто) — tor ekranда tavsif matni yashiriladi */
-  .pkx-modettl { font-weight:800; font-size:13.5px; }
-  .pkx-modesub { font-size:11.5px; margin-top:2px; color:#9499AE; }
-  @media (max-width:760px){
-    .pkx-modesub { display:none; }
-    .pkx-modettl { font-size:12.5px; text-align:center; }
-    .pkx-mode { text-align:center !important; padding:10px 8px !important; }
+  /* ── Yaratish sehrgarining sarlavhasi (Ulug'bek 2026-07-13) ─────────────
+     Ilgari bu yerda uchta oq karta ustma-ust turardi (sarlavha + ikki qadamli
+     chiziq; rejim almashtirgich tavsiflari bilan; jadval sarlavhasi + to'ldirilgan
+     banner) — jadval boshlanguncha ~430px ketardi. Endi RO'YXAT ko'rinishi bilan
+     bir xil: kartasiz `.pkx-head` qatori (orqaga · sarlavha · qadam · rejim
+     segmenti · do'kon pickeri), jadval ustida esa bitta asboblar qatori. */
+  .pkx-iconbtn { width:44px; height:44px; flex:none; border-radius:14px; background:#fff;
+    border:1px solid #ECECF0; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; color:#334155;
+    box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
+  .pkx-iconbtn:hover { background:#f6f7f9; }
+  /* Qadam ko'rsatkichi — «FBO» belgisi (.pkx-tag) o'lchamidagi neytral kapsula.
+     Ikki qadamli qalin progress-chizig'ining o'rnini bosadi: bir xil ma'lumot,
+     ~90px kam joy. */
+  .pkx-stepchip { background:#EEF1F8; color:#5A6588; font-weight:800; font-size:11px;
+    letter-spacing:.05em; padding:5px 12px; border-radius:999px; white-space:nowrap;
+    text-transform:uppercase; }
+  /* Rejim segmenti — ro'yxatdagi FBO/Возвраты tablari bilan AYNAN bir komponent
+     (.pkx-seg + sirpanuvchi .pkx-glide). Tavsif matnlari tooltip'ga ko'chdi. */
+  .pkx-seg-btn:disabled { color:#B8BCC9; cursor:not-allowed; }
+  .pkx-seg-btn:disabled:hover { color:#B8BCC9; }
+  .pkx-seg-soon { margin-left:7px; background:#EEF1F8; color:#9499AE; border-radius:999px;
+    padding:2px 7px; font-size:10px; font-weight:800; letter-spacing:.04em; }
+  /* Jadval ustidagi asboblar qatori: qidiruv + davr chiplari + kalendar — BITTA
+     qator. Karta sarlavhasi (h2) va tushuntirish matni olib tashlandi. */
+  .pkx-tools { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 22px 12px; }
+  /* Qatordagi hamma boshqaruv 40px — qidiruv, davr chiplari, kalendar. */
+  .pkx-tools .pkx-search { height:40px; padding:0 14px; }
+  .pkx-tools .pkx-trek { padding:4px; border-radius:12px; gap:4px; }
+  .pkx-tools .pkx-chip { height:32px; padding:0 12px; font-size:12.5px; border-radius:9px; }
+  .pkx-tools .shdr { height:40px; border-radius:12px; }
+  /* Bir qatorli izoh — to'ldirilgan banner o'rniga (~90px → ~28px).
+     MUHIM: matn <span> ichida bo'lishi SHART — flex konteynerда yalang'och matn
+     tugunlari alohida flex-elementga aylanadi va tor ekranда ustunlarga bo'linib
+     ketadi. */
+  .pkx-note { display:flex; align-items:flex-start; gap:8px; padding:0 22px 12px;
+    font-size:12.5px; font-weight:600; line-height:1.45; color:#9499AE; }
+  .pkx-note svg { flex:none; margin-top:1px; }
+  .pkx-note span { min-width:0; }
+  .pkx-note b { color:#1C2030; font-weight:800; }
+  .pkx-note-warn, .pkx-note-warn b { color:#96751F; }
+  /* Pastki yopishqoq panel. Ilgari bu qator inline uslublar bilan qat'iy `flex`
+     edi va TELEFONДA sinmasdi — «Дальше» tugmasi ekrandan chiqib, BUTUN sahifani
+     yonlamasiga cho'zib yuborardi (375px'да scrollWidth 452). Endi: keng ekranда
+     bir qator, tor ekranда hisoblagichlar tepada, «Дальше» pastda to'liq kenglikda. */
+  .pkx-bbar { position:sticky; bottom:14px; z-index:6; display:flex; align-items:center; gap:18px;
+    background:#1e293b; border-radius:14px; padding:14px 20px; margin-top:14px;
+    box-shadow:0 12px 34px rgba(22,22,40,.22);
+    transition:transform .30s cubic-bezier(.2,.9,.3,1.15), opacity .18s ease, visibility 0s; }
+  /* Savat bo'sh — panel YO'Q. Pastga sirg'alib chiqib ketadi (o'chib qolmaydi),
+     lekin oqimdagi joyi SAQLANADI: shuning uchun (a) tovar qo'shilganда ro'yxat
+     sakramaydi (stepper bosayotgan barmoq ostidan qatorlar qochmaydi), (b) panel
+     kelganда oxirgi qatorni yopib qolmaydi. visibility → tab bilan ham topilmaydi. */
+  .pkx-bbar.is-idle { transform:translateY(calc(100% + 30px)); opacity:0; visibility:hidden;
+    pointer-events:none;
+    transition:transform .22s cubic-bezier(.4,0,.9,.4), opacity .14s ease, visibility 0s linear .22s; }
+  @media (prefers-reduced-motion:reduce){ .pkx-bbar { transition:none; } .pkx-bbar.is-idle { transition:none; } }
+  .pkx-bbar-stats { display:flex; align-items:center; gap:18px; flex-wrap:wrap; min-width:0;
+    color:#fff; font-weight:700; font-size:13px; }
+  .pkx-bbar-stats i { color:#A9AEC4; font-style:normal; }
+  .pkx-bbar-sep { width:1px; height:18px; background:rgba(255,255,255,.16); }
+  .pkx-bbar-link { flex:none; background:none; border:none; color:#fff; font-family:inherit;
+    font-size:13px; font-weight:700; text-decoration:underline; cursor:pointer;
+    padding:0 0 0 18px; border-left:1px solid rgba(255,255,255,.16); }
+  .pkx-bbar-next { margin-left:auto; flex:none; border:none; border-radius:10px; padding:11px 22px;
+    background:#fff; color:#1e293b; font-family:inherit; font-size:14px; font-weight:800; cursor:pointer; }
+  .pkx-bbar-next:disabled { background:rgba(255,255,255,.12); color:#A9AEC4; cursor:not-allowed; }
+
+  @media (max-width:600px){
+    .pkx-tools { padding:12px 14px 10px; gap:8px; }
+    .pkx-note { padding:0 14px 10px; }
+    .pkx-autohd-rules { padding:10px 14px; gap:10px; flex-wrap:wrap; }
+    .pkx-autohd-rules-solo { padding:12px 14px; }
+    .pkx-autohd-meta { flex:1 1 100%; font-size:12px; }
+    /* Qidiruv — to'liq kenglik; davr chiplari — sinmaydi, YONLAMASIGA sirg'aladi
+       (sinsa sirpanuvchi plita (.pkx-glide) noto'g'ri joyда qolib ketardi). */
+    .pkx-tools .pkx-search { flex:1 1 100%; width:auto !important; }
+    .pkx-tools .pkx-trek { flex:1 1 auto; min-width:0; flex-wrap:nowrap; overflow-x:auto;
+      scrollbar-width:none; }
+    .pkx-tools .pkx-trek::-webkit-scrollbar { display:none; }
+    .pkx-tools .pkx-chip { flex:none; }
+    .pkx-tools .shdr { flex:none; }
+    /* Pastki panel — IKKI qator: hisoblagichlar, so'ng «Посмотреть» + «Дальше». */
+    .pkx-bbar { flex-wrap:wrap; gap:10px 12px; padding:12px 14px; }
+    .pkx-bbar-stats { flex:1 1 100%; gap:12px; font-size:12px; }
+    .pkx-bbar-sep { display:none; }
+    .pkx-bbar-link { padding-left:0; border-left:0; }
+    .pkx-bbar-next { flex:1 1 auto; margin-left:0; padding:12px; }
   }
   .pkx-muted { color:#9499AE; font-weight:600; }
   .pkx-row-hover:hover { background:#f8fafc; }
@@ -297,22 +397,72 @@
   .qrsz-opt:hover { background:rgba(255,255,255,.1); color:#fff; }
   .qrsz-opt.is-sel { background:#4169E1; color:#fff; }
 
+  /* ── «Авто» rejim ── */
+  /* To'rtta qoida — bitta qatorda; torayganda 2×2, telefonда ustma-ust. */
+  .pkx-rules { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+  /* Avto-slot birlashgan sarlavha (Ulug'bek 2026-07-14): ilgari ikki ustma-ust
+     karta (4-ustunli statbar + oyna paneli) edi — endi BITTA ixcham karta:
+     yuqori qatorда «Что уйдёт» + oyna chiplari, pastда nozik ajratgich ostidа
+     ixcham qoidalar satri. Slot bir joyda — takror yo'q. */
+  .pkx-autohd-title { font-weight:800; font-size:15px; min-width:0; }
+  .pkx-autohd .pkx-tools { padding:12px 22px 8px; }
+  .pkx-autohd-rules { display:flex; align-items:center; gap:12px;
+    padding:9px 22px 11px; border-top:1px solid #f1f2f5; }
+  .pkx-autohd-rules-solo { border-top:none; padding:13px 22px; }
+  .pkx-autohd-meta { flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:600;
+    color:#9499AE; line-height:1.5; cursor:help; }
+  .pkx-autohd-meta b { color:#5A6588; font-weight:800; }
+  .pkx-autohd-meta svg { color:#B7A93A; vertical-align:-2px; margin:0 4px 0 3px; opacity:.85; }
+  .pkx-autohd-edit { flex:none; padding:7px 14px; border-radius:9px; font-size:12.5px; }
+  /* Har накладной — o'z kartasi: sarlavha + o'z «Создать» tugmasi. */
+  .pkx-invhead { display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:16px 22px; }
+  .pkx-skip { padding:10px 18px 14px; }
+  .pkx-skip > summary { cursor:pointer; font-weight:800; font-size:12.5px; color:#5A5F72; list-style:none; padding:4px 0; }
+  .pkx-skip > summary::-webkit-details-marker { display:none; }
+  .pkx-skip > summary::before { content:'▸ '; color:#B8BCC9; }
+  .pkx-skip[open] > summary::before { content:'▾ '; }
+
+  /* Yopiq, lekin «poymat mumkin» kun — punktir halqa, ilova akssenti (#4169E1).
+     Band kunlar (#1e293b) «aniq», bu esa «ovlaymiz» degan ma'noni beradi. */
+  .pkx-cal-catch:hover { background:#EEF2FE; border-color:#4169E1 !important; }
+  .pkx-cal-catch:focus-visible, .pkx-cal-day:focus-visible { outline:2px solid #4169E1; outline-offset:2px; }
+
+  @media (max-width: 1080px) { .pkx-rules { grid-template-columns:repeat(2,1fr); } }
+
   /* ── Mobile ── */
   @media (max-width: 768px) {
+    /* Kalendar + slotlar telefonda ustma-ust (340px ustun sig'maydi). */
+    .pkx-calgrid { grid-template-columns: 1fr !important; gap: 18px !important; }
+    .pkx-rules { grid-template-columns: 1fr; gap: 14px; }
+    .pkx-tfoot { flex-wrap: wrap; }
+    .pkx-tfoot-sum { order: -1; flex: 1 1 100% !important; text-align: left !important; }
     /* Sarlavha qatori telefonda uch qavatga bo'linadi:
          1) «Поставки» + FBO belgisi
          2) bo'lim tablari (sig'masa yonlamasiga sirg'aladi)
          3) do'kon pickeri + qora tugma */
     .pkx-head { gap: 10px; }
-    .pkx-head-left { flex: 1 1 100%; }
-    .pkx-head .pkx-h1 { font-size: 22px; }
-    .pkx-head .pkx-seg { flex: 1 1 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    /* Sarlavha ikkiga bo'linib ketmasin: sig'masa qadam kapsulasi PASTKI
+       qatorga tushadi (sarlavhaning o'zi emas). */
+    .pkx-head-left { flex: 1 1 100%; flex-wrap: wrap; }
+    .pkx-head .pkx-h1 { font-size: 22px; white-space: nowrap; }
+    .pkx-head .pkx-stepchip { font-size: 10.5px; padding: 4px 10px; }
+    /* `min-width:0` SHART: flex-element'ning standart `min-width:auto` qiymati
+       uni MAZMUNIDAN kichik bo'lishga qo'ymaydi — 320px ekranда segment 357px
+       bo'lib qolib, sahifani yonlamasiga cho'zib yuborardi. */
+    .pkx-head .pkx-seg { flex: 1 1 100%; max-width: 100%; min-width: 0;
+      overflow-x: auto; scrollbar-width: none; }
     .pkx-head .pkx-seg::-webkit-scrollbar { display: none; }
-    .pkx-head-right { flex: 1 1 100%; margin-left: 0; flex-wrap: wrap; }
+    /* Rejim tugmalari torroq — uchalasi 320px'га ham sig'adi (sirg'atish shart emas) */
+    .pkx-head .pkx-seg-btn { padding: 0 12px; font-size: 13px; }
+    .pkx-head-right { flex: 1 1 100%; margin-left: 0; flex-wrap: wrap; min-width: 0; }
     .pkx-head .pkx-shopsel { flex: 1 1 auto; min-width: 0; }
     .pkx-head-btn { flex: none; }
     /* Status-filtr dropdown'i telefonda to'liq kenglikда (qidiruv ostida). */
     .pkx-dd { flex: 1 1 100%; min-width: 0; }
+    /* «Авто-слот» ham to'liq kenglikда — aks holda o'z qatorida o'ngда
+       yolg'iz osilib qoladi (qidiruv/filtr ustidan tekislanmaydi). */
+    .pkx-autoslot { flex: 1 1 100%; justify-content: center; }
     /* dense supply grids already scroll inside .pkx-scroll; keep them contained */
     .pkx-scroll { -webkit-overflow-scrolling: touch; }
   }
@@ -321,6 +471,10 @@
   @media (max-width: 480px) {
     .pkx-head .pkx-shopsel { flex: 1 1 100%; }
     .pkx-head-btn { flex: 1 1 100%; justify-content: center; }
+    /* «Скоро» belgisi olib tashlanadi — uchala rejim 320px'га sig'sin
+       (tavsif tooltip'да qoladi). */
+    .pkx-seg-soon { display: none; }
+    .pkx-head .pkx-seg-btn { padding: 0 10px; }
   }
 </style>
 {% endblock %}
@@ -399,7 +553,7 @@
   const S = {
     shop: _initShop,
     tab: (['fbo','returns','grab'].indexOf(_savedTab)>=0 ? _savedTab : 'fbo'),
-    view:'list', listStyle:'clean', filter:'all', search:'',
+    view:'list', filter:'all', search:'',
     invoices:[], invPage:0, invGen:0, sel:{},
     detailId:null, detail:null, products:[],
     // Возвраты ro'yxati (server-side filtr + pagination)
@@ -414,7 +568,10 @@
     mode:'manual', plan:null, planDays:30, planGen:0, planLoading:false, planErr:'', planWh:'warehouse', semiSearch:'', expand:{},
     // Kalendar oralig'i (chipdan USTUN). planCustom=true bo'lsa chiplar so'nadi.
     planFrom:null, planTo:null, planCustom:false,
-    prep:null, slots:[], calMonth:null, daySel:null, slotSel:null,
+    prep:null, slots:[], calMonth:null, daySel:null, slotSel:null, catchTo:null,
+    // «Авто» rejim: sozlama + oldindan ko'rish (savat S.qty ishlatilmaydi).
+    auto:{cfg:null, configured:false, editing:false, preview:null, loading:false, err:'', cfgErr:'', gen:0, busy:null,
+          days:30, from:null, to:null, custom:false},   // sotuv oynasi (chip yoki kalendar)
     slotModal:null,  // {mode:'create'|'change', invoiceId, num, stockId, poolSource}
   };
 
@@ -653,8 +810,6 @@
 
   // ───────── status helpers ─────────
   function statusVal(it){ return (it.invoiceStatus||{}).value || ''; }
-  function statusText(it){ const v=statusVal(it); if(v==='CREATED')return'Создана'; if(v==='ACCEPTED')return'Принята на складе'; if(v==='CANCELED'||v==='CANCELLED')return'Отменена'; return (it.invoiceStatus||{}).text||it.status||''; }
-  function statusBadge(it){ const v=statusVal(it); const cls = v==='CREATED'?'pkx-bd-gray': v==='ACCEPTED'?'pkx-bd-green': (v==='CANCELED'||v==='CANCELLED')?'pkx-bd-red':'pkx-bd-gray'; return `<span class="pkx-bd ${cls}">${esc(statusText(it))}</span>`; }
   function statusDot(it){ const v=statusVal(it); const canc=(v==='CANCELED'||v==='CANCELLED'); const created=v==='CREATED'; const c=canc?'#E5484D':created?'#A2A6B8':'#2BAE6A'; const col=canc?'#E5484D':created?'#50556B':'#16794C'; const t=canc?'Отменена':created?'Создана':'Принята'; return `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:${col}"><span style="width:8px;height:8px;border-radius:50%;background:${c}"></span>${t}</span>`; }
 
   // Do'kon-tanlagich (ro'yxat + yaratish sahifalarida bir xil). shopMenu() shuni anchor qiladi.
@@ -679,26 +834,25 @@
           <span class="pkx-tag">FBO</span>
         </div>
         <div class="pkx-seg">
-          ${tabBtn(S.tab==='fbo','FBO','tab-fbo')}
+          ${tabBtn(S.tab==='fbo'||S.tab==='grab','FBO','tab-fbo')}
           ${tabBtn(S.tab==='returns','Возвраты','tab-returns')}
-          ${tabBtn(S.tab==='grab','Авто-слот','tab-grab')}
         </div>
         <div class="pkx-head-right">
           ${shopSelHtml()}
-          ${S.tab==='grab' ? '' : `<button data-on="${S.tab==='returns'?'ret-create':'create'}" class="pkx-btn pkx-btn-primary pkx-head-btn">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>${S.tab==='returns'?'Создать возврат':'Создать поставку'}</button>`}
+          <button data-on="${S.tab==='returns'?'ret-create':'create'}" class="pkx-btn pkx-btn-primary pkx-head-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>${S.tab==='returns'?'Создать возврат':'Создать поставку'}</button>
         </div>
       </div>`;
     return header + (S.tab==='fbo' ? fboCard() : S.tab==='grab' ? grabCard() : returnsCard());
   }
 
-  function viewSwitchHtml(){
-    const b=(active,label,on)=>`<button data-on="${on}" class="pkx-vseg-btn${active?' is-active':''}">${label}</button>`;
-    return `<div style="display:flex;align-items:center;gap:9px">
-      <span class="pkx-muted" style="font-size:12px">Вид</span>
-      <div style="display:flex;background:#f3f4f6;border-radius:11px;padding:3px">
-        ${b(S.listStyle==='clean','Чистый','vs-clean')}${b(S.listStyle==='summary','Сводка','vs-summary')}${b(S.listStyle==='progress','Прогресс','vs-progress')}
-      </div></div>`;
+  // «Авто-слот» tugmasi — jadval ustidagi toolbar'ning o'ng chetida (ilgari
+  // «Вид» toggle'i turgan joyda). Bosilganда avto-slot ro'yxati ochiladi,
+  // qayta bosilganда FBO ro'yxatiga qaytadi (aria-pressed bilan bir xil).
+  function autoSlotBtnHtml(){
+    const on = S.tab==='grab';
+    return `<button data-on="${on?'tab-fbo':'tab-grab'}" class="pkx-autoslot${on?' is-active':''}" aria-pressed="${on}">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/></svg>Авто-слот</button>`;
   }
 
   function filteredInvoices(){
@@ -731,8 +885,6 @@
   function invGridCss(){ return 'grid-template-columns:'+(selMode()?'44px ':'')+'1.4fr 110px 175px 150px 150px 130px 180px'; }
   function invoiceRowHtml(it){
     const created = statusVal(it)==='CREATED';
-    const dots = S.listStyle==='progress';
-    const showBar = S.listStyle!=='clean';
     const slot = it.timeSlotReservation ? it.timeSlotReservation.timeFrom : null;
     const gplan = (S.grabPlans||{})[it.id];
     // Re-booking: akt allaqachon slotда bo'lsa ham, avto-slot faol bo'lsa
@@ -750,10 +902,8 @@
           ? `<span data-grabcancel="${gplan.id}" title="Авто-слот до ${esc(gplan.targetDay)} · нажмите чтобы отменить" style="display:inline-flex;align-items:center;gap:5px;background:#FFF4D6;color:#9A6B00;border-radius:8px;padding:4px 9px;font-weight:800;font-size:12px;cursor:pointer">⏳ ${esc(grabDayFmt(gplan.targetDay))}</span>`
           : `<span style="color:#B8BCC9;font-weight:600;font-size:13px">— нет слота —</span>`);
     const acc=it.totalAccepted||0, tot=it.totalToStock||0, pct=tot?Math.min(100,Math.round(acc/tot*100)):0, full=acc>=tot&&tot>0;
-    const prog = showBar
-      ? `<div style="font-weight:700;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`
-      : `<span style="font-weight:700;font-size:13px">${acc} / ${tot}</span>`;
-    const statusCell = dots ? statusDot(it) : statusBadge(it);
+    const prog = `<div style="font-weight:700;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`;
+    const statusCell = statusDot(it);
     const canChange = created && !passed && (it.remainingAmountOfUpdates==null || it.remainingAmountOfUpdates>0);
     // O'tgan-slotli aktda tugma o'chiq + sabab tooltip'да (disabled tugma
     // Chrome'да title ko'rsatmaydi — wrapper span kerak).
@@ -784,17 +934,6 @@
 
   function fboCard(){
     const rows = filteredInvoices();
-    const showStats = S.listStyle==='summary';
-
-    let stats='';
-    if(showStats){
-      const tot=S.invoices.length, acc=S.invoices.filter(r=>statusVal(r)==='ACCEPTED').length, cre=S.invoices.filter(r=>statusVal(r)==='CREATED').length;
-      const sum=S.invoices.reduce((a,r)=>a+(r.fullPrice||0),0);
-      const card=(lbl,val,col)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 16px"><div class="pkx-muted" style="font-size:12px;margin-bottom:8px;font-weight:700">${lbl}</div><div style="font-size:24px;font-weight:800;letter-spacing:-.02em;${col?'color:'+col:''}">${val}</div></div>`;
-      stats = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:20px 20px 4px">
-        ${card('Всего поставок',tot)}${card('Принято на складе',acc,'#1A7F4B')}${card('В ожидании',cre,'#B6852A')}
-        <div style="border:1px solid #1e293b;border-radius:14px;padding:15px 16px;background:#1e293b"><div style="color:rgba(255,255,255,.65);font-weight:700;font-size:12px;margin-bottom:8px">Сумма за период</div><div style="font-size:19px;font-weight:800;letter-spacing:-.02em;color:#fff">${fmtSom(sum)}</div></div></div>`;
-    }
     // Status filtri — segment o'rniga dropdown (do'kon pickeri uslubida).
     const chips = `<div id="pkxFilterDd" class="pkx-dd">
         <span class="pkx-dd-val">${FILTER_LABEL[S.filter]||FILTER_LABEL.all}</span>
@@ -808,7 +947,7 @@
         </div>
         ${chips}
         <div style="flex:1"></div>
-        ${viewSwitchHtml()}
+        ${autoSlotBtnHtml()}
       </div>`;
 
     const headCheck = selMode() ? `<div class="pkx-check-cell"><input id="pkxSelAll" type="checkbox" class="pkx-row-check" aria-label="Выбрать все"></div>` : '';
@@ -826,7 +965,7 @@
         <button id="pkxSelActDl" class="pkx-selbar-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Скачать акт</button>
       </div>` : '';
 
-    return `<div class="pkx-card" style="overflow:hidden">${stats}${toolbar}<div class="pkx-scroll"><div style="min-width:1100px">${head}<div id="pkxRows">${body}</div>${more}</div></div></div>${selBar}`;
+    return `<div class="pkx-card" style="overflow:hidden">${toolbar}<div class="pkx-scroll"><div style="min-width:1100px">${head}<div id="pkxRows">${body}</div>${more}</div></div></div>${selBar}`;
   }
 
   function retStatusBadge(st){
@@ -944,45 +1083,45 @@
   function skuImg(it){ const p=it.photo&&it.photo.photo; if(!p) return it.image||''; const k=p['240']||p['80']||{}; return k.high||k.low||''; }
 
   // ════════════ CREATE VIEW ════════════
+  // Sarlavha — RO'YXAT ko'rinishidagi `.pkx-head` bilan bir xil: kartasiz bitta
+  // qator. Chapda: orqaga · «Новая поставка» · qadam kapsulasi. O'ngda: rejim
+  // segmenti (faqat 1-qadamда) · do'kon pickeri.
   function viewCreate(){
-    const stepper = `<div class="pkx-card" style="padding:20px 24px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-        <button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-        <h1 class="pkx-h1" style="font-size:22px">Новая поставка</h1>
-        <div style="flex:1"></div>
-        ${shopSelHtml()}
+    const step = S.step==='time' ? 'Шаг 2 из 2 · Время поставки' : 'Шаг 1 из 2 · Товары';
+    const header = `<div class="pkx-head">
+      <div class="pkx-head-left">
+        <button class="pkx-iconbtn" data-on="back" aria-label="Назад"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="pkx-h1">Новая поставка</h1>
+        <span class="pkx-stepchip">${step}</span>
       </div>
-      <div style="display:flex;gap:14px">
-        <div style="flex:1"><div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#1A7F4B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">1</span>Товары</div><div style="height:4px;border-radius:3px;background:#1A7F4B"></div></div>
-        <div style="flex:1">${S.step==='time'
-          ? `<div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#1e293b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#1e293b"></div>`
-          : `<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#B8BCC9;margin-bottom:9px"><span style="width:22px;height:22px;border-radius:50%;background:#e8eaf0;color:#9499AE;display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Время поставки</div><div style="height:4px;border-radius:3px;background:#e9ecf2"></div>`}</div>
-      </div></div>`;
+      <div class="pkx-head-right">${S.step==='time'?'':modeSegHtml()}${shopSelHtml()}</div>
+    </div>`;
     const body = S.step==='time' ? createTime()
-      : (modeSwitchHtml() + (S.mode==='semi' ? semiProducts() : createProducts()));
-    return `<div>${stepper}${body}</div>` + (S.showReview?reviewModalHtml():'');
+      : (S.mode==='auto' ? autoProducts()
+        : S.mode==='semi' ? semiProducts() : createProducts());
+    return `<div>${header}${body}</div>` + (S.showReview?reviewModalHtml():'');
   }
 
   // ── Rejim almashtirgich: Ручной | Полуавтомат | Авто ──────────────────
   // Faqat 1-qadam (Товары) tanasini almashtiradi; miqdorlar savati (S.qty),
   // pastki panel, «Дальше» va 2-qadam — barcha rejimlar uchun UMUMIY.
+  // Ko'rinishi — ro'yxatdagi bo'lim tablari bilan bir xil segment (.pkx-seg):
+  // tavsif matnlari tooltip'ga ko'chdi, aks holda qator ikki barobar balandroq.
   const MODES=[
-    {id:'manual', title:'Ручной',      sub:'Как на Uzum — выбираете сами'},
-    {id:'semi',   title:'Полуавтомат', sub:'Расчёт по продажам, вы подтверждаете'},
-    {id:'auto',   title:'Авто',        sub:'Скоро'},
+    {id:'manual', title:'Ручной',      hint:'Как на Uzum — выбираете сами'},
+    {id:'semi',   title:'Полуавтомат', hint:'Расчёт по продажам, вы подтверждаете'},
+    {id:'auto',   title:'Авто',        hint:'Заполнит и забронирует слот сам, по вашим правилам'},
   ];
-  function modeSwitchHtml(){
+  function modeSegHtml(){
     const tabs=MODES.map(m=>{
-      const on=S.mode===m.id, off=m.id==='auto';
-      return `<button class="pkx-mode" data-on="mode-${m.id}" ${off?'disabled':''} style="flex:1;text-align:left;border:none;border-radius:12px;padding:11px 15px;cursor:${off?'not-allowed':'pointer'};background:${on?'#fff':'transparent'};box-shadow:${on?'0 2px 8px rgba(22,22,40,.10)':'none'};opacity:${off?'.45':'1'}">
-        <div class="pkx-modettl" style="color:${on?'#1C2030':'#5A6588'}">${m.title}</div>
-        <div class="pkx-modesub">${m.sub}</div>
-      </button>`;
+      const on=S.mode===m.id;
+      return `<button class="pkx-seg-btn${on?' is-active':''}" data-on="mode-${m.id}" title="${esc(m.hint)}">${m.title}</button>`;
     }).join('');
-    return `<div class="pkx-card" style="padding:6px;margin-bottom:14px;background:#f1f3f7;display:flex;gap:6px">${tabs}</div>`;
+    return `<div class="pkx-seg" data-glide="mode">${tabs}</div>`;
   }
 
   const RST_GRID='grid-template-columns:1fr 110px 110px 145px 185px';
+  const RST_MIN=900;   // ustunlar yig'indisi + «ТОВАР» ustuni uchun eng kam kenglik
   function rstRowHtml(p){
     const q = S.qty[p.skuId]!=null?S.qty[p.skuId]:'';
     const gab=(p.dimensionalGroup||{}).title||'—';
@@ -999,36 +1138,48 @@
   }
   function createProducts(){
     const GRID=RST_GRID;
-    const head=`<div class="pkx-thead" style="display:grid;${GRID};align-items:center;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const visible = rstFiltered();
     const searching = S.rstSearch.trim()!=='';
     const rowsHtml = visible.length ? visible.map(rstRowHtml).join('')
       : `<div class="pkx-msg">${searching ? (S.rstSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rstLoading||S.rstHasMore)?'Загрузка…':'Нет данных')}</div>`;
     const more = (S.rstHasMore && S.restock.length && !searching) ? `<div id="pkxRstMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
-    const rows = `<div id="pkxRstRows" class="pkx-rowsend">${rowsHtml}</div>${more}`;
+    const rows = `<div id="pkxRstRows">${rowsHtml}</div>${more}`;
 
+    // Jadval — yarim-avtomatdagi kabi O'Z gorizontal scroll'i bilan (ustunlar
+    // qat'iy: 110/110/145/185px). Ilgari konteyner yo'q edi va tor ekranда
+    // ustunlar bir-birining ustiga chiqib, BUTUN sahifa yonlamasiga sirg'alardi.
+    // Sarlavha esa scroll'dan tashqarida (sticky ishlashi uchun) — u JS orqali
+    // qatorlarga hamohang siljiydi (wireHScroll).
     const card=`<div class="pkx-card" style="margin-bottom:14px">
-      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Выберите товары для поставки</h2>
-        <div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Не объединяйте в одну поставку крупногабаритный товар с малогабаритным и среднегабаритным.</div></div></div>
-      <div style="padding:0 22px 6px"><div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRstSearch" type="search" name="pkx-rst-search" value="${esc(S.rstSearch)}" placeholder="SKU или название товара" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div></div>
-      ${head}${rows}</div>`;
+      <div class="pkx-tools">
+        <div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRstSearch" type="search" name="pkx-rst-search" value="${esc(S.rstSearch)}" placeholder="SKU или название товара" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+      </div>
+      <div class="pkx-note pkx-note-warn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>Не объединяйте в одну поставку крупногабаритный товар с малогабаритным и среднегабаритным.</span></div>
+      <div class="pkx-thead pkx-thead-clip"><div id="pkxRstHead" style="min-width:${RST_MIN}px">${head}</div></div>
+      <div id="pkxRstScroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:${RST_MIN}px">${rows}</div></div></div>`;
     return card+bottomBar();
   }
 
   // Pastki «yopishqoq» panel — qo'lda va yarim-avtomat rejimlar uchun UMUMIY
   // (savat bitta: S.qty), shuning uchun rejim almashsa ham tanlov saqlanadi.
+  // Telefonда: hisoblagichlar bir qatorда, «Дальше» esa PASTDA to'liq kenglikda
+  // (ilgari qator sinmasdi va butun sahifani yonlamasiga cho'zib yuborardi).
   function bottomBar(){
     const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
     const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
     const canNext=totalUnits>0;
-    return `<div style="position:sticky;bottom:14px;display:flex;align-items:center;gap:18px;background:#1e293b;border-radius:14px;padding:14px 20px;box-shadow:0 12px 34px rgba(22,22,40,.22);margin-top:14px">
-      <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Выбрано SKU:</span> ${selectedCount} / 100</div>
-      <div style="width:1px;height:18px;background:rgba(255,255,255,.16)"></div>
-      <div style="color:#fff;font-weight:700;font-size:13px"><span style="color:#A9AEC4">Количество единиц:</span> ${totalUnits} шт</div>
-      <div style="width:1px;height:18px;background:rgba(255,255,255,.16)"></div>
-      <button data-on="review" style="background:none;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0">Посмотреть</button>
-      <div style="flex:1"></div>
-      <button data-on="next" ${canNext?'':'disabled'} style="background:${canNext?'#fff':'rgba(255,255,255,.12)'};color:${canNext?'#1e293b':'#A9AEC4'};border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:${canNext?'pointer':'not-allowed'}">Дальше</button>
+    // Savat bo'sh bo'lsa — panel darhol «is-idle» holatida chiziladi (sahifa
+    // ochilganда ko'rinmaydi). Birinchi dona qo'shilishi bilan updateBar() uni
+    // olib tashlaydi → pastdan suzib chiqadi.
+    return `<div id="pkxBBar" class="pkx-bbar${canNext?'':' is-idle'}">
+      <div class="pkx-bbar-stats">
+        <span><i>Выбрано SKU:</i> ${selectedCount} / 100</span>
+        <span class="pkx-bbar-sep"></span>
+        <span><i>Единиц:</i> ${totalUnits} шт</span>
+      </div>
+      <button data-on="review" class="pkx-bbar-link">Посмотреть</button>
+      <button data-on="next" class="pkx-bbar-next" ${canNext?'':'disabled'}>Дальше</button>
     </div>`;
   }
 
@@ -1036,7 +1187,7 @@
   // Hisob serverda: (N kunlik sotuv − Uzum qoldig'i), bizning ombor bilan
   // cheklangan → `recommend`. Ko'rinish — «Расходы» sahifasi uslubi:
   // asosiy mahsulot qatori (jami) + ochiladigan SKU qatorlari (pikerlar).
-  const SEMI_GRID='grid-template-columns:minmax(260px,1fr) 116px 122px 116px 96px 190px';
+  const SEMI_GRID='grid-template-columns:minmax(260px,1fr) 130px 122px 116px 96px 190px';
   const SEMI_DAYS=[7,10,15,30,60];
 
   // Rejani bir marta yuklaydi (takroriy chaqiruvlar bitta so'rovga qo'shiladi).
@@ -1143,19 +1294,22 @@
   }
 
   function semiProducts(){
-    // Kalendar oralig'i tanlansa — chiplar so'nadi (ikkalasi bir vaqtda faol emas)
+    // Kalendar oralig'i tanlansa — chiplar so'nadi (ikkalasi bir vaqtda faol emas).
+    // Chiplar — ilovaning umumiy «shisha trek»i (.pkx-trek + sirpanuvchi .pkx-glide),
+    // ro'yxatdagi status filtrlari bilan bir xil komponent.
     const chips=SEMI_DAYS.map(d=>{ const on=(!S.planCustom && S.planDays===d);
-      return `<button data-days="${d}" style="border:1px solid ${on?'#1e293b':'#e6e6ec'};background:${on?'#1e293b':'#fff'};color:${on?'#fff':'#5A6588'};border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">${d} дн.</button>`;
+      return `<button class="pkx-chip${on?' is-active':''}" data-days="${d}">${d} дн.</button>`;
     }).join('');
     // Ilovadagi UMUMIY kalendar (static/daterange.js) — o'zimizniki yozilmagan
     const cal=(window.SHDateRange
       ? SHDateRange.html({from:S.planCustom?S.planFrom:null, to:S.planCustom?S.planTo:null, placeholder:'Свой период'})
       : '');
-    // Sarlavha oynani AYNAN aytadi: chip → «за 30 дн.», kalendar → «1 июн — 30 июн»
+    // Sarlavha oynani AYNAN aytadi: chip → «за 30 дн.», kalendar → «1 июн — 30 июн».
+    // Bir qatorда (Ulug'bek 2026-07-14) — ustun sarlavhalari balandlikда yupqaroq.
     const soldHead = (S.planCustom && window.SHDateRange)
       ? `ПРОДАНО<br>${esc(SHDateRange.label(S.planFrom,S.planTo))}`
-      : `ПРОДАНО<br>за ${S.planDays} дн.`;
-    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;margin-top:8px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',soldHead,'ОСТАТОК<br>UZUM','НА<br>СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th" style="line-height:1.35">${h}</div>`).join('')}</div>`;
+      : `ПРОДАНО за ${S.planDays} дн.`;
+    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',soldHead,'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
 
     const gs=semiFiltered();
     let rowsHtml;
@@ -1167,22 +1321,21 @@
     const need=(S.plan||[]).reduce((a,g)=>a+g.need,0);
     const rec=(S.plan||[]).reduce((a,g)=>a+g.recommend,0);
     const ready=(!S.planLoading && !S.planErr && (S.plan||[]).length);
-    // Ombor qoldig'i to'ldirilmagan bo'lsa — cheklov o'rniga to'liq ehtiyoj
-    // tavsiya qilinadi; buni yashirmaymiz.
-    const summary = !ready ? ''
+    // Bir qatorli izoh: hisob qoidasi ustun sarlavhalarida ko'rinib turibdi
+    // (ПРОДАНО − ОСТАТОК UZUM = НУЖНО), shuning uchun bu yerda faqat JAMI.
+    // Ombor bo'sh bo'lsa — bu bloklovchi holat, sariq rangда qoladi.
+    const note = !ready ? ''
       : (S.planWh==='none'
-        ? `<div style="display:flex;align-items:flex-start;gap:11px;background:#FBF4E6;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B6852A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#8A6B1E;font-weight:600;font-size:13px">Нужно довезти <b>${need} шт</b>, но остатки своего склада не заполнены — отправлять нечего, поэтому рекомендация везде <b>0</b>. Заполните остатки в разделе «Склад»: рекомендация появится сразу. Можно и вручную — раскройте товар и укажите количество по SKU.</div></div>`
-        : `<div style="display:flex;align-items:flex-start;gap:11px;background:#EEF6F1;border-radius:12px;padding:13px 16px;margin:14px 0 4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1A7F4B" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div style="color:#1A7F4B;font-weight:600;font-size:13px">Нужно довезти <b>${need} шт</b> по всем товарам. Со своего склада можно отправить <b>${rec} шт</b> — нажмите «Добавить» у товара или раскройте его и выберите SKU вручную.</div></div>`);
+        ? `<div class="pkx-note pkx-note-warn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>Нужно довезти <b>${need}&nbsp;шт</b>, но остатки своего склада не заполнены — рекомендация везде <b>0</b>. Заполните остатки в разделе «Склад» или укажите количество по SKU вручную.</span></div>`
+        : `<div class="pkx-note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A7F4B" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>Нужно довезти <b>${need}&nbsp;шт</b>, со своего склада можно отправить <b>${rec}&nbsp;шт</b> — нажмите «Добавить» у товара или раскройте его и выберите SKU.</span></div>`);
 
     const card=`<div class="pkx-card" style="margin-bottom:14px">
-      <div style="padding:20px 22px 6px"><h2 class="pkx-h2">Что нужно довезти</h2>
-        <div class="pkx-muted" style="font-size:13px;margin-top:5px">Потребность = продажи за период − остаток на Uzum. К отправке рекомендуем не больше, чем есть на нашем складе.</div>
-        ${summary}</div>
-      <div style="padding:0 22px 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="pkx-tools">
         <div class="pkx-search" style="width:340px;max-width:100%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxSemiSearch" type="search" name="pkx-semi-search" value="${esc(S.semiSearch)}" placeholder="SKU или название товара" autocomplete="off" spellcheck="false"/></div>
         <div style="flex:1"></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${chips}${cal}</div>
+        <div class="pkx-trek" data-glide="semidays">${chips}</div>${cal}
       </div>
+      ${note}
       <div class="pkx-thead pkx-thead-clip"><div id="pkxSemiHead" style="min-width:1040px">${head}</div></div>
       <div id="pkxSemiScroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:1040px"><div id="pkxSemiRows">${rowsHtml}</div></div></div></div>`;
     return card+bottomBar();
@@ -1208,33 +1361,415 @@
     </div></div>`;
   }
 
+  // ── АВТО rejim ───────────────────────────────────────────────────────────
+  // Jadval EMAS — «preflight cheki»: nima ketadi, nima ketmaydi va NEGA.
+  // Avto rejimga ishonish uchun u o'z ishini ko'rsatishi kerak.
+  const RULE_FIELDS=[
+    {k:'maxUnits',  label:'Макс. единиц в поставке', hint:'Больше этого в одну накладную не положим'},
+    {k:'maxSkus',   label:'Макс. SKU в поставке',    hint:'Лимит Uzum — 100'},
+    {k:'minPerSku', label:'Мин. единиц на SKU',      hint:'Если SKU попал в поставку — не меньше этого'},
+  ];
+  const DAY_WORD=n=>n===0?'сегодня':n===1?'завтра':n===2?'послезавтра':`+${n} дн.`;
+
+  function autoRulesHtml(){
+    const A=S.auto, c=A.cfg||{};
+    const fields=RULE_FIELDS.map(f=>`<div>
+        <label style="display:block;font-weight:800;font-size:13px;margin-bottom:6px">${f.label}</label>
+        <input data-rule="${f.k}" type="number" min="1" value="${esc(c[f.k]||'')}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:11px 13px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+        <div class="pkx-muted" style="font-size:11.5px;margin-top:5px;line-height:1.4">${f.hint}</div>
+      </div>`).join('');
+    // Slot — NISBIY oyna. Aniq sana emas: har накладнойда qaytadan hisoblanadi.
+    const opts=n=>[0,1,2,3,4,5,6,7].map(i=>`<option value="${i}" ${i===n?'selected':''}>${DAY_WORD(i)}</option>`).join('');
+    const slot=`<div>
+        <label style="display:block;font-weight:800;font-size:13px;margin-bottom:6px">Слот поставки</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select data-rule="slotFrom" style="flex:1;min-width:0;border:1px solid #e6e6ec;border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:#1C2030;background:#fff;box-sizing:border-box">${opts(c.slotFrom|0)}</select>
+          <span class="pkx-muted" style="font-weight:800;font-size:13px;flex:none">→</span>
+          <select data-rule="slotTo" style="flex:1;min-width:0;border:1px solid #e6e6ec;border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:#1C2030;background:#fff;box-sizing:border-box">${opts(c.slotTo==null?2:c.slotTo)}</select>
+        </div>
+        <div class="pkx-muted" style="font-size:11.5px;margin-top:5px;line-height:1.4">Отсчёт от дня создания — правило работает в любой день</div>
+      </div>`;
+    const err=A.cfgErr?`<div class="pkx-note pkx-note-warn" style="margin-top:14px"><span>${esc(A.cfgErr)}</span></div>`:'';
+    const intro=A.configured?'':`<div class="pkx-muted" style="font-size:13px;line-height:1.55;margin-bottom:16px">Авто соберёт поставку по продажам и остаткам склада. Задайте четыре правила — без них он не запустится.</div>`;
+    return `<div class="pkx-card" style="padding:20px 22px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:${A.configured?'16px':'6px'}">
+        <h2 class="pkx-h2">Правила</h2>
+        ${A.configured?`<button data-on="auto-rules-cancel" class="pkx-btn pkx-btn-soft" style="padding:8px 14px;border-radius:10px;font-size:13px">Отмена</button>`:''}
+      </div>
+      ${intro}
+      <div class="pkx-rules">${fields}${slot}</div>
+      ${err}
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button data-on="auto-rules-save" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px">Сохранить правила</button>
+      </div></div>`;
+  }
+
+  // Qoidalarni bitta ixcham satrда (birlashgan sarlavha + bo'sh/yuklanish
+  // holatlari uchun umumiy). `p` — preview (bo'lsa slot sanalari qo'shiladi).
+  // Slot xatti-harakati (bo'sh slot / avto-slot) — hover-tooltip'да saqlangan.
+  function autoRulesMeta(p){
+    const c=S.auto.cfg||{};
+    const slotWin=`${DAY_WORD(c.slotFrom|0)} → ${DAY_WORD(c.slotTo==null?2:c.slotTo)}`;
+    const dates=(p&&p.slotFromDate)?` · ${fmtISO(p.slotFromDate)} — ${fmtISO(p.slotToDate)}`:'';
+    const tip='Каждой поставке займём свободный слот; если свободных нет — она встанет в авто-слот.';
+    const bolt='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg>';
+    return `<span class="pkx-autohd-meta" title="${esc(tip)}">лимит <b>${c.maxUnits} шт</b> · <b>${c.maxSkus} SKU</b> · мин <b>${c.minPerSku}</b>${bolt}слот <b>${slotWin}</b>${dates}</span>`;
+  }
+
+  function autoSummaryHtml(){
+    return `<div class="pkx-card pkx-autohd" style="margin-bottom:14px">
+      <div class="pkx-autohd-rules pkx-autohd-rules-solo">
+        ${autoRulesMeta(null)}
+        <button data-on="auto-rules-edit" class="pkx-btn pkx-btn-soft pkx-autohd-edit" style="margin-left:auto">Изменить</button>
+      </div>
+    </div>`;
+  }
+
+  // «Nega tushmadi» — avto rejimga ishonchning o'zagi.
+  const SKIP_LABEL={blocked:'Заблокирован на Uzum', no_price:'Не указана себестоимость', max_skus:'Не поместился: лимит SKU', max_units:'Не поместился: лимит единиц'};
+
+  function autoProducts(){
+    const A=S.auto;
+    if(A.editing || !A.configured) return autoRulesHtml();
+    if(A.loading) return autoSummaryHtml()+`<div class="pkx-card" style="padding:22px"><div class="pkx-msg">Собираем поставку по продажам и складу…</div></div>`;
+    if(A.err) return autoSummaryHtml()+`<div class="pkx-card" style="padding:22px"><div class="pkx-msg">${esc(A.err)}</div></div>`;
+
+    const p=A.preview||{}; const invs=p.invoices||[]; const skipped=p.skipped||[];
+    const whEmpty=(p.whSource==='none');
+    if(!invs.length){
+      const why=whEmpty
+        ? 'Склад пуст — Авто отправляет только то, что физически есть у вас. Заполните «Склад», и он соберёт поставку сам.'
+        : 'Сейчас нечего отправлять: по продажам за период потребности нет либо на складе нет остатка.';
+      return autoSummaryHtml()+`<div class="pkx-card" style="padding:22px"><div class="pkx-msg">${why}</div></div>`;
+    }
+
+    // Chegaralarga sig'magani TASHLANMAYDI — keyingi накладнойga o'tadi.
+    // Har накладной — alohida karta, o'z «Создать» tugmasi bilan.
+    const cards=invs.map(inv=>{
+      const busy=A.busy===inv.index, anyBusy=A.busy!=null;
+      const rows=(inv.groups||[]).map(g=>autoGroupRowHtml(inv,g)+(g.variants||[]).map(v=>autoVarRowHtml(inv,g,v)).join('')).join('');
+      return `<div class="pkx-card" style="margin-bottom:14px">
+        <div class="pkx-invhead">
+          <div style="min-width:0">
+            <div style="font-weight:800;font-size:15px">Поставка ${inv.index+1}${invs.length>1?` <span class="pkx-muted" style="font-weight:700">из ${invs.length}</span>`:''}</div>
+            <div class="pkx-muted" style="font-size:12.5px;margin-top:2px">${inv.skuCount} SKU · ${inv.totalUnits} шт · лимит ${A.cfg.maxUnits} шт / ${A.cfg.maxSkus} SKU</div>
+          </div>
+          <button data-inv="${inv.index}" class="pkx-btn pkx-btn-primary" ${anyBusy?'disabled':''} style="padding:10px 20px;border-radius:11px;font-size:13.5px;flex:none;${anyBusy?'opacity:.5;cursor:not-allowed':''}">${busy?'Создаём…':'Создать'}</button>
+        </div>
+        <div class="pkx-thead pkx-thead-clip"><div class="pkx-autohead" style="min-width:${AUTO_MIN}px">${autoHeadHtml()}</div></div>
+        <div class="pkx-autoscroll" style="overflow-x:auto"><div class="pkx-rowsend" style="min-width:${AUTO_MIN}px">${rows}</div></div>
+      </div>`;
+    }).join('');
+
+    // Chetda qolganlar — sababi bilan (yig'ib). Avtoga ishonch shu yerda.
+    let skipHtml='';
+    if(skipped.length){
+      const by={}; skipped.forEach(s=>{ (by[s.reason]=by[s.reason]||[]).push(s); });
+      const items=Object.keys(by).map(r=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:12.5px;border-bottom:1px solid #f3f4f6">
+        <span class="pkx-muted" style="font-weight:700">${SKIP_LABEL[r]||r}</span><span style="font-weight:800;flex:none">${by[r].length} SKU</span></div>`).join('');
+      skipHtml=`<div class="pkx-card" style="margin-bottom:14px"><details class="pkx-skip"><summary>Не вошло ни в одну поставку · ${skipped.length} SKU</summary><div style="padding:4px 2px 2px">${items}</div></details></div>`;
+    }
+
+    // Birlashgan ixcham sarlavha: yuqori qatorда «Что уйдёт» + oyna chiplari,
+    // pastда nozik ajratgich ostidа qoidalar satri + «Изменить». Ilgari bu
+    // ikki alohida karta edi (statbar + oyna) — joyni ~2× tejadik.
+    const head=`<div class="pkx-card pkx-autohd" style="margin-bottom:14px">
+      <div class="pkx-tools">
+        <div class="pkx-autohd-title">Что уйдёт · ${invs.length} ${plural(invs.length,'поставка','поставки','поставок')} · ${p.totalSkus} SKU · ${p.totalUnits} шт</div>
+        <div style="flex:1"></div>
+        ${autoDaysHtml()}
+      </div>
+      <div class="pkx-autohd-rules">
+        ${autoRulesMeta(p)}
+        <button data-on="auto-rules-edit" class="pkx-btn pkx-btn-soft pkx-autohd-edit">Изменить</button>
+      </div>
+    </div>`;
+
+    // Pastki panel — «hammasini bir bosishda». Ilovaning umumiy .pkx-bbar'i.
+    const bar=`<div class="pkx-bbar">
+      <div class="pkx-bbar-stats">
+        <span><i>Поставок:</i> ${invs.length}</span>
+        <span class="pkx-bbar-sep"></span>
+        <span><i>SKU:</i> ${p.totalSkus}</span>
+        <span class="pkx-bbar-sep"></span>
+        <span><i>Единиц:</i> ${p.totalUnits}</span>
+      </div>
+      <button data-on="auto-refresh" class="pkx-bbar-link">Пересчитать</button>
+      <button data-on="auto-create-all" class="pkx-bbar-next" ${A.busy!=null?'disabled':''}>${A.busy==='all'?'Создаём…':`Создать все · ${invs.length}`}</button>
+    </div>`;
+    return head+cards+skipHtml+bar;
+  }
+
+  // Sotuv oynasi — yarim-avtomatdagi AYNAN o'sha komponent (.pkx-trek chiplari
+  // + umumiy SHDateRange kalendari). Oyna o'zgarsa — ehtiyoj qayta hisoblanadi,
+  // demak накладнойlar ham qayta yig'iladi.
+  function autoDaysHtml(){
+    const A=S.auto;
+    const chips=SEMI_DAYS.map(d=>{ const on=(!A.custom && A.days===d);
+      return `<button class="pkx-chip${on?' is-active':''}" data-adays="${d}">${d} дн.</button>`;
+    }).join('');
+    const cal=(window.SHDateRange
+      ? SHDateRange.html({from:A.custom?A.from:null, to:A.custom?A.to:null, placeholder:'Свой период'})
+      : '');
+    return `<div class="pkx-trek" data-glide="autodays">${chips}</div>${cal}`;
+  }
+
+  // Ustun sarlavhasi oynani AYNAN aytadi: chip → «за 30 дн.», kalendar → «1 июн — 30 июн»
+  function autoSoldHead(){
+    const A=S.auto;
+    // «за N дн.» — bir qatorда; sanali oyna uzun, shu bois faqat unда ikki qator.
+    return (A.custom && window.SHDateRange)
+      ? `ПРОДАНО<br>${esc(SHDateRange.label(A.from,A.to))}`
+      : `ПРОДАНО за ${A.days||30} дн.`;
+  }
+
+  function autoHeadHtml(){
+    return `<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР',autoSoldHead(),'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+  }
+
+  // Yarim-avtomat bilan BIR XIL qator tili (rasm + guruh + variantlar), lekin
+  // TAHRIRLANMAYDI: avto miqdorni o'zi qo'ygan, bu — chek.
+  function autoGroupRowHtml(inv,g){
+    const k=`a${inv.index}:${g.key}`, open=!!S.expand[k];
+    return `<div class="pkx-prow pkx-grow" data-akey="${esc(k)}" style="display:grid;${SEMI_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0">
+        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        ${tile(g.image,48)}
+        <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
+          <div class="pkx-grow2">${g.shortSku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.shortSku)}</span>`:''}<span style="font-size:11px;font-weight:700;color:#9499AE;background:#f1f3f7;padding:2px 7px;border-radius:999px">${g.vcount} SKU</span></div></div>
+      </div>
+      <div style="font-weight:500;font-size:13.5px">${g.sales}</div>
+      <div style="font-weight:500;font-size:13.5px">${g.uzum_qty}</div>
+      <div style="font-weight:500;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
+      <div style="font-weight:500;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
+      <div style="font-weight:500;font-size:13.5px;color:#1A7F4B">${g.qty} шт</div>
+    </div>`;
+  }
+
+  function autoVarRowHtml(inv,g,v){
+    const k=`a${inv.index}:${g.key}`;
+    const part=v.partial?`<div class="pkx-muted" style="font-size:11.5px;margin-top:3px">из ${v.recommend|0} шт — остальное в след. поставке</div>`:'';
+    return `<div class="pkx-prow pkx-vrow" data-akey="${esc(k)}" style="display:${S.expand[k]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0;padding-left:33px">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
+      <div style="font-weight:500;font-size:13px">${v.sales}</div>
+      <div style="font-weight:500;font-size:13px">${v.uzum_qty}</div>
+      <div style="font-weight:500;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
+      <div style="font-weight:500;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
+      <div><span style="font-weight:500;font-size:13.5px;color:#1A7F4B">${v.qty} шт</span>${part}</div>
+    </div>`;
+  }
+
+  const AUTO_MIN=1040;
+  function fmtISO(s){ if(!s) return ''; const [y,m,d]=String(s).split('-').map(Number); return `${d} ${MONTHS_G[m-1]}`; }
+
+  async function loadAutoConfig(){
+    const A=S.auto; A.loading=true; A.err='';
+    try{
+      const j=await api(`/postavki/api/auto/config?`+Q({shop:S.shop}));
+      A.cfg=j.config; A.configured=!!j.configured; A.editing=!A.configured;
+      // Oyna sozlamadan boshlanadi (o'tgan safar tanlangani) — chip bosilsa saqlanadi.
+      if(A.cfg && A.cfg.salesDays) A.days=A.cfg.salesDays;
+    }catch(e){ A.err=e.message||'Ошибка'; }
+    finally{ A.loading=false; }
+  }
+
+  async function loadAutoPreview(){
+    const A=S.auto; const gen=++A.gen;
+    A.loading=true; A.err=''; render();
+    try{
+      const q={shop:S.shop, days:A.days};
+      if(A.custom && A.from && A.to){ q.date_from=A.from; q.date_to=A.to; }   // kalendar chipdan ustun
+      const j=await api(`/postavki/api/auto/preview?`+Q(q));
+      if(gen!==A.gen) return;
+      A.preview=j; A.cfg=j.config||A.cfg;
+      // Oynani SERVER hisoblaganidek qabul qilamiz (teskari oraliq/chegaralar u yerda)
+      A.days=j.salesDays||A.days; A.custom=!!j.salesCustom;
+      if(j.salesCustom){ A.from=j.salesFrom; A.to=j.salesTo; }
+    }catch(e){ if(gen!==A.gen) return; A.err=e.message||'Ошибка'; A.preview=null; }
+    finally{ if(gen===A.gen){ A.loading=false; render(); } }
+  }
+
+  // Chip tanlovi ESLAB QOLINADI: keyingi safar avto o'sha oyna bilan ochiladi.
+  // Kalendar oralig'i — faqat shu seans uchun (yarim-avtomatdagi kabi).
+  async function persistAutoDays(d){
+    const A=S.auto; if(!A.cfg) return;
+    try{ await api('/postavki/api/auto/config',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({shop:S.shop, ...A.cfg, salesDays:d})}); A.cfg={...A.cfg, salesDays:d}; }
+    catch(e){ /* saqlanmasa ham ko'rinish ishlaydi */ }
+  }
+
+  // Avto davr chiplari + kalendari. Yarim-avtomatniki `[data-days]`/`.shdr`ni
+  // qidiradi — shuning uchun bu yerdagilar `[data-adays]` va wireSemi mode
+  // bo'yicha to'sib qo'yilgan (aks holda semi'ning handleri buni o'g'irlaydi).
+  function wireAutoDays(){
+    if(S.mode!=='auto') return;
+    el.querySelectorAll('[data-adays]').forEach(b=>{
+      if(b._bound) return; b._bound=1;
+      b.addEventListener('click', async ()=>{
+        const A=S.auto, d=parseInt(b.dataset.adays,10);
+        if(d===A.days && !A.custom) return;
+        A.days=d; A.from=null; A.to=null; A.custom=false;   // chip → kalendar bekor
+        persistAutoDays(d);
+        await loadAutoPreview();
+      });
+    });
+    const cal=el.querySelector('.shdr');
+    if(cal && window.SHDateRange && cal!==_shdrEl){
+      killDateRange();
+      _shdrEl=cal;
+      _shdrInst=SHDateRange.wire(cal, {
+        from:S.auto.custom?S.auto.from:null, to:S.auto.custom?S.auto.to:null,
+        onPick: async (from,to)=>{ const A=S.auto; A.from=from; A.to=to; A.custom=true; await loadAutoPreview(); },
+        onClear: async ()=>{ const A=S.auto; A.from=null; A.to=null; A.custom=false; A.days=(A.cfg&&A.cfg.salesDays)||30; await loadAutoPreview(); },
+      });
+    }
+  }
+
+  async function enterAuto(){
+    S.mode='auto'; const A=S.auto;
+    A.loading=true; render();
+    await loadAutoConfig();
+    if(A.configured) await loadAutoPreview(); else render();
+  }
+
+  async function saveAutoRules(){
+    const A=S.auto; const c={shop:S.shop, salesDays:(A.cfg&&A.cfg.salesDays)||30};
+    el.querySelectorAll('[data-rule]').forEach(n=>{ c[n.dataset.rule]=parseInt(n.value,10); });
+    A.cfgErr='';
+    try{
+      const j=await api('/postavki/api/auto/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
+      A.cfg=j.config; A.configured=true; A.editing=false;
+      await loadAutoPreview();
+    }catch(e){ A.cfgErr=e.message||'Ошибка'; render(); }
+  }
+
+  // Bitta накладной (kartadagi «Создать») yoki HAMMASI (pastki «Создать все»).
+  // Ikkalasi ham BIR endpoint: packs[] — UI ko'rsatgan aynan o'sha qatorlar.
+  async function autoCreate(which){
+    const A=S.auto, p=A.preview||{}, invs=p.invoices||[];
+    if(!invs.length) return;
+    const all=(which==='all');
+    const list=all?invs:invs.filter(i=>i.index===which);
+    if(!list.length) return;
+
+    const units=list.reduce((a,i)=>a+i.totalUnits,0);
+    const skus=list.reduce((a,i)=>a+i.skuCount,0);
+    const what=all
+      ? `${list.length} ${plural(list.length,'накладная','накладные','накладных')} · ${skus} SKU · ${units} шт`
+      : `Поставка ${which+1} · ${skus} SKU · ${units} шт`;
+    const ok=await pkxConfirm({ variant:'success', icon:'✓',
+      title: all?'Создать все поставки?':'Создать поставку?',
+      message:`${what}. Это откроет ${all&&list.length>1?'реальные накладные':'реальную накладную'} в Uzum. Слот займём с ${fmtISO(p.slotFromDate)} по ${fmtISO(p.slotToDate)}; если свободных нет — поставка встанет в авто-слот.`,
+      okLabel:'Создать', cancelLabel:'Отмена' });
+    if(!ok) return;
+
+    A.busy = all?'all':which; render();
+    try{
+      const j=await api('/postavki/api/auto/create',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({shop:S.shop, packs:list.map(i=>i.lines)})});
+      const made=j.created||[], errs=j.errors||[];
+      const booked=made.filter(r=>r.slotMs).length, queued=made.filter(r=>!r.slotMs&&r.queued).length;
+      const parts=[];
+      if(booked) parts.push(`${booked} со слотом`);
+      if(queued) parts.push(`${queued} в авто-слоте (займём до ${fmtISO(j.slotToDate)})`);
+      const failed=errs.length?` Не создано: ${errs.length} — ${esc(errs[0].error)}`:'';
+
+      A.busy=null;
+      if(all || made.length===invs.length){
+        S.tab='fbo'; go('list'); await refreshList();
+      }else{
+        // Faqat bittasi yaratildi — qolganlari kartada turaveradi.
+        A.preview={...p, invoices:invs.filter(i=>!made.some(r=>list[r.index]&&list[r.index].index===i.index))
+          .map((i,n)=>({...i, index:n}))};
+        A.preview.totalUnits=(A.preview.invoices||[]).reduce((a,i)=>a+i.totalUnits,0);
+        A.preview.totalSkus=(A.preview.invoices||[]).reduce((a,i)=>a+i.skuCount,0);
+        render();
+      }
+      pkxAlert({variant:errs.length?'danger':'success', icon:errs.length?'!':'✓',
+        title: made.length>1?`Создано поставок: ${made.length}`:'Поставка создана',
+        message:`${parts.join(' · ')||'Слот не назначен'}.${failed}`});
+    }catch(e){ A.busy=null; pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); render(); }
+  }
+
   function createTime(){
     const place=`<div class="pkx-card" style="padding:20px 22px;margin-bottom:14px"><h2 class="pkx-h2" style="margin-bottom:6px">Место приёма</h2><div style="font-weight:700;font-size:14px;margin-bottom:3px">Фулфилмент центр</div><div class="pkx-muted" style="font-size:13px">${esc((S.prep&&S.prep.stock&&S.prep.stock.address)||ADDR)}</div></div>`;
-    const cal=`<div class="pkx-card" style="padding:22px;margin-bottom:14px"><h2 class="pkx-h2" style="margin-bottom:18px">Время поставки</h2>${calendarHtml()}</div>`;
-    const footer=`<div class="pkx-card" style="display:flex;align-items:center;justify-content:space-between;border-radius:14px;padding:14px 18px">
-      <button data-on="later" class="pkx-btn pkx-btn-soft" style="padding:11px 18px;border-radius:11px">Выбрать позже</button>
-      <div style="display:flex;gap:10px"><button data-on="back-products" class="pkx-btn" style="background:#f3f4f6;color:#334155;padding:11px 20px;border-radius:11px">Назад</button>
-      <button data-on="finish" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px;${S.slotSel?'':'opacity:.5;cursor:not-allowed'}">Готово</button></div></div>`;
+    const cal=`<div class="pkx-card" style="padding:22px;margin-bottom:14px"><h2 class="pkx-h2" style="margin-bottom:18px">Время поставки</h2>${calendarHtml({canCatch:true})}</div>`;
+    // «Готово» slot YOKI avto-slot bo'lsa faol. Ikkalasi ham bo'lsa — bron +
+    // ertaroq slot uchun navbat.
+    const ready = !!(S.slotSel || S.catchTo);
+    let sum='<span class="pkx-muted" style="font-weight:700;font-size:13px">Выберите слот или включите авто-слот</span>';
+    if(S.slotSel && S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:#334155">${esc(fmtSlot(S.slotSel))} <span class="pkx-muted">· ловим раньше, до ${fmtDay(S.catchTo)}</span></span>`;
+    else if(S.slotSel) sum=`<span style="font-weight:700;font-size:13px;color:#334155">${esc(fmtSlot(S.slotSel))}</span>`;
+    else if(S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:#4169E1">Авто-слот · до ${fmtDay(S.catchTo)}</span>`;
+    const footer=`<div class="pkx-card pkx-tfoot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:14px;padding:14px 18px">
+      <button data-on="later" class="pkx-btn pkx-btn-soft" style="padding:11px 18px;border-radius:11px;flex:none">Выбрать позже</button>
+      <div class="pkx-tfoot-sum" style="flex:1;text-align:center;min-width:0">${sum}</div>
+      <div style="display:flex;gap:10px;flex:none"><button data-on="back-products" class="pkx-btn" style="background:#f3f4f6;color:#334155;padding:11px 20px;border-radius:11px">Назад</button>
+      <button data-on="finish" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px;${ready?'':'opacity:.5;cursor:not-allowed'}">Готово</button></div></div>`;
     return place+cal+footer;
   }
 
   // calendar shared by create-step2 and change-slot modal. Uses S.slots, S.calMonth, S.daySel, S.slotSel
   function slotsByDay(){ const m={}; (S.slots||[]).forEach(s=>{ const d=new Date(s.timeFrom); const k=d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); (m[k]=m[k]||[]).push(s); }); return m; }
-  function calendarHtml(){
+
+  // ── Avto-slot («поймать» yopiq kun) yordamchilari ────────────────────────
+  // Uzum yaqin kunlarni yopib qo'yadi, lekin kimdir bron bekor qilsa slot
+  // bo'shaydi. Shu kunlar «catchable» — ularni navbatga qo'yish mumkin.
+  // Uzum ochgan oxirgi kundan KEYINGI kunlar catchable EMAS: u yerda
+  // bo'shaydigan slot yo'q (hali ochilmagan).
+  function dayKey(d){ return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); }
+  function keyToDate(k){ const [y,m,d]=k.split('-').map(Number); return new Date(y,m,d); }
+  function keyToISO(k){ const d=keyToDate(k); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+  function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+  function fmtDay(k){ const d=keyToDate(k); return `${d.getDate()} ${MONTHS_G[d.getMonth()]}`; }
+  // Uzum bo'sh slot BERMASA ham navbat kerak (aynan shunda eng kerak) — ufqni
+  // bilmaymiz, shuning uchun 2 hafta deb olamiz.
+  const CATCH_FALLBACK_DAYS = 14;
+  function catchHorizon(){
+    // Uzum ochgan oxirgi kun — undan narisiga navbat ma'nosiz (u yerda
+    // bo'shaydigan bron yo'q). Umuman slot bo'lmasa — zaxira ufq.
+    let last=null;
+    (S.slots||[]).forEach(s=>{ const t=new Date(s.timeFrom); const d=new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime(); if(last===null||d>last) last=d; });
+    if(last===null) return todayMid() + CATCH_FALLBACK_DAYS*86400000;
+    return last;
+  }
+  function todayMid(){ const t=new Date(); return new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime(); }
+  // Yopiq, lekin bugundan keyin va ufq ichida → «poymat mumkin».
+  function isCatchable(ts, has){ const h=catchHorizon(); return !has && h!==null && ts>=todayMid() && ts<h; }
+  function hasCatchable(){
+    const map=slotsByDay(); const h=catchHorizon(); if(h===null) return false;
+    for(let t=todayMid(); t<h; t+=86400000){ if(!map[dayKey(new Date(t))]) return true; }
+    return false;
+  }
+
+  function calendarHtml(opts){
+    const canCatch = !!(opts && opts.canCatch);
     const map=slotsByDay();
     const availDays=new Set(Object.keys(map));
     if(!S.calMonth){ const first=(S.slots&&S.slots[0])?new Date(S.slots[0].timeFrom):new Date(); S.calMonth=new Date(first.getFullYear(),first.getMonth(),1).getTime(); }
     const cm=new Date(S.calMonth); const y=cm.getFullYear(), mo=cm.getMonth();
     const firstDow=(new Date(y,mo,1).getDay()+6)%7; // Mon=0
     const daysIn=new Date(y,mo+1,0).getDate();
+    const catchTs = (canCatch && S.catchTo) ? keyToDate(S.catchTo).getTime() : null;
     let cells='';
     for(let i=0;i<firstDow;i++) cells+='<div></div>';
     for(let dn=1;dn<=daysIn;dn++){
       const key=y+'-'+mo+'-'+dn; const has=availDays.has(key);
+      const ts=new Date(y,mo,dn).getTime();
       const sel=S.daySel===key;
-      if(sel) cells+=`<div data-day="${key}" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#1e293b;color:#fff;font-weight:800;font-size:14px;cursor:pointer">${dn}</div>`;
-      else if(has) cells+=`<div data-day="${key}" class="pkx-cal-day" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#1C2030;font-weight:700;font-size:14px;cursor:pointer">${dn}</div>`;
-      else cells+=`<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#ccd2dc;font-weight:600;font-size:14px">${dn}</div>`;
+      const base='aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px';
+      if(sel && has) cells+=`<div data-day="${key}" style="${base};background:#1e293b;color:#fff;font-weight:800;cursor:pointer">${dn}</div>`;
+      else if(has) cells+=`<div data-day="${key}" class="pkx-cal-day" style="${base};color:#1C2030;font-weight:700;cursor:pointer">${dn}</div>`;
+      else if(canCatch && isCatchable(ts,has)){
+        // Deadline kuni — to'la; oraliq ichidagilar — yumshoq; qolgani — punktir.
+        if(catchTs!==null && ts===catchTs)
+          cells+=`<div data-catch="${key}" title="Ловим слот до этого дня" style="${base};background:#4169E1;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(65,105,225,.32)">${dn}</div>`;
+        else if(catchTs!==null && ts<catchTs && ts>=todayMid())
+          cells+=`<div data-catch="${key}" style="${base};background:#EEF2FE;color:#4169E1;font-weight:800;cursor:pointer">${dn}</div>`;
+        else
+          cells+=`<div data-catch="${key}" class="pkx-cal-catch" title="Слотов нет — можно поймать автоматически" style="${base};color:#4169E1;font-weight:700;cursor:pointer;border:1.5px dashed #B9C6F5">${dn}</div>`;
+      }
+      else cells+=`<div style="${base};color:#ccd2dc;font-weight:600">${dn}</div>`;
     }
     const dows=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(d=>`<div style="text-align:center;color:#B8BCC9;font-weight:800;font-size:11px;padding:4px 0">${d}</div>`).join('');
     const calLeft=`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:16px">
@@ -1246,7 +1781,16 @@
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${dows}</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div></div>`;
     // right: slots of selected day
-    let right='<div class="pkx-muted" style="font-weight:700;align-self:center">Выберите день</div>';
+    let right=`<div class="pkx-muted" style="font-weight:700;align-self:center">Выберите день</div>`;
+    if(canCatch && !S.daySel && !S.catchTo && hasCatchable()){
+      // Yaqin kunlar yopiq — foydalanuvchi ularni «poymat» mumkinligini bilsin.
+      const none=!(S.slots||[]).length;
+      const lead=none ? 'Uzum сейчас не отдаёт свободных слотов.' : 'На ближайшие дни свободных слотов нет.';
+      right=`<div style="align-self:center;max-width:340px">
+        <div style="font-weight:800;font-size:15px;margin-bottom:8px">${none?'Свободных слотов нет':'Выберите день'}</div>
+        <div class="pkx-muted" style="font-size:13px;line-height:1.55">${lead} Слот можно <span style="color:#4169E1;font-weight:800">поймать автоматически</span> — нажмите день с пунктиром, и поставка встанет в очередь.</div>
+      </div>`;
+    }
     if(S.daySel && map[S.daySel]){
       const arr=map[S.daySel]; const d0=new Date(arr[0].timeFrom);
       const heading=`${d0.getDate()} ${MONTHS_G[d0.getMonth()]}`;
@@ -1254,7 +1798,29 @@
         return `<button data-slot="${s.timeFrom}" style="border:${sel?'1.5px solid #1e293b':'1px solid #e6e6ec'};background:${sel?'#1e293b':'#fff'};color:${sel?'#fff':'#334155'};border-radius:11px;padding:13px 8px;font-size:14px;font-weight:700;cursor:pointer">${lbl}</button>`; }).join('');
       right=`<div><div style="font-weight:800;font-size:15px;margin-bottom:14px">${heading}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${chips}</div></div>`;
     }
-    return `<div style="display:grid;grid-template-columns:340px 1fr;gap:32px">${calLeft}${right}</div>`;
+    else if(canCatch && S.catchTo){
+      // Avto-slot paneli: nima bo'lishini ANIQ aytamiz (bron bor/yo'q holatiga qarab).
+      const to=fmtDay(S.catchTo);
+      const booked = S.slotSel ? fmtSlot(S.slotSel) : null;
+      const what = booked
+        ? `Забронируем <b style="color:#1C2030">${esc(booked)}</b> прямо сейчас. Если до <b style="color:#1C2030">${to}</b> освободится слот раньше — перенесём поставку на него автоматически.`
+        : `Поставка встанет в очередь и займёт слот сама, как только кто-то отменит бронь — не позже <b style="color:#1C2030">${to}</b>.`;
+      right=`<div style="align-self:start;max-width:380px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+          <span style="width:26px;height:26px;border-radius:8px;background:#EEF2FE;color:#4169E1;display:flex;align-items:center;justify-content:center;flex:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg>
+          </span>
+          <div style="font-weight:800;font-size:15px">Авто-слот до ${to}</div>
+        </div>
+        <div class="pkx-muted" style="font-size:13px;line-height:1.6;margin-bottom:14px">${what}</div>
+        <div style="border:1px solid #e9ecf2;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;background:#f8fafc">
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px"><span class="pkx-muted" style="font-weight:700">Ловим с</span><span style="font-weight:800">сегодня</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px"><span class="pkx-muted" style="font-weight:700">Крайний день</span><span style="font-weight:800">${to}</span></div>
+        </div>
+        <button data-on="catch-clear" style="margin-top:12px;background:none;border:none;padding:0;color:#5A5F72;font-weight:700;font-size:13px;cursor:pointer;text-decoration:underline;font-family:inherit">Убрать авто-слот</button>
+      </div>`;
+    }
+    return `<div class="pkx-calgrid" style="display:grid;grid-template-columns:340px 1fr;gap:32px">${calLeft}${right}</div>`;
   }
 
   // ───────── render + wiring ─────────
@@ -1289,10 +1855,16 @@
     });
     if(!_glidePrev[key]) _glidePrev[key] = target;
   }
+  // Har bir segment/trek o'z kaliti bilan (ro'yxat tablari — 'seg', yaratishdagi
+  // rejim almashtirgich — 'mode'): shunda ko'rinish almashganда plita boshqa
+  // komponentning eski joyidan sirpanib kelmaydi.
   function placeSegThumb(){
-    const seg = el.querySelector('.pkx-seg');
-    if(seg) placeGlide(seg, 'seg'); else delete _glidePrev['seg'];
-    el.querySelectorAll('.pkx-trek').forEach(row => placeGlide(row, row.dataset.glide || 'trek'));
+    const seen = new Set();
+    el.querySelectorAll('.pkx-seg, .pkx-trek').forEach(row => {
+      const key = row.dataset.glide || (row.classList.contains('pkx-seg') ? 'seg' : 'trek');
+      seen.add(key); placeGlide(row, key);
+    });
+    Object.keys(_glidePrev).forEach(k => { if(!seen.has(k)) delete _glidePrev[k]; });
   }
   window.addEventListener('resize', placeSegThumb);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>placeSegThumb());
@@ -1367,11 +1939,14 @@
           S.mode='semi'; render();   // fon-yuklash tugagan bo'lsa — darhol ko'rinadi
           ensurePlan();              // tugamagan bo'lsa — tayyor bo'lgach o'zi qayta chizadi
         }
+        else if(on==='mode-auto'){ if(S.mode==='auto') return; await enterAuto(); }
+        else if(on==='auto-rules-edit'){ S.auto.editing=true; S.auto.cfgErr=''; render(); }
+        else if(on==='auto-rules-cancel'){ S.auto.editing=false; S.auto.cfgErr=''; render(); }
+        else if(on==='auto-rules-save'){ await saveAutoRules(); }
+        else if(on==='auto-refresh'){ await loadAutoPreview(); }
+        else if(on==='auto-create-all'){ if(node.disabled) return; await autoCreate('all'); }
         else if(on==='back'){ if(retDirty()) saveRetDraftFlush(); if(createDirty()) saveCreateDraftFlush(); go('list'); refreshList(); }   // tasdiqsiz chiqamiz — qoralama jim saqlanadi
         else if(on==='back-products'){ S.step='products'; render(); }
-        else if(on==='vs-clean'){ S.listStyle='clean'; render(); }
-        else if(on==='vs-summary'){ S.listStyle='summary'; render(); }
-        else if(on==='vs-progress'){ S.listStyle='progress'; render(); }
         else if(on==='f-all'){ await setFilter('all'); }
         else if(on==='f-created'){ await setFilter('created'); }
         else if(on==='f-accepted'){ await setFilter('accepted'); }
@@ -1391,6 +1966,7 @@
           else await gotoTime(); }
         else if(on==='later'){ await createSupply(false); }
         else if(on==='finish'){ await createSupply(true); }
+        else if(on==='catch-clear'){ S.catchTo=null; render(); }
         else if(on==='cal-prev'){ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()-1,1).getTime(); render(); }
         else if(on==='cal-next'){ const d=new Date(S.calMonth); S.calMonth=new Date(d.getFullYear(),d.getMonth()+1,1).getTime(); render(); }
         else if(on==='d-change'){
@@ -1462,9 +2038,29 @@
     // qty inputs (create products) + yarim-avtomat guruh qatorlari
     bindQty();
     wireSemi();
+    wireHScroll('#pkxRstScroll', '#pkxRstHead');   // qo'lda rejimdagi jadval
+    // Avto: har накладной — alohida karta (o'z jadvali + o'z «Создать»i).
+    el.querySelectorAll('.pkx-card').forEach(card=>{
+      const sc=card.querySelector('.pkx-autoscroll'), hd=card.querySelector('.pkx-autohead');
+      if(sc&&hd) sc.addEventListener('scroll',()=>{ hd.style.transform=`translateX(${-sc.scrollLeft}px)`; },{passive:true});
+    });
+    el.querySelectorAll('[data-inv]').forEach(b=>b.addEventListener('click',async e=>{
+      e.stopPropagation(); if(b.disabled) return; await autoCreate(parseInt(b.dataset.inv,10));
+    }));
+    el.querySelectorAll('[data-akey]').forEach(r=>r.addEventListener('click',()=>{
+      if(!r.classList.contains('pkx-grow')) return;
+      const k=r.dataset.akey; S.expand[k]=!S.expand[k]; render();
+    }));
+    wireAutoDays();
     // calendar day/slot
     el.querySelectorAll('[data-day]').forEach(d=>d.addEventListener('click',()=>{ S.daySel=d.dataset.day; S.slotSel=null; render(); }));
     el.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click',()=>{ S.slotSel=parseInt(b.dataset.slot); render(); }));
+    // yopiq kun → avto-slot deadline'i (bron tanlangan bo'lsa — saqlanadi:
+    // «bor slotni olamiz + ertaroq bo'shasa ko'chiramiz»).
+    el.querySelectorAll('[data-catch]').forEach(d=>d.addEventListener('click',()=>{
+      S.catchTo = (S.catchTo===d.dataset.catch) ? null : d.dataset.catch;
+      S.daySel=null; render();
+    }));
 
     // review modal wiring (host overlay rendered inline within view)
     wireReview();
@@ -1512,6 +2108,17 @@
   let _shdrInst=null, _shdrEl=null;
   function killDateRange(){ if(_shdrInst){ _shdrInst.destroy(); } _shdrInst=null; _shdrEl=null; }
 
+  // Jadval sarlavhasi scroll konteyneridan TASHQARIDA turadi (aks holda sticky
+  // ishlamaydi — scroll-konteyner uni «yutadi»), shuning uchun yon tomonga
+  // aylantirilganда uni qatorlarга hamohang QO'LDA siljitamiz. Ikkala rejim ham
+  // shu bitta yordamchidan foydalanadi.
+  function wireHScroll(scrollSel, headSel){
+    const sc=el.querySelector(scrollSel), hd=el.querySelector(headSel);
+    if(!sc || !hd || sc._bound) return;
+    sc._bound=1;
+    sc.addEventListener('scroll', ()=>{ hd.style.transform=`translateX(${-sc.scrollLeft}px)`; }, {passive:true});
+  }
+
   function wireSemi(){
     if(S.view!=='create' || S.step!=='products' || S.mode!=='semi'){ killDateRange(); return; }
 
@@ -1530,6 +2137,8 @@
 
     // Davr chiplari (7/10/15/30/60/90) — tavsiyani qayta hisoblaydi.
     // Kiritilgan miqdorlar (S.qty) SAQLANADI — faqat tavsiya o'zgaradi.
+    // (Avto rejimda bu funksiya yuqoridagi guard bilan chiqib ketadi, shuning
+    // uchun avtoning `.shdr` kalendarini bu blok tortib ololmaydi.)
     el.querySelectorAll('[data-days]').forEach(b=>{
       if(b._bound) return; b._bound=1;
       b.addEventListener('click', async ()=>{
@@ -1553,13 +2162,7 @@
       });
     }
 
-    // Sarlavha alohida (sticky) konteynerda turadi → jadval yon tomonga
-    // aylantirilganда uni QO'LDA hamohang siljitamiz, aks holda ustunlar
-    // qatorlardan «qochib» ketardi.
-    const hscroll=el.querySelector('#pkxSemiScroll'), hhead=el.querySelector('#pkxSemiHead');
-    if(hscroll && hhead && !hscroll._bound){ hscroll._bound=1;
-      hscroll.addEventListener('scroll', ()=>{ hhead.style.transform=`translateX(${-hscroll.scrollLeft}px)`; }, {passive:true});
-    }
+    wireHScroll('#pkxSemiScroll', '#pkxSemiHead');
 
     const ss=el.querySelector('#pkxSemiSearch');
     if(ss && !ss._bound){ ss._bound=1;
@@ -1624,7 +2227,9 @@
       const box=i.parentElement, ok=(parseInt(i.value)||0)>0;
       if(box){ box.style.background = ok?'#f3f4f6':'#FDECEC'; box.style.boxShadow = ok?'':'inset 0 0 0 1.5px #E5484D'; }
     }));
-    el.querySelectorAll('.pkx-rqty').forEach(i=>i.addEventListener('input',()=>{ let v=parseInt(i.value)||0; if(v<0)v=0; S.qty[i.dataset.sku]=v; saveCreateDraft(); }));
+    // «Посмотреть» oynasida miqdor o'zgarsa — orqadagi panel ham jonli yangilanadi
+    // (hammasi 0 ga tushsa, oyna yopilishini kutmasdan panel ketadi).
+    el.querySelectorAll('.pkx-rqty').forEach(i=>i.addEventListener('input',()=>{ let v=parseInt(i.value)||0; if(v<0)v=0; S.qty[i.dataset.sku]=v; updateBar(); saveCreateDraft(); }));
     el.querySelectorAll('.pkx-rdel').forEach(b=>b.addEventListener('click',()=>{ S.qty[b.dataset.sku]=0; saveCreateDraft(); render(); }));
     el.querySelectorAll('[data-stop]').forEach(n=>n.addEventListener('click',e=>e.stopPropagation()));
   }
@@ -1674,19 +2279,21 @@
     updateBar();
   }
 
+  // Pastki paneldagi hisoblagichlar — jadvalni qayta chizmasdan (fokus/scroll
+  // saqlanadi). Ko'rinish CSS'da (.pkx-bbar-*), bu yerda faqat matn va holat.
   function updateBar(){
     updateSemiTotals();   // yarim-avtomatda guruh jamilari ham jonli yangilanadi
     const selectedCount=Object.values(S.qty).filter(v=>v>0).length;
     const totalUnits=Object.values(S.qty).reduce((a,v)=>a+(v>0?v:0),0);
-    const bar=el.querySelector('[data-on="next"]'); if(!bar) return;
-    // re-render only the sticky bar text spans by re-rendering products would lose focus; cheap: update counts via DOM
-    const spans=el.querySelectorAll('#pkxView'); // fallback: just re-render bar region
-    const barWrap=bar.closest('div[style*="sticky"]');
-    if(barWrap){ const can=totalUnits>0;
-      barWrap.querySelectorAll('div')[0].innerHTML=`<span style="color:#A9AEC4">Выбрано SKU:</span> ${selectedCount} / 100`;
-      barWrap.querySelectorAll('div')[2].innerHTML=`<span style="color:#A9AEC4">Количество единиц:</span> ${totalUnits} шт`;
-      bar.disabled=!can; bar.style.background=can?'#fff':'rgba(255,255,255,.12)'; bar.style.color=can?'#1e293b':'#A9AEC4'; bar.style.cursor=can?'pointer':'not-allowed';
-    }
+    // #pkxBBar — FAQAT qo'lda/yarim-avtomat paneli. «Авто» o'z panelini chizadi
+    // (.pkx-bbar sinfi umumiy), shuning uchun id bo'yicha aniq nishonlaymiz.
+    const bar=el.querySelector('#pkxBBar'); if(!bar) return;
+    const next=bar.querySelector('.pkx-bbar-next'); if(!next) return;
+    const stats=bar.querySelectorAll('.pkx-bbar-stats > span');
+    if(stats[0]) stats[0].innerHTML=`<i>Выбрано SKU:</i> ${selectedCount} / 100`;
+    if(stats[2]) stats[2].innerHTML=`<i>Единиц:</i> ${totalUnits} шт`;
+    next.disabled = !(totalUnits>0);
+    bar.classList.toggle('is-idle', !(totalUnits>0));   // savat bo'shasa — panel ketadi
   }
 
   function refreshFboBody(){ // re-render list card body for search without losing the search box focus
@@ -1733,7 +2340,7 @@
   function zeroPriceSkus(){ return Object.keys(S.qty).filter(k=>S.qty[k]>0 && !(((S.price[k]!=null)?S.price[k]:((S.meta[k]||{}).price||0))>0)); }
 
   async function gotoTime(){
-    S.step='time'; S.prep=null; S.slots=[]; S.daySel=null; S.slotSel=null; S.calMonth=null; render();
+    S.step='time'; S.prep=null; S.slots=[]; S.daySel=null; S.slotSel=null; S.catchTo=null; S.calMonth=null; render();
     try{ const j=await api('/postavki/api/prepare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop:S.shop,skuList:lines()})});
       S.prep=j; S.slots=j.slots||[]; render();
     }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); S.step='products'; render(); }
@@ -1741,17 +2348,45 @@
 
   async function createSupply(withSlot){
     if(!(S.prep&&S.prep.stock)){ pkxAlert({variant:'danger',title:'Склад не определён',message:'Не удалось определить склад для выбранных товаров.'}); return; }
-    if(withSlot && !S.slotSel){ pkxAlert({title:'Выберите слот',message:'Сначала выберите время поставки в календаре.'}); return; }
-    const ok=await pkxConfirm({ variant:'success', icon:'✓', title:'Создать поставку?',
-      message: withSlot ? 'Это откроет реальную накладную в Uzum.'
-                        : 'Без тайм-слота. Слот можно выбрать позже кнопкой «Слот».',
-      okLabel:'Создать', cancelLabel:'Отмена' });
+    const useSlot  = withSlot && !!S.slotSel;
+    const useCatch = withSlot && !!S.catchTo;
+    if(withSlot && !useSlot && !useCatch){ pkxAlert({title:'Выберите слот',message:'Выберите время в календаре или включите авто-слот на закрытый день.'}); return; }
+
+    const toDay = useCatch ? fmtDay(S.catchTo) : '';
+    let msg;
+    if(useSlot && useCatch) msg=`Забронируем ${esc(fmtSlot(S.slotSel))} в Uzum. Если до ${toDay} освободится слот раньше — перенесём автоматически.`;
+    else if(useCatch)       msg=`Накладная откроется без слота и встанет в очередь. Слот займём автоматически, как только освободится — не позже ${toDay}.`;
+    else if(useSlot)        msg='Это откроет реальную накладную в Uzum.';
+    else                    msg='Без тайм-слота. Слот можно выбрать позже кнопкой «Слот».';
+    const ok=await pkxConfirm({ variant:'success', icon:'✓', title:'Создать поставку?', message:msg, okLabel:'Создать', cancelLabel:'Отмена' });
     if(!ok) return;
+
     const body={shop:S.shop, skuList:lines(), stockId:S.prep.stock.id};
-    if(withSlot) body.timeFrom=S.slotSel;
-    try{ await api('/postavki/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      clearCreateDraft(); S.qty={}; S.price={}; S.meta={}; S.tab='fbo'; go('list'); await refreshList();
-    }catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); }
+    if(useSlot) body.timeFrom=S.slotSel;
+
+    let created;
+    try{ created=await api('/postavki/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    catch(e){ pkxAlert({variant:'danger',title:'Ошибка',message:e.message}); return; }
+
+    // Накладная REAL — bu yerdan keyin xato bo'lsa ham uni «yaratilmadi» deb
+    // ko'rsatmaymiz: navbatga qo'yish alohida qadam, faqat o'zi xato beradi.
+    let queueErr='';
+    const invId=(created&&created.invoice&&created.invoice.id)||null;
+    if(useCatch){
+      if(!invId) queueErr='Не удалось определить накладную.';
+      else{
+        try{
+          await api('/postavki/api/grab-plan/create',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({shop:S.shop, invoiceIds:[invId], minDate:todayISO(), maxDate:keyToISO(S.catchTo)})});
+        }catch(e){ queueErr=e.message||'Не удалось поставить в очередь.'; }
+      }
+    }
+
+    clearCreateDraft(); S.qty={}; S.price={}; S.meta={}; S.catchTo=null; S.tab='fbo'; go('list'); await refreshList();
+    if(useCatch && queueErr) pkxAlert({variant:'danger',title:'Поставка создана, но авто-слот не включён',message:`${queueErr} Включите авто-слот из списка кнопкой «Авто-слот».`});
+    else if(useCatch) pkxAlert({variant:'success',icon:'✓',title:'Авто-слот включён',message: useSlot
+      ? `Слот забронирован. Если до ${toDay} освободится более ранний — перенесём автоматически.`
+      : `Поставка в очереди. Займём слот, как только освободится — не позже ${toDay}.`});
   }
 
   // change-slot modal (reuse calendar)
@@ -1964,7 +2599,15 @@
       </div>`;
     }).join('') : `<div class="pkx-msg">Нет авто-слотов. Создайте на вкладке FBO → «Создана» → выберите поставки → «Авто-слот по дате».</div>`;
     const hint=`<div style="padding:14px 22px;color:#8A8F9E;font-size:12px;border-top:1px solid #f3f4f6">Система следит за выбранным днём по каждой поставке и бронирует слот, как только он освободится.</div>`;
-    return `<div class="pkx-card" style="overflow:hidden"><div class="pkx-scroll"><div style="min-width:920px">${head}<div>${body}</div>${plans.length?hint:''}</div></div></div>`;
+    // Toolbar FBO ro'yxatidagi bilan bir xil balandlikда: chapda ro'yxat nomi,
+    // o'ngda — AYNAN o'sha joyda — bosilgan «Авто-слот» tugmasi (qayta bosilsa
+    // FBO ro'yxatiga qaytaradi).
+    const toolbar = `<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;flex-wrap:wrap">
+        <h2 class="pkx-h2" style="font-size:15px">Активные авто-слоты</h2>
+        <div style="flex:1"></div>
+        ${autoSlotBtnHtml()}
+      </div>`;
+    return `<div class="pkx-card" style="overflow:hidden">${toolbar}<div class="pkx-scroll"><div style="min-width:920px">${head}<div>${body}</div>${plans.length?hint:''}</div></div></div>`;
   }
   async function cancelGrabPlanShop(shop, planId){
     const ok=await pkxConfirm({variant:'danger',icon:'✕',title:'Отменить авто-слот?',message:'Бронирование слота по дате будет отменено.',okLabel:'Отменить',cancelLabel:'Назад'});

@@ -262,6 +262,27 @@ _AUTH_VARIANTS: list[tuple[str, callable]] = [
 ]
 
 
+class UzumOpenAPIError(RuntimeError):
+    """A failed OpenAPI call, carrying the HTTP status so callers can decide
+    whether a retry is worthwhile.
+
+    status == 0 means the request never got a response at all (connection
+    reset, IncompleteRead, SSLEOFError, timeout) — always worth retrying.
+    """
+
+    # 0 = network drop; 429/5xx = Uzum is busy. 401/403/404 are NOT here: a
+    # rejected token stays rejected, and retrying only burns rate-limit budget.
+    RETRYABLE = frozenset({0, 429, 500, 502, 503, 504})
+
+    def __init__(self, message: str, status: int = 0):
+        super().__init__(message)
+        self.status = status
+
+    @property
+    def retryable(self) -> bool:
+        return self.status in self.RETRYABLE
+
+
 def _clean(token: str) -> str:
     t = (token or "").strip()
     if not t:
@@ -446,9 +467,10 @@ def fetch_products_page(token: str, shop_uzum_id: str | int, *,
         if not _is_token_not_found(status, parsed):
             break
 
-    raise RuntimeError(
+    raise UzumOpenAPIError(
         f"Uzum OpenAPI rejected /v1/product/shop/{shop_uzum_id} "
-        f"(last={last_label}, HTTP {last_status}). Response: {last_text[:300]}"
+        f"(last={last_label}, HTTP {last_status}). Response: {last_text[:300]}",
+        status=last_status,
     )
 
 

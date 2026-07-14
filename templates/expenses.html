@@ -70,9 +70,20 @@
 .we-store-item:hover { background:var(--we-hover); }
 .we-store-item.selected { background:var(--we-active-bg); color:var(--we-text); font-weight:600; }
 
-.we-tablewrap { background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px; overflow:hidden; }
+/* Sarlavha qatori scroll'да YOPISHIB turishi uchun `overflow:hidden` OLIB TASHLANDI
+   (Ulug'bek 2026-07-14): overflow'i `visible` bo'lmagan ota-element `position:sticky`ни
+   O'Z ICHIGA qamab qo'yadi — shu bois sarlavha hech qachon yopishmagan. Bu yerда
+   overflow faqat 16px burchakларни kesish uchun edi; endi burchakларни chekka
+   kataklarning o'zига radius berиб hosil qilamiz. */
+.we-tablewrap { background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px; }
+.we-table thead th:first-child { border-top-left-radius:16px; }
+.we-table thead th:last-child  { border-top-right-radius:16px; }
+.we-table tbody tr:last-child td:first-child { border-bottom-left-radius:16px; }
+.we-table tbody tr:last-child td:last-child  { border-bottom-right-radius:16px; }
 table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
-.we-table thead th { position:sticky; top:0; z-index:5; background:var(--we-head-bg); color:var(--we-text-muted);
+/* 64px — ilovaning sticky top-bar balandligi (styles.css): sarlavha AYNAN uning
+   ostiga yopishadi. z-index 5 < top-bar'нинг 30'си, ya'ni ustiga chiqmaydi. */
+.we-table thead th { position:sticky; top:64px; z-index:5; background:var(--we-head-bg); color:var(--we-text-muted);
   font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; text-align:left;
   padding:12px 18px; border-bottom:1px solid var(--we-border); white-space:nowrap; }
 .we-table th.we-num, .we-table td.we-num { text-align:right; }
@@ -151,14 +162,32 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 .we-var-thumb { width:34px; height:34px; border-radius:8px; overflow:hidden; background:var(--we-active-bg); flex-shrink:0; }
 .we-var-thumb img { width:100%; height:100%; object-fit:cover; }
 
+/* ~1024px (yon panel ochiq + HAMMA ustun ko'rinadi) — jadvalning tabiiy eni
+   wrapper'дан ~60px oshиб ketарди. Ilgari buni `overflow:hidden` YASHIRARDI, ya'ni
+   «Себестоимость» ustuni jimgina kesilиб qolарди. Endi overflow yo'q, shu bois
+   kataklar padding'ini qisqartirиб jadvalni HAQIQATDA sig'diramiz. */
+@media (min-width:641px) and (max-width:1100px) {
+  .we-table thead th, .we-table tbody td { padding-left:10px; padding-right:10px; }
+}
 @media (max-width:900px) {
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:none; }
 }
 /* phones: don't hide columns — let the table scroll sideways so every column is reachable */
 @media (max-width:640px) {
-  .we-tablewrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+  /* Telefon: jadval yon tomonga scroll bo'ladi — ya'ni wrapper scroll-konteyner,
+     shu bois sticky sarlavha SAHIFAга emas, WRAPPER'га nisbatan yopishadi. Buning
+     ishlashi uchun wrapper'га balandlik kerak: aks holda uning scrollport'i butun
+     jadval bo'yi bo'lиб, sarlavha sahifа bilan birga yuqoriга chiqиб ketади.
+     Shuning uchun telefonда jadval O'Z ICHIДА scroll bo'ladi (ikки yo'nalishда),
+     sarlavha esa uning tepasида qotиб turadi. */
+  .we-tablewrap {
+    overflow:auto; -webkit-overflow-scrolling:touch;
+    max-height:calc(100vh - 150px);
+  }
   .we-table { min-width:680px; }
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:table-cell; }
+  /* Wrapper ichида yopishadi → sahifа top-bar'и hisobga olinmaydi. */
+  .we-table thead th { top:0; }
 }
 </style>
 {% endblock %}
@@ -336,7 +365,7 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/sale_picker.js?v=20260615f"></script>
+<script src="/static/sale_picker.js?v=20260714d"></script>
 <script>
 (function(){
   // expand / collapse group rows

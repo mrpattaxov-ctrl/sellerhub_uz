@@ -133,7 +133,7 @@ services:
       # so we never overshoot at the boundary; refill=2 keeps full 2/s
       # throughput. Shared per-token across FBS + finance + products.
       UZUM_OPENAPI_BUCKET_CAPACITY: "1"
-      UZUM_OPENAPI_BUCKET_REFILL_PER_SEC: "2.0"
+      UZUM_OPENAPI_BUCKET_REFILL_PER_SEC: "1.0"
       # Avto-slot LIVE switchover (Abdulaziz 2026-06-30): yangi decoupled
       # allokator (monitor→bus→allocator) endi ROSTDAN band qiladi; eski
       # per-invoice grabber o'chiriladi (ikkalasi live bo'lib urishmasin).

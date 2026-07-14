@@ -23,7 +23,7 @@ from core.time_helpers import (
     _recommended_window_lengths,
 )
 from core.http_client import _get_http_session, http_post_multipart
-from core.uzum_openapi import fetch_products_page
+from core.uzum_openapi import fetch_products_page, UzumOpenAPIError
 from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_page
 from core.uzum_openapi import FBS_ORDER_STATUSES as _FBS_ORDER_STATUSES
 from core.fbs_sync import (
@@ -718,6 +718,13 @@ app.register_blueprint(_fbs_mod.fbs_bp)
 # ---------------------------------------------------------------------------
 import postavki.routes as _postavki_mod
 app.register_blueprint(_postavki_mod.postavki_bp)
+
+# ---------------------------------------------------------------------------
+# Register zakupka Blueprint (План закупки — yetkazib beruvchidan nima olish
+# kerak). Faqat O'QIYDI; hisob postavki.restock_plan ustida quriladi.
+# ---------------------------------------------------------------------------
+import zakupka.routes as _zakupka_mod
+app.register_blueprint(_zakupka_mod.zakupka_bp)
 
 # ---------------------------------------------------------------------------
 # Register admin «Авто-слот» panel (IZOLYATSIYALANGAN — admin_autoslot/ papka)
@@ -5492,10 +5499,18 @@ def _read_products_sync_counts_from_db(shop_uzum_id: str) -> dict:
 
 #openapi pruducts sync and saving to to the db function
 
+# Per-page retry for the product listing. The HTTP layer already retries
+# 429/5xx inside a single request; this covers the case it cannot see — the
+# connection dying mid-response (IncompleteRead / SSLEOFError), which surfaces
+# as HTTP 0 and previously truncated the whole sync.
+PAGE_FETCH_ATTEMPTS = 3
+PAGE_FETCH_BACKOFF_SEC = 2
+
+
 def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                                      size: int = 100, max_pages: int = 500,
                                      ) -> dict:
-    
+
     if not openapi_token:
         raise RuntimeError("Uzum OpenAPI token is empty.")
 
@@ -5530,19 +5545,41 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
     total_products_amount = None
     product_counter = 0
     total_variants = 0
+    received_count = 0
+    fetch_failed = False
     active_group_ids: set[int] = set()
 
 #start of fetching and saving the products_group and variants to the db
     with SessionLocal() as db:
         while True:
-            try:
-                raw = fetch_products_page(
-                    openapi_token, shop_uzum_id,
-                    page=page, size=size,
-                    accept_language="ru",
-                )
-            except Exception as e:
-                print(f"[OpenAPISync] page {page} (ru) error: {e}")
+            # A dropped connection mid-pagination used to end the whole sync
+            # (and, before the completeness guard below, mass-archive the pages
+            # we never reached). Retry the page itself — the request was fine,
+            # the pipe just broke. Auth failures are not retried: a rejected
+            # token stays rejected and retrying only burns rate-limit budget.
+            raw = None
+            for attempt in range(1, PAGE_FETCH_ATTEMPTS + 1):
+                try:
+                    raw = fetch_products_page(
+                        openapi_token, shop_uzum_id,
+                        page=page, size=size,
+                        accept_language="ru",
+                    )
+                    break
+                except Exception as e:
+                    is_retryable = not isinstance(e, UzumOpenAPIError) or e.retryable
+                    if is_retryable and attempt < PAGE_FETCH_ATTEMPTS:
+                        delay = PAGE_FETCH_BACKOFF_SEC * attempt
+                        print(f"[OpenAPISync] page {page} (ru) attempt "
+                              f"{attempt}/{PAGE_FETCH_ATTEMPTS} failed: {e} "
+                              f"— retrying in {delay}s")
+                        time.sleep(delay)
+                        continue
+                    print(f"[OpenAPISync] page {page} (ru) error: {e}")
+                    fetch_failed = True
+                    break
+
+            if raw is None:
                 break
 
             products = raw.get("productList") or []
@@ -5552,6 +5589,8 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
 
             if not products:
                 break
+
+            received_count += len(products)
 
             for p in products:
                 prod_id = str(p.get("productId") or "").strip()
@@ -5851,9 +5890,27 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
             page += 1
 
     # ── Archive reconciliation ───────────────────────────────────────────────
-    print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
+    # Reconciliation archives every product it did NOT see this run, so it is
+    # only safe on a complete listing. A mid-pagination failure (network drop,
+    # 429) leaves a partial active_group_ids and would archive the untouched
+    # tail. Require: no fetch error, and every product Uzum said it has was
+    # actually received.
+    complete_listing = (
+        not fetch_failed
+        and total_products_amount is not None
+        and received_count >= total_products_amount
+    )
+
     with SessionLocal() as db:
-        if active_group_ids:
+        if not complete_listing:
+            print(f"[OpenAPISync] WARNING — incomplete listing for shop_pk={current_shop_pk} "
+                  f"(received={received_count}, totalProductsAmount={total_products_amount}, "
+                  f"fetch_failed={fetch_failed}); skipping archive reconciliation")
+        elif not active_group_ids:
+            print(f"[OpenAPISync] WARNING — no active products found for shop_pk={current_shop_pk}, "
+                  f"skipping archive reconciliation")
+        else:
+            print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
             active_list = list(active_group_ids)
             db.execute(
                 update(ProductGroup)
@@ -5866,9 +5923,6 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                 .where(~ProductGroup.id.in_(active_list))
                 .values(is_archived=True)
             )
-        else:
-            print(f"[OpenAPISync] WARNING — no active products found for shop_pk={current_shop_pk}, "
-                  f"skipping archive reconciliation")
         db.commit()
 
     print(f"[OpenAPISync] Done for shop {shop_uzum_id}: "
@@ -5885,6 +5939,7 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
         "fetched": total_variants,
         "active_groups": len(active_group_ids),
         "total_products": product_counter,
+        "complete_listing": complete_listing,
         "source": "openapi",
     }
 

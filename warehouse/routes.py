@@ -199,11 +199,17 @@ def get_products():
 @warehouse_bp.get("/api/products/<int:variant_id>")
 @login_required
 def get_product_detail_api(variant_id: int):
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    if not allowed_shop_ids:
+        return _json_response({"error": "Product not found"}, 404)
+
     with SessionLocal() as db:
         row = db.execute(
             select(Variant, ProductGroup)
             .join(ProductGroup, Variant.group_id == ProductGroup.id)
             .where(Variant.id == variant_id)
+            .where(ProductGroup.shop_id.in_(allowed_shop_ids))
         ).first()
 
         if not row:

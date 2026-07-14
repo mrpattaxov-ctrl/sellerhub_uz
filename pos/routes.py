@@ -306,6 +306,16 @@ def pos_fetch_invoice():
     if not shop_id or not invoice_id:
         return _json_response({"error": "Shop ID and Invoice ID are required"}, 400)
 
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+
+    # The lookup below hits Uzum with the admin token, so the shop must be the
+    # caller's own — otherwise any user could pull a foreign shop's invoices.
+    with SessionLocal() as db:
+        shop_obj = db.execute(select(Shop).where(Shop.uzum_id == shop_id)).scalar_one_or_none()
+    if not shop_obj or shop_obj.id not in allowed_shop_ids:
+        return _json_response({"error": "Access denied to this shop"}, 403)
+
     url = f"https://api-seller.uzum.uz/api/seller/shop/{shop_id}/invoice/getInvoiceProducts?invoiceId={invoice_id}"
     try:
         raw_data = http_json(url, _get_admin_token=_get_admin_token)
@@ -325,8 +335,6 @@ def pos_fetch_invoice():
             all_rows.append(item)
 
     found_items = []
-    uid = int(current_user.get_id())
-    allowed_shop_ids = _user_shop_ids(uid)
 
     with SessionLocal() as db:
         # Eager-load the parent group via the same join used for the shop

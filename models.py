@@ -141,6 +141,42 @@ class PostavkaGrabPlan(Base):
     )
 
 
+class PostavkaAutoConfig(Base):
+    """«Авто» rejim sozlamalari — user + do'kon bo'yicha bitta qator.
+
+    Avto-поставка sotuv/ombor bo'yicha o'zi to'ldiradi, lekin CHEGARALARNI user
+    qo'yadi. To'rttasi ham MAJBURIY (shusiz avto ishlamaydi):
+      max_units    — bitta накладнойда jami dona (masalan 500)
+      max_skus     — bitta накладнойда SKU qatorlari (marketplace shifti 100)
+      min_per_sku  — SKU tushsa — kamida shuncha dona (sotuv 1 bo'lsa ham 2 ta
+                     jo'natish; omborda yetsa)
+      slot_from/to — slot uchun NISBIY kun oynasi (0 = bugun). Aniq sana EMAS:
+                     har накладнойда «yaratilgan kundan +from .. +to» bo'lib
+                     qayta hisoblanadi, shuning uchun bir marta qo'yiladi.
+    """
+    __tablename__ = "postavka_auto_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    shop_uzum_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    max_units: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
+    max_skus: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    min_per_sku: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Nisbiy kun oynasi (bugundan): 0 = bugun, 2 = indinga.
+    slot_from_offset: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    slot_to_offset: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    # Sotuv oynasi (kun) — ehtiyojni shu davr sotuvidan hisoblaymiz.
+    sales_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_auto_config_user_shop", "user_id", "shop_uzum_id", unique=True),
+    )
+
+
 # --- New Uzum-aware tables ---
 class ProductGroup(Base):
     __tablename__ = "product_groups"

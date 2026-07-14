@@ -47,6 +47,10 @@
     totalNew:   UZ ? "Jami yangi" : "Итого новая",
     over:       UZ ? "limitdan yuqori" : "выше лимита",
     payout:     UZ ? "Olishga" : "К выводу",
+    // Jadval ustunlari — «Акции» sahifasidagi nomlar bilan bir xil.
+    colCur:     UZ ? "Joriy narx" : "Текущая цена",
+    colNew:     UZ ? "Yangi narx" : "Новая цена",
+    colDisc:    UZ ? "Chegirma" : "Скидка",
   };
 
   function esc(s){ var d=document.createElement("div"); d.textContent = (s==null?"":String(s)); return d.innerHTML; }
@@ -55,14 +59,14 @@
   function pct(c, n){ c=Number(c)||0; n=Number(n)||0; if(c<=0) return 0; return Math.round((c-n)/c*100); }
 
   var css = ""
-    + ".sp-back{position:fixed;inset:0;background:rgba(10,8,20,.55);display:none;align-items:flex-start;justify-content:center;z-index:2000;padding:max(4vh,24px) 20px 24px;overflow-y:auto;}"
+    + ".sp-back{position:fixed;inset:0;background:rgba(10,8,20,.55);display:none;align-items:flex-start;justify-content:center;z-index:2000;padding:max(3vh,18px) 20px 18px;overflow-y:auto;}"
     + ".sp-back.open{display:flex;}"
-    + ".sp-modal{background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);border:1px solid var(--sp-border,#ECECF0);border-radius:18px;box-shadow:0 24px 60px rgba(20,16,40,.28);width:min(920px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}"
-    + ".sp-head{padding:18px 22px;border-bottom:1px solid var(--sp-border,#ECECF0);display:flex;align-items:flex-start;gap:12px;}"
+    + ".sp-modal{background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);border:1px solid var(--sp-border,#ECECF0);border-radius:18px;box-shadow:0 24px 60px rgba(20,16,40,.28);width:min(1120px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}"
+    + ".sp-head{padding:20px 26px;border-bottom:1px solid var(--sp-border,#ECECF0);display:flex;align-items:flex-start;gap:12px;}"
     + ".sp-head h3{margin:0;font-size:18px;font-weight:700;}"
     + ".sp-head .sp-sub{font-size:13px;color:var(--sp-muted,#8E8B97);margin-top:4px;}"
     + ".sp-x{margin-left:auto;background:none;border:0;color:var(--sp-muted,#8E8B97);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;}"
-    + ".sp-body{padding:14px 22px;overflow-y:auto;}"
+    + ".sp-body{padding:16px 26px 22px;overflow-y:auto;}"
     + ".sp-sectlabel{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sp-muted,#8E8B97);margin:16px 0 8px;}"
     + ".sp-inbanner{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--sp-hl,#FFF7E6);color:var(--sp-warnfg,#B7791F);border-radius:11px;padding:10px 13px;font-size:13px;font-weight:600;}"
     + ".sp-inbanner .sp-chip{background:rgba(0,0,0,.06);border-radius:999px;padding:2px 9px;font-weight:700;}"
@@ -80,25 +84,44 @@
     + ".sp-disc-global input{width:74px;height:36px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:center;font-size:14px;font-weight:700;}"
     + ".sp-disc-apply{height:36px;padding:0 14px;border:0;border-radius:9px;background:var(--sp-accent,#4169E1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;}"
     + ".sp-hint{font-size:12px;color:var(--sp-muted,#8E8B97);}"
-    + ".sp-vtable{display:flex;flex-direction:column;gap:8px;}"
-    + ".sp-vrow{display:flex;align-items:center;gap:12px;border:1px solid var(--sp-border,#ECECF0);border-radius:12px;padding:10px 12px;}"
-    + ".sp-vrow.hl{border-color:var(--sp-accent,#4169E1);background:var(--sp-hlsoft,#F5F8FF);}"
-    + ".sp-vthumb{width:38px;height:38px;border-radius:8px;overflow:hidden;background:var(--sp-active,#EFEEF2);flex-shrink:0;}"
+    /* SKU JADVALI — «Акции» sahifasidagi tanlangan-SKU jadvali (.sl-thead /
+       .sl-srow) bilan bir xil ustunli tuzilma (Ulug'bek 2026-07-14):
+         SKU · Текущая цена · Себестоимость · Хранение · Новая цена · Скидка · К выводу
+       «Не больше X» — sotuvda qabul qilinadigan eng katta narx — o'sha-o'sha
+       narx maydoni OSTIDA qoladi. Qatorlar SAQLASH xarajati bo'yicha kamayish
+       tartibida: eng ko'p pul yeyayotgan SKU eng tepada. */
+    + ".sp-vtable{display:flex;flex-direction:column;border:1px solid var(--sp-border,#ECECF0);border-radius:14px;}"
+    + ".sp-thead,.sp-vrow{display:grid;grid-template-columns:minmax(0,1fr) 84px 96px 84px 138px 80px 88px;gap:12px;align-items:center;}"
+    /* Sarlavha qatori scroll'да yopishib turadi — .sp-vtable'да overflow YO'Q,
+       aks holda sticky ishlamaydi. Shuning uchun burchaklar qo'lда yumaloqlanadi. */
+    + ".sp-thead{position:sticky;top:0;z-index:2;padding:11px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sp-muted,#8E8B97);background:var(--sp-surface,#fff);border-bottom:1px solid var(--sp-border,#ECECF0);border-radius:13px 13px 0 0;}"
+    + ".sp-thead .sp-r{text-align:right;}"
+    + ".sp-vrow{padding:12px 16px;border-bottom:1px solid var(--sp-border,#ECECF0);transition:background .12s;}"
+    + ".sp-vrow:last-child{border-bottom:0;border-radius:0 0 13px 13px;}"
+    + ".sp-vrow:hover{background:var(--sp-hover,#F8F8FA);}"
+    + ".sp-vrow.hl{background:var(--sp-hlsoft,#F5F8FF);box-shadow:inset 3px 0 0 var(--sp-accent,#4169E1);}"
+    + ".sp-vprod{display:flex;align-items:center;gap:10px;min-width:0;}"
+    + ".sp-vthumb{width:44px;height:44px;border-radius:9px;overflow:hidden;background:var(--sp-active,#EFEEF2);border:1px solid var(--sp-border,#ECECF0);flex-shrink:0;}"
     + ".sp-vthumb img{width:100%;height:100%;object-fit:cover;}"
-    + ".sp-vmain{min-width:0;flex:1 1 auto;}"
-    + ".sp-vsku{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:13px;font-weight:700;color:var(--sp-text,#1A1A22);word-break:break-all;}"
-    + ".sp-vmeta{font-size:12px;color:var(--sp-muted,#8E8B97);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}"
-    + ".sp-vexp{background:var(--sp-expbg,#FCEAEA);color:var(--sp-expfg,#E84747);font-weight:700;border-radius:999px;padding:2px 8px;}"
-    + ".sp-vcost{background:var(--sp-active,#EFEEF2);color:var(--sp-text2,#5A5762);font-weight:700;border-radius:999px;padding:2px 8px;}"
-    + ".sp-vprice{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}"
-    + ".sp-vprice-row{display:flex;align-items:center;gap:8px;}"
-    + ".sp-before{font-variant-numeric:tabular-nums;color:var(--sp-muted,#8E8B97);text-decoration:line-through;font-size:13px;}"
-    + ".sp-arrow{color:var(--sp-muted,#8E8B97);}"
-    + ".sp-price-input{width:100px;height:38px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:right;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;}"
-    + ".sp-pct{font-size:12px;font-weight:700;color:#0F9A6A;min-width:42px;text-align:right;}"
-    + ".sp-limit{font-size:11px;color:var(--sp-muted,#8E8B97);}"
-    + ".sp-payout{font-size:11px;color:var(--sp-muted,#8E8B97);margin-top:2px;}.sp-payout b{color:var(--sp-text,#1A1A22);font-variant-numeric:tabular-nums;}"
-    + ".sp-vrow.warn .sp-pct{color:#B42318;}.sp-vrow.warn .sp-price-input{border-color:#F97066;}.sp-vrow.warn .sp-limit{color:#B42318;font-weight:700;}"
+    + ".sp-vskuwrap{min-width:0;}"
+    + ".sp-vsku{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:12px;font-weight:700;color:var(--sp-text,#1A1A22);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+    + ".sp-vchar{font-size:11px;color:var(--sp-muted,#8E8B97);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+    + ".sp-num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;}"
+    + ".sp-vcur{color:var(--sp-text,#1A1A22);}"
+    + ".sp-vcost{color:var(--sp-text2,#5A5762);}"
+    + ".sp-vexp{color:var(--sp-expfg,#E84747);}"          /* saqlash xarajati — qizil */
+    + ".sp-vexp.zero{color:var(--sp-muted,#8E8B97);font-weight:500;}"
+    + ".sp-vnew{text-align:right;}"
+    + ".sp-price-input{width:118px;height:38px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:right;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;}"
+    + ".sp-price-input:focus{outline:0;border-color:var(--sp-accent,#4169E1);box-shadow:0 0 0 3px rgba(65,105,225,.12);}"
+    + ".sp-limit{display:block;font-size:11px;color:var(--sp-muted,#8E8B97);margin-top:4px;}"
+    + ".sp-vdisc{text-align:right;}"
+    + ".sp-vdisc b{font-size:13px;font-weight:700;color:var(--sp-text,#1A1A22);font-variant-numeric:tabular-nums;}"
+    + ".sp-vdisc small{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#0F9A6A;}"
+    + ".sp-vpayout{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;color:var(--sp-text,#1A1A22);}"
+    + ".sp-vrow.warn .sp-price-input{border-color:#F97066;}"
+    + ".sp-vrow.warn .sp-limit{color:#B42318;font-weight:700;}"
+    + ".sp-vrow.warn .sp-vdisc small{color:#B42318;}"
     + ".sp-foot{padding:14px 22px;border-top:1px solid var(--sp-border,#ECECF0);display:flex;align-items:center;gap:14px;flex-wrap:wrap;}"
     + ".sp-foot-sum{font-size:13px;color:var(--sp-text2,#5A5762);}.sp-foot-sum b{color:var(--sp-text,#1A1A22);font-variant-numeric:tabular-nums;}"
     + ".sp-btn{height:40px;padding:0 18px;border-radius:11px;border:0;font-size:14px;font-weight:600;cursor:pointer;}"
@@ -108,7 +131,21 @@
     + ".sp-err{padding:12px 14px;border-radius:10px;background:#FEF3F2;color:#B42318;font-size:14px;margin-bottom:10px;}"
     + ".sp-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1A1A22;color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:500;box-shadow:0 12px 36px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:2100;max-width:90vw;text-align:center;}"
     + ".sp-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}"
-    + "@media (max-width:620px){.sp-vrow{flex-wrap:wrap;}.sp-vprice{width:100%;align-items:stretch;}}"
+    /* 7 ustun ~940px'dan tor oynaga SIG'MAYDI (o'lchandi: 768px'да qator 46px
+       toshib ketadi, 900px'да SKU ustuni 16px'gacha siqiladi). Shuning uchun
+       shu chegaradan pastда jadval 2 ustunli kartaga yig'iladi — Акции
+       sahifasidagi kabi, ammo har bir katak ustida ustun NOMI bilan, aks holda
+       yalang'och raqamlar nimani anglatishi bilinmaydi. */
+    + "@media (max-width:940px){"
+      + ".sp-thead{display:none;}"
+      /* align-items:start — «Новая цена» kataki (input + «Не больше») baland,
+         markazga tekislansa yonidagi kataklar atrofida bo'sh joy qoladi. */
+      + ".sp-vrow{grid-template-columns:1fr 1fr;gap:10px 12px;align-items:start;}"
+      + ".sp-vprod{grid-column:1 / -1;}"
+      + ".sp-num,.sp-vnew,.sp-vdisc,.sp-vpayout{text-align:left;}"
+      + ".sp-vrow [data-l]::before{content:attr(data-l);display:block;margin-bottom:3px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sp-muted,#8E8B97);}"
+      + ".sp-price-input{width:100%;}"
+    + "}"
     + "[data-bs-theme='dark'] .sp-modal{--sp-surface:#18181F;--sp-text:#F0EDF5;--sp-text2:#B6B4C2;--sp-border:#25252F;--sp-muted:#8A8896;--sp-active:#22222D;--sp-hover:#1C1C26;--sp-accent:#6E8FE8;--sp-hl:rgba(251,191,36,.12);--sp-warnfg:#FBBF24;--sp-hlsoft:rgba(110,143,232,.12);--sp-expbg:rgba(252,165,165,.16);--sp-expfg:#FCA5A5;}"
     + "[data-bs-theme='dark'] .sp-toast{background:#F0EDF5;color:#0E0E14;}";
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
@@ -276,10 +313,27 @@
       .catch(function(err){ vt.innerHTML="<div class='sp-err'>"+esc(String(err.message||err))+"</div>"; });
   }
 
+  // Saqlash xarajati bo'yicha kamayish tartibi — sahifaning o'zi ham shunday
+  // saralangan: eng ko'p pul yeyayotgan SKU tepada turadi, chunki chegirma eng
+  // avvalo o'shalarga kerak. Sort BARQAROR: xarajati teng SKU'lar Uzum bergan
+  // tartibda qoladi.
+  function byStorageDesc(skus){
+    return skus.slice().sort(function(a,b){
+      var sa=Number((state.storageBySku[String(a.sku_id)]||{}).storage)||0;
+      var sb=Number((state.storageBySku[String(b.sku_id)]||{}).storage)||0;
+      return sb-sa;
+    });
+  }
+
   function renderTable(skus){
     var vt=$("spVtable"); vt.innerHTML="";
     if(!skus.length){ vt.innerHTML="<div class='sp-msg'>"+T.noLimits+"</div>"; $("spAdd").disabled=true; return; }
-    skus.forEach(function(sk){
+    var head=document.createElement("div"); head.className="sp-thead";
+    head.innerHTML="<span>SKU</span><span class='sp-r'>"+T.colCur+"</span><span class='sp-r'>"+T.cost+"</span>"
+      +"<span class='sp-r'>"+T.storage+"</span><span class='sp-r'>"+T.colNew+"</span>"
+      +"<span class='sp-r'>"+T.colDisc+"</span><span class='sp-r'>"+T.payout+"</span>";
+    vt.appendChild(head);
+    byStorageDesc(skus).forEach(function(sk){
       var sid=sk.sku_id;
       var ours = state.storageBySku[String(sid)] || {};
       var cur0 = sk.current_price || 0;
@@ -287,21 +341,21 @@
       var def = sk.already_in && sk.sale_price ? sk.sale_price : maxp; // default to existing sale price or the max
       var skuName = (ours.sku || sk.sku_title || ("SKU "+sid));
       var color = ours.color || sk.characteristics || "";
+      var stor = Number(ours.storage)||0;
       var hl = state.highlightSku && skuName && skuName.toLowerCase()===state.highlightSku.toLowerCase();
       var row=document.createElement("div"); row.className="sp-vrow"+(hl?" hl":""); row.dataset.sku=sid;
-      var meta=[];
-      if((ours.cost_price||0)>0) meta.push("<span class='sp-vcost'>"+T.cost+": "+fmt(ours.cost_price)+"</span>");
-      if((ours.storage||0)>0) meta.push("<span class='sp-vexp'>"+T.storage+": "+fmt(ours.storage)+"</span>");
       row.innerHTML =
-        "<div class='sp-vthumb'>"+(ours.image_url?"<img src='"+esc(ours.image_url)+"'>":"")+"</div>"
-        +"<div class='sp-vmain'><div class='sp-vsku'>"+esc(skuName)+(color?" <span style='font-weight:500;color:var(--sp-muted,#8E8B97)'>· "+esc(color)+"</span>":"")+"</div>"
-        +"<div class='sp-vmeta'>"+meta.join(" · ")+"</div></div>"
-        +"<div class='sp-vprice'><div class='sp-vprice-row'>"
-          +"<span class='sp-before'>"+fmt(cur0)+"</span><span class='sp-arrow'>→</span>"
+        "<div class='sp-vprod'><div class='sp-vthumb'>"+(ours.image_url?"<img src='"+esc(ours.image_url)+"'>":"")+"</div>"
+          +"<div class='sp-vskuwrap'><div class='sp-vsku'>"+esc(skuName)+"</div>"
+          +(color?"<div class='sp-vchar'>"+esc(color)+"</div>":"")+"</div></div>"
+        +"<div class='sp-num sp-vcur' data-l='"+T.colCur+"'>"+fmt(cur0)+"</div>"
+        +"<div class='sp-num sp-vcost' data-l='"+T.cost+"'>"+fmt((ours.cost_price||0)>0?ours.cost_price:null)+"</div>"
+        +"<div class='sp-num sp-vexp"+(stor>0?"":" zero")+"' data-l='"+T.storage+"'>"+(stor>0?fmt(stor):"—")+"</div>"
+        +"<div class='sp-vnew' data-l='"+T.colNew+"'>"
           +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-comm='"+(sk.commission_rate!=null?sk.commission_rate:"")+"' data-logi='"+(sk.logistics_per_unit!=null?sk.logistics_per_unit:"")+"' value='"+def+"' min='0' step='10'>"
-          +"<span class='sp-pct' data-pct='"+sid+"'>0%</span></div>"
-          +"<span class='sp-limit'>"+T.noMore+" "+fmt(maxp)+" "+cur+"</span>"
-          +"<span class='sp-payout' data-payout='"+sid+"'></span></div>";
+          +"<span class='sp-limit'>"+T.noMore+" "+fmt(maxp)+" "+cur+"</span></div>"
+        +"<div class='sp-vdisc' data-l='"+T.colDisc+"'><b data-amt='"+sid+"'>0</b><small data-pct='"+sid+"'>0%</small></div>"
+        +"<div class='sp-vpayout' data-payout='"+sid+"' data-l='"+T.payout+"'>—</div>";
       vt.appendChild(row);
     });
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){
@@ -331,18 +385,21 @@
 
   function updateRowPct(sid){
     var inp=document.querySelector(".sp-price-input[data-sku='"+sid+"']");
-    var lbl=document.querySelector(".sp-pct[data-pct='"+sid+"']");
+    var lbl=document.querySelector("[data-pct='"+sid+"']");
     if(!inp||!lbl) return;
     var c=Number(inp.dataset.cur)||0, max=Number(inp.dataset.max)||0, np=Number(inp.value)||0;
     var d=pct(c,np); lbl.textContent=(d>0?"−":"")+d+"%";
+    // «Скидка» ustuni: tepada — necha so'm arzonlashdi, ostida — foizi.
+    var amt=document.querySelector("[data-amt='"+sid+"']");
+    if(amt) amt.textContent=fmt(Math.max(0, c-np));
     var row=inp.closest(".sp-vrow"); if(row) row.classList.toggle("warn", max>0 && np>max);
-    var pay=document.querySelector(".sp-payout[data-payout='"+sid+"']");
+    var pay=document.querySelector("[data-payout='"+sid+"']");
     if(pay){
       var comm=inp.dataset.comm, logi=inp.dataset.logi;
       if(comm!=="" && comm!=null && logi!=="" && logi!=null){
         var po=Math.max(0, Math.round(np*(1-parseFloat(comm)) - parseFloat(logi)));
-        pay.innerHTML=T.payout+": <b>"+fmt(po)+"</b> "+cur;
-      } else { pay.textContent=""; }
+        pay.textContent=fmt(po);
+      } else { pay.textContent="—"; }
     }
   }
   function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); updateSummary(); }

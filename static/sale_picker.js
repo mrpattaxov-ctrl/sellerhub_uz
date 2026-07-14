@@ -43,6 +43,11 @@
     active:     UZ ? "Faol" : "Идёт",
     created:    UZ ? "Tez orada" : "Скоро",
     minDisc:    UZ ? "min." : "мин.",
+    // ZARAR ogohlantirishi: narx shunchalik pastki, «К выводу» tannarxdan ham
+    // past — ya'ni har bir sotuv zarar. Bu TAQIQ emas, ogohlantirish.
+    belowCost:  UZ ? "tannarxdan past" : "ниже себестоимости",
+    lossWarn:   UZ ? "SKU zarar keltiradi: olishga tannarxdan past. Narxni tekshiring."
+                   : "SKU в убыток: к выводу ниже себестоимости. Проверьте цену.",
     over:       UZ ? "limitdan yuqori" : "выше лимита",
     payout:     UZ ? "Olishga" : "К выводу",
     // Jadval ustunlari — «Акции» sahifasidagi nomlar bilan bir xil.
@@ -158,6 +163,13 @@
     + ".sp-vdisc b{font-size:13px;font-weight:700;color:var(--sp-text,#1A1A22);font-variant-numeric:tabular-nums;}"
     + ".sp-vdisc small{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#0F9A6A;}"
     + ".sp-vpayout{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;color:var(--sp-text,#1A1A22);}"
+    /* ZARAR holati: «К выводу» < «Себестоимость». .hl'dan KEYIN turadi — zarar
+       ustunroq, chunki u xatoni bildiradi (nol tushib qolgan, ortiqcha nol...). */
+    + ".sp-vrow.loss{background:var(--sp-lossbg,#FEF3F2);box-shadow:inset 3px 0 0 #F97066;}"
+    + ".sp-vrow.loss .sp-vpayout{color:var(--sp-lossfg,#B42318);font-weight:800;}"
+    + ".sp-lossnote{display:block;margin-top:2px;font-size:10px;font-weight:700;line-height:1.25;color:var(--sp-lossfg,#B42318);white-space:normal;}"
+    + ".sp-foot-warn{display:flex;align-items:center;gap:8px;margin-right:auto;font-size:13px;font-weight:600;line-height:1.3;color:var(--sp-lossfg,#B42318);background:var(--sp-lossbg,#FEF3F2);border-radius:10px;padding:8px 12px;}"
+    + ".sp-foot-warn b{font-weight:800;}"
     + ".sp-vrow.warn .sp-price-input{border-color:#F97066;}"
     + ".sp-vrow.warn .sp-limit{color:#B42318;font-weight:700;}"
     + ".sp-vrow.warn .sp-vdisc small{color:#B42318;}"
@@ -193,7 +205,7 @@
       + ".sp-vrow [data-l]::before{content:attr(data-l);display:block;margin-bottom:3px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sp-muted,#8E8B97);}"
       + ".sp-price-input{width:100%;}"
     + "}"
-    + "[data-bs-theme='dark'] .sp-modal{--sp-surface:#18181F;--sp-thbg:#20202A;--sp-text:#F0EDF5;--sp-text2:#B6B4C2;--sp-border:#25252F;--sp-muted:#8A8896;--sp-active:#22222D;--sp-hover:#1C1C26;--sp-accent:#6E8FE8;--sp-hl:rgba(251,191,36,.12);--sp-warnfg:#FBBF24;--sp-hlsoft:rgba(110,143,232,.12);--sp-expbg:rgba(252,165,165,.16);--sp-expfg:#FCA5A5;}"
+    + "[data-bs-theme='dark'] .sp-modal{--sp-surface:#18181F;--sp-thbg:#20202A;--sp-text:#F0EDF5;--sp-text2:#B6B4C2;--sp-border:#25252F;--sp-muted:#8A8896;--sp-active:#22222D;--sp-hover:#1C1C26;--sp-accent:#6E8FE8;--sp-hl:rgba(251,191,36,.12);--sp-warnfg:#FBBF24;--sp-hlsoft:rgba(110,143,232,.12);--sp-expbg:rgba(252,165,165,.16);--sp-expfg:#FCA5A5;--sp-lossbg:rgba(249,112,102,.14);--sp-lossfg:#FCA5A5;}"
     + "[data-bs-theme='dark'] .sp-toast{background:#F0EDF5;color:#0E0E14;}";
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
@@ -203,6 +215,7 @@
     + "<div class='sp-head'><div><h3 id='spTitle'></h3><div class='sp-sub' id='spSub'></div></div><button class='sp-x' id='spX'>&times;</button></div>"
     + "<div class='sp-body' id='spBody'></div>"
     + "<div class='sp-foot' id='spFoot' style='display:none'>"
+    + "<div class='sp-foot-warn' id='spWarn' style='display:none'></div>"
     + "<button class='sp-btn sp-btn-ghost' id='spCancel'></button>"
     + "<button class='sp-btn sp-btn-primary' id='spAdd'></button>"
     + "</div></div>";
@@ -413,7 +426,7 @@
         +"<div class='sp-num sp-vexp"+(stor>0?"":" zero")+"' data-l='"+T.storage+"'>"+(stor>0?fmt(stor):"—")+"</div>"
         +"<div class='sp-num sp-vcur' data-l='"+T.colCur+"'>"+fmt(cur0)+"</div>"
         +"<div class='sp-vnew' data-l='"+T.colNew+"'>"
-          +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-comm='"+(sk.commission_rate!=null?sk.commission_rate:"")+"' data-logi='"+(sk.logistics_per_unit!=null?sk.logistics_per_unit:"")+"' value='"+def+"' min='0' step='10'>"
+          +"<input type='number' class='sp-price-input' data-sku='"+sid+"' data-cur='"+cur0+"' data-max='"+maxp+"' data-comm='"+(sk.commission_rate!=null?sk.commission_rate:"")+"' data-logi='"+(sk.logistics_per_unit!=null?sk.logistics_per_unit:"")+"' data-cost='"+((ours.cost_price||0)>0?ours.cost_price:"")+"' value='"+def+"' min='0' step='10'>"
           +"<span class='sp-limit'>"+T.noMore+" "+fmt(maxp)+" "+cur+"</span></div>"
         +"<div class='sp-vdisc' data-l='"+T.colDisc+"'><b data-amt='"+sid+"'>0</b><small data-pct='"+sid+"'>0%</small></div>"
         +"<div class='sp-vpayout' data-payout='"+sid+"' data-l='"+T.payout+"'>—</div>"
@@ -422,8 +435,8 @@
     });
     sizeSkuColumn(vt);
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){
-      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); });
-      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); });
+      inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateLossBanner(); });
+      inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateLossBanner(); });
     });
     refreshAll();
     $("spAdd").disabled = false;
@@ -443,6 +456,7 @@
       if(max>0 && np>max) np=max;
       inp.value=np; updateRowPct(inp.dataset.sku);
     });
+    updateLossBanner();          // ommaviy % ham zararga tushirishi mumkin
   }
 
   function updateRowPct(sid){
@@ -456,15 +470,37 @@
     if(amt) amt.textContent=fmt(Math.max(0, c-np));
     var row=inp.closest(".sp-vrow"); if(row) row.classList.toggle("warn", max>0 && np>max);
     var pay=document.querySelector("[data-payout='"+sid+"']");
+    var po=payoutOf(inp), cost=Number(inp.dataset.cost)||0;
+    var loss = po!=null && cost>0 && po<cost;   // har bir sotuvdan zarar
     if(pay){
-      var comm=inp.dataset.comm, logi=inp.dataset.logi;
-      if(comm!=="" && comm!=null && logi!=="" && logi!=null){
-        var po=Math.max(0, Math.round(np*(1-parseFloat(comm)) - parseFloat(logi)));
-        pay.textContent=fmt(po);
-      } else { pay.textContent="—"; }
+      pay.textContent = (po==null ? "—" : fmt(po));
+      if(loss) pay.insertAdjacentHTML("beforeend", "<small class='sp-lossnote'>"+esc(T.belowCost)+"</small>");
     }
+    if(row) row.classList.toggle("loss", loss);
   }
-  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); }
+
+  // «К выводу» = narx × (1 − komissiya) − logistika. Rate'lar yo'q bo'lsa null
+  // (UI '—' ko'rsatadi) — u holda zararni BILIB bo'lmaydi, ogohlantirmaymiz.
+  function payoutOf(inp){
+    var comm=inp.dataset.comm, logi=inp.dataset.logi;
+    if(comm==="" || comm==null || logi==="" || logi==null) return null;
+    var np=Number(inp.value)||0;
+    return Math.max(0, Math.round(np*(1-parseFloat(comm)) - parseFloat(logi)));
+  }
+
+  // Zarar qatorlari — pastdagi ogohlantirish tasmasida sanaladi. TAQIQ EMAS:
+  // «Добавить в акцию» tugmasi ochiq qoladi, chunki ba'zan zararga sotish
+  // ataylab qilinadi (ombordan tozalash). Bu — nol tushib qolgan / ortiqcha
+  // nol qo'shilgan kabi xatolarni ushlash uchun.
+  function updateLossBanner(){
+    var n=0;
+    document.querySelectorAll(".sp-vrow.loss").forEach(function(){ n++; });
+    var w=$("spWarn"); if(!w) return;
+    if(n>0){ w.innerHTML="<b>"+n+"</b> "+esc(T.lossWarn); w.style.display=""; }
+    else { w.style.display="none"; w.textContent=""; }
+  }
+
+  function refreshAll(){ document.querySelectorAll(".sp-price-input").forEach(function(inp){ updateRowPct(inp.dataset.sku); }); updateLossBanner(); }
 
   function selectedSkus(){
     var out=[];

@@ -16,7 +16,7 @@
   --sl-text:#F0EDF5; --sl-text-2:#B6B4C2; --sl-muted:#8A8896; --sl-active:#22222D; --sl-hover:#1C1C26;
   --sl-pill-bg:#101018; --sl-pill-text:#D7D4DF; --sl-head:#1B1B23;
   --sl-accent:#6E8FE8; --sl-accent-fg:#0E0E14;
-  --sl-ok-bg:rgba(52,211,153,.10); --sl-ok-fg:#5EEAB0; --sl-warn-bg:rgba(251,191,36,.10); --sl-warn-fg:#FBBF24; --sl-info-bg:rgba(110,143,232,.12); --sl-info-fg:#A4B9F0;
+  --sl-ok-bg:rgba(52,211,153,.10); --sl-ok-fg:#5EEAB0; --sl-warn-bg:rgba(251,191,36,.10); --sl-warn-fg:#FBBF24; --sl-info-bg:rgba(110,143,232,.12); --sl-info-fg:#A4B9F0; --sl-loss-bg:rgba(249,112,102,.14); --sl-loss-fg:#FCA5A5;
   --sl-danger-bg:rgba(248,113,113,.12); --sl-danger-fg:#FCA5A5;
   --sl-shadow:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
 }
@@ -176,6 +176,14 @@
 .sl-srow-disc b { font-variant-numeric:tabular-nums; color:var(--sl-text); }
 .sl-srow-disc small { display:block; color:var(--sl-ok-fg); font-weight:700; margin-top:2px; }
 .sl-srow-payout { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--sl-text); }
+/* ZARAR: «К выводу» < «Себестоимость». Ogohlantirish, taqiq emas — nol tushib
+   qolgan / ortiqcha nol qo'shilgan kabi xatolarni ushlash uchun. */
+.sl-srow.loss { background:var(--sl-loss-bg,#FEF3F2); box-shadow:inset 3px 0 0 #F97066; }
+.sl-srow.loss .sl-srow-payout { color:var(--sl-loss-fg,#B42318); font-weight:800; }
+.sl-lossnote { display:block; margin-top:2px; font-size:10px; font-weight:700; line-height:1.25; color:var(--sl-loss-fg,#B42318); white-space:normal; }
+.sl-addbar-warn { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; line-height:1.3;
+  color:var(--sl-loss-fg,#B42318); background:var(--sl-loss-bg,#FEF3F2); border-radius:10px; padding:8px 12px; }
+.sl-addbar-warn b { font-weight:800; }
 .sl-srow-loading { padding:16px; color:var(--sl-muted); font-size:13px; }
 @media (max-width:680px){
   .sl-thead { display:none; }
@@ -317,6 +325,7 @@
         <div id="slSelTable" class="sl-panel-body"></div>
         <div class="sl-addbar" id="slAddBar" style="display:none">
           <div class="sl-addbar-info" id="slFooterInfo"></div>
+          <div class="sl-addbar-warn" id="slLossWarn" style="display:none"></div>
           <button type="button" class="sl-btn sl-btn-primary" id="slAddBtn" disabled>{{ 'Aksiyaga qo\'shish' if is_uz else 'Добавить в акцию' }}</button>
         </div>
       </section>
@@ -351,6 +360,10 @@
     empty: UZ ? 'Mos mahsulotlar yo\'q' : 'Нет подходящих товаров',
     salesEmpty: UZ ? 'Bu yerda aksiya yo\'q' : 'Здесь нет акций',
     selected: UZ ? 'Tanlangan' : 'Выбрано',
+    // ZARAR: «К выводу» tannarxdan past — har bir sotuv zarar. TAQIQ emas.
+    belowCost: UZ ? 'tannarxdan past' : 'ниже себестоимости',
+    lossWarn: UZ ? 'SKU zarar keltiradi: olishga tannarxdan past. Narxni tekshiring.'
+                 : 'SKU в убыток: к выводу ниже себестоимости. Проверьте цену.',
     products: UZ ? 'mahsulot' : 'тов.',
     loading: UZ ? 'Yuklanmoqda…' : 'Загрузка…',
     open: UZ ? 'Ochish' : 'Открыть',
@@ -418,6 +431,15 @@
     return Math.max(0, Math.round((Number(price)||0)*(1-Number(comm)) - Number(logi)));
   }
   function payoutText(po){ return po==null ? '—' : fmt(po); }
+  // Zarar: «К выводу» tannarxdan past. Rate'lar yo'q bo'lsa (payout null) —
+  // hisoblab bo'lmaydi, ogohlantirmaymiz. Tannarx nol bo'lsa ham shunday.
+  function isLoss(po, cost){ return po!=null && Number(cost)>0 && po < Number(cost); }
+  // Bitta joyda: «К выводу» kataki + zarar belgisi. Render ham, tahrir ham shuni ishlatadi.
+  function paintPayout(payEl, po, cost){
+    if(!payEl) return;
+    payEl.textContent = payoutText(po);
+    if(isLoss(po, cost)) payEl.insertAdjacentHTML('beforeend', '<small class="sl-lossnote">'+esc(T.belowCost)+'</small>');
+  }
 
   // Shop pick is shared across pages (/groups, /sales) via the sh_shop cookie
   // (holds Shop.uzum_id; 'all' is groups-only — here it falls back to shop #1).
@@ -810,9 +832,12 @@
       e.skus.forEach(function(s, si){
         var warn = (s.max_price>0 && s.new_price>s.max_price);
         var amt = Math.max(0, (s.current_price||0) - (s.new_price||0));
+        var po0 = computePayout(s.new_price, s.commission_rate, s.logistics_per_unit);
+        var cost0 = (e.purchase_price>0 ? e.purchase_price : 0);
+        var loss0 = isLoss(po0, cost0);
         var simg = s.image || img; // per-SKU image, product image as fallback
         html +=
-          '<div class="sl-srow'+(warn?' warn':'')+'" data-pid="'+pid+'" data-si="'+si+'">'+
+          '<div class="sl-srow'+(warn?' warn':'')+(loss0?' loss':'')+'" data-pid="'+pid+'" data-si="'+si+'">'+
             '<div class="sl-srow-prod"><div class="sl-srow-thumb">'+(simg?'<img src="'+esc(simg)+'">':'')+'</div>'+
               '<div class="sl-srow-skuwrap"><div class="sl-srow-sku">'+esc(s.sku_title||('SKU '+s.sku_id))+'</div>'+
                 (s.characteristics?'<div class="sl-srow-char">'+esc(s.characteristics)+'</div>':'')+'</div></div>'+
@@ -821,7 +846,7 @@
             '<div class="sl-srow-new"><input type="number" min="0" step="10" value="'+s.new_price+'" data-pid="'+pid+'" data-si="'+si+'">'+
               '<div class="sl-limit">'+T.noMore+' '+fmt(s.max_price)+' '+cur+'</div></div>'+
             '<div class="sl-srow-disc"><b data-amt>'+fmt(amt)+'</b><small data-pct>'+(pctOf(s.current_price,s.new_price))+'%</small></div>'+
-            '<div class="sl-srow-payout" data-payout>'+payoutText(computePayout(s.new_price, s.commission_rate, s.logistics_per_unit))+'</div>'+
+            '<div class="sl-srow-payout" data-payout>'+payoutText(po0)+(loss0?'<small class="sl-lossnote">'+esc(T.belowCost)+'</small>':'')+'</div>'+
           '</div>';
       });
     });
@@ -854,7 +879,9 @@
       var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
       if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-v));
       if(pctEl) pctEl.textContent=pctOf(s.current_price,v)+'%';
-      if(payEl) payEl.textContent=payoutText(computePayout(v, s.commission_rate, s.logistics_per_unit));
+      var po=computePayout(v, s.commission_rate, s.logistics_per_unit), cost=(e.purchase_price>0?e.purchase_price:0);
+      paintPayout(payEl, po, cost);
+      row.classList.toggle('loss', isLoss(po, cost));
     }
     updateFooter();
   }
@@ -877,7 +904,9 @@
       var amtEl=row.querySelector('[data-amt]'), pctEl=row.querySelector('[data-pct]'), payEl=row.querySelector('[data-payout]');
       if(amtEl) amtEl.textContent=fmt(Math.max(0,(s.current_price||0)-np));
       if(pctEl) pctEl.textContent=pctOf(s.current_price,np)+'%';
-      if(payEl) payEl.textContent=payoutText(computePayout(np, s.commission_rate, s.logistics_per_unit));
+      var po=computePayout(np, s.commission_rate, s.logistics_per_unit), cost=(e.purchase_price>0?e.purchase_price:0);
+      paintPayout(payEl, po, cost);
+      row.classList.toggle('loss', isLoss(po, cost));   // ommaviy % ham zararga tushirishi mumkin
     });
     updateFooter();
   }
@@ -927,6 +956,13 @@
     var stillLoading = pids.some(function(pid){ return selected[pid].loading; });
     var ready = !stillLoading && pids.some(function(pid){ return isDirty(selected[pid]); });
     el('slFooterInfo').innerHTML = T.selected+': <b>'+pids.length+'</b> '+T.products;
+    // Zarar tasmasi. Tugma O'CHIRILMAYDI — zararga sotish ataylab bo'lishi mumkin.
+    var lossN = document.querySelectorAll('#slSelTable .sl-srow.loss').length;
+    var lw = el('slLossWarn');
+    if(lw){
+      if(lossN>0){ lw.innerHTML = '<b>'+lossN+'</b> '+T.lossWarn; lw.style.display=''; }
+      else { lw.style.display='none'; lw.textContent=''; }
+    }
     el('slAddBtn').disabled = !ready;
     saveDraft();          // every mutation funnels through here → cache stays fresh
   }

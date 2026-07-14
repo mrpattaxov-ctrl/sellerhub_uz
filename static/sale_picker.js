@@ -99,9 +99,12 @@
        alohida element YO'Q: 3-bola 4-track'ga majburan qo'yiladi.
        «Не больше X» — narx maydoni OSTIDA qoladi. */
     + ".sp-vtable{display:flex;flex-direction:column;border:1px solid var(--sp-border,#ECECF0);border-radius:14px;}"
-    /* SKU ustuni max-content: ortiqcha joyni O'ZIGA olmaydi, 3-track'ka beradi —
-       shundagina «Хранение» SKU'ning yoniga keladi (aks holda 145px uzoqda qolardi). */
-    + ".sp-thead,.sp-vrow{display:grid;grid-template-columns:minmax(150px,max-content) 80px minmax(16px,1fr) 100px 134px 74px 92px 104px;gap:12px;align-items:center;}"
+    /* SKU ustuni kengligi — --sp-skuw, uni JS eng uzun SKU bo'yicha bir marta
+       o'lchab qo'yadi (sizeTable). max-content ISHLAMAYDI: har bir qator ALOHIDA
+       grid, shuning uchun har birida o'z eni chiqib, «Хранение» raqamlari
+       zinapoya bo'lib ketardi. Bitta o'lchov = bitta tekis ustun. minmax(0,…)
+       tor oynada torayishga ruxsat beradi — baribir hamma qatorda bir xil. */
+    + ".sp-thead,.sp-vrow{display:grid;grid-template-columns:minmax(0,var(--sp-skuw,260px)) 80px minmax(16px,1fr) 100px 134px 74px 92px 104px;gap:12px;align-items:center;}"
     + ".sp-thead>:nth-child(3),.sp-vrow>:nth-child(3){grid-column:4;}"   /* 3-track'ni bo'sh qoldiradi */
     /* Sarlavha qatori scroll'да yopishib turadi. Ikki shart: (1) .sp-vtable'да
        overflow YO'Q; (2) .sp-body'да padding-top YO'Q — aks holda sticky o'sha
@@ -339,6 +342,19 @@
     });
   }
 
+  // SKU ustunining kengligini ENG UZUN SKU bo'yicha bir marta o'lchaydi va butun
+  // jadvalga (--sp-skuw) beradi. Shunda ustun BITTA: «Хранение» raqamlari hamma
+  // qatorda bir xil joyda turadi, ammo ustun baribir matnni quchoqlab qoladi.
+  // scrollWidth — matnning to'liq eni (ko'rinmasa ham), ellipsis aldamaydi.
+  var SKU_MIN=150, SKU_MAX=300, THUMB=44+10;   /* rasm + .sp-vprod ichidagi gap */
+  function sizeSkuColumn(vt){
+    var w=0;
+    vt.querySelectorAll(".sp-vsku,.sp-vchar").forEach(function(e){ w=Math.max(w, e.scrollWidth); });
+    if(!w) return;
+    var track = Math.min(SKU_MAX, Math.max(SKU_MIN, Math.ceil(w) + THUMB + 2));
+    vt.style.setProperty("--sp-skuw", track + "px");
+  }
+
   function renderTable(skus){
     var vt=$("spVtable"); vt.innerHTML="";
     if(!skus.length){ vt.innerHTML="<div class='sp-msg'>"+T.noLimits+"</div>"; $("spAdd").disabled=true; return; }
@@ -373,6 +389,7 @@
         +"<div class='sp-num sp-vcost' data-l='"+T.cost+"'>"+fmt((ours.cost_price||0)>0?ours.cost_price:null)+"</div>";
       vt.appendChild(row);
     });
+    sizeSkuColumn(vt);
     vt.querySelectorAll(".sp-price-input").forEach(function(inp){
       inp.addEventListener("input", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateSummary(); });
       inp.addEventListener("blur", function(){ clampInput(inp); updateRowPct(inp.dataset.sku); updateSummary(); });

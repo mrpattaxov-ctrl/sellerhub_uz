@@ -684,8 +684,13 @@ def api_sale_suitable(sale_id: int):
                 .order_by(func.lower(Variant.sku))
             ).all()
             for g, v in grows:
+                try:
+                    _vsid = int(str(v.uzum_sku_id).strip())
+                except (TypeError, ValueError):
+                    _vsid = None
                 variants_by_pid.setdefault(str(g.uzum_product_id), []).append({
                     "sku": v.sku or "",
+                    "sku_id": _vsid,   # lets «Автозаполнить» match remembered SKUs
                     "color": v.color or "",
                     "barcode": v.barcode or "",
                     "image_url": (v.image_url or g.image_url) or "",
@@ -913,6 +918,18 @@ def api_sale_add(sale_id: int):
     invalidate_shop_sales_cache(raw_shop)
     invalidate_product_sku_limits(raw_shop)
 
+    # Remember each SKU's sale price (Redis, per-user) so «Автозаполнить» can
+    # refill the same prices when this seller sets up a later campaign. Only the
+    # prices Uzum actually accepted are stored. Best-effort — never fails here.
+    try:
+        from core.sale_memory import remember_sale_prices
+        remember_sale_prices(uid, {
+            sk["skuId"]: sk["newSalePrice"]
+            for prod in uzum_products for sk in prod["skuList"]
+        })
+    except Exception:
+        import traceback; traceback.print_exc()
+
     # Reflect the new sale price in our DB immediately, instead of waiting for
     # the next products sync (~15 min). The products sync would otherwise be
     # the only thing that updates Variant.price_sum, which is why a freshly
@@ -976,6 +993,76 @@ def api_sale_remove(sale_id: int):
     invalidate_product_sku_limits(raw_shop, product_id)
 
     return _json_response({"ok": True})
+
+
+@products_bp.get("/api/sales/salemem")
+@login_required
+def api_sale_memory():
+    """The seller's remembered per-SKU sale prices, as ``{sku_id: price}``.
+
+    Feeds «Автозаполнить»: the picker matches these SKU ids against the sale's
+    suitable products and refills each one with the price used last time. Not
+    shop-scoped — Uzum skuIds are globally unique, and the map is the user's own
+    (a static path, so it never collides with the ``/<int:sale_id>/…`` routes)."""
+    uid = int(current_user.get_id())
+    from core.sale_memory import get_remembered_prices
+    return _json_response({"prices": get_remembered_prices(uid)})
+
+
+@products_bp.post("/api/sales/<int:sale_id>/remove-all")
+@login_required
+def api_sale_remove_all(sale_id: int):
+    """Remove EVERY enrolled product from a sale in one call.
+
+    Request: {"shop_id": str}. Fetches the sale's enrolled products and removes
+    each via the same product-level Uzum delete as ``/remove``. Partial failures
+    don't abort the run — they're collected and reported so the seller sees what
+    (if anything) is still in the sale."""
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_shop = str(payload.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+
+    from core.uzum_marketing import (
+        list_sale_products, remove_product_from_sale, invalidate_shop_sales_cache,
+        invalidate_product_sku_limits, UzumMarketingError,
+    )
+
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    try:
+        involved = list_sale_products(raw_shop, sale_id)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+    pids: list[int] = []
+    for p in involved:
+        try:
+            pids.append(int(p.get("productId")))
+        except (TypeError, ValueError):
+            continue
+
+    if not pids:
+        return _json_response({"ok": True, "removed": 0, "failed": []})
+
+    removed = 0
+    failed = []
+    for pid in pids:
+        try:
+            remove_product_from_sale(raw_shop, sale_id, pid)
+            removed += 1
+        except Exception as e:
+            failed.append({"product_id": pid, "error": str(e)})
+
+    # Enrolled set changed (fully, on success) → drop the shop's stale caches.
+    invalidate_shop_sales_cache(raw_shop)
+    invalidate_product_sku_limits(raw_shop)
+
+    return _json_response({"ok": not failed, "removed": removed, "failed": failed})
 
 
 @products_bp.get("/api/product/<int:product_id>/eligible-sales")

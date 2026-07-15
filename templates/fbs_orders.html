@@ -2849,7 +2849,12 @@
       }
       if (d.type === "fbs-order-changed") {
         closeOrderModal();
-        Promise.all([loadOrders(true), loadCounts(true)]);
+        // loadCounts(true) → (false, silent): badge'lar DB'dan (Abdulaziz
+        // 2026-07-14). `loadCounts(true)` statuslarsiz chaqirilsa server
+        // _FBS_REFRESH_ON_PRESS_SYNC bo'yicha TO'RTTA jonli /count yuboradi —
+        // faqat chipdagi raqamlar uchun. loadOrders(true) esa ro'yxatni
+        // baribir jonli tortib DB'ni yangilaydi, ya'ni raqamlar DB'da to'g'ri.
+        Promise.all([loadOrders(true), loadCounts(false, { silent: true })]);
       }
     });
   }
@@ -3161,7 +3166,6 @@
   function _stopBulkPoll(){
     if (_bulkPollTimers){
       clearInterval(_bulkPollTimers.status);
-      clearInterval(_bulkPollTimers.list);
       _bulkPollTimers = null;
     }
   }
@@ -3257,8 +3261,12 @@
     };
 
     _bulkPollTimers = {
+      // Ommaviy amal davomida progress FAQAT bannerdan ko'rinadi (pollStatus,
+      // 1s). Ilgari yana `list: setInterval(loadCounts, 3000)` chiplar badge'ini
+      // har 3s DB'dan yangilardi — OLIB TASHLANDI (Abdulaziz 2026-07-15): keraksiz,
+      // chunki PENDING_DELIVERY fon-worker'da (23 daq) + kirishда/amaldan keyin
+      // yangilanadi. Amal tugagach finishUp baribir ro'yxat+chiplarni yangilaydi.
       status: setInterval(pollStatus, 1000),
-      list:   setInterval(() => loadCounts(false, { silent: true }), 3000),  // faqat chiplar
     };
     pollStatus();  // darrov bir marta — kutmasdan
   }
@@ -3503,14 +3511,20 @@
       sizePostavkaFrame();
       _fr.addEventListener("load", () => _fr.classList.add("is-loaded"), { once: true });
     }
-    // «Поставки» nav-badge (= PENDING_DELIVERY buyurtма soni) JONLI kelsin —
-    // ichki накладные ro'yxati kabi. Boshqa chip'lardan farqli, bu badge'ni
-    // loadOrders boshqarmaydi (nav-chip loadOrders'ни chaqirmaydi), shuning
-    // uchun uni ochilganda alohida jonli /count bilan yangilaymiz. Serverda
-    // PENDING_DELIVERY allaqachon jonli-count ro'yxatida (_FBS_REFRESH_ON_PRESS_SYNC).
-    if (shopSel.value && HAS_TOKEN) {
-      loadCounts(true, { statuses: ["PENDING_DELIVERY"], silent: true });
-    }
+    // «Поставки» nav-badge = PENDING_DELIVERY BUYURTMA soni, DB'dan — xuddi
+    // boshqa chiplar kabi (Abdulaziz 2026-07-15).
+    //
+    // TARIX: 07-14 da badge'ni iframe'dagi накладные ro'yxatidan (postMessage
+    // "fbs-postavka-count") oldirgandim — Uzumga qo'shimcha /count yubormaslik
+    // uchun. LEKIN u BEQAROR chiqdi: накладные ro'yxatining o'z status-filtri bor
+    // (Все статусы / Создана / Отменена), filtr o'zgarsa ro'yxat qayta yuklanib
+    // badge har safar boshqa raqam ko'rsatardi (18+, 5, 14+ — Abdulaziz topdi).
+    //
+    // Endi DB'dan olamiz: bugun (07-14) PENDING_DELIVERY fon-worker'ga qo'shildi,
+    // ya'ni DB'da bor. loadCounts(false) uni /fbs/api/counts-all'dan (DB GROUP BY)
+    // o'qiydi — barqaror, bepul (Uzum so'rovi yo'q), boshqa chiplar bilan bir xil
+    // ma'no. Iframe'dagi postMessage badge mexanizmi OLIB TASHLANDI.
+    if (shopSel.value && HAS_TOKEN) loadCounts(false, { silent: true });
   }
   function exitPostavkaView(){
     if (!postavkaActive) return;
@@ -4231,7 +4245,8 @@
             || errCode.includes("already") || (data.error || "").toLowerCase().includes("status")) {
           console.log("[invoice] stale state detected — auto-refreshing orders");
           closeDropoffModal();
-          await Promise.all([loadOrders(true), loadCounts(true)]);
+          // Badge'lar DB'dan — pastdagi muvaffaqiyat shoxi bilan bir xil sabab.
+          await Promise.all([loadOrders(true), loadCounts(false, { silent: true })]);
         }
         return;
       }
@@ -4244,7 +4259,19 @@
       closeDropoffModal();
       // Refresh the orders list — Uzum flips PACKING → PENDING_DELIVERY
       // (or similar) once the invoice is created.
-      await Promise.all([loadOrders(true), loadCounts(true)]);
+      //
+      // Badge'lar DB'dan (Abdulaziz 2026-07-14). Ilgari bu yer `loadCounts(true)`
+      // edi → server _FBS_REFRESH_ON_PRESS_SYNC bo'yicha TO'RTTA jonli /count
+      // yuborardi (CREATED, PACKING, PENDING_DELIVERY, DELIVERING). Jonli
+      // o'lchandi (13:14): postavka yaratilgach 6 so'rov / 5.2s ketardi, shundan
+      // 4 tasi faqat chip raqamlari uchun edi.
+      //
+      // Nega DB endi to'g'ri: (1) loadOrders(true) joriy chipni Uzumdan jonli
+      // tortib DB'ni yangilaydi; (2) yaratish marshruti _reflect_pending_delivery()
+      // bilan buyurtmalarni darhol PENDING_DELIVERY'ga o'tkazadi; (3) 2026-07-14
+      // dan boshlab PENDING_DELIVERY fon-worker'da ham bor (23 daq).
+      // Ro'yxatning o'zi va uning bo'shlik-tasdig'i (himoya) JONLI qoladi.
+      await Promise.all([loadOrders(true), loadCounts(false, { silent: true })]);
     } catch (e) {
       console.error("[invoice/create] failed:", e);
       showListToast(LIST_LBL.invoice_create_fail + ": " + (e.message || ""), "error");
@@ -4701,18 +4728,39 @@
   const _urlView = new URLSearchParams(location.search).get("view");
   if (_urlView === "postavka") {
     showPostavkaView();
-    // Поставка ko'rinishida ham barcha aktiv chip badge'lari (4alasi) jonli
-    // /count bilan kelsin — seller joriy raqamlarni Uzumdan ko'rsin.
-    if (shopSel.value && HAS_TOKEN) loadCounts(true, { statuses: FBS_ENTRY_LIVE, silent: true });
+    // Badge'lar DB'dan — xuddi oddiy kirishdagidek (pastdagi `else` shoxi).
+    //
+    // Ilgari bu yer `loadCounts(true, {statuses: FBS_ENTRY_LIVE})` edi → 4alasi
+    // uchun 4 ta JONLI `/count` Uzumga ketardi, faqat chipdagi raqamlar uchun.
+    // Kirishdagi jonli-count'lar 2026-07-14 da oddiy shoxdan olib tashlangan,
+    // lekin bu «Поставка» shoxi eski holida qolib ketgan edi (Abdulaziz logdan
+    // topdi: «постафкада F5 bossam 4ala badge yangilanadi, boshqa chiplarda
+    // yo'q»). Endi ikkala shox bir xil.
+    //
+    // PENDING_DELIVERY badge'i baribir jonli va aniq qoladi: uni iframe'dagi
+    // накладные ro'yxati postMessage bilan beradi (showPostavkaView izohi) —
+    // qo'shimcha Uzum so'rovisiz. «Поставка»da F5: 5 so'rov → 1.
+    if (shopSel.value && HAS_TOKEN) loadCounts(false, { silent: true });
   } else if (shopSel.value && HAS_TOKEN) {
-    // Sahifaga kirish / brauzer obnovit (Abdulaziz 2026-07-13): 4ala aktiv
-    // chip JONLI. Aktiv chip ro'yxati jonli refresh bilan (agar u aktiv-ish
-    // chip bo'lsa — CREATED/PACKING/DELIVERING); qolgan aktiv badge'lar jonli
-    // /count bilan. Bu ~4 ta paced Uzum so'rovi (1 list + 3 count) — obnovit'da
-    // hamma raqam Uzumdan jonli bo'lishi uchun ataylab. Terminal chip'lar DB'dan.
+    // Sahifaga kirish (Abdulaziz 2026-07-14): FAQAT ochilgan chip JONLI.
+    //
+    // Ilgari bu yerda ochilmagan 3 chipning badge'i uchun ham jonli /count
+    // ketardi (1 list + 3 count = 4-5 paced Uzum so'rovi). Log bilan o'lchandi:
+    // ular Uzum bucket'ida (2 so'rov/s) navbat egallab, foydalanuvchi kutayotgan
+    // RO'YXATNI ~1s ga kechiktirardi — «qotish» aynan shu edi.
+    //
+    // Endi: ochilgan chip ro'yxati jonli keladi (uning badge'i shu ro'yxatning
+    // total'idan — qo'shimcha so'rovsiz), qolgan badge'lar esa DB'dan o'qiladi
+    // (fon-worker CREATED/PACKING'ni 23 daq, DELIVERING'ni 63 daq'da yozib
+    // turadi). Chip bosilishi bilan o'sha chip jonli tortilib, raqami darhol
+    // to'g'rilanadi — ya'ni eskilik faqat BOSILMAGAN chip raqamida, va faqat
+    // bosilgunicha yashaydi.
+    //
+    // Ochiq quyruq: PENDING_DELIVERY («Поставка») fonda UMUMAN sinxronlanmaydi
+    // (core/fbs_sync.py FBS_STATUS_SYNC_INTERVAL_MIN'da yo'q), shuning uchun
+    // uning DB raqami eskirib qolishi mumkin — alohida hal qilinadi.
     loadOrders(FBS_LIVE_CHIPS.has(currentStatus));
-    const entryCounts = FBS_ENTRY_LIVE.filter(s => s !== currentStatus);
-    loadCounts(true, { statuses: entryCounts, silent: true });
+    loadCounts(false, { silent: true });
   }
   // Background-warm the drop-off points cache after a delay so the
   // first time the seller opens the 📍 modal it feels instant. We

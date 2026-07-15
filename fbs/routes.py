@@ -11,6 +11,7 @@ from a PostgreSQL ``fbs_orders`` table — this file won't change.
 from __future__ import annotations
 
 import base64
+import os
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -192,6 +193,13 @@ ACTION_ERRORS: dict[str, dict[str, str]] = {
         "some_orders_not_yours": "Ba'zi buyurtmalar topilmadi yoki sizga tegishli emas",
         "mixed_shops_invoice": "Bitta yuk xati ichiga turli do'konlardan buyurtmalarni qo'shib bo'lmaydi",
         "only_packing_invoice": "Faqat «Yig'ilmoqda» (PACKING) buyurtmalar yuk xati ichiga qo'shiladi. Xato: {n} ta",
+        # Uzum bu buyurtmani `seller-order-15 identifiers are missing` bilan rad
+        # etadi. Ilgari buni faqat Uzum javobidan bilardik (bekor so'rov + tushunarsiz
+        # ruscha xato). Endi oldindan to'sib, nima qilish kerakligini aytamiz.
+        "identifiers_missing_invoice": "Yuk xati yaratilmadi: {orders} buyurtma(lar) uchun {type} kiritilmagan. Buyurtmani ochib, kodlarni kiriting.",
+        "identifier_type_IMEI": "IMEI",
+        "identifier_type_ASL_BELGISI": "ASL Belgisi",
+        "identifier_type_UNKNOWN": "identifikator",
         "seller_id_undetected": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q yoki Uzum vaqtincha javob bermadi). Birozdan keyin qayta urinib ko'ring yoki «Mening do'konlarim» sahifasida ?sId=<N> ni kiriting.",
         "seller_id_undetected_short": "Seller ID avtomatik aniqlanmadi (finance ma'lumoti hali yo'q). «Mening do'konlarim» sahifasida Uzum kabinet URL'idagi ?sId=<N> qiymatini kiriting.",
         "invoice_fetch_error": "Yuk xati ma'lumotini olishda xatolik — birozdan keyin qayta urinib ko'ring",
@@ -234,6 +242,10 @@ ACTION_ERRORS: dict[str, dict[str, str]] = {
         "some_orders_not_yours": "Некоторые заказы не найдены или не принадлежат вам",
         "mixed_shops_invoice": "Нельзя добавлять в одну накладную заказы из разных магазинов",
         "only_packing_invoice": "В накладную можно добавить только заказы в статусе «Сборка» (PACKING). Ошибка: {n} шт.",
+        "identifiers_missing_invoice": "Накладная не создана: для заказа(ов) {orders} не указан {type}. Откройте заказ и введите коды.",
+        "identifier_type_IMEI": "IMEI",
+        "identifier_type_ASL_BELGISI": "Asl Belgisi",
+        "identifier_type_UNKNOWN": "идентификатор",
         "seller_id_undetected": "ID продавца не определился автоматически (данных finance пока нет или Uzum временно не ответил). Повторите чуть позже или укажите ?sId=<N> на странице «Мои магазины».",
         "seller_id_undetected_short": "ID продавца не определился автоматически (данных finance пока нет). Укажите значение ?sId=<N> из URL кабинета Uzum на странице «Мои магазины».",
         "invoice_fetch_error": "Ошибка при получении данных накладной — повторите чуть позже",
@@ -1180,7 +1192,17 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "network_error_title": "Tarmoq xatosi:",
         "detail_pending_strong": "Detail endpoint hali tayyor emas.",
         "detail_pending_body": "swagger ma'lumotlari kutilmoqda.",
-        "identifier_required_flag": "IMEI talab qilinadi",
+        # Identifikator turi Uzumdan keladi (identifierInfo.type): IMEI yoki
+        # ASL_BELGISI (O'zbekiston markirovka kodi). Ilgari bu yer hamma narsani
+        # «IMEI» derdi — «Магнит браслет» aslida ASL Belgisi talab qilardi
+        # (Abdulaziz 2026-07-14). {type} — JS almashtiradigan o'rin.
+        "identifier_required_flag": "{type} talab qilinadi",
+        "identifier_type_IMEI": "IMEI",
+        "identifier_type_ASL_BELGISI": "ASL Belgisi",
+        "identifier_type_UNKNOWN": "Identifikator",
+        "identifier_desc_IMEI": "Har bir dona uchun IMEI / seriya raqamini kiriting.",
+        "identifier_desc_ASL_BELGISI": "O'zbekiston qonunlariga ko'ra bu tovar uchun markirovka kodi (ASL Belgisi) ko'rsatilishi shart.",
+        "identifier_desc_UNKNOWN": "Har bir dona uchun identifikatorni kiriting.",
         # Card titles
         "card_customer": "Mijoz",
         "card_status_dates": "Status va sanalar",
@@ -1254,7 +1276,8 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "act_print": "Yorliq chop etish",
         "act_print_enlarged": "Yorliq (katta matn)",
         "act_print_qr": "QR chop etish",
-        "act_imei": "IMEI biriktirish",
+        # {type} — JS almashtiradi (IMEI / ASL Belgisi). Turi Uzumdan keladi.
+        "act_imei": "{type} biriktirish",
         "act_empty": "Ushbu statusda harakatlar mavjud emas.",
         "confirm_msg": "Buyurtmani tasdiqlaysizmi? Bu yig'ishni boshlash signalini Uzum'ga yuboradi.",
         "confirm_title": "Buyurtmani tasdiqlash",
@@ -1275,7 +1298,10 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "btn_select_reason_first": "Avval sababni tanlang",
         # IMEI modal
         "imei_title": "Identifikatorlarni biriktirish",
-        "imei_desc": "Har mahsulot uchun zarur identifikatorlarni (IMEI/seriya) kiriting. Bo'sh maydonlar yuborilmaydi.",
+        # Tur nomi endi har tovar ostida alohida yoziladi (JS), shuning uchun bu
+        # yer NEYTRAL: «IMEI/seriya» deb qotirib qo'yish noto'g'ri edi —
+        # ASL_BELGISI tovarlarida sotuvchini chalg'itardi (Abdulaziz 2026-07-14).
+        "imei_desc": "Quyidagi tovarlar uchun kodlarni kiriting. Bo'sh maydonlar yuborilmaydi.",
         "imei_placeholder_prefix": "IMEI / seriya raqami #",
         "imei_qty_prefix": "Soni:",
         "imei_oi_prefix": "orderItemId:",
@@ -1317,7 +1343,14 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "network_error_title": "Сетевая ошибка:",
         "detail_pending_strong": "Endpoint детали ещё не готов.",
         "detail_pending_body": "ожидаются данные swagger.",
-        "identifier_required_flag": "Требуется IMEI",
+        # См. uz-блок: тип приходит из Uzum (identifierInfo.type).
+        "identifier_required_flag": "Требуется {type}",
+        "identifier_type_IMEI": "IMEI",
+        "identifier_type_ASL_BELGISI": "Asl Belgisi",
+        "identifier_type_UNKNOWN": "идентификатор",
+        "identifier_desc_IMEI": "Укажите IMEI / серийный номер для каждой единицы.",
+        "identifier_desc_ASL_BELGISI": "По законам Узбекистана для этого товара нужно указать код маркировки (Asl Belgisi).",
+        "identifier_desc_UNKNOWN": "Укажите идентификатор для каждой единицы.",
         # Card titles
         "card_customer": "Клиент",
         "card_status_dates": "Статус и даты",
@@ -1390,7 +1423,7 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "act_print": "Печать этикетки",
         "act_print_enlarged": "Этикетка (крупно)",
         "act_print_qr": "Печать QR",
-        "act_imei": "Привязать IMEI",
+        "act_imei": "Привязать {type}",
         "act_empty": "Для этого статуса нет действий.",
         "confirm_msg": "Подтвердить заказ? Это отправит в Uzum сигнал о начале сборки.",
         "confirm_title": "Подтвердить заказ",
@@ -1411,7 +1444,7 @@ DETAIL_LABELS: dict[str, dict[str, str]] = {
         "btn_select_reason_first": "Сначала выберите причину",
         # IMEI modal
         "imei_title": "Привязать идентификаторы",
-        "imei_desc": "Для каждого товара введите нужные идентификаторы (IMEI/серийник). Пустые поля не отправляются.",
+        "imei_desc": "Введите коды для товаров ниже. Пустые поля не отправляются.",
         "imei_placeholder_prefix": "IMEI / серийный номер #",
         "imei_qty_prefix": "Кол-во:",
         "imei_oi_prefix": "orderItemId:",
@@ -4012,7 +4045,8 @@ def fbs_invoice_create_api():
     str_ids = [str(i) for i in order_ids]
     with SessionLocal() as db:
         rows = db.execute(
-            select(FbsOrder.order_id, FbsOrder.shop_id, FbsOrder.status)
+            select(FbsOrder.order_id, FbsOrder.shop_id, FbsOrder.status,
+                   FbsOrder.items_json)
             .where(FbsOrder.order_id.in_(str_ids))
             .where(FbsOrder.shop_id.in_(user_shops))
         ).all()
@@ -4029,6 +4063,51 @@ def fbs_invoice_create_api():
     if bad:
         return _json_response({
             "error": _err("only_packing_invoice", n=len(bad))
+        }, 400)
+
+    # IDENTIFIER GUARD (Abdulaziz 2026-07-14). Uzum refuses the накладная with
+    # `seller-order-15 "identifiers are missing"` when an order carries goods
+    # that need a per-unit code (IMEI or ASL_BELGISI — O'zbekiston markirovka
+    # kodi) and the codes were never attached. Before this guard the seller only
+    # found out from Uzum's raw Russian 400, AFTER we had already spent the
+    # create call. We hold the same evidence locally: fbs_orders.items_json keeps
+    # each item's `identifierInfo` block.
+    #
+    # The check keys off the PRESENCE of identifierInfo, not its `required` flag
+    # — Uzum sent required=false for the very order it then rejected (verified
+    # live on order 116914839). See core.fbs_sync.identifier_need.
+    #
+    # KILL-SWITCH `FBS_IDENTIFIER_GUARD=0` (Abdulaziz 2026-07-14): Uzum's own
+    # PORTAL created a накладная for an order with the SAME shape (ASL_BELGISI
+    # item, values=[], required=false) — HAR t4, order 116914758 → HTTP 200.
+    # So "identifierInfo present" may NOT mean "codes mandatory", and this guard
+    # could be a false positive. Turn it off to let the request reach Uzum and
+    # see what the OPENAPI actually answers.
+    from core.fbs_sync import identifier_need
+    _guard_on = os.getenv("FBS_IDENTIFIER_GUARD", "1").strip().lower() not in (
+        "0", "false", "no", "off", "")
+    _missing_orders: list[str] = []
+    _missing_types: set[str] = set()
+    for r in rows:
+        need = identifier_need({"orderItems": r.items_json or []})
+        if need["required"]:
+            _missing_orders.append(str(r.order_id))
+            _missing_types.update(need["types"])
+    if _missing_orders and not _guard_on:
+        print(f"[invoice/create] IDENTIFIER GUARD OFF — letting Uzum decide "
+              f"(orders={_missing_orders} types={sorted(_missing_types)})")
+        _missing_orders = []
+    if _missing_orders:
+        _type_txt = " + ".join(
+            _err(f"identifier_type_{t}") for t in sorted(_missing_types)
+        )
+        print(f"[invoice/create] blocked: identifiers missing for "
+              f"orders={_missing_orders} types={sorted(_missing_types)}")
+        return _json_response({
+            "error": _err("identifiers_missing_invoice",
+                          orders=", ".join(_missing_orders), type=_type_txt),
+            "uzum_code": "seller-order-15",
+            "identifiers_missing": _missing_orders,
         }, 400)
 
     # Uzum's sellerId is the SELLER account (e.g. 95673 in the cabinet

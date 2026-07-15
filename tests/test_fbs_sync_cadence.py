@@ -181,11 +181,21 @@ class TestCadence:
 
 
 class TestStatusIntervalMap:
-    def test_pending_states_are_never_synced(self):
-        # PENDING_DELIVERY is shown only via the live Поставка/накладные view;
-        # PENDING_CANCELLATION is transient. Neither is background-synced, so
-        # both must be ABSENT from the interval map (the "never" contract).
-        assert "PENDING_DELIVERY" not in FBS_STATUS_SYNC_INTERVAL_MIN
+    def test_pending_delivery_syncs_like_the_other_active_chips(self):
+        # Abdulaziz 2026-07-14: «Поставки»ni ham 23 daqiqada yangilanadigan
+        # qilib qo'y — CREATED/PACKING bilan bir xil.
+        #
+        # It used to be absent ("never sync"), which forced a LIVE Uzum call on
+        # every «Поставка» press (badge /count) and on every накладные list load
+        # (owned-invoice drain), because the DB never held these rows.
+        assert FBS_STATUS_SYNC_INTERVAL_MIN["PENDING_DELIVERY"] == 23
+        assert FBS_STATUS_SYNC_INTERVAL_MIN["PENDING_DELIVERY"] == (
+            FBS_STATUS_SYNC_INTERVAL_MIN["CREATED"]
+        ) == FBS_STATUS_SYNC_INTERVAL_MIN["PACKING"]
+
+    def test_pending_cancellation_is_never_synced(self):
+        # Transient status — never listed, so it stays ABSENT from the map
+        # (the remaining "never" contract).
         assert "PENDING_CANCELLATION" not in FBS_STATUS_SYNC_INTERVAL_MIN
 
     def test_configured_statuses_are_a_subset_of_all(self):
@@ -244,9 +254,15 @@ class TestStatusesDue:
         order = [s for s in FBS_ALL_SYNC_STATUSES if s in set(due)]
         assert list(due) == order
 
-    def test_default_intervals_exclude_pending_states(self):
-        # With the REAL map, a first-run sweep must never include the
-        # never-sync statuses.
+    def test_first_run_includes_pending_delivery_but_not_pending_cancellation(self):
+        # With the REAL map: PENDING_DELIVERY now sweeps like any other active
+        # chip (2026-07-14); PENDING_CANCELLATION stays never-synced.
         due = fbs_statuses_due(1000.0, {}, first_run=True)
-        assert "PENDING_DELIVERY" not in due
+        assert "PENDING_DELIVERY" in due
         assert "PENDING_CANCELLATION" not in due
+
+    def test_pending_delivery_is_due_again_only_after_its_interval(self):
+        # Same cadence contract as CREATED/PACKING: not due at 22 min, due at 23.
+        last = {"PENDING_DELIVERY": 1000.0}
+        assert "PENDING_DELIVERY" not in fbs_statuses_due(1000.0 + 22 * 60, last)
+        assert "PENDING_DELIVERY" in fbs_statuses_due(1000.0 + 23 * 60, last)

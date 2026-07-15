@@ -12,3 +12,4 @@ server.cfg
 .claude/
 *.xlsx
 scripts/probe_tokens.txt
+.uicheck/

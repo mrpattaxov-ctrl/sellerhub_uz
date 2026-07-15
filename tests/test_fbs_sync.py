@@ -290,15 +290,33 @@ class TestDictFromOrder:
         # Column is NOT NULL with default 0; we mirror that here.
         assert dict_from_order(5983, order)["price"] == 0
 
-    def test_identifier_required_coerced_to_bool(self):
-        # JSON booleans round-trip fine, but defensively coerce in case
-        # Uzum ever sends 0/1 or "true"/"false".
-        d = dict_from_order(5983, _minimal_uzum_order(identifierRequired=True))
-        assert d["identifier_required"] is True
+    def test_identifier_required_comes_from_items_not_uzums_flag(self):
+        # CHANGED 2026-07-14 (Abdulaziz). The column used to mirror Uzum's
+        # order-level `identifierRequired`. That flag LIES: on order 116914839
+        # Uzum sent identifierRequired=false and then rejected the накладная
+        # with `seller-order-15 "identifiers are missing"`. The truth lives in
+        # each item's `identifierInfo` block, so the column is derived from it
+        # (see core.fbs_sync.identifier_need).
+        order = _minimal_uzum_order(identifierRequired=False)
+        order["orderItems"] = [{
+            "id": 1, "amount": 1,
+            "identifierInfo": {"type": "ASL_BELGISI", "required": False, "values": []},
+        }]
+        assert dict_from_order(5983, order)["identifier_required"] is True
 
-    def test_missing_identifier_required_defaults_false(self):
+    def test_identifier_required_false_when_codes_are_filled(self):
+        # Uzum's flag says True, but every code is attached → nothing to do.
+        order = _minimal_uzum_order(identifierRequired=True)
+        order["orderItems"] = [{
+            "id": 1, "amount": 1,
+            "identifierInfo": {"type": "IMEI", "required": True, "values": ["123"]},
+        }]
+        assert dict_from_order(5983, order)["identifier_required"] is False
+
+    def test_no_marked_goods_defaults_false(self):
         order = _minimal_uzum_order()
-        del order["identifierRequired"]
+        order.pop("identifierRequired", None)
+        order["orderItems"] = [{"id": 1, "amount": 1, "identifierInfo": None}]
         assert dict_from_order(5983, order)["identifier_required"] is False
 
     def test_invoice_number_stringified(self):

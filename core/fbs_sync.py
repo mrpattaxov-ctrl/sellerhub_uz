@@ -145,8 +145,9 @@ def fbs_statuses_for_tick(tick_index: int, slow_every_n: int) -> tuple[str, ...]
 # has elapsed — so a status can be tuned independently without touching the
 # others. A status ABSENT from this map (or mapped to a non-positive value)
 # is NEVER background-synced:
-#   * PENDING_DELIVERY — shown only via the live "Поставка"/накладные view.
 #   * PENDING_CANCELLATION — transient; never listed.
+#
+# PENDING_DELIVERY joined the map on 2026-07-14 (Abdulaziz) — see its entry.
 # These minutes are honoured exactly only if the worker heartbeat divides
 # them (run the loop every 60s); a coarser heartbeat rounds up to the next
 # wake-up. Override any value via FBS_STATUS_SYNC_INTERVAL_MIN_<STATUS> at
@@ -154,6 +155,25 @@ def fbs_statuses_for_tick(tick_index: int, slow_every_n: int) -> tuple[str, ...]
 FBS_STATUS_SYNC_INTERVAL_MIN: dict[str, int] = {
     "CREATED": 23,
     "PACKING": 23,
+    # «Поставка» (накладные). Added 2026-07-14 (Abdulaziz): «Поставки ni ham
+    # 23 daqiqada yangilanadigan qilib qo'y — CREATED/PACKING bilan bir xil».
+    #
+    # Until now this status was deliberately NEVER background-synced, which had
+    # two costs:
+    #   1. its chip badge could only be filled by a LIVE Uzum call on every
+    #      «Поставка» press (one /count per open), and
+    #   2. `fbs_orders.invoice_number` never landed in the DB for a postavka,
+    #      so the накладная ownership filter had to rebuild the owned set from
+    #      a LIVE PENDING_DELIVERY drain on every invoice-list load
+    #      (fbs/routes.py `_live_owned_invoice_numbers`).
+    # Syncing it in the background feeds the DB, so both of those live calls
+    # become unnecessary in the common case.
+    #
+    # Cost: one batched `/v2/fbs/orders?status=PENDING_DELIVERY` per token per
+    # 23 min (≈62/day/token) — negligible against Uzum's 100k/day quota, and it
+    # runs through `pace_background_call` (1 call/s/token) which yields to any
+    # interactive press, so it never slows a screen down.
+    "PENDING_DELIVERY": 23,
     "DELIVERING": 63,
     "DELIVERED": 57,
     "ACCEPTED_AT_DP": 57,
@@ -161,7 +181,7 @@ FBS_STATUS_SYNC_INTERVAL_MIN: dict[str, int] = {
     "COMPLETED": 63,
     "CANCELED": 63,
     "RETURNED": 63,
-    # PENDING_DELIVERY / PENDING_CANCELLATION omitted on purpose → never.
+    # PENDING_CANCELLATION omitted on purpose → never synced (transient).
 }
 
 
@@ -501,7 +521,11 @@ def dict_from_order(shop_uzum_id, o: dict) -> dict:
         "cancelled_date": parse_iso_naive_utc(o.get("dateCancelled")),
         "return_date": parse_iso_naive_utc(o.get("returnDate")),
         "cancel_reason": o.get("cancelReason"),
-        "identifier_required": bool(o.get("identifierRequired") or False),
+        # NOT `o["identifierRequired"]` — that flag LIES (see identifier_need):
+        # Uzum sent identifierRequired=false for an order it then refused to
+        # invoice with seller-order-15 "identifiers are missing". Derive from
+        # the per-item identifierInfo blocks instead.
+        "identifier_required": bool(identifier_need(o)["required"]),
         "stock_id": (str(stock.get("id")) if stock.get("id") is not None else None),
         "stock_title": stock.get("title"),
         "drop_off_point_uuid": drop.get("uuid"),
@@ -510,6 +534,66 @@ def dict_from_order(shop_uzum_id, o: dict) -> dict:
         "items_json": o.get("orderItems") or [],
         "raw_json": o,
         "synced_at": datetime.utcnow(),
+    }
+
+
+def identifier_need(order: dict) -> dict:
+    """Pure: what identifiers does this order still need? (Abdulaziz 2026-07-14)
+
+    Uzum marks goods that need a per-unit code before they may be labelled or
+    put on a накладная. The code is NOT always an IMEI: each order item carries
+
+        "identifierInfo": {"type": "ASL_BELGISI", "required": false, "values": []}
+
+    where ``type`` is ``IMEI`` or ``ASL_BELGISI`` (O'zbekiston markirovka kodi —
+    the marking code Uzbek law requires for certain categories). An item that
+    needs nothing has ``identifierInfo: null``.
+
+    WHY WE IGNORE ``required`` (live-verified 2026-07-14, order 116914839):
+    Uzum reported ``identifierRequired: false`` at ORDER level **and**
+    ``identifierInfo.required: false`` at ITEM level — and still rejected the
+    накладная with ``seller-order-15 "Customer order [116914839] identifiers
+    are missing"``. Both flags lie. The trustworthy signal is the mere
+    PRESENCE of ``identifierInfo``: if an item has the block, its codes must be
+    filled. So this helper keys off presence, never off ``required``.
+
+    Returns::
+
+        {"required": bool,          # any item still missing code(s)
+         "types": ["ASL_BELGISI"],  # distinct types present, sorted
+         "items": [{"orderItemId": int, "type": str,
+                    "needed": int, "filled": int, "missing": int}, ...]}
+
+    ``needed`` is the item's ``amount`` (one code per unit). Items without an
+    ``identifierInfo`` block are absent from ``items``.
+    """
+    out_items: list[dict] = []
+    types: set[str] = set()
+    for it in (order.get("orderItems") or []):
+        if not isinstance(it, dict):
+            continue
+        info = it.get("identifierInfo")
+        if not isinstance(info, dict):
+            continue  # null → this item needs nothing
+        itype = str(info.get("type") or "").strip() or "UNKNOWN"
+        values = info.get("values")
+        filled = len([v for v in values if str(v).strip()]) if isinstance(values, list) else 0
+        try:
+            needed = max(1, int(it.get("amount") or 1))
+        except (TypeError, ValueError):
+            needed = 1
+        types.add(itype)
+        out_items.append({
+            "orderItemId": it.get("id"),
+            "type": itype,
+            "needed": needed,
+            "filled": filled,
+            "missing": max(0, needed - filled),
+        })
+    return {
+        "required": any(i["missing"] > 0 for i in out_items),
+        "types": sorted(types),
+        "items": out_items,
     }
 
 
@@ -555,6 +639,10 @@ def row_to_dict(row: FbsOrder, *, include_raw: bool = True) -> dict:
         "shopId": row.shop_id,
         "price": row.price,
         "identifierRequired": bool(row.identifier_required),
+        # Identifier TYPE(s) + what's still missing, derived from the stored
+        # orderItems (items_json). The UI used to hard-code "IMEI"; the real
+        # type is per item and is often ASL_BELGISI (Abdulaziz 2026-07-14).
+        "identifierNeed": identifier_need({"orderItems": row.items_json or []}),
         "cancelReason": row.cancel_reason,
         "invoiceNumber": row.invoice_number,
         # Dates — matched against the same keys the templates dereference.

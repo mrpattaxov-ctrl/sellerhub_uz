@@ -129,11 +129,52 @@ services:
       # a burst of 2 let two writes fire sub-second, and when the live
       # list-poll + bg worker had just drained Uzum's bucket in the same
       # second, the 2nd confirm hit `remaining=0` → 429 (seen 2026-06-17).
-      # Capacity=1 paces strictly one-at-a-time (~0.5s apart) with zero burst,
-      # so we never overshoot at the boundary; refill=2 keeps full 2/s
-      # throughput. Shared per-token across FBS + finance + products.
+      # Capacity=1 paces strictly one-at-a-time with zero burst, so we never
+      # overshoot at the boundary. Shared per-token across FBS + finance +
+      # products.
+      #
+      # Refill 2.0 → 1.7 → 1.1 (Abdulaziz 2026-07-14).
+      #
+      # 2.0 rode Uzum's advertised replenish-rate exactly, i.e. 100% of the
+      # ceiling with ZERO headroom: every response came back with
+      # `x-ratelimit-remaining: 0` and any jitter → 429.
+      #
+      # 1.7 was picked believing it restored the ~15% margin that
+      # core/uzum_finance_openapi.py gives itself. That arithmetic was WRONG.
+      # Measured from a live chip-switching session (07:23:36–07:24:05, 51
+      # requests / 29.7s):
+      #   • our real send rate  = 1.72 req/s  (bucket enforces the config)
+      #   • Uzum `remaining`    = 0 or 1 on EVERY response, never 2
+      # If Uzum truly replenished 2/s, sending 1.72/s would leave +0.18
+      # tokens per cycle and its bucket would sit full. It never recovers →
+      # Uzum's EFFECTIVE replenish is ~= our send rate, not the advertised 2.
+      # Residual 429s (3) each landed right after an inter-arrival gap below
+      # the nominal 0.588s (measured: 0.510s, 0.551s, 0.556s) — i.e. jitter
+      # eating a margin that was ~0%.
+      #
+      # What finance actually does (uzum_finance_openapi.py:53,455): the
+      # bucket wait PLUS an extra `time.sleep(0.55)` between pages — the two
+      # ADD UP, so finance really runs at ~0.8–1.1 req/s (≈50% headroom), not
+      # 1.7. That is why it never 429s.
+      #
+      # 1.1 puts FBS on the same footing. It has to live in the BUCKET, not in
+      # a per-caller sleep: finance is one sequential loop, but FBS has five
+      # concurrent callers (list, count, invoice view, bg worker, label/akt
+      # prefetch) that cannot see each other — only the shared bucket paces
+      # them as one.
+      #
+      # Cost: gap 0.588s → 0.91s (page entry ~0.34s → ~1.0s).
+      # Benefit: the 1.5s-per-429 interactive retries should go to zero.
+      # Revert: set this back to "1.7".
+      # TAJRIBA (Abdulaziz 2026-07-14): postavka yaratishdan oldingi identifikator
+      # qo'riqchisini O'CHIRAMIZ — Uzum OpenAPI'si nima deyishini ko'rish uchun.
+      # Sabab: Uzum PORTALI aynan shunday buyurtmani (ASL_BELGISI, values=[],
+      # required=false) qabul qildi va накладная yaratdi (HAR t4, 116914758 → 200),
+      # ya'ni guard'imiz noto'g'ri to'sayotgan bo'lishi mumkin.
+      # Tajriba tugagach: "1" (yoki qatorni o'chirish).
+      FBS_IDENTIFIER_GUARD: "0"
       UZUM_OPENAPI_BUCKET_CAPACITY: "1"
-      UZUM_OPENAPI_BUCKET_REFILL_PER_SEC: "2.0"
+      UZUM_OPENAPI_BUCKET_REFILL_PER_SEC: "1.0"
       # Avto-slot LIVE switchover (Abdulaziz 2026-06-30): yangi decoupled
       # allokator (monitor→bus→allocator) endi ROSTDAN band qiladi; eski
       # per-invoice grabber o'chiriladi (ikkalasi live bo'lib urishmasin).

@@ -1040,7 +1040,8 @@
       return;
     }
     const status = String(order.status || "");
-    const idRequired = !!order.identifierRequired;
+    // NOT order.identifierRequired — Uzum's flag LIES (see identifierNeed()).
+    const idRequired = identifierNeed(order).required;
     const buttons = [];
 
     // Tartib (Abdulaziz tanlovi): «Bekor» chapda, asosiy amal o'ngda, QR
@@ -1055,7 +1056,14 @@
       buttons.push({key: "label",          label: LBL.act_print,           cls: "fbs-action-btn-primary", icon: IC.printer});
     }
     if (idRequired && (status === "CREATED" || status === "PACKING")) {
-      buttons.push({key: "imei", label: LBL.act_imei, cls: "fbs-action-btn-warning", icon: IC.hash});
+      // Tugma turni aytadi: «ASL Belgisi biriktirish» / «IMEI biriktirish».
+      const _need = identifierNeed(order);
+      const _tLbl = (_need.types.length ? _need.types : ["UNKNOWN"]).map(idTypeLabel).join(" + ");
+      buttons.push({
+        key: "imei",
+        label: (LBL.act_imei || "{type}").replace("{type}", _tLbl),
+        cls: "fbs-action-btn-warning", icon: IC.hash,
+      });
     }
 
     if (buttons.length === 0) {
@@ -1415,23 +1423,66 @@
     }
   });
 
-  // ─── IMEI / identifier modal ──────────────────────────────────
+  // ─── Identifikator (IMEI / ASL Belgisi) ───────────────────────
+  // core/fbs_sync.py: identifier_need() ning ko'zgusi. Uzum har tovar uchun
+  //     identifierInfo: {type: "ASL_BELGISI"|"IMEI", required: bool, values: []}
+  // beradi; talab qilmaydigan tovarda u `null`.
+  //
+  // `required` bayrog'iga ISHONMAYMIZ: jonli tasdiqlandi (2026-07-14, buyurtma
+  // 116914839) — Uzum buyurtma darajasida ham, tovar darajasida ham "false"
+  // dedi, keyin накладнойni `seller-order-15 identifiers are missing` bilan
+  // rad etdi. Yagona ishonchli belgi — identifierInfo blokining MAVJUDLIGI.
+  function identifierNeed(order){
+    const items = Array.isArray(order && order.orderItems) ? order.orderItems : [];
+    const out = [];
+    const types = new Set();
+    items.forEach(it => {
+      const info = it && it.identifierInfo;
+      if (!info || typeof info !== "object") return;   // null → kerak emas
+      const type = String(info.type || "").trim() || "UNKNOWN";
+      const values = Array.isArray(info.values) ? info.values : [];
+      const filled = values.filter(v => String(v || "").trim()).length;
+      const needed = Math.max(1, Number(it.amount || 1));
+      types.add(type);
+      out.push({ item: it, type, needed, filled, missing: Math.max(0, needed - filled) });
+    });
+    return {
+      required: out.some(x => x.missing > 0),
+      types: [...types].sort(),
+      items: out,
+    };
+  }
+  // Tur nomi + tushuntirish matni (server yorliqlaridan; noma'lum tur → UNKNOWN).
+  function idTypeLabel(type){
+    return LBL[`identifier_type_${type}`] || LBL.identifier_type_UNKNOWN || type;
+  }
+  function idTypeDesc(type){
+    return LBL[`identifier_desc_${type}`] || LBL.identifier_desc_UNKNOWN || "";
+  }
+
   let imeiModalInstance = null;
   function openImeiModal(){
     const order = CURRENT_ORDER || {};
-    const items = Array.isArray(order.orderItems) ? order.orderItems : [];
+    const need = identifierNeed(order);
     const host = document.getElementById("fbsImeiItems");
-    host.innerHTML = items.map((it, idx) => {
-      const qty = Math.max(1, Number(it.amount || 1));
+    // FAQAT identifikator talab qiladigan tovarlar ko'rsatiladi. Ilgari modal
+    // BARCHA tovarlarga maydon chizardi — sotuvchi «AKG quloqchin uchun ham
+    // IMEI kerakmi?» deb dovdirardi.
+    host.innerHTML = need.items.map((n, idx) => {
+      const it = n.item;
+      const qty = n.needed;
       const title = it.title || it.productTitle || it.skuTitle || `${LBL.th_product} #${idx + 1}`;
       const sku = it.skuTitle && it.skuTitle !== title ? it.skuTitle : "";
       const oiId = Number(it.id);
+      const tLabel = idTypeLabel(n.type);
       const inputs = [];
       for (let i = 0; i < qty; i++) {
+        const prefill = (Array.isArray(it.identifierInfo.values) ? it.identifierInfo.values[i] : "") || "";
         inputs.push(`
           <input type="text" class="form-control fbs-imei-input"
                  data-order-item-id="${oiId}"
-                 placeholder="${escapeHtml(LBL.imei_placeholder_prefix)}${i + 1}"
+                 value="${escapeHtml(String(prefill))}"
+                 placeholder="${escapeHtml(tLabel)} #${i + 1}"
                  autocomplete="off">
         `);
       }
@@ -1439,7 +1490,8 @@
         <div class="fbs-imei-item">
           <div class="item-head">${escapeHtml(title)}</div>
           ${sku ? `<div class="item-sub">SKU: ${escapeHtml(sku)}</div>` : ""}
-          <div class="item-sub">${escapeHtml(LBL.imei_qty_prefix)} ${qty} • ${escapeHtml(LBL.imei_oi_prefix)} ${oiId}</div>
+          <div class="item-sub"><strong>${escapeHtml(tLabel)}</strong> — ${escapeHtml(idTypeDesc(n.type))}</div>
+          <div class="item-sub">${escapeHtml(LBL.imei_qty_prefix)} ${qty} • ${n.filled}/${qty}</div>
           <div class="fbs-imei-inputs">${inputs.join("")}</div>
         </div>
       `;
@@ -1633,7 +1685,15 @@
     heroPills.innerHTML = `
       ${statusPill(order.status)}
       ${schemeBadge(order.scheme)}
-      ${order.identifierRequired ? `<span class="fbs-flag">${escapeHtml(LBL.identifier_required_flag)}</span>` : ""}
+      ${(() => {
+        // Turga qarab: «ASL Belgisi talab qilinadi» / «IMEI talab qilinadi».
+        // order.identifierRequired ISHLATILMAYDI — u yolg'on (identifierNeed izohi).
+        const _n = identifierNeed(order);
+        if (!_n.required) return "";
+        const _t = _n.types.map(idTypeLabel).join(" + ");
+        const _txt = (LBL.identifier_required_flag || "{type}").replace("{type}", _t);
+        return `<span class="fbs-flag">${escapeHtml(_txt)}</span>`;
+      })()}
     `;
     // Sarlavha usti = yaratilgan sana (V3: "Yaratildi 10.06.2026, 17:39").
     const created = formatDate(order.dateCreated);

@@ -32,6 +32,7 @@
   --zk-ord-bg:#FCEAEA; --zk-ord-fg:#C93B3B;
   --zk-ok-bg:#E7F6EE;  --zk-ok-fg:#2E9E63;
   --zk-warn-bg:#FDF0DC; --zk-warn-fg:#B4762A;
+  --zk-brand:#4169E1; --zk-brand-soft:#EAEFFB;
 }
 [data-bs-theme="dark"] .zk-page {
   --zk-page-bg:#0E0E14;
@@ -57,15 +58,25 @@
   --zk-ord-bg:rgba(252,165,165,.16); --zk-ord-fg:#FCA5A5;
   --zk-ok-bg:rgba(52,211,153,.14);   --zk-ok-fg:#6EE7B7;
   --zk-warn-bg:rgba(251,191,36,.16); --zk-warn-fg:#FCD34D;
+  --zk-brand:#7C9BF0; --zk-brand-soft:rgba(99,102,241,.16);
 }
 
 .zk-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--zk-text); }
 
-.zk-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
-.zk-meta { font-size:13px; color:var(--zk-text-muted); margin:0; }
-.zk-meta b { color:var(--zk-text-2); font-weight:600; }
-.zk-meta .zk-amt { color:var(--zk-cov-gap); font-weight:700; font-variant-numeric:tabular-nums; }
-.zk-title-row { margin-bottom:18px; }
+.zk-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+.zk-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
+
+/* Ko'rsatkichлар — «Ombor» (POS) bilan bir xил: JetBrains Mono raqамлар, tepаda
+   uppercase eyebrow yorlиq, chapда brend-ko'k yupqа chизиq. Ilova usluби. */
+.zk-stats { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap; }
+.zk-stat { display:flex; align-items:stretch; gap:14px; padding:11px 18px;
+  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:14px; }
+.zk-stat-bar { width:3px; flex:none; border-radius:3px; background:var(--zk-brand); }
+.zk-stat-txt { display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; }
+.zk-stat-lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+  color:var(--zk-text-muted); white-space:nowrap; line-height:1; }
+.zk-stat-val { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:20px; font-weight:700;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--zk-text); line-height:1; }
 
 /* ── Filtrlar ── */
 .zk-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -229,6 +240,16 @@
   .zk-chips { overflow-x:auto; scrollbar-width:none; }
   .zk-chips::-webkit-scrollbar { display:none; }
   .zk-chip { flex:none; }
+  .zk-title-row { align-items:flex-start; }
+  .zk-stats { width:100%; }
+  .zk-stat { flex:1 1 0; }
+}
+@media (max-width:560px) {
+  .zk-stat { gap:0; padding:10px 6px; }
+  .zk-stat-bar { display:none; }
+  .zk-stat-txt { align-items:center; text-align:center; gap:4px; width:100%; }
+  .zk-stat-val { font-size:17px; }
+  .zk-stat-lbl { font-size:9px; letter-spacing:.05em; }
 }
 </style>
 {% endblock %}
@@ -237,7 +258,30 @@
 <div class="zk-page">
   <div class="zk-title-row">
     <h1 class="zk-h1">{{ 'Xarid rejasi' if is_uz else 'План закупки' }}</h1>
-    <p class="zk-meta" id="zkMeta">{{ 'Hisoblanmoqda…' if is_uz else 'Считаем…' }}</p>
+
+    <div class="zk-stats" id="zkStats" aria-live="polite">
+      <div class="zk-stat">
+        <span class="zk-stat-bar"></span>
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="zk-stat-val" id="zkStProducts">—</span>
+        </span>
+      </div>
+      <div class="zk-stat">
+        <span class="zk-stat-bar"></span>
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Sotib olish, dona' if is_uz else 'К заказу, шт' }}</span>
+          <span class="zk-stat-val" id="zkStUnits">—</span>
+        </span>
+      </div>
+      <div class="zk-stat">
+        <span class="zk-stat-bar"></span>
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Summa, so‘m' if is_uz else 'Сумма, сум' }}</span>
+          <span class="zk-stat-val" id="zkStCost">—</span>
+        </span>
+      </div>
+    </div>
   </div>
 
   <div class="zk-filter-row">
@@ -472,17 +516,15 @@
     }).join('');
   }
 
+  // Uchta katakни bitta qiymatга qo'yamiz (yuklаш / xato holатларида '—' / '…').
+  function setStats(v){ ['zkStProducts','zkStUnits','zkStCost'].forEach(id => { const el=$('#'+id); if(el) el.textContent = v; }); }
   function renderMeta(){
-    const m = $('#zkMeta');
     if (!S.data) return;
     const t = S.data.totals || {};
-    const bits = [
-      `<b>${num(t.products)}</b> ${T.products}`,
-      `${T.toBuy}: <b>${num(t.units)}</b> ${T.units}`,
-      `<span class="zk-amt">${num(t.cost)}</span> ${T.sum}`,
-    ];
-    if (t.covered) bits.push(`${num(t.covered)} ${T.covered}`);
-    m.innerHTML = bits.join(' · ');
+    const set = (id, v) => { const el = $('#' + id); if (el) el.textContent = num(v || 0); };
+    set('zkStProducts', t.products);
+    set('zkStUnits', t.units);
+    set('zkStCost', t.cost);
     // Sotuv ustuni sarlavhasi oynani AYNIQ aytadi
     $('#zkSoldHead').innerHTML = S.custom && window.SHDateRange
       ? `${T.sold}<br>${esc(SHDateRange.label(S.from, S.to))}`
@@ -520,7 +562,7 @@
     const gen = ++S.gen;
     S.busy = true;
     $('#zkBody').innerHTML = `<tr><td colspan="9"><div class="zk-msg">${T.loading}</div></td></tr>`;
-    $('#zkMeta').textContent = UZ ? 'Hisoblanmoqda…' : 'Считаем…';
+    setStats('…');
     const p = new URLSearchParams({ shop: S.shop });
     if (S.custom && S.from && S.to) { p.set('date_from', S.from); p.set('date_to', S.to); }
     else p.set('days', String(S.days));
@@ -534,7 +576,7 @@
     } catch (e) {
       if (gen !== S.gen) return;
       S.data = null;
-      $('#zkMeta').textContent = '';
+      setStats('—');
       $('#zkErr').innerHTML = `<div class="zk-err"><div>${esc(e.message)}</div></div>`;
       $('#zkBody').innerHTML = `<tr><td colspan="9"><div class="zk-msg">${T.empty}</div></td></tr>`;
     } finally { S.busy = false; }

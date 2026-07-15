@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, request, send_file, session
 from flask_login import current_user, login_required
 from sqlalchemy import select, func, desc
 
@@ -106,29 +106,6 @@ def _warehouse_scope_stmt(uid: int):
     else:
         stmt = stmt.where(False)
     return stmt, allowed_shop_ids
-
-
-def _warehouse_page_summary(uid: int) -> dict[str, int]:
-    allowed_shop_ids = _user_shop_ids(uid)
-    with SessionLocal() as db:
-        stmt = (
-            select(
-                func.count(Variant.id),
-                func.count(func.distinct(ProductGroup.shop_id)),
-                func.coalesce(func.sum(Variant.warehouse_quantity), 0),
-            )
-            .join(ProductGroup, Variant.group_id == ProductGroup.id)
-        )
-        if allowed_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(allowed_shop_ids))
-        else:
-            stmt = stmt.where(False)
-        variant_count, shop_count, total_qty = db.execute(stmt).one()
-        return {
-            "variant_count": int(variant_count or 0),
-            "shop_count": int(shop_count or 0),
-            "total_qty": int(total_qty or 0),
-        }
 
 
 # ----------------------------
@@ -250,48 +227,6 @@ def get_product_detail_api(variant_id: int):
             "created_at": v.created_at.isoformat(),
             "updated_at": v.updated_at.isoformat(),
         })
-
-
-@warehouse_bp.route("/warehouse/data", methods=["GET"])
-@login_required
-def warehouse_data_page():
-    return redirect(url_for("warehouse_bp.warehouse_import"), code=302)
-
-
-@warehouse_bp.route("/warehouse/import", methods=["GET", "POST"])
-@login_required
-def warehouse_import():
-    if not openpyxl:
-        return "openpyxl library not installed", 500
-
-    uid = int(current_user.get_id())
-
-    if request.method == "GET":
-        summary = _warehouse_page_summary(uid)
-        return render_template(
-            "warehouse_data.html",
-            title="Импорт склада Excel",
-            summary=summary,
-            expected_headers=_warehouse_export_headers(session.get("lang", "uz")),
-        )
-
-    file = request.files.get("file")
-    if not file or not file.filename:
-        flash("Выберите Excel файл .xlsx для импорта.")
-        return redirect(url_for("warehouse_bp.warehouse_import"))
-
-    if not file.filename.lower().endswith(".xlsx"):
-        flash("Поддерживаются только файлы Excel формата .xlsx.")
-        return redirect(url_for("warehouse_bp.warehouse_import"))
-
-    try:
-        stats = _apply_warehouse_xlsx(file, uid)
-    except Exception as e:
-        flash(f"Ошибка импорта: {str(e)}")
-        return redirect(url_for("warehouse_bp.warehouse_import"))
-
-    flash(_warehouse_import_message(stats))
-    return redirect(url_for("warehouse_bp.warehouse_import"))
 
 
 def _warehouse_import_message(stats: dict) -> str:

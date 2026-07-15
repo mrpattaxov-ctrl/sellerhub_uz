@@ -23,6 +23,7 @@
   --ps-in-bg:#E7F6EE;  --ps-in-fg:#2E9E63;  --ps-in-solid:#2E9E63;
   --ps-out-bg:#FCEAEA; --ps-out-fg:#C93B3B; --ps-out-solid:#C93B3B;
   --ps-focus-ring:rgba(26,26,34,.06);
+  --ps-brand:#4169E1; --ps-brand-soft:#EAEFFB;
 }
 [data-bs-theme="dark"] .ps-page {
   --ps-surface:#18181F;
@@ -41,14 +42,27 @@
   --ps-in-bg:rgba(52,211,153,.14);  --ps-in-fg:#6EE7B7;  --ps-in-solid:#2E9E63;
   --ps-out-bg:rgba(252,165,165,.16); --ps-out-fg:#FCA5A5; --ps-out-solid:#C93B3B;
   --ps-focus-ring:rgba(255,255,255,.10);
+  --ps-brand:#7C9BF0; --ps-brand-soft:rgba(99,102,241,.16);
 }
 
 .ps-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--ps-text); padding-bottom:96px; }
 
-.ps-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
-.ps-meta { font-size:13px; color:var(--ps-text-muted); margin:0; }
-.ps-meta b { color:var(--ps-text-2); font-weight:600; }
-.ps-title-row { margin-bottom:18px; }
+.ps-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+.ps-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
+
+/* ── Ombor ko'rsatkichlari — ilovaning O'Z tili bilan: JetBrains Mono raqamlар
+   (butun mahsulotda pul/son shu shrift bilan), tepаda uppercase «eyebrow» yorlиq,
+   chapда brend-ko'k (#4169E1) yupqа chизиq. «Dashboard stat-card» emas — ilova
+   usluби. Signature = brend chизиq + mono raqам (ledger/kassa hisси). */
+.ps-stats { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap; }
+.ps-stat { display:flex; align-items:stretch; gap:14px; padding:11px 18px;
+  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:14px; }
+.ps-stat-bar { width:3px; flex:none; border-radius:3px; background:var(--ps-brand); }
+.ps-stat-txt { display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; }
+.ps-stat-lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+  color:var(--ps-text-muted); white-space:nowrap; line-height:1; }
+.ps-stat-val { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:20px; font-weight:700;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--ps-text); line-height:1; }
 
 /* ── Filtrlar ── */
 .ps-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -245,6 +259,21 @@
 .ps-modal-foot { display:flex; gap:8px; margin-top:16px; }
 .ps-modal-foot .ps-commit { flex:1 1 auto; background:var(--ps-text); }
 
+/* Savat qoralamаси dialogи — «Aksiyalar»/«Поставки» wizardдагi «Черновик восстановлен»
+   kartаси bilan bir shaklда, ps- palitrasида. Markazlashган: ikоnка, sarlavha, xulosа. */
+.ps-draft-box { text-align:center; }
+.ps-draft-ic { width:52px; height:52px; margin:2px auto 14px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; background:var(--ps-active-bg); color:var(--ps-text-2); }
+.ps-draft-ic svg { width:26px; height:26px; }
+.ps-draft-box h2 { margin:0 0 6px; font-size:18px; }
+.ps-draft-box p { margin:0 0 14px; font-size:13px; line-height:1.5; color:var(--ps-text-2); }
+.ps-draft-sum { display:inline-flex; gap:6px; margin:0 auto 4px; padding:7px 14px; border-radius:11px;
+  background:var(--ps-active-bg); font-size:13px; color:var(--ps-text-2); font-variant-numeric:tabular-nums; }
+.ps-draft-sum b { color:var(--ps-text); font-weight:800; }
+.ps-draft-box .ps-modal-foot { margin-top:18px; }
+.ps-draft-drop { height:44px; }
+.ps-draft-keep { flex:1 1 auto; height:44px; background:var(--ps-text); }
+
 /* ── Toast ── */
 .ps-toasts { position:fixed; top:78px; right:18px; z-index:100; display:flex; flex-direction:column; gap:8px; }
 .ps-toast { padding:11px 15px; border-radius:12px; font-size:13px; font-weight:600; color:#fff;
@@ -262,6 +291,18 @@
   .ps-h1 { font-size:23px; }
   .ps-search { flex:1 1 100%; max-width:none; }
   .ps-spacer { display:none; }
+  /* Sarlavha bilan bir qatorга sig'maydi — panel to'lиq enда, sarlavha ostiда. */
+  .ps-title-row { align-items:flex-start; }
+  .ps-stats { width:100%; }
+  .ps-stat { flex:1 1 0; }
+}
+@media (max-width:560px) {
+  /* Uch katak tor ekranда: brend chизиq ketadi, matn markazда. */
+  .ps-stat { gap:0; padding:10px 6px; }
+  .ps-stat-bar { display:none; }
+  .ps-stat-txt { align-items:center; text-align:center; gap:4px; width:100%; }
+  .ps-stat-val { font-size:17px; }
+  .ps-stat-lbl { font-size:9px; letter-spacing:.05em; }
 }
 /* 769–820px: joy tor, «Bo'ladi» ustuni ketadi — uning ma'nosi maydon rangida ham bor. */
 @media (min-width:769px) and (max-width:820px) { .ps-table .c-res { display:none; } }
@@ -291,7 +332,30 @@
 <div class="ps-page" id="psPage" data-mode="stock_in">
   <div class="ps-title-row">
     <h1 class="ps-h1">{{ 'Ombor: qabul va sotuv' if is_uz else 'Склад: приёмка и продажа' }}</h1>
-    <p class="ps-meta" id="psMeta">{{ 'Yuklanmoqda…' if is_uz else 'Загрузка…' }}</p>
+
+    <div class="ps-stats" id="psStats" aria-live="polite">
+      <div class="ps-stat">
+        <span class="ps-stat-bar"></span>
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="ps-stat-val" id="psStProducts">—</span>
+        </span>
+      </div>
+      <div class="ps-stat">
+        <span class="ps-stat-bar"></span>
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">SKU</span>
+          <span class="ps-stat-val" id="psStSkus">—</span>
+        </span>
+      </div>
+      <div class="ps-stat">
+        <span class="ps-stat-bar"></span>
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">{{ 'Omborda' if is_uz else 'На складе' }}</span>
+          <span class="ps-stat-val" id="psStStock">—</span>
+        </span>
+      </div>
+    </div>
   </div>
 
   <div class="ps-filter-row">
@@ -440,6 +504,9 @@
     clamp:'Omborda yetarli emas — qoldiq 0 da to‘xtaydi',
     scanned:'Topildi',
     importOk:'Qoldiqlar yuklandi', importFail:'Faylni yuklab bo‘lmadi',
+    draftTitle:'Savatni davom ettirasizmi?',
+    draftMsg:'Oldingi safar amalни yakunlamadingiz — qo‘shган mahsulotlaringiz saqlanган.',
+    draftKeep:'Davom etish', draftDrop:'Boshidan boshlash',
   } : {
     loading:'Загрузка…', empty:'Нет товаров', notFound:'Ничего не найдено',
     emptySub:'Синхронизируйтесь с Uzum — товары появятся здесь.',
@@ -457,6 +524,9 @@
     clamp:'На складе меньше — остаток остановится на 0',
     scanned:'Найдено',
     importOk:'Остатки загружены', importFail:'Не удалось загрузить файл',
+    draftTitle:'Продолжить корзину?',
+    draftMsg:'В прошлый раз вы не завершили операцию — добавленные товары сохранены.',
+    draftKeep:'Продолжить', draftDrop:'Начать заново',
   };
 
   const SHOPS = {{ shops | tojson }};
@@ -603,14 +673,12 @@
     }).join('');
   }
 
-  function renderMeta(){
+  function renderStats(){
     const t = S.totals;
-    if (!t) { $('#psMeta').textContent = ''; return; }
-    $('#psMeta').innerHTML = [
-      `<b>${num(t.products)}</b> ${T.products}`,
-      `<b>${num(t.skus)}</b> ${T.skus}`,
-      `<b>${num(t.stock)}</b> ${T.units} ${T.inStock}`,
-    ].join(' · ');
+    const set = (id, v) => { const el = $('#' + id); if (el) el.textContent = (t ? num(v) : '—'); };
+    set('psStProducts', t && t.products);
+    set('psStSkus', t && t.skus);
+    set('psStStock', t && t.stock);
   }
 
   function renderBar(){
@@ -636,7 +704,9 @@
   }
 
   // ── Yuklash
-  async function load(){
+  // draftToOffer — sahifага KIRГANДА (boot / do'kон almashtiriш) taklif qilинадиган
+  // saqlanган savat (yoki null). Ички qayta yuklашларда (import, bekor qiliш) null.
+  async function load(draftToOffer){
     const gen = ++S.gen;
     $('#psBody').innerHTML = `<tr><td colspan="5"><div class="ps-msg">${T.loading}</div></td></tr>`;
     try {
@@ -648,14 +718,96 @@
       S.multi = !!j.multi;
       S.totals = j.totals || null;
       S.open = {}; S.qty = {};
-      renderMeta(); render();
+      renderStats(); render();
+      // Sahifага KIRГANДА (birinchi yuklash yoki do'kon almashtirilганда) — saqlanган
+      // savatни taklif qilamiz. Ички qayta yuklashларда (import, bekor qilish) yo'q.
+      if (draftToOffer) offerDraftFlow(draftToOffer);
     } catch (e) {
       if (gen !== S.gen) return;
       S.groups = []; S.totals = null;
-      $('#psMeta').textContent = '';
+      renderStats();
       $('#psBody').innerHTML = `<tr><td colspan="5"><div class="ps-msg">${esc(e.message || T.loadFailed)}</div></td></tr>`;
       renderBar();
     }
+  }
+
+  // ── Savat qoralamаси (draft) ─────────────────────────────────────────
+  // «Aksiyalar» va «Поставки» wizardидаги kabi: yakunlanмаган ish yo'qolmasин.
+  // Kutилаётган miqdorlar (S.qty) + amal turi (S.mode) har do'kон uchun alohида
+  // localStorage'да saqlanади, shuning uchun sahifадан chiqиб qaytганда davom
+  // etиш mumkin. Faqat submit qilinmaган ish saqlanади.
+  function draftKey(){ return 'posDraft_' + (S.shop || 'all'); }
+  function saveDraftNow(){
+    try {
+      const key = draftKey();
+      const items = Object.keys(S.qty).filter(id => S.qty[id] > 0).map(id => ({ id: parseInt(id, 10), qty: S.qty[id] }));
+      if (items.length) localStorage.setItem(key, JSON.stringify({ mode: S.mode, items }));
+      else localStorage.removeItem(key);
+    } catch (_) {}
+  }
+  let _draftT = null;
+  function saveDraft(){ clearTimeout(_draftT); _draftT = setTimeout(() => { _draftT = null; saveDraftNow(); }, 250); }
+  function saveDraftFlush(){ clearTimeout(_draftT); _draftT = null; saveDraftNow(); }
+  function clearDraft(){ clearTimeout(_draftT); _draftT = null; try { localStorage.removeItem(draftKey()); } catch (_) {} }
+  function readDraft(){
+    try {
+      const raw = localStorage.getItem(draftKey()); if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !Array.isArray(d.items) || !d.items.length) return null;
+      return d;
+    } catch (_) { return null; }
+  }
+  // Kechиктирилган yozув disk'га tushсин — tab yopилишидан oldин.
+  window.addEventListener('pagehide', () => { if (_draftT) saveDraftFlush(); });
+
+  // Sahifага kirганда saqlanган savatни taklif qilamiz. Yuklаб bo'lган
+  // guruhларда endi mavjud bo'lган variant'лар qoladi (qoldiq o'zgарса ham
+  // kutилаётган miqдор ma'nosини saqlаб).
+  function offerDraftFlow(d){
+    if (!d || !Array.isArray(d.items)) return;
+    const present = {};
+    S.groups.forEach(g => (g.variants || []).forEach(v => { present[v.id] = g.key; }));
+    const items = d.items.filter(it => present[it.id] && it.qty > 0);
+    if (!items.length) { clearDraft(); return; }
+    draftDialog(items, () => {
+      if (d.mode === 'sale' || d.mode === 'stock_in') setMode(d.mode);
+      items.forEach(it => { S.qty[it.id] = it.qty; S.open[present[it.id]] = true; });
+      render();
+      saveDraftNow();
+    }, () => { clearDraft(); });
+  }
+
+  // Dialog — «Черновик восстановлен» kartаси shakли, ps- palitrasида. Birlамчи
+  // «Davom etish», ikkиламчи «Boshidan boshlash». Esc / fon = hech narsа
+  // qilmаймиз (qoralама saqlanиб qoladi, keyingi safар yana so'raймиз).
+  function draftDialog(items, onKeep, onDrop){
+    const units = items.reduce((s, it) => s + it.qty, 0);
+    const ov = document.createElement('div');
+    ov.className = 'ps-modal is-open';
+    ov.innerHTML =
+      '<div class="ps-modal-box ps-draft-box" role="dialog" aria-modal="true" aria-label="' + esc(T.draftTitle) + '">'
+      + '<div class="ps-draft-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>'
+      + '<h2>' + esc(T.draftTitle) + '</h2>'
+      + '<p>' + esc(T.draftMsg) + '</p>'
+      + '<div class="ps-draft-sum"><b>' + num(items.length) + '</b> ' + esc(T.skus) + ' · <b>' + num(units) + '</b> ' + esc(T.units) + '</div>'
+      + '<div class="ps-modal-foot">'
+      +   '<button type="button" class="ps-ghost-btn ps-draft-drop" data-act="drop">' + esc(T.draftDrop) + '</button>'
+      +   '<button type="button" class="ps-draft-keep" data-act="keep">' + esc(T.draftKeep) + '</button>'
+      + '</div></div>';
+    // ps- palitrasi .ps-page'га bog'ланган — dialogни o'sha yerга ilamiz, aks
+    // holда o'zгарувчилар echilmай karta shaffof chiqади.
+    page.appendChild(ov);
+    let done = false;
+    function close(act){
+      if (done) return; done = true;
+      ov.remove(); document.removeEventListener('keydown', onKey);
+      if (act === 'keep') onKeep(); else if (act === 'drop') onDrop();
+    }
+    function onKey(e){ if (e.key === 'Escape') { e.preventDefault(); close('dismiss'); } }
+    ov.addEventListener('click', e => { if (e.target === ov) close('dismiss'); });
+    ov.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => close(b.dataset.act)));
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => { try { ov.querySelector('[data-act="keep"]').focus(); } catch (_) {} }, 30);
   }
 
   // ── Tasdiq
@@ -692,8 +844,9 @@
       if (S.totals) S.totals.stock = S.groups.reduce((s, g) => s + g.stock, 0);
 
       S.qty = {};
+      clearDraft();                                // amal yakunlandi — savat qoralamаси keraksiz
       S.busy = false;
-      renderMeta(); render();
+      renderStats(); render();
       toast(mode === 'stock_in' ? T.doneIn : T.doneOut, 'ok');
       loadHistory();
     } catch (e) {
@@ -829,6 +982,7 @@
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     render();
+    saveDraft();                                   // amal turi ham savat bilan saqlanади
   }
 
   // ── Skaner: aniq shtrix-kod / SKU → guruh ochiladi, maydon fokusда, +1.
@@ -849,6 +1003,7 @@
     S.search = '';
     $('#psSearch').value = '';
     render();
+    saveDraft();
     const input = document.querySelector(`[data-qty="${found.v.id}"]`);
     if (input) {
       input.focus(); input.select();
@@ -903,6 +1058,7 @@
       }
     }
     renderBar();
+    saveDraft();
   });
 
   // Enter maydonда — keyingi maydonga. Skanerли ish oqimи uzilmaydi.
@@ -921,7 +1077,7 @@
   });
 
   $('#psCommit').addEventListener('click', commit);
-  $('#psReset').addEventListener('click', () => { S.qty = {}; render(); });
+  $('#psReset').addEventListener('click', () => { S.qty = {}; clearDraft(); render(); });
 
   $('#psHistoryBtn').addEventListener('click', () => openDrawer(true));
   $('#psDrawerClose').addEventListener('click', () => openDrawer(false));
@@ -948,7 +1104,8 @@
       const j = await r.json();
       if (!r.ok || !j.ok) throw new Error(j.error || T.importFail);
       S.qty = {};                                  // fayl qoldiqni qayta belgiladi — kutilayotgan miqdor ma'nosini yo'qotdi
-      await load();
+      clearDraft();                                // saqlanган savat ham ma'nosини yo'qotди
+      await load();                                // (draftсиз — bu ички qayta yuklаш)
       toast(j.message || T.importOk, 'ok');
     } catch (err) {
       toast(err.message || T.importFail, 'err');
@@ -977,12 +1134,13 @@
     $('#psShopBtn').addEventListener('click', () => picker.classList.toggle('is-open'));
     document.addEventListener('click', e => { if (!picker.contains(e.target)) picker.classList.remove('is-open'); });
     picker.querySelectorAll('.ps-picker-item').forEach(it => it.addEventListener('click', () => {
+      saveDraftFlush();                          // hozirги do'kон savatини diskка yozamiz
       S.shop = it.dataset.shop;
       saveShopCookie(S.shop);                    // groups/sales/postavki ham shu tanlovni oladi
       picker.querySelectorAll('.ps-picker-item').forEach(x => x.classList.toggle('is-active', x === it));
       $('#psShopLabel').textContent = it.textContent.trim();
       picker.classList.remove('is-open');
-      load();
+      load(readDraft());                         // yanги do'kоннинг saqlanган savati bo'lса — taklif
     }));
 
     // Cookie'даги tanlovни tugmaga qaytaramiz — sahifa boshqa sahifada tanlangan
@@ -994,8 +1152,10 @@
     }
   }
 
+  // Qoralамани setMode/save clobber qilишидан oldин o'qиб olamiz.
+  const _bootDraft = readDraft();
   setMode('stock_in');
-  load();
+  load(_bootDraft);
   loadHistory();
 })();
 </script>

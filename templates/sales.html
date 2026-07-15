@@ -1050,10 +1050,23 @@
     }).catch(function(err){ el('slAddBtn').disabled=false; toast(String(err)); });
   });
 
-  // init — after the grid loads, re-open the campaign we were in before the
-  // reload (if it still exists in this shop; otherwise just show the grid).
+  // Distinguish a RELOAD (F5/🔄) from a fresh NAVIGATION (clicking the sidebar
+  // menu, typing the URL). Only a reload keeps us inside the last-open campaign;
+  // a navigation always lands on the grid — the user opens a campaign himself.
+  function _uzIsReload(){
+    try{
+      var e=performance.getEntriesByType && performance.getEntriesByType('navigation');
+      if(e && e.length && e[0].type) return e[0].type==='reload';
+      if(performance.navigation) return performance.navigation.type===1;   // TYPE_RELOAD (older API)
+    }catch(_){}
+    return false;
+  }
+
+  // init — after the grid loads, re-open the campaign we were in before a reload
+  // (if it still exists in this shop; otherwise just show the grid).
   if(shopId){
-    var wanted = readOpenSale();
+    var wanted = _uzIsReload() ? readOpenSale() : '';
+    if(!wanted) clearOpenSale();   // fresh nav → forget last-open sale so a later reload stays on the grid
     loadSales(wanted ? function(){
       var match = allSales.filter(function(s){ return saleKeyOf(s)===wanted; })[0];
       if(match) openSale(match); else clearOpenSale();

@@ -158,7 +158,7 @@ def postavki_restock_api():
 def postavki_restock_plan_api():
     """Yarim-avtomat rejim: guruhlangan SKU'lar + «qancha kerak» tavsiyasi.
 
-    Hisob `/invoice/restock` bilan bir xil: (oxirgi N kun sotuvi − Uzum qoldig'i),
+    Hisob: (oxirgi N kun sotuvi − Uzum qoldig'i),
     bizning ombor qoldig'i bilan cheklangan. Qatorlar Uzum sku-list'idan
     olinadi, ya'ni har biri поставка qatoriga aylana oladi.
     """

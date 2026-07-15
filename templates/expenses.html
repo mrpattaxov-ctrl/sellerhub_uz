@@ -20,6 +20,7 @@
   --we-store-default-bg:#EFEEF2; --we-store-default-fg:#3A3744;
   --we-luxuz-bg:#E5ECFB;  --we-luxuz-fg:#4169E1;
   --we-blummy-bg:#FCEAEA; --we-blummy-fg:#E84747;
+  --we-brand:#4169E1; --we-brand-soft:#EAEFFB;
 }
 [data-bs-theme="dark"] .we-page {
   --we-page-bg:#0E0E14;
@@ -39,15 +40,28 @@
   --we-store-default-bg:#22222D; --we-store-default-fg:#D7D4DF;
   --we-luxuz-bg:rgba(110,143,232,.18); --we-luxuz-fg:#A4B9F0;
   --we-blummy-bg:rgba(252,165,165,.16); --we-blummy-fg:#FCA5A5;
+  --we-brand:#7C9BF0; --we-brand-soft:rgba(99,102,241,.16);
 }
 
 .we-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--we-text); }
 
-.we-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
-.we-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; color:var(--we-text); }
-.we-meta { font-size:13px; color:var(--we-text-muted); margin:0; }
-.we-meta b { color:var(--we-text-2); font-weight:600; }
-.we-meta .we-exp-amt { color:var(--we-exp-fg); font-weight:700; }
+.we-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
+.we-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; color:var(--we-text); }
+
+/* Ko'rsatkичlar — «Ombor» (POS) bilan bir xил: JetBrains Mono raqамлар, tepаda
+   uppercase eyebrow yorlиq, chapда brend-ko'k yupqа chизиq. Ilova usluби. */
+.we-stats { display:flex; align-items:stretch; gap:16px; flex-wrap:wrap; }
+.we-stat { display:flex; align-items:stretch; gap:20px; padding:22px 30px; min-width:190px;
+  background:var(--we-surface); border:1px solid var(--we-border); border-radius:18px; box-shadow:var(--we-shadow, 0 1px 2px rgba(16,16,24,.04)); }
+.we-stat-bar { width:6px; flex:none; border-radius:4px; background:var(--we-brand); }
+.we-stat-txt { display:flex; flex-direction:column; justify-content:center; gap:11px; min-width:0; }
+.we-stat-lbl { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+  color:var(--we-text-muted); white-space:nowrap; line-height:1; }
+.we-stat-val { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:38px; font-weight:700;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--we-text); line-height:1; }
+/* Storage cost is an expense → red accent (value + side bar). */
+.we-stat--exp .we-stat-bar { background:var(--we-exp-fg); }
+.we-stat--exp .we-stat-val { color:var(--we-exp-fg); }
 
 .we-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
 .we-search { flex:1 1 320px; max-width:380px; height:44px; display:flex; align-items:center; gap:10px; padding:0 14px;
@@ -171,6 +185,18 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 }
 @media (max-width:900px) {
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:none; }
+  .we-h1 { font-size:23px; }
+  .we-title-row { align-items:flex-start; }
+  .we-stats { width:100%; }
+  .we-stat { flex:1 1 0; min-width:0; padding:18px 18px; gap:16px; }
+  .we-stat-val { font-size:30px; }
+}
+@media (max-width:560px) {
+  .we-stat { gap:0; padding:14px 10px; }
+  .we-stat-bar { display:none; }
+  .we-stat-txt { align-items:center; text-align:center; gap:7px; width:100%; }
+  .we-stat-val { font-size:22px; }
+  .we-stat-lbl { font-size:10px; letter-spacing:.05em; }
 }
 /* phones: don't hide columns — let the table scroll sideways so every column is reachable */
 @media (max-width:640px) {
@@ -197,14 +223,23 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 {% block content %}
 <div class="we-page">
   <div class="we-title-row">
-    <div>
-      <h1 class="we-h1">{{ 'Ombor xarajatlari' if is_uz else 'Складские расходы' }}</h1>
-      <p class="we-meta">
-        <b>{{ total_count }}</b> {{ 'mahsulot' if is_uz else 'товаров' }}
-        ·
-        {{ "Saqlash uchun jami" if is_uz else "Всего за хранение" }}:
-        <span class="we-exp-amt we-money">{{ "{:,}".format(total_storage).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
-      </p>
+    <h1 class="we-h1">{{ 'Ombor xarajatlari' if is_uz else 'Складские расходы' }}</h1>
+
+    <div class="we-stats">
+      <div class="we-stat">
+        <span class="we-stat-bar"></span>
+        <span class="we-stat-txt">
+          <span class="we-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="we-stat-val">{{ total_count }}</span>
+        </span>
+      </div>
+      <div class="we-stat we-stat--exp">
+        <span class="we-stat-bar"></span>
+        <span class="we-stat-txt">
+          <span class="we-stat-lbl">{{ 'Saqlash, so‘m' if is_uz else 'За хранение, сум' }}</span>
+          <span class="we-stat-val">{{ "{:,}".format(total_storage).replace(",", " ") }}</span>
+        </span>
+      </div>
     </div>
   </div>
 

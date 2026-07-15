@@ -198,7 +198,26 @@ def upload_image(file_bytes: bytes, filename: str, mimetype: str) -> dict:
     if len(file_bytes) > MAX_IMAGE_BYTES:
         raise NoviyTavarError(413, "Rasm 15MB dan katta", _UPLOAD_URL)
     sess = _get_http_session()
-    headers = _headers()  # Content-Type'ni requests o'zi multipart bilan qo'yadi
+    # ⚠️ AUTH CHEGARASI (2026-07-15 t7.har + jonli probe bilan tasdiqlandi):
+    # images-uploader.uzum.uz bizning admin portal-token'imizni QABUL QILMAYDI —
+    # har qanday joylashuvda (Bearer / xom / X-Auth-Token / cookie / query) hamda
+    # to'liq brauzer-header to'plami bilan ham HTTP 401 «Unauthorized» qaytaradi.
+    # t7.har sanitatsiyalangan (Cookie/Authorization HAR eksportda o'chirilgan —
+    # api-seller so'rovlarida ham auth ko'rinmaydi, biroq bizning Bearer u yerda
+    # ISHLAYDI). Demak brauzer uploader'ga alohida, qisqa muddatli upload-token
+    # yoki .uzum.uz session cookie'si bilan kirgan — bu bizda server tomonda yo'q.
+    # Boshqa portal chaqiruvlar (kategoriya/meta/filtr/xususiyat/check-words)
+    # o'sha admin token bilan 200 qaytaradi; faqat rasm yuklash shu tashqi auth
+    # chegarasiga taqaladi (postavki'dagi «dead shop token» oilasi bilan bir xil).
+    # Bearer'ni yuboramiz (modul konvensiyasi) — to'g'ri token konteksti bo'lganda
+    # (masalan boshqa deploy) ishlashi uchun. Content-Type'ni requests o'zi qo'yadi.
+    headers = _headers()
+    headers.update({
+        "Accept": "*/*",
+        "Accept-Language": "ru",
+        "Origin": "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    })
     resp = sess.post(
         _UPLOAD_URL,
         headers=headers,

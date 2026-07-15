@@ -3194,10 +3194,22 @@
   document.addEventListener('mouseout',(e)=>{ if(_zoomTarget(e)) _hideZoom(); });
   window.addEventListener('scroll', _hideZoom, true);
 
+  // RELOAD (F5/🔄) va NAVIGATSIYA (menyu/havola) ni ajratamiz. Reload'da o'sha
+  // ko'rinishda qolamiz; menyudan kelinsa — har doim asosiy ro'yxatdan boshlaymiz.
+  function _uzIsReload(){
+    try{
+      var e=performance.getEntriesByType && performance.getEntriesByType('navigation');
+      if(e && e.length && e[0].type) return e[0].type==='reload';
+      if(performance.navigation) return performance.navigation.type===1;   // TYPE_RELOAD (eski API)
+    }catch(_){}
+    return false;
+  }
+
   (async function(){ if(!S.shop){ el.innerHTML='<div class="pkx-msg">Нет магазинов</div>'; return; }
     // F5/🔄 dan oldin qaysi ko'rinishda edik? — o'sha yerga qaytamiz (sehrgar,
-    // detal…). Ro'yxatni FONda yuklab qo'yamiz — «‹ Назад» darhol ishlasin.
-    const _route = readRoute();
+    // detal…). Menyudan kelinsa (navigate) — saqlangan ko'rinishni O'TKAZIB
+    // yuboramiz va ro'yxatni ko'rsatamiz. Ro'yxatni FONda yuklaymiz.
+    const _route = _uzIsReload() ? readRoute() : null;
     if(_route){
       let ok=false;
       try{ ok = await restoreRoute(_route); }catch(e){ console.error(e); }

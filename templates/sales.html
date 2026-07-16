@@ -120,7 +120,7 @@
 @media (max-width:640px){ .sl-detail-actions { width:100%; } }
 
 /* two-panel layout (left suitable | right selected-SKU table) */
-.sl-panels { display:grid; grid-template-columns:minmax(250px,1fr) minmax(0,2.15fr); gap:18px; align-items:start; }
+.sl-panels { display:grid; grid-template-columns:minmax(228px,0.82fr) minmax(0,2.55fr); gap:18px; align-items:start; }
 @media (max-width:980px){ .sl-panels{ grid-template-columns:1fr; } }
 .sl-panel { background:var(--sl-surface); border:1px solid var(--sl-border); border-radius:16px; display:flex; flex-direction:column; overflow:hidden; }
 .sl-panel-head { padding:15px 16px; border-bottom:1px solid var(--sl-border); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -131,16 +131,16 @@
 @media (max-width:980px){ .sl-panel-body{ max-height:none; } }
 
 /* LEFT: suitable products */
-.sl-supp { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--sl-border); cursor:pointer; transition:background .12s; }
+.sl-supp { display:flex; align-items:center; gap:12px; padding:8px 16px; border-bottom:1px solid var(--sl-border); cursor:pointer; transition:background .12s; }
 .sl-supp:last-child { border-bottom:0; }
 .sl-supp:hover { background:var(--sl-hover); }
 .sl-supp.sel { background:var(--sl-info-bg); }
 .sl-supp-chk { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:var(--sl-accent); }
-.sl-supp-thumb { width:52px; height:52px; border-radius:11px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
+.sl-supp-thumb { width:54px; height:54px; align-self:center; border-radius:10px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
 .sl-supp-thumb img { width:100%; height:100%; object-fit:cover; }
 .sl-supp-body { min-width:0; flex:1 1 auto; }
-.sl-supp-name { font-size:13.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.sl-supp-stock { font-size:12px; color:var(--sl-muted); margin-top:4px; }
+.sl-supp-name { font-size:13.5px; font-weight:450; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sl-supp-stock { font-size:12px; color:var(--sl-muted); margin-top:2px; }
 .sl-supp.is-in { cursor:default; }
 .sl-supp.is-in:hover { background:transparent; }
 .sl-supp-inbadge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--sl-ok-bg); color:var(--sl-ok-fg); text-transform:uppercase; flex-shrink:0; }
@@ -153,9 +153,9 @@
 .sl-bulk-apply { height:34px; padding:0 14px; border:0; border-radius:9px; background:var(--sl-accent); color:var(--sl-accent-fg); font-size:13px; font-weight:600; cursor:pointer; }
 .sl-bulk-hint { font-size:12px; color:var(--sl-muted); }
 
-.sl-thead, .sl-srow { display:grid; grid-template-columns:minmax(0,1fr) 88px 92px 138px 92px 96px; gap:14px; align-items:center; }
-.sl-thead { padding:11px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--sl-muted); border-bottom:1px solid var(--sl-border); position:sticky; top:0; background:var(--sl-surface); z-index:2; }
-.sl-thead .sl-r { text-align:right; }
+.sl-thead, .sl-srow { display:grid; grid-template-columns:minmax(0,1fr) 88px 138px 76px 84px 94px; gap:14px; align-items:center; }
+.sl-thead { padding:11px 16px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; color:var(--sl-text); border-bottom:1px solid var(--sl-border); position:sticky; top:0; background:var(--sl-surface); z-index:2; }
+.sl-thead .sl-r { text-align:left; }
 .sl-grouphdr { padding:10px 16px; font-size:13px; font-weight:700; color:var(--sl-text); background:var(--sl-head); border-bottom:1px solid var(--sl-border);
   display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .sl-grouphdr-name { display:flex; align-items:center; gap:8px; min-width:0; }
@@ -163,7 +163,6 @@
 .sl-grouphdr-disc { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--sl-text-2); }
 .sl-gdisc { width:52px; height:30px; border:1px solid var(--sl-border-strong); border-radius:8px; background:var(--sl-surface); color:var(--sl-text); text-align:center; font-size:13px; font-weight:700; }
 .sl-gdisc:focus { outline:0; border-color:var(--sl-accent); }
-.sl-gdisc-apply { height:30px; padding:0 12px; border:0; border-radius:8px; background:var(--sl-accent); color:var(--sl-accent-fg); font-size:12px; font-weight:600; cursor:pointer; }
 .sl-grouphdr-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0; }
 .sl-group-del { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:8px; background:transparent; color:var(--sl-muted); cursor:pointer; transition:color .15s, background .15s; }
 .sl-group-del:hover { color:var(--sl-danger-fg); background:var(--sl-danger-bg); }
@@ -182,35 +181,40 @@
 [data-bs-theme="dark"] .sl-page .sl-confirm-yes { background:#E5484D; }
 [data-bs-theme="dark"] .sl-page .sl-confirm-yes:hover { background:#D93C41; }
 .sl-confirm button:disabled { opacity:.6; cursor:default; }
-.sl-srow { padding:12px 16px; border-bottom:1px solid var(--sl-border); }
+.sl-srow { padding:8px 16px; border-bottom:1px solid var(--sl-border); }
 .sl-srow:last-child { border-bottom:0; }
 .sl-srow-prod { display:flex; align-items:center; gap:10px; min-width:0; }
-.sl-srow-thumb { width:44px; height:44px; border-radius:9px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
+.sl-srow-thumb { width:46px; height:46px; align-self:center; border-radius:9px; overflow:hidden; background:var(--sl-active); flex-shrink:0; border:1px solid var(--sl-border); }
 .sl-srow-thumb img { width:100%; height:100%; object-fit:cover; }
 .sl-srow-skuwrap { min-width:0; }
 .sl-srow-sku { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; color:var(--sl-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
 .sl-srow-char { font-size:11px; color:var(--sl-muted); margin-top:2px; }
-.sl-srow-cur { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
-.sl-srow-cost { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--sl-text-2); }
-.sl-srow-new { text-align:right; }
-.sl-srow-new input { width:118px; height:38px; border:1px solid var(--sl-border-strong); border-radius:9px; background:var(--sl-bg); color:var(--sl-text); text-align:right; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }
+.sl-srow-cur { text-align:left; font-variant-numeric:tabular-nums; font-weight:450; font-size:14px; }
+.sl-srow-cost { text-align:left; font-variant-numeric:tabular-nums; font-weight:450; font-size:14px; color:var(--sl-text-2); }
+.sl-srow-new { text-align:left; }
+.sl-srow-new input { width:118px; height:34px; padding:0 12px; box-sizing:border-box; border:1px solid var(--sl-border-strong); border-radius:9px; background:var(--sl-bg); color:var(--sl-text); text-align:left; font-size:14px; font-weight:450; font-variant-numeric:tabular-nums; }
 .sl-srow-new input:focus { outline:0; border-color:var(--sl-accent); background:var(--sl-surface); box-shadow:0 0 0 3px rgba(65,105,225,.12); }
-.sl-srow-new .sl-limit { font-size:11px; color:var(--sl-muted); margin-top:4px; }
+.sl-srow-new .sl-limit { font-size:11px; color:var(--sl-muted); margin-top:2px; }
 .sl-srow.warn .sl-srow-new input { border-color:var(--sl-danger-fg); }
 .sl-srow.warn .sl-srow-new .sl-limit { color:var(--sl-danger-fg); font-weight:700; }
-.sl-srow-disc { text-align:right; }
-.sl-srow-disc b { font-variant-numeric:tabular-nums; color:var(--sl-text); }
-.sl-srow-disc small { display:block; color:var(--sl-ok-fg); font-weight:700; margin-top:2px; }
-.sl-srow-payout { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--sl-text); }
+.sl-srow-disc { text-align:left; }
+.sl-srow-disc b { font-variant-numeric:tabular-nums; color:var(--sl-text); font-weight:450; font-size:14px; }
+.sl-srow-disc small { display:block; color:var(--sl-ok-fg); font-weight:450; font-size:11px; margin-top:2px; }
+.sl-srow-payout { text-align:left; font-variant-numeric:tabular-nums; font-weight:450; font-size:14px; color:var(--sl-text); }
 /* ZARAR: «К выводу» < «Себестоимость». Ogohlantirish, taqiq emas — nol tushib
    qolgan / ortiqcha nol qo'shilgan kabi xatolarni ushlash uchun. */
 .sl-srow.loss { background:var(--sl-loss-bg,#FEF3F2); box-shadow:inset 3px 0 0 #F97066; }
-.sl-srow.loss .sl-srow-payout { color:var(--sl-loss-fg,#B42318); font-weight:800; }
-.sl-lossnote { display:block; margin-top:2px; font-size:10px; font-weight:700; line-height:1.25; color:var(--sl-loss-fg,#B42318); white-space:normal; }
-.sl-addbar-warn { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; line-height:1.3;
-  color:var(--sl-loss-fg,#B42318); background:var(--sl-loss-bg,#FEF3F2); border-radius:10px; padding:8px 12px; }
-.sl-addbar-warn b { font-weight:800; }
+.sl-srow.loss .sl-srow-payout { color:var(--sl-loss-fg,#B42318); font-weight:450; }
 .sl-srow-loading { padding:16px; color:var(--sl-muted); font-size:13px; }
+/* Hover-zoom image preview (position:fixed so it escapes panel overflow) */
+.sl-srow-thumb[data-zoom-src], .sl-supp-thumb[data-zoom-src] { cursor:zoom-in; }
+.sl-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--sl-surface); border:1px solid var(--sl-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.sl-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.sl-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .sl-zoom-preview { display:none; } }
 @media (max-width:680px){
   .sl-thead { display:none; }
   .sl-srow { grid-template-columns:1fr 1fr; gap:8px; }
@@ -237,9 +241,22 @@
 .sl-empty-sm { padding:40px 20px; text-align:center; color:var(--sl-muted); font-size:13px; }
 .sl-error { padding:14px 16px; border-radius:12px; background:var(--sl-warn-bg); color:var(--sl-warn-fg); font-size:14px; margin-bottom:16px; }
 
-.sl-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--sl-text); color:var(--sl-surface);
-  padding:10px 18px; border-radius:12px; font-size:13px; font-weight:500; box-shadow:var(--sl-shadow); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1200; max-width:90vw; text-align:center; }
-.sl-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+/* Toasts — top-right, stacked, auto-dismiss. Matches the app's other pages
+   (fbs-stock / pos): short messages that never overlap page content. */
+.sl-toasts { position:fixed; top:76px; right:18px; z-index:1200; display:flex; flex-direction:column; gap:8px;
+  max-width:min(340px, calc(100vw - 32px)); pointer-events:none; }
+/* Solid, high-contrast fills so the pill reads clearly as a floating
+   notification on top of whatever it briefly overlaps (matches the pos page). */
+.sl-toast { pointer-events:auto; cursor:default; padding:11px 15px; border-radius:12px; font-size:13px; font-weight:600; line-height:1.4;
+  background:var(--sl-text); color:var(--sl-surface); box-shadow:0 10px 28px rgba(20,16,40,.22);
+  animation:slToastIn .22s cubic-bezier(.2,.7,.3,1); }
+.sl-toast.ok  { background:#0F9A6A; color:#fff; }
+.sl-toast.err { background:#D92D20; color:#fff; }
+.sl-toast.leaving { animation:slToastOut .2s ease forwards; }
+@keyframes slToastIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
+@keyframes slToastOut { from { opacity:1; transform:none; } to { opacity:0; transform:translateX(16px); } }
+@media (prefers-reduced-motion:reduce){ .sl-toast{ animation:none; } .sl-toast.leaving{ animation:none; } }
+@media (max-width:520px){ .sl-toasts{ top:72px; right:12px; left:12px; max-width:none; } }
 
 /* Draft dialog — same shape as the supply wizard's «Черновик восстановлен»
    card (postavki .pkx-cfm-*), in the sales palette so it themes in dark. */
@@ -261,6 +278,50 @@
 .sl-btn-soft:hover { background:var(--sl-hover); }
 .sl-btn-danger { background:var(--sl-danger-fg); color:#fff; }
 .sl-btn-danger:hover { filter:brightness(1.06); }
+
+/* ── Loss-review popup — shown on «Добавить в акцию» when SKUs sell below cost.
+   Reuses .sl-modal-bg; wider than the confirm card because it carries a table.
+   The «Убыток» column (cost − payout) is the one loud element — everything
+   else stays quiet so the per-SKU shortfall reads at a glance. */
+.sl-loss-card { position:relative; width:min(600px,100%); max-height:min(82vh,720px);
+  display:flex; flex-direction:column; overflow:hidden;
+  background:var(--sl-surface); color:var(--sl-text); border-radius:20px;
+  box-shadow:0 24px 70px rgba(15,15,30,.32); animation:slCfmPop .18s cubic-bezier(.2,.9,.3,1.2); }
+.sl-loss-head { display:flex; gap:14px; align-items:flex-start; padding:24px 26px 18px; }
+.sl-loss-badge { flex:none; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  background:var(--sl-loss-bg,#FEF3F2); color:var(--sl-loss-fg,#B42318); }
+.sl-loss-badge svg { width:22px; height:22px; }
+.sl-loss-htxt { min-width:0; }
+.sl-loss-title { margin:0 0 4px; font-size:18px; font-weight:800; letter-spacing:-.01em; }
+.sl-loss-sub { margin:0; font-size:13.5px; line-height:1.5; color:var(--sl-text-2); font-weight:500; }
+.sl-loss-scroll { overflow:auto; border-top:1px solid var(--sl-border); border-bottom:1px solid var(--sl-border); }
+.sl-loss-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+.sl-loss-tbl thead th { position:sticky; top:0; z-index:1; background:var(--sl-active); text-align:right;
+  font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--sl-muted);
+  padding:10px 14px; white-space:nowrap; }
+.sl-loss-tbl thead th:first-child { text-align:left; }
+.sl-loss-tbl tbody td { padding:11px 14px; border-top:1px solid var(--sl-border); text-align:right;
+  white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--sl-text); }
+.sl-loss-tbl tbody tr:first-child td { border-top:0; }
+.sl-loss-prod { display:flex; align-items:center; gap:11px; text-align:left; min-width:170px; }
+.sl-loss-thumb { flex:none; width:38px; height:38px; border-radius:9px; background:var(--sl-active); overflow:hidden; }
+.sl-loss-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.sl-loss-sku { font-weight:700; letter-spacing:.01em; }
+.sl-loss-char { font-size:11.5px; color:var(--sl-muted); margin-top:1px; }
+.sl-loss-minus { color:var(--sl-loss-fg,#B42318); font-weight:800; }
+.sl-loss-foot { display:flex; gap:10px; padding:18px 26px 22px; }
+.sl-loss-foot .sl-btn { flex:1; height:auto; padding:12px 16px; border-radius:12px; }
+@media (max-width:520px){
+  .sl-modal-bg { padding:14px; }
+  .sl-loss-head { padding:20px 18px 14px; }
+  .sl-loss-foot { padding:16px 18px 18px; }
+  .sl-loss-tbl thead th, .sl-loss-tbl tbody td { padding:11px 12px; }
+  .sl-loss-prod { min-width:0; }
+  /* Phones show only the product and «Убыток» — payout/cost are supporting
+     detail that would push the loss (the whole point) off-screen, so drop them. */
+  .sl-loss-tbl thead th:nth-child(2), .sl-loss-tbl thead th:nth-child(3),
+  .sl-loss-tbl tbody td:nth-child(2), .sl-loss-tbl tbody td:nth-child(3) { display:none; }
+}
 </style>
 {% endblock %}
 
@@ -361,7 +422,6 @@
         <div id="slSelTable" class="sl-panel-body"></div>
         <div class="sl-addbar" id="slAddBar" style="display:none">
           <div class="sl-addbar-info" id="slFooterInfo"></div>
-          <div class="sl-addbar-warn" id="slLossWarn" style="display:none"></div>
           <button type="button" class="sl-btn sl-btn-primary" id="slAddBtn" disabled>{{ 'Aksiyaga qo\'shish' if is_uz else 'Добавить в акцию' }}</button>
         </div>
       </section>
@@ -370,7 +430,7 @@
   </div>
 </div>
 
-<div id="slToast" class="sl-toast" role="status" aria-live="polite"></div>
+<div id="slToasts" class="sl-toasts" role="status" aria-live="polite"></div>
 {% endblock %}
 
 {% block extra_js %}
@@ -396,10 +456,13 @@
     empty: UZ ? 'Mos mahsulotlar yo\'q' : 'Нет подходящих товаров',
     salesEmpty: UZ ? 'Bu yerda aksiya yo\'q' : 'Здесь нет акций',
     selected: UZ ? 'Tanlangan' : 'Выбрано',
-    // ZARAR: «К выводу» tannarxdan past — har bir sotuv zarar. TAQIQ emas.
-    belowCost: UZ ? 'tannarxdan past' : 'ниже себестоимости',
-    lossWarn: UZ ? 'SKU zarar keltiradi: olishga tannarxdan past. Narxni tekshiring.'
-                 : 'SKU в убыток: к выводу ниже себестоимости. Проверьте цену.',
+    // ZARAR ko'rib chiqish oynasi — «Aksiyaga qo'shish» bosilganda ochiladi.
+    colShort: UZ ? 'Zarar' : 'Убыток',
+    lossReviewTitle: UZ ? '{n} SKU zararga ketadi' : '{n} SKU уйдут в убыток',
+    lossReviewSub: UZ ? 'Ular bo\'yicha olishga tannarxdan past — har bir sotuvda pul yo\'qotasiz.'
+                      : 'К выводу по ним ниже себестоимости — на каждой продаже вы теряете деньги.',
+    lossReviewCancel: UZ ? 'Narxlarni o\'zgartirish' : 'Изменить цены',
+    lossReviewProceed: UZ ? 'Baribir qo\'shish' : 'Всё равно добавить',
     products: UZ ? 'mahsulot' : 'тов.',
     loading: UZ ? 'Yuklanmoqda…' : 'Загрузка…',
     open: UZ ? 'Ochish' : 'Открыть',
@@ -422,7 +485,7 @@
     saleNotInShop: UZ ? 'Bu aksiya tanlangan do\'konda mavjud emas' : 'Этой акции нет в выбранном магазине',
     autofill: UZ ? 'Avto to\'ldirish' : 'Автозаполнить',
     autofillNone: UZ ? 'Bu aksiya uchun saqlangan narxlar yo\'q' : 'Для этой акции нет сохранённых цен',
-    autofillDone: UZ ? 'Narxlar to\'ldirildi — tekshirib, «Aksiyaga qo\'shish» bosing' : 'Цены заполнены — проверьте и нажмите «Добавить в акцию»',
+    autofillDone: UZ ? 'Narxlar to\'ldirildi' : 'Цены заполнены',
     removeAllShort: UZ ? 'Barchasini olib tashlash' : 'Убрать все из акции',
     removeAll: UZ ? 'Barchasini olib tashlash' : 'Убрать все товары',
     removeAllTitle: UZ ? 'Barcha tovarlar ({n} ta) aksiyadan olib tashlansinmi?' : 'Убрать все товары ({n}) из акции?',
@@ -526,7 +589,6 @@
         var row=table.querySelector('.sl-srow[data-pid="'+pid+'"][data-si="'+si+'"]'); if(!row) return;
         var po=payoutOf(s.sku_id);
         paintPayout(row.querySelector('[data-payout]'), po, cost);
-        row.classList.toggle('loss', isLoss(po, cost));
       });
     });
     updateFooter();
@@ -536,7 +598,6 @@
   function paintPayout(payEl, po, cost){
     if(!payEl) return;
     payEl.textContent = payoutText(po);
-    if(isLoss(po, cost)) payEl.insertAdjacentHTML('beforeend', '<small class="sl-lossnote">'+esc(T.belowCost)+'</small>');
   }
 
   // Shop pick is shared across pages (/groups, /sales) via the sh_shop cookie
@@ -555,8 +616,19 @@
   var saleMem = {};            // sku_id(str) -> remembered sale price (from /api/sales/salemem)
 
   // toast / error
-  var toastEl = el('slToast'), toastTimer;
-  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){toastEl.classList.remove('show');},3800); }
+  // Stacked top-right toast. kind: undefined (neutral) | 'ok' | 'err'.
+  // Auto-dismisses; click to close early. Newest appears at the bottom of the stack.
+  var toastWrap = el('slToasts');
+  function toast(msg, kind){
+    var t = document.createElement('div');
+    t.className = 'sl-toast' + (kind ? ' '+kind : '');
+    t.textContent = msg;
+    toastWrap.appendChild(t);
+    var gone = false;
+    function dismiss(){ if(gone) return; gone=true; t.classList.add('leaving'); setTimeout(function(){ t.remove(); }, 220); }
+    var timer = setTimeout(dismiss, 3800);
+    t.addEventListener('click', function(){ clearTimeout(timer); dismiss(); });
+  }
   function showError(msg){ var e=el('slError'); if(!msg){e.style.display='none';return;} e.textContent=msg; e.style.display=''; }
 
   // ── store picker (shared: sales-list header + sale-detail header, kept in
@@ -582,7 +654,7 @@
       loadSales(function(){
         var match = allSales.filter(function(s){ return saleKeyOf(s)===reopenKey; })[0];
         if(match){ openSale(match); }
-        else { toast(T.saleNotInShop); backToList(); }
+        else { toast(T.saleNotInShop, 'err'); backToList(); }
       });
     }
     function build(pickerId, triggerId, labelId, menuId){
@@ -801,7 +873,7 @@
         selected[pid].loading=false; selected[pid].error=String(e && e.message || e);
       }).then(function(){
         pending--; renderSuitable(); renderSelected(); updateFooter(); updateAutofillBtn();
-        if(pending===0) toast(T.autofillDone);
+        if(pending===0) toast(T.autofillDone, 'ok');
       });
     });
     renderSuitable(); renderSelected(); updateFooter(); updateAutofillBtn();   // show loading rows at once
@@ -828,11 +900,11 @@
     .then(function(res){
       if(res.status>=200 && res.status<300){
         var failed = (res.j.failed||[]).length;
-        toast(failed ? (failed+' '+T.removeAllPartial) : T.removeAllDone);
+        toast(failed ? (failed+' '+T.removeAllPartial) : T.removeAllDone, failed ? 'err' : 'ok');
         refreshSalesKeepTab();             // «Добавлено» → 0, card's action drops away
-      } else { toast(res.j.error || 'Error'); setRemoveBtnBusy(btn, false); }
+      } else { toast(res.j.error || 'Error', 'err'); setRemoveBtnBusy(btn, false); }
     })
-    .catch(function(err){ toast(String(err)); setRemoveBtnBusy(btn, false); });
+    .catch(function(err){ toast(String(err), 'err'); setRemoveBtnBusy(btn, false); });
   }
 
   // Generic confirm popup — reuses the .sl-cfm-card modal (same component as the
@@ -993,7 +1065,7 @@
       var row = document.createElement('div'); row.className='sl-supp'+(selected[pid]?' sel':''); row.dataset.pid=pid;
       row.innerHTML =
         '<input type="checkbox" class="sl-supp-chk"'+(selected[pid]?' checked':'')+'>'+
-        '<div class="sl-supp-thumb">'+(p.image?'<img src="'+esc(p.image)+'" loading="lazy">':'')+'</div>'+
+        '<div class="sl-supp-thumb"'+(p.image?' data-zoom-src="'+esc(p.image)+'"':'')+'>'+(p.image?'<img src="'+esc(p.image)+'" loading="lazy">':'')+'</div>'+
         '<div class="sl-supp-body"><div class="sl-supp-name">'+esc(title(p.title))+'</div>'+
           '<div class="sl-supp-stock">'+T.inStock+': '+(p.available_count==null?'—':p.available_count)+' '+T.pcs+'</div></div>';
       function toggle(){
@@ -1049,7 +1121,7 @@
     if(!pids.length){ box.innerHTML='<div class="sl-empty-sm">'+T.selectLeft+'</div>'; el('slAddBar').style.display='none'; el('slAddBtn').disabled=true; return; }
     var dmin = (saleState && saleState.default_min_discount) || 1;
 
-    var html = '<div class="sl-thead"><span>'+T.colSku+'</span><span class="sl-r">'+T.colCur+'</span><span class="sl-r">'+T.colCost+'</span><span class="sl-r">'+T.colNew+'</span><span class="sl-r">'+T.colDisc+'</span><span class="sl-r">'+T.colPayout+'</span></div>';
+    var html = '<div class="sl-thead"><span>'+T.colSku+'</span><span class="sl-r">'+T.colCur+'</span><span class="sl-r">'+T.colNew+'</span><span class="sl-r">'+T.colDisc+'</span><span class="sl-r">'+T.colPayout+'</span><span class="sl-r">'+T.colCost+'</span></div>';
     pids.forEach(function(pid){
       var e = selected[pid];
       var img = e.product.image;
@@ -1069,8 +1141,7 @@
             (e.already_in?' <span class="sl-grouphdr-badge">'+T.inSale+'</span>':'')+'</span>'+
           '<span class="sl-grouphdr-right">'+
             ((!e.loading && !e.error && e.skus && e.skus.length)
-              ? '<span class="sl-grouphdr-disc">'+T.colDisc+': <input class="sl-gdisc" type="number" min="0" max="99" value="'+dmin+'" data-pid="'+pid+'"> % '+
-                '<button type="button" class="sl-gdisc-apply" data-pid="'+pid+'">'+T.apply+'</button></span>'
+              ? '<span class="sl-grouphdr-disc">'+T.colDisc+': <input class="sl-gdisc" type="number" min="0" max="99" value="'+dmin+'" data-pid="'+pid+'"> %</span>'
               : '')+
             '<button type="button" class="sl-group-del" data-pid="'+pid+'" title="'+T.remove+'" aria-label="'+T.remove+'">'+
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'+
@@ -1085,20 +1156,20 @@
         var warn = (s.max_price>0 && s.new_price>s.max_price);
         var amt = Math.max(0, (s.current_price||0) - (s.new_price||0));
         var po0 = payoutOf(s.sku_id);
-        var cost0 = (e.purchase_price>0 ? e.purchase_price : 0);
-        var loss0 = isLoss(po0, cost0);
         var simg = s.image || img; // per-SKU image, product image as fallback
+        // Zarar bo'yog'i (.loss) render/tahrir paytida QO'YILMAYDI — faqat «Добавить в
+        // акцию» → popup → «Изменить цены» dan keyin highlightLossRows() belgilaydi.
         html +=
-          '<div class="sl-srow'+(warn?' warn':'')+(loss0?' loss':'')+'" data-pid="'+pid+'" data-si="'+si+'">'+
-            '<div class="sl-srow-prod"><div class="sl-srow-thumb">'+(simg?'<img src="'+esc(simg)+'">':'')+'</div>'+
+          '<div class="sl-srow'+(warn?' warn':'')+'" data-pid="'+pid+'" data-si="'+si+'">'+
+            '<div class="sl-srow-prod"><div class="sl-srow-thumb"'+(simg?' data-zoom-src="'+esc(simg)+'"':'')+'>'+(simg?'<img src="'+esc(simg)+'">':'')+'</div>'+
               '<div class="sl-srow-skuwrap"><div class="sl-srow-sku">'+esc(s.sku_title||('SKU '+s.sku_id))+'</div>'+
                 (s.characteristics?'<div class="sl-srow-char">'+esc(s.characteristics)+'</div>':'')+'</div></div>'+
             '<div class="sl-srow-cur">'+fmt(s.current_price)+'</div>'+
-            '<div class="sl-srow-cost">'+fmt(e.purchase_price>0?e.purchase_price:null)+'</div>'+
             '<div class="sl-srow-new"><input type="number" min="0" step="10" value="'+s.new_price+'" data-pid="'+pid+'" data-si="'+si+'">'+
               '<div class="sl-limit">'+T.noMore+' '+fmt(s.max_price)+' '+cur+'</div></div>'+
             '<div class="sl-srow-disc"><b data-amt>'+fmt(amt)+'</b><small data-pct>'+(pctOf(s.current_price,s.new_price))+'%</small></div>'+
-            '<div class="sl-srow-payout" data-payout>'+payoutText(po0)+(loss0?'<small class="sl-lossnote">'+esc(T.belowCost)+'</small>':'')+'</div>'+
+            '<div class="sl-srow-payout" data-payout>'+payoutText(po0)+'</div>'+
+            '<div class="sl-srow-cost">'+fmt(e.purchase_price>0?e.purchase_price:null)+'</div>'+
           '</div>';
       });
     });
@@ -1108,8 +1179,7 @@
       inp.addEventListener('input', function(){ onPriceInput(inp); });
       inp.addEventListener('blur', function(){ onPriceInput(inp, true); });
     });
-    box.querySelectorAll('.sl-gdisc-apply').forEach(function(btn){ btn.addEventListener('click', function(){ applyGroupDiscount(btn.dataset.pid); }); });
-    box.querySelectorAll('.sl-gdisc').forEach(function(inp){ inp.addEventListener('keydown', function(ev){ if(ev.key==='Enter') applyGroupDiscount(inp.dataset.pid); }); });
+    box.querySelectorAll('.sl-gdisc').forEach(function(inp){ inp.addEventListener('input', function(){ applyGroupDiscount(inp.dataset.pid); }); });
     box.querySelectorAll('.sl-group-del').forEach(function(btn){ btn.addEventListener('click', function(){ openRemoveConfirm(btn.dataset.pid); }); });
     box.querySelectorAll('.sl-confirm-no').forEach(function(btn){ btn.addEventListener('click', function(){ confirmingPid=null; renderSelected(); }); });
     box.querySelectorAll('.sl-confirm-yes').forEach(function(btn){ btn.addEventListener('click', function(){ doRemove(btn.dataset.pid, btn); }); });
@@ -1134,7 +1204,7 @@
       if(pctEl) pctEl.textContent=pctOf(s.current_price,v)+'%';
       var po=payoutOf(s.sku_id), cost=(e.purchase_price>0?e.purchase_price:0);
       paintPayout(payEl, po, cost);
-      row.classList.toggle('loss', isLoss(po, cost));
+      row.classList.remove('loss');   // tahrir paytida zarar bo'yog'ini yopamiz; faqat popupdan keyin belgilaymiz
     }
     schedulePayouts();          // narx o'zgardi → Uzum'dan yangi «К выводу»
     updateFooter();
@@ -1160,7 +1230,7 @@
       if(pctEl) pctEl.textContent=pctOf(s.current_price,np)+'%';
       var po=payoutOf(s.sku_id), cost=(e.purchase_price>0?e.purchase_price:0);
       paintPayout(payEl, po, cost);
-      row.classList.toggle('loss', isLoss(po, cost));   // ommaviy % ham zararga tushirishi mumkin
+      row.classList.remove('loss');   // ommaviy % — tahrir hisoblanadi, zarar bo'yog'ini yopamiz
     });
     schedulePayouts();
     updateFooter();
@@ -1196,10 +1266,10 @@
     .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
     .then(function(res){
       confirmingPid = null;
-      if(res.status>=200 && res.status<300){ toast(T.removed); openSale(saleState.sale_card); }
-      else { renderSelected(); toast(res.j.error || 'Error'); }
+      if(res.status>=200 && res.status<300){ toast(T.removed, 'ok'); openSale(saleState.sale_card); }
+      else { renderSelected(); toast(res.j.error || 'Error', 'err'); }
     })
-    .catch(function(err){ confirmingPid=null; renderSelected(); toast(String(err)); });
+    .catch(function(err){ confirmingPid=null; renderSelected(); toast(String(err), 'err'); });
   }
 
   function updateFooter(){
@@ -1211,13 +1281,9 @@
     var stillLoading = pids.some(function(pid){ return selected[pid].loading; });
     var ready = !stillLoading && pids.some(function(pid){ return isDirty(selected[pid]); });
     el('slFooterInfo').innerHTML = T.selected+': <b>'+pids.length+'</b> '+T.products;
-    // Zarar tasmasi. Tugma O'CHIRILMAYDI — zararga sotish ataylab bo'lishi mumkin.
-    var lossN = document.querySelectorAll('#slSelTable .sl-srow.loss').length;
-    var lw = el('slLossWarn');
-    if(lw){
-      if(lossN>0){ lw.innerHTML = '<b>'+lossN+'</b> '+T.lossWarn; lw.style.display=''; }
-      else { lw.style.display='none'; lw.textContent=''; }
-    }
+    // Zararli SKU'lar endi «Aksiyaga qo'shish» bosilganda ochiladigan oynada
+    // ko'rsatiladi — sl-addbar tasmasi emas. Tugma hech qachon o'chirilmaydi
+    // (zararga sotish ataylab bo'lishi mumkin).
     el('slAddBtn').disabled = !ready;
     saveDraft();          // every mutation funnels through here → cache stays fresh
   }
@@ -1231,14 +1297,54 @@
   el('slBack').addEventListener('click', backToList);
   el('slAutofillBtn').addEventListener('click', runAutofill);
 
-  // submit
-  el('slAddBtn').addEventListener('click', function(){
-    var products = Object.keys(selected).map(function(pid){
+  // ── Submit + loss review ────────────────────────────────────────────────
+  // The payload the server gets: every selected SKU with a positive new price.
+  function buildSubmitProducts(){
+    return Object.keys(selected).map(function(pid){
       var e=selected[pid]; if(!e.skus) return null;
       var skus = e.skus.filter(function(s){ return s.new_price>0; }).map(function(s){ return {sku_id:s.sku_id, new_price:s.new_price}; });
       return skus.length ? { product_id:Number(pid), skus:skus } : null;
     }).filter(Boolean);
-    if(!products.length){ toast(T.enterPrice); return; }
+  }
+  // Among the SKUs about to be submitted, the ones whose «К выводу» falls below
+  // their cost — with the display fields the review popup needs. A SKU whose
+  // payout hasn't been fetched yet (po undefined) can't be judged, so it's left
+  // out rather than guessed. Skips products with no known cost.
+  function collectLossSkus(){
+    var out=[];
+    Object.keys(selected).forEach(function(pid){
+      var e=selected[pid]; if(!e.skus) return;
+      var cost = e.purchase_price>0 ? e.purchase_price : 0;
+      if(cost<=0) return;
+      e.skus.forEach(function(s){
+        if(!(s.new_price>0)) return;
+        var po = payoutOf(s.sku_id);
+        if(!isLoss(po, cost)) return;
+        out.push({ image:(s.image||e.product.image||''), sku_title:(s.sku_title||('SKU '+s.sku_id)),
+                   characteristics:s.characteristics||'', payout:po, cost:cost, shortfall:Math.max(0, cost - po) });
+      });
+    });
+    return out;
+  }
+  // Called ONLY after the loss popup is dismissed via «Изменить цены» (or closed
+  // without proceeding): paint the below-cost rows so the user can find & fix
+  // them, and scroll the first one into view. Editing a row clears its own paint.
+  function highlightLossRows(){
+    var table = el('slSelTable'); if(!table) return;
+    var first = null;
+    Object.keys(selected).forEach(function(pid){
+      var e=selected[pid]; if(!e||!e.skus) return;
+      var cost=(e.purchase_price>0?e.purchase_price:0);
+      e.skus.forEach(function(s, si){
+        var row=table.querySelector('.sl-srow[data-pid="'+pid+'"][data-si="'+si+'"]'); if(!row) return;
+        var loss = (s.new_price>0) && cost>0 && isLoss(payoutOf(s.sku_id), cost);
+        row.classList.toggle('loss', loss);
+        if(loss && !first) first=row;
+      });
+    });
+    if(first) try{ first.scrollIntoView({block:'center', behavior:'smooth'}); }catch(_){}
+  }
+  function doSubmit(products){
     el('slAddBtn').disabled=true;
     fetch('/api/sales/'+saleState.sale.id+'/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({shop_id:shopId, products:products})})
     .then(function(r){return r.json().then(function(j){return {status:r.status,j:j};});})
@@ -1246,9 +1352,64 @@
       el('slAddBtn').disabled=false;
       // Submitted → the draft is no longer pending work; drop it before the
       // campaign is re-fetched (otherwise it would be merged back in).
-      if(res.status>=200 && res.status<300){ clearDraft(); toast(T.added); openSale(saleState.sale_card); }
-      else { toast(res.j.error || 'Error'); }
-    }).catch(function(err){ el('slAddBtn').disabled=false; toast(String(err)); });
+      if(res.status>=200 && res.status<300){ clearDraft(); toast(T.added, 'ok'); openSale(saleState.sale_card); }
+      else { toast(res.j.error || 'Error', 'err'); }
+    }).catch(function(err){ el('slAddBtn').disabled=false; toast(String(err), 'err'); });
+  }
+
+  // Loss-review popup — same overlay component as confirmModal, but carries a
+  // table of the below-cost SKUs (image-3 table language). «Изменить цены»
+  // (focused, safe) dismisses without submitting; «Всё равно добавить» proceeds.
+  var LOSS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  function lossReviewModal(items, onProceed, onChange){
+    var rows = items.map(function(it){
+      return '<tr>'+
+        '<td><div class="sl-loss-prod">'+
+          '<div class="sl-loss-thumb">'+(it.image?'<img src="'+esc(it.image)+'" alt="">':'')+'</div>'+
+          '<div><div class="sl-loss-sku">'+esc(it.sku_title)+'</div>'+
+            (it.characteristics?'<div class="sl-loss-char">'+esc(it.characteristics)+'</div>':'')+'</div>'+
+        '</div></td>'+
+        '<td>'+fmt(it.payout)+'</td>'+
+        '<td>'+fmt(it.cost)+'</td>'+
+        '<td class="sl-loss-minus">−'+fmt(it.shortfall)+'</td>'+
+      '</tr>';
+    }).join('');
+    var titleTxt = T.lossReviewTitle.replace('{n}', items.length);
+    var ov = document.createElement('div'); ov.className='sl-modal-bg';
+    ov.innerHTML =
+      '<div class="sl-loss-card" role="alertdialog" aria-modal="true" aria-label="'+esc(titleTxt)+'">'+
+        '<div class="sl-loss-head">'+
+          '<div class="sl-loss-badge">'+LOSS_SVG+'</div>'+
+          '<div class="sl-loss-htxt">'+
+            '<h3 class="sl-loss-title">'+esc(titleTxt)+'</h3>'+
+            '<p class="sl-loss-sub">'+esc(T.lossReviewSub)+'</p>'+
+          '</div>'+
+        '</div>'+
+        '<div class="sl-loss-scroll"><table class="sl-loss-tbl">'+
+          '<thead><tr><th>'+esc(T.colSku)+'</th><th>'+esc(T.colPayout)+'</th><th>'+esc(T.colCost)+'</th><th>'+esc(T.colShort)+'</th></tr></thead>'+
+          '<tbody>'+rows+'</tbody>'+
+        '</table></div>'+
+        '<div class="sl-loss-foot">'+
+          '<button type="button" class="sl-btn sl-btn-soft" data-act="cancel">'+esc(T.lossReviewCancel)+'</button>'+
+          '<button type="button" class="sl-btn sl-btn-danger" data-act="ok">'+esc(T.lossReviewProceed)+'</button>'+
+        '</div>'+
+      '</div>';
+    root.appendChild(ov);
+    var done=false;
+    function close(ok){ if(done) return; done=true; ov.remove(); document.removeEventListener('keydown', onKey); if(ok){ if(onProceed) onProceed(); } else if(onChange) onChange(); }
+    function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(false); } }
+    ov.addEventListener('click', function(e){ if(e.target===ov) close(false); });
+    ov.querySelectorAll('[data-act]').forEach(function(b){ b.addEventListener('click', function(){ close(b.dataset.act==='ok'); }); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function(){ try{ ov.querySelector('[data-act="cancel"]').focus(); }catch(_){} }, 30);
+  }
+
+  el('slAddBtn').addEventListener('click', function(){
+    var products = buildSubmitProducts();
+    if(!products.length){ toast(T.enterPrice); return; }
+    var loss = collectLossSkus();
+    if(loss.length){ lossReviewModal(loss, function(){ doSubmit(products); }, highlightLossRows); }
+    else { doSubmit(products); }
   });
 
   // Distinguish a RELOAD (F5/🔄) from a fresh NAVIGATION (clicking the sidebar
@@ -1273,6 +1434,45 @@
       if(match) openSale(match); else clearOpenSale();
     } : undefined);
   } else { el('slSalesLoading').style.display='none'; showError(UZ?'Do\'kon topilmadi':'Магазин не найден'); }
+})();
+
+// Hover-zoom preview for product thumbnails (both panels). Delegated so it keeps
+// working after either table re-renders; position:fixed escapes panel overflow.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'sl-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+
+  var GAP = 14, SIZE = 260;   // SIZE must match .sl-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;   // flip left if it would overflow
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
 })();
 </script>
 {% endblock %}

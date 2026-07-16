@@ -117,7 +117,6 @@
     + ".sp-disc-global{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;background:var(--sp-surface,#fff);border:1px solid var(--sp-border,#ECECF0);border-radius:12px;padding:12px 14px;}"
     + ".sp-disc-global label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}"
     + ".sp-disc-global input{width:74px;height:36px;border:1px solid var(--sp-border,#ECECF0);border-radius:9px;background:var(--sp-surface,#fff);color:var(--sp-text,#1A1A22);text-align:center;font-size:14px;font-weight:700;}"
-    + ".sp-disc-apply{height:36px;padding:0 14px;border:0;border-radius:9px;background:var(--sp-accent,#4169E1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;}"
     + ".sp-hint{font-size:12px;color:var(--sp-muted,#8E8B97);margin-right:auto;}"   /* izohni chapga qadaydi → boshqaruv o'ngga ketadi */
     /* SKU JADVALI (Ulug'bek 2026-07-14). Ustunlar tartibi:
          SKU · Хранение · [bo'sh] · Текущая цена · Новая цена · Скидка · К выводу · Себестоимость
@@ -332,15 +331,13 @@
     // Boshqaruv o'ngda, izoh chapda: izoh margin-right:auto bilan chapga
     // qadaladi, qolgani o'ng chekkaga yig'iladi.
     dc.innerHTML="<span class='sp-hint'>"+T.orPerSku+"</span>"
-      +"<label>"+T.discAll+": <input type='number' id='spDiscAll' min='0' max='99' value='0'> %</label>"
-      +"<button type='button' class='sp-disc-apply' id='spApplyDisc'>"+T.apply+"</button>";
+      +"<label>"+T.discAll+": <input type='number' id='spDiscAll' min='0' max='99' value='0'> %</label>";
     var lab2=document.createElement("div"); lab2.className="sp-sectlabel"; lab2.textContent="SKU"; body.appendChild(lab2); body.appendChild(dc);
 
     var vt=document.createElement("div"); vt.className="sp-vtable"; vt.id="spVtable";
     vt.innerHTML="<div class='sp-msg'>"+T.pickSale+"</div>";
     body.appendChild(vt);
 
-    $("spApplyDisc").addEventListener("click", applyDiscountAll);
     $("spDiscAll").addEventListener("input", applyDiscountAll);
     $("spFoot").style.display="";
 

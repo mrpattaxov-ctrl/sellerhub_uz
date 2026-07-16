@@ -50,19 +50,32 @@
 .ps-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
 .ps-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
 
-/* ── Ombor ko'rsatkichlari — ilovaning O'Z tili bilan: JetBrains Mono raqamlар
-   (butun mahsulotda pul/son shu shrift bilan), tepаda uppercase «eyebrow» yorlиq,
-   chapда brend-ko'k (#4169E1) yupqа chизиq. «Dashboard stat-card» emas — ilova
-   usluби. Signature = brend chизиq + mono raqам (ledger/kassa hisси). */
-.ps-stats { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap; }
-.ps-stat { display:flex; align-items:stretch; gap:14px; padding:11px 18px;
-  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:14px; }
-.ps-stat-bar { width:3px; flex:none; border-radius:3px; background:var(--ps-brand); }
-.ps-stat-txt { display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; }
-.ps-stat-lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
-  color:var(--ps-text-muted); white-space:nowrap; line-height:1; }
-.ps-stat-val { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:20px; font-weight:700;
-  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--ps-text); line-height:1; }
+/* ── Ombor ko'rsatkichlari — Claude Design «Stat Card Variations» 1c (tinted
+   blocks), «Складские расходы» sahifаsi bilan bir xил. Uch rangли triada:
+   ko'k (soni) · oltin (SKU) · yashил (qoldiq). Manrope, raqамдан keyин birlиk.
+   Tokenized light+dark. */
+.ps-stats { display:flex; align-items:stretch; gap:14px; flex-wrap:wrap; }
+.ps-stat { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:196px;
+  padding:15px 24px; border-radius:18px;
+  background:var(--ps-stat-bg); border:1px solid var(--ps-stat-bd); }
+.ps-stat-txt { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.ps-stat-lbl { font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:11px; font-weight:700; line-height:1; text-transform:uppercase; letter-spacing:1.4px;
+  color:var(--ps-stat-lbl); white-space:nowrap; }
+.ps-stat-val { display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap;
+  font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:36px; font-weight:800; line-height:1; letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums; color:var(--ps-stat-fg); }
+.ps-stat-unit { font-size:15px; font-weight:700; letter-spacing:.2px;
+  color:var(--ps-stat-fg); /* fallback */
+  color:color-mix(in srgb, var(--ps-stat-fg) 78%, #fff); }
+/* Uch rangли triada — och (light). Товары→ko'k · SKU→oltin · Qoldiq→yashил. */
+.ps-stat--blue  { --ps-stat-bg:#EEF0FF; --ps-stat-bd:rgba(59,91,254,.12); --ps-stat-fg:#3B5BFE; --ps-stat-lbl:#191A1E; }
+.ps-stat--gold  { --ps-stat-bg:#FBF3DA; --ps-stat-bd:rgba(181,133,28,.18); --ps-stat-fg:#B5851C; --ps-stat-lbl:#191A1E; }
+.ps-stat--green { --ps-stat-bg:#E7F6EC; --ps-stat-bd:rgba(30,158,87,.20);  --ps-stat-fg:#1E9E57; --ps-stat-lbl:#191A1E; }
+[data-bs-theme="dark"] .ps-stat--blue  { --ps-stat-bg:rgba(59,91,254,.14); --ps-stat-bd:rgba(99,130,255,.22); --ps-stat-fg:#7C9BF0; --ps-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .ps-stat--gold  { --ps-stat-bg:rgba(212,160,55,.15); --ps-stat-bd:rgba(224,190,110,.24); --ps-stat-fg:#E3C15A; --ps-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .ps-stat--green { --ps-stat-bg:rgba(30,158,87,.16);  --ps-stat-bd:rgba(110,231,183,.24); --ps-stat-fg:#5FD09A; --ps-stat-lbl:#F0EDF5; }
 
 /* ── Filtrlar ── */
 .ps-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -124,6 +137,19 @@
   display:flex; align-items:center; justify-content:center; flex:none; border:1px solid var(--ps-border); }
 .ps-thumb img { width:100%; height:100%; object-fit:cover; }
 .ps-thumb-empty { color:var(--ps-text-muted); font-size:13px; }
+/* Summary-row image fills the row height and stays square (as tall as the line).
+   The variant thumb (inside the name cell) keeps its small fixed size. */
+.ps-grow > td.c-img { height:1px; padding-top:8px; padding-bottom:8px; }
+.ps-grow > td.c-img .ps-thumb { width:auto; height:100%; min-height:46px; aspect-ratio:1/1; margin:0 auto; }
+/* Hover-zoom image preview (position:fixed so it escapes table overflow) */
+.ps-thumb[data-zoom-src] { cursor:zoom-in; }
+.ps-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.ps-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.ps-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .ps-zoom-preview { display:none; } }
 
 .ps-lead { display:flex; align-items:center; gap:10px; min-width:0; }
 .ps-chev { flex:none; width:16px; height:16px; color:var(--ps-text-muted); transition:transform .16s ease; }
@@ -294,15 +320,13 @@
   /* Sarlavha bilan bir qatorга sig'maydi — panel to'lиq enда, sarlavha ostiда. */
   .ps-title-row { align-items:flex-start; }
   .ps-stats { width:100%; }
-  .ps-stat { flex:1 1 0; }
+  .ps-stat { flex:1 1 auto; }
 }
 @media (max-width:560px) {
-  /* Uch katak tor ekranда: brend chизиq ketadi, matn markazда. */
-  .ps-stat { gap:0; padding:10px 6px; }
-  .ps-stat-bar { display:none; }
-  .ps-stat-txt { align-items:center; text-align:center; gap:4px; width:100%; }
-  .ps-stat-val { font-size:17px; }
-  .ps-stat-lbl { font-size:9px; letter-spacing:.05em; }
+  /* Tor ekranда: kartалар ustma-ust, to'lиq enда. */
+  .ps-stats { flex-direction:column; }
+  .ps-stat { width:100%; padding:16px 20px; }
+  .ps-stat-val { font-size:30px; }
 }
 /* 769–820px: joy tor, «Bo'ladi» ustuni ketadi — uning ma'nosi maydon rangida ham bor. */
 @media (min-width:769px) and (max-width:820px) { .ps-table .c-res { display:none; } }
@@ -334,25 +358,22 @@
     <h1 class="ps-h1">{{ 'Ombor: qabul va sotuv' if is_uz else 'Склад: приёмка и продажа' }}</h1>
 
     <div class="ps-stats" id="psStats" aria-live="polite">
-      <div class="ps-stat">
-        <span class="ps-stat-bar"></span>
+      <div class="ps-stat ps-stat--blue">
         <span class="ps-stat-txt">
           <span class="ps-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
-          <span class="ps-stat-val" id="psStProducts">—</span>
+          <span class="ps-stat-val"><span id="psStProducts">—</span><span class="ps-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
         </span>
       </div>
-      <div class="ps-stat">
-        <span class="ps-stat-bar"></span>
+      <div class="ps-stat ps-stat--gold">
         <span class="ps-stat-txt">
           <span class="ps-stat-lbl">SKU</span>
-          <span class="ps-stat-val" id="psStSkus">—</span>
+          <span class="ps-stat-val"><span id="psStSkus">—</span></span>
         </span>
       </div>
-      <div class="ps-stat">
-        <span class="ps-stat-bar"></span>
+      <div class="ps-stat ps-stat--green">
         <span class="ps-stat-txt">
           <span class="ps-stat-lbl">{{ 'Omborda' if is_uz else 'На складе' }}</span>
-          <span class="ps-stat-val" id="psStStock">—</span>
+          <span class="ps-stat-val"><span id="psStStock">—</span><span class="ps-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
         </span>
       </div>
     </div>
@@ -559,7 +580,7 @@
 
   function thumb(src){
     return src
-      ? `<div class="ps-thumb"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
+      ? `<div class="ps-thumb" data-zoom-src="${esc(src)}"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
       : `<div class="ps-thumb"><div class="ps-thumb-empty">—</div></div>`;
   }
 
@@ -1157,6 +1178,44 @@
   setMode('stock_in');
   load(_bootDraft);
   loadHistory();
+})();
+
+// Hover-zoom preview for product thumbnails. Delegated so it survives table
+// re-renders; position:fixed so it escapes the table's overflow clipping.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'ps-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+  var GAP = 14, SIZE = 260;   // SIZE must match .ps-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
 })();
 </script>
 {% endblock %}

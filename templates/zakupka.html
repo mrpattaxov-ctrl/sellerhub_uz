@@ -66,17 +66,31 @@
 .zk-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
 .zk-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
 
-/* Ko'rsatkichлар — «Ombor» (POS) bilan bir xил: JetBrains Mono raqамлар, tepаda
-   uppercase eyebrow yorlиq, chapда brend-ko'k yupqа chизиq. Ilova usluби. */
-.zk-stats { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap; }
-.zk-stat { display:flex; align-items:stretch; gap:14px; padding:11px 18px;
-  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:14px; }
-.zk-stat-bar { width:3px; flex:none; border-radius:3px; background:var(--zk-brand); }
-.zk-stat-txt { display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; }
-.zk-stat-lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
-  color:var(--zk-text-muted); white-space:nowrap; line-height:1; }
-.zk-stat-val { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:20px; font-weight:700;
-  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--zk-text); line-height:1; }
+/* Ko'rsatkichлар — Claude Design «Stat Card Variations» 1c (tinted blocks),
+   «Складские расходы» sahifаsi bilan bir xил. Uch rangли triada: ko'k (soni) ·
+   oltin (K zakazu) · yashил (summa). Manrope, raqамдан keyин birlиk. L+D. */
+.zk-stats { display:flex; align-items:stretch; gap:14px; flex-wrap:wrap; }
+.zk-stat { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:196px;
+  padding:15px 24px; border-radius:18px;
+  background:var(--zk-stat-bg); border:1px solid var(--zk-stat-bd); }
+.zk-stat-txt { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.zk-stat-lbl { font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:11px; font-weight:700; line-height:1; text-transform:uppercase; letter-spacing:1.4px;
+  color:var(--zk-stat-lbl); white-space:nowrap; }
+.zk-stat-val { display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap;
+  font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:36px; font-weight:800; line-height:1; letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums; color:var(--zk-stat-fg); }
+.zk-stat-unit { font-size:15px; font-weight:700; letter-spacing:.2px;
+  color:var(--zk-stat-fg); /* fallback */
+  color:color-mix(in srgb, var(--zk-stat-fg) 78%, #fff); }
+/* Uch rangли triada — och (light). Товары→ko'k · K zakazu→oltin · Summa→yashил. */
+.zk-stat--blue  { --zk-stat-bg:#EEF0FF; --zk-stat-bd:rgba(59,91,254,.12); --zk-stat-fg:#3B5BFE; --zk-stat-lbl:#191A1E; }
+.zk-stat--gold  { --zk-stat-bg:#FBF3DA; --zk-stat-bd:rgba(181,133,28,.18); --zk-stat-fg:#B5851C; --zk-stat-lbl:#191A1E; }
+.zk-stat--green { --zk-stat-bg:#E7F6EC; --zk-stat-bd:rgba(30,158,87,.20);  --zk-stat-fg:#1E9E57; --zk-stat-lbl:#191A1E; }
+[data-bs-theme="dark"] .zk-stat--blue  { --zk-stat-bg:rgba(59,91,254,.14); --zk-stat-bd:rgba(99,130,255,.22); --zk-stat-fg:#7C9BF0; --zk-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .zk-stat--gold  { --zk-stat-bg:rgba(212,160,55,.15); --zk-stat-bd:rgba(224,190,110,.24); --zk-stat-fg:#E3C15A; --zk-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .zk-stat--green { --zk-stat-bg:rgba(30,158,87,.16);  --zk-stat-bd:rgba(110,231,183,.24); --zk-stat-fg:#5FD09A; --zk-stat-lbl:#F0EDF5; }
 
 /* ── Filtrlar ── */
 .zk-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -177,6 +191,19 @@
   display:flex; align-items:center; justify-content:center; flex:none; border:1px solid var(--zk-border); }
 .zk-thumb img { width:100%; height:100%; object-fit:cover; }
 .zk-thumb-empty { color:var(--zk-text-muted); font-size:13px; }
+/* Summary-row image fills the row height and stays square (as tall as the line).
+   The variant thumb (inside the name cell) keeps its small fixed size. */
+.zk-grow > td.c-img { height:1px; padding-top:8px; padding-bottom:8px; }
+.zk-grow > td.c-img .zk-thumb { width:auto; height:100%; min-height:46px; aspect-ratio:1/1; margin:0 auto; }
+/* Hover-zoom image preview (position:fixed so it escapes table overflow) */
+.zk-thumb[data-zoom-src] { cursor:zoom-in; }
+.zk-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.zk-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.zk-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .zk-zoom-preview { display:none; } }
 
 .zk-lead { display:flex; align-items:center; gap:10px; min-width:0; }
 .zk-chev { flex:none; width:16px; height:16px; color:var(--zk-text-muted); transition:transform .16s ease; }
@@ -232,6 +259,11 @@
 .zk-msg-big { font-size:16px; font-weight:700; color:var(--zk-text); margin-bottom:6px; }
 .zk-err { display:flex; align-items:flex-start; gap:10px; margin-bottom:16px; padding:12px 15px; border-radius:12px;
   background:var(--zk-warn-bg); color:var(--zk-warn-fg); font-size:13px; font-weight:600; }
+.zk-err > div { flex:1 1 auto; }
+.zk-err-x { flex:none; margin-left:8px; margin-top:-1px; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; padding:0; border:none; border-radius:6px; background:transparent; color:inherit;
+  opacity:.5; cursor:pointer; transition:opacity .12s, background .12s; }
+.zk-err-x:hover { opacity:1; background:rgba(148,110,60,.16); }
 
 @media (max-width:900px) {
   .zk-h1 { font-size:23px; }
@@ -242,14 +274,12 @@
   .zk-chip { flex:none; }
   .zk-title-row { align-items:flex-start; }
   .zk-stats { width:100%; }
-  .zk-stat { flex:1 1 0; }
+  .zk-stat { flex:1 1 auto; }
 }
 @media (max-width:560px) {
-  .zk-stat { gap:0; padding:10px 6px; }
-  .zk-stat-bar { display:none; }
-  .zk-stat-txt { align-items:center; text-align:center; gap:4px; width:100%; }
-  .zk-stat-val { font-size:17px; }
-  .zk-stat-lbl { font-size:9px; letter-spacing:.05em; }
+  .zk-stats { flex-direction:column; }
+  .zk-stat { width:100%; padding:16px 20px; }
+  .zk-stat-val { font-size:30px; }
 }
 </style>
 {% endblock %}
@@ -260,25 +290,22 @@
     <h1 class="zk-h1">{{ 'Xarid rejasi' if is_uz else 'План закупки' }}</h1>
 
     <div class="zk-stats" id="zkStats" aria-live="polite">
-      <div class="zk-stat">
-        <span class="zk-stat-bar"></span>
+      <div class="zk-stat zk-stat--blue">
         <span class="zk-stat-txt">
           <span class="zk-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
-          <span class="zk-stat-val" id="zkStProducts">—</span>
+          <span class="zk-stat-val"><span id="zkStProducts">—</span><span class="zk-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
         </span>
       </div>
-      <div class="zk-stat">
-        <span class="zk-stat-bar"></span>
+      <div class="zk-stat zk-stat--gold">
         <span class="zk-stat-txt">
-          <span class="zk-stat-lbl">{{ 'Sotib olish, dona' if is_uz else 'К заказу, шт' }}</span>
-          <span class="zk-stat-val" id="zkStUnits">—</span>
+          <span class="zk-stat-lbl">{{ 'Sotib olish' if is_uz else 'К заказу' }}</span>
+          <span class="zk-stat-val"><span id="zkStUnits">—</span><span class="zk-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
         </span>
       </div>
-      <div class="zk-stat">
-        <span class="zk-stat-bar"></span>
+      <div class="zk-stat zk-stat--green">
         <span class="zk-stat-txt">
-          <span class="zk-stat-lbl">{{ 'Summa, so‘m' if is_uz else 'Сумма, сум' }}</span>
-          <span class="zk-stat-val" id="zkStCost">—</span>
+          <span class="zk-stat-lbl">{{ 'Summa' if is_uz else 'Сумма' }}</span>
+          <span class="zk-stat-val"><span id="zkStCost">—</span><span class="zk-stat-unit">{{ 'so‘m' if is_uz else 'сум' }}</span></span>
         </span>
       </div>
     </div>
@@ -416,7 +443,7 @@
 
   function thumb(src){
     return src
-      ? `<div class="zk-thumb"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
+      ? `<div class="zk-thumb" data-zoom-src="${esc(src)}"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
       : `<div class="zk-thumb"><div class="zk-thumb-empty">—</div></div>`;
   }
 
@@ -531,26 +558,36 @@
       : `${T.sold}<br>${UZ ? `${S.days} kun` : `за ${S.days} дн.`}`;
   }
 
+  // Sariq eslatmalarni yopib qo'yish — foydalanuvchi belgisiga ko'ra eslab qolamiz.
+  // Belgi ichida raqam bor: raqam o'zgarsa (yangi ma'lumot) — eslatma yana chiqadi.
+  function errDismissed(sig){
+    try { return localStorage.getItem('zkDismiss:' + sig) === '1'; } catch(_) { return false; }
+  }
+  const ERR_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>`;
+  const errX = () => `<button type="button" class="zk-err-x" aria-label="${UZ?'Yopish':'Закрыть'}" title="${UZ?'Yopish':'Закрыть'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+
   function renderErr(){
     const box = $('#zkErr');
     const errs = (S.data && S.data.errors) || [];
     const t = (S.data && S.data.totals) || {};
     const out = [];
     errs.forEach(e => out.push(`<div class="zk-err">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+      ${ERR_ICON}
       <div><b>${esc(e.shop)}</b> — ${T.err}. ${esc(e.error).slice(0, 140)}</div></div>`));
     // Narxi yo'q tovar bor bo'lsa — jami summa TO'LIQ EMAS. Buni aytmasak,
-    // raqam ishonchli ko'rinadi-yu, aslida kam bo'ladi.
-    if (t.no_price) out.push(`<div class="zk-err">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+    // raqam ishonchli ko'rinadi-yu, aslida kam bo'ladi. Yopiladigan eslatma.
+    const noPriceSig = 'noprice:' + t.no_price;
+    if (t.no_price && !errDismissed(noPriceSig)) out.push(`<div class="zk-err" data-sig="${esc(noPriceSig)}">
+      ${ERR_ICON}
       <div>${UZ
         ? `<b>${num(t.no_price)}</b> ta tovarda tannarx yo‘q — ular umumiy summaga kirmadi.`
-        : `У <b>${num(t.no_price)}</b> товаров нет себестоимости — они не вошли в общую сумму.`}</div></div>`);
-    if (t.neg_wh) out.push(`<div class="zk-err">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        : `У <b>${num(t.no_price)}</b> товаров нет себестоимости — они не вошли в общую сумму.`}</div>${errX()}</div>`);
+    const negWhSig = 'negwh:' + t.neg_wh;
+    if (t.neg_wh && !errDismissed(negWhSig)) out.push(`<div class="zk-err" data-sig="${esc(negWhSig)}">
+      ${ERR_ICON}
       <div>${UZ
         ? `<b>${num(t.neg_wh)}</b> ta SKU'да ombor qoldig‘i MANFIY — ombor hisobi sotuvdan orqada qolgan. Rejada ular 0 deb olindi, ya'ni xarid miqdori to‘g‘ri; lekin ombor raqamlarini tekshirish kerak.`
-        : `У <b>${num(t.neg_wh)}</b> SKU остаток на складе ОТРИЦАТЕЛЬНЫЙ — учёт склада разошёлся с продажами. В плане они приняты за 0, так что количество к заказу верное; но склад стоит перепроверить.`}</div></div>`);
+        : `У <b>${num(t.neg_wh)}</b> SKU остаток на складе ОТРИЦАТЕЛЬНЫЙ — учёт склада разошёлся с продажами. В плане они приняты за 0, так что количество к заказу верное; но склад стоит перепроверить.`}</div>${errX()}</div>`);
     box.innerHTML = out.join('');
   }
 
@@ -619,6 +656,14 @@
     renderBody();
   });
 
+  // Sariq eslatmani yopish — belgisini eslab qolamiz va DOM'dan olib tashlaymiz.
+  $('#zkErr').addEventListener('click', e => {
+    const btn = e.target.closest('.zk-err-x'); if (!btn) return;
+    const card = btn.closest('.zk-err[data-sig]'); if (!card) return;
+    try { localStorage.setItem('zkDismiss:' + card.dataset.sig, '1'); } catch(_) {}
+    card.remove();
+  });
+
   const picker = $('#zkShopPicker');
   if (picker) {
     $('#zkShopBtn').addEventListener('click', () => picker.classList.toggle('is-open'));
@@ -634,6 +679,44 @@
 
   wireCal();
   load();
+})();
+
+// Hover-zoom preview for product thumbnails. Delegated so it survives table
+// re-renders; position:fixed so it escapes the table's overflow clipping.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'zk-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+  var GAP = 14, SIZE = 260;   // SIZE must match .zk-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
 })();
 </script>
 {% endblock %}

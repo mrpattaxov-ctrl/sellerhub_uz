@@ -30,7 +30,7 @@ from core.auth_helpers import (
     _json_response,
     _user_shop_ids,
 )
-from core.redis_client import revoke_user, unrevoke_user, mark_user_for_recheck
+from core.redis_client import redis_client, revoke_user, unrevoke_user, mark_user_for_recheck
 from core.subscriptions import (
     _admin_clear_user_subscription,
     _admin_set_user_subscription,
@@ -199,6 +199,82 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
 
     threading.Thread(target=_orchestrate, daemon=True,
                      name=f"backfill-orchestrate-{uzum_id}").start()
+
+
+# Manual "Синхронизация" button on the /fetch page. It must pull ALL data exactly
+# like a freshly added shop, and be un-spammable — one full run per shop per window.
+_RESYNC_COOLDOWN_SEC = 600  # 10 minutes per shop
+
+
+def _resync_cooldown_key(uzum_id: str) -> str:
+    return f"resync:cooldown:{uzum_id}"
+
+
+@admin_bp.post("/api/shops/<uzum_id>/resync")
+@login_required
+def resync_shop(uzum_id: str):
+    """Manual full re-sync for one shop — identical background backfill to add-shop.
+
+    Fires the SAME orchestrator used when a shop is first attached
+    (``_fire_finance_seed``): full sales backfill + full expenses backfill +
+    products sync (+ per-SKU images) + FBS order seed + post-backfill summary.
+    Returns immediately; the work runs in background daemon threads.
+
+    Rate-limited to once per ``_RESYNC_COOLDOWN_SEC`` per shop via a Redis NX
+    key so a user can't spam it. On cooldown, returns 429 with ``retry_after``
+    (seconds remaining). Fails open if Redis is unavailable — a cache outage
+    should not block a legitimate sync.
+    """
+    uzum_id = str(uzum_id or "").strip()
+    if not uzum_id:
+        return _json_response({"error": "uzum_id required"}, 400)
+
+    uid = int(current_user.get_id())
+    is_admin = _current_user_is_admin()
+
+    # Ownership check + resolve the DB primary key the orchestrator needs.
+    with SessionLocal() as db:
+        shop = db.execute(
+            select(Shop).where(Shop.uzum_id == uzum_id)
+        ).scalar_one_or_none()
+        if shop is None:
+            return _json_response({"error": "Shop not found"}, 404)
+        if not is_admin and shop.owner_id != uid:
+            return _json_response({"error": "Access denied to this shop"}, 403)
+        shop_pk = int(shop.id)
+
+    # Atomic per-shop rate limit: SET NX with a TTL. If the key already exists,
+    # someone synced this shop within the window — reject with time remaining.
+    key = _resync_cooldown_key(uzum_id)
+    try:
+        acquired = redis_client.set(
+            key, str(int(_time.time())), nx=True, ex=_RESYNC_COOLDOWN_SEC
+        )
+    except Exception as e:
+        print(f"[Resync] cooldown check failed (allowing) for {uzum_id}: {e}")
+        acquired = True  # fail open
+
+    if not acquired:
+        try:
+            ttl = int(redis_client.ttl(key))
+        except Exception:
+            ttl = _RESYNC_COOLDOWN_SEC
+        if ttl < 0:
+            ttl = _RESYNC_COOLDOWN_SEC
+        return _json_response({
+            "error": "cooldown",
+            "retry_after": ttl,
+            "cooldown_sec": _RESYNC_COOLDOWN_SEC,
+        }, 429)
+
+    _fire_finance_seed(uzum_id, shop_pk)
+    return _json_response({
+        "ok": True,
+        "started": True,
+        "shop_id": uzum_id,
+        "cooldown_sec": _RESYNC_COOLDOWN_SEC,
+    })
+
 
 #shop limit error response for the user if the user has reached the limit of shops that can be added to their account. This is used in the add_shop and assign_shop endpoints to prevent users from exceeding their shop limit.
 

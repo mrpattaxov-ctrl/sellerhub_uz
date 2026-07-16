@@ -138,6 +138,9 @@
   padding:14px 11px; font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
   color:var(--zk-text); border-bottom:1px solid var(--zk-border-strong); white-space:nowrap;
   box-shadow:0 1px 0 var(--zk-border-strong); }   /* border-collapse:separate — chegara sticky'да yo'qolmasin */
+/* Legenda olib tashlangач, kartaning tepа burchakларини sarlavha qatори hosil qilади */
+.zk-table thead tr:first-child th:first-child { border-top-left-radius:16px; }
+.zk-table thead tr:first-child th:last-child  { border-top-right-radius:16px; }
 .zk-table th.zk-num, .zk-table td.zk-num { text-align:right; }
 .zk-table td { padding:12px 11px; border-bottom:1px solid var(--zk-border); vertical-align:middle; }
 .zk-table tbody tr:last-child td { border-bottom:0; }
@@ -206,20 +209,21 @@
 @media (hover:none){ .zk-zoom-preview { display:none; } }
 
 .zk-lead { display:flex; align-items:center; gap:10px; min-width:0; }
-.zk-chev { flex:none; width:16px; height:16px; color:var(--zk-text-muted); transition:transform .16s ease; }
+.zk-chev { flex:none; width:16px; height:16px; margin-left:16px; color:var(--zk-text-muted); transition:transform .16s ease; }
 .zk-grow.is-open .zk-chev { transform:rotate(90deg); }
 .zk-info { min-width:0; flex:1 1 auto; }   /* flex bolasi — nomga joy qolishi uchun shart */
-.zk-name { font-size:14px; font-weight:600; color:var(--zk-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.zk-tags { display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap; }
-.zk-pill { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; white-space:nowrap;
-  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--zk-mono-pill-bg); color:var(--zk-mono-pill-text); }
-.zk-shop { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; letter-spacing:.03em;
-  background:var(--zk-store-default-bg); color:var(--zk-store-default-fg); }
-.zk-shop.is-luxuz { background:var(--zk-luxuz-bg); color:var(--zk-luxuz-fg); }
-.zk-shop.is-blummy { background:var(--zk-blummy-bg); color:var(--zk-blummy-fg); }
-.zk-vcount { font-size:11px; font-weight:600; color:var(--zk-text-muted); }
-.zk-mismatch { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; cursor:help;
-  background:var(--zk-warn-bg); color:var(--zk-warn-fg); white-space:nowrap; }
+.zk-name { font-size:14px; font-weight:500; color:var(--zk-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Minimalistik meta-satr: qutilar/nuqtalar YO'Q — ierarxiyani faqat rang va vazn
+   ushlaydi. Do'kon nomi — yagona rangli aksent; SKU va SKU-soni sokin kulrang
+   matn; nomuvofiqlik — yumshoq amber matn. Hammasi bitta yengil satrда. */
+.zk-tags { display:flex; align-items:center; gap:12px; margin-top:4px; flex-wrap:wrap; }
+.zk-shop { font-size:11px; font-weight:600; letter-spacing:.04em; color:var(--zk-store-default-fg); }
+.zk-shop.is-luxuz { color:var(--zk-luxuz-fg); }
+.zk-shop.is-blummy { color:var(--zk-blummy-fg); }
+.zk-pill { font-size:11px; font-weight:400; white-space:nowrap; letter-spacing:.01em;
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--zk-text-muted); }
+.zk-vcount { font-size:11px; font-weight:400; color:var(--zk-text-muted); }
+.zk-mismatch { font-size:11px; font-weight:500; cursor:help; color:var(--zk-warn-fg); white-space:nowrap; }
 
 .zk-n { font-size:14px; font-weight:400; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .zk-n-soft { color:var(--zk-text-muted); font-weight:400; }
@@ -249,11 +253,25 @@
 .zk-cov-lab b { color:var(--zk-cov-gap); font-weight:400; }
 .zk-cov-lab.is-full b { color:var(--zk-ok-fg); }
 
-/* Izoh — o'lchagich nimani anglatishini BIR MARTA aytadi */
-.zk-legend { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:11px 16px; border-radius:16px 16px 0 0;
-  border-bottom:1px solid var(--zk-border); background:var(--zk-head-bg); font-size:12px; color:var(--zk-text-muted); font-weight:600; }
-.zk-legend span { display:flex; align-items:center; gap:6px; }
-.zk-legend i { width:10px; height:10px; border-radius:3px; display:block; }
+/* Qoplama nuqtалари — legendани har bir mahsulot yonига ko'chиrдик. Faqat
+   MAVJUD qoldiq manbаси ko'rsатилади (Uzum / bizning ombor), qizil TESHIK emas.
+   Rang tili qoplама chizиg'и bilan bir xил; tooltip nomни tutиб turади. */
+.zk-dots { display:inline-flex; align-items:center; gap:5px; flex:none; }
+.zk-dot { display:inline-block; width:7px; height:7px; border-radius:50%; flex:none; box-shadow:inset 0 0 0 1px rgba(0,0,0,.10); }
+.zk-dot--u { background:var(--zk-cov-uzum); }
+.zk-dot--w { background:var(--zk-cov-wh); }
+.zk-dot--g { background:var(--zk-cov-gap); }
+[data-bs-theme="dark"] .zk-dot { box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+
+/* Ranglar kaliti — «Товар» sarlavhаси yonида. Nuqtалар satrлардагі bilan bir xил;
+   bu yerда UCHALаси (qizil TESHIK ham) — foydаланувчи rang tilини shu yerдан o'qiydi. */
+/* «Товар» sarlavhasini chapga suramiz — RASMNING chap chetiga tekislanadi
+   (rasm katakда bir oz ich-padding'ли), ustun kengligi o'zgarmaydi. */
+.zk-hlabel { margin-left:-56px; }
+.zk-hkey { display:inline-flex; align-items:center; gap:15px; margin-left:34px; vertical-align:middle;
+  text-transform:none; letter-spacing:0; font-weight:600; font-size:11px; color:var(--zk-text-muted); }
+.zk-hkey > span { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+@media (max-width:1080px) { .zk-hkey { display:none; } }
 
 .zk-msg { padding:64px 24px; text-align:center; color:var(--zk-text-muted); font-size:14px; font-weight:600; }
 .zk-msg-big { font-size:16px; font-weight:700; color:var(--zk-text); margin-bottom:6px; }
@@ -343,18 +361,16 @@
   <div id="zkErr"></div>
 
   <div class="zk-card">
-    <div class="zk-legend">
-      <span>{{ 'Qoplama' if is_uz else 'Покрытие' }}:</span>
-      <span><i style="background:var(--zk-cov-uzum)"></i>{{ 'Uzum omborida' if is_uz else 'На Uzum' }}</span>
-      <span><i style="background:var(--zk-cov-wh)"></i>{{ 'Bizning omborda' if is_uz else 'На нашем складе' }}</span>
-      <span><i style="background:var(--zk-cov-gap)"></i>{{ 'Yetishmaydi — sotib olamiz' if is_uz else 'Не хватает — закупаем' }}</span>
-    </div>
     <div class="zk-tablewrap">
       <table class="zk-table">
         <thead>
           <tr>
             <th class="c-img"></th>
-            <th class="c-name">{{ 'Mahsulot' if is_uz else 'Товар' }}</th>
+            <th class="c-name"><span class="zk-hlabel">{{ 'Mahsulot' if is_uz else 'Товар' }}</span><span class="zk-hkey">
+              <span><i class="zk-dot zk-dot--u"></i>{{ 'Uzum omborida' if is_uz else 'На Uzum' }}</span>
+              <span><i class="zk-dot zk-dot--w"></i>{{ 'Bizning omborda' if is_uz else 'На нашем складе' }}</span>
+              <span><i class="zk-dot zk-dot--g"></i>{{ 'Yetishmaydi' if is_uz else 'Не хватает' }}</span>
+            </span></th>
             <th class="c-cov">{{ 'Qoplama' if is_uz else 'Покрытие' }}</th>
             <th class="zk-num c-sold" id="zkSoldHead">{{ 'Sotildi' if is_uz else 'Продано' }}</th>
             <th class="zk-num c-uzum">{{ 'Uzum‘da' if is_uz else 'На Uzum' }}</th>
@@ -388,6 +404,7 @@
     negHint:'Ombor qoldig‘i manfiy — hisob adashgan. Hisobda 0 deb olindi.',
     mism:'qoldiq boshqa SKU‘da',
     mismHint:'Qoldiq bor, lekin KERAKLI o‘lcham/rangda emas. Shuning uchun «sotib olish» guruh yig‘indisidan katta: har bir SKU alohida hisoblanadi.',
+    covUzum:'Uzum omborida', covWh:'Bizning omborda',
   } : {
     sold:'Продано', nothing:'Всё покрыто', nothingSub:'За этот период заказывать нечего.',
     empty:'Нет данных', notFound:'Ничего не найдено', loading:'Загрузка…',
@@ -397,6 +414,7 @@
     negHint:'Остаток на складе отрицательный — учёт разошёлся. В расчёте принят за 0.',
     mism:'остаток не в тех SKU',
     mismHint:'Остаток есть, но не в нужном размере/цвете. Поэтому «к заказу» больше, чем даёт вычитание по строке: дефицит считается по каждому SKU отдельно.',
+    covUzum:'На Uzum', covWh:'На нашем складе',
   };
   const DAYS = [7, 10, 15, 30, 60];
   const S = { shop:'all', days:30, from:null, to:null, custom:false, search:'', data:null, open:{}, busy:false, gen:0 };
@@ -428,6 +446,15 @@
       </div>
       <div class="zk-cov-lab${c.gap > 0 ? '' : ' is-full'}">${lab}</div>
     </div>`;
+  }
+
+  // Qoplama nuqtалари — mahsulot nomи yonида. Faqat MAVJUD manba: qora = Uzum'да,
+  // ko'k = bizning omborда. Qizil teshик BU YERДА yo'q (u «К заказу» ustunида).
+  function covDots(o){
+    const c = o.cov || {};
+    const u = (c.uzum | 0) > 0, w = (c.wh | 0) > 0;
+    if (!u && !w) return '';
+    return `<span class="zk-dots">${u ? `<span class="zk-dot zk-dot--u" title="${T.covUzum}"></span>` : ''}${w ? `<span class="zk-dot zk-dot--w" title="${T.covWh}"></span>` : ''}</span>`;
   }
 
   // Ombor ustuni. Manfiy qoldiq — buzilgan hisob: hisobда 0 deb olinadi, lekin

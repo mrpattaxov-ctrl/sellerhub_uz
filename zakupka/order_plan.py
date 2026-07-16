@@ -22,28 +22,121 @@ yarim-avtomat/avto накладнойlar bilan HAR DOIM bir xil raqamni ko'rsata
 """
 from __future__ import annotations
 
-from postavki import client, restock_plan
+from sqlalchemy import select
 
-# Uzum sku-list'i o'lcham guruhlari bo'yicha filtrlanadi. Накладной uchun
-# yirik gabarit boshqasi bilan aralashmaydi (SMALL,MEDIUM), lekin XARID uchun
-# bunday cheklov yo'q — do'kon sotayotgan HAMMA narsani sotib olamiz.
-_FALLBACK_GROUPS = "SMALL,MEDIUM"
+from core.uzum_skulist import normalize_uzum_image_url
+from extensions import SessionLocal
+from models import ProductGroup, Shop, Variant
+from postavki import restock_plan
 
 
-def shop_groups(shop_uzum_id: str) -> str:
-    """Do'konda MAVJUD bo'lgan barcha o'lcham guruhlari, "SMALL,MEDIUM" ko'rinishida.
+def _build_plan_from_db(
+    shop_uzum_id: str,
+    days: int = 30,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Xarid rejasi uchun SKU-ro'yxati — Uzum'ga EMAS, o'z bazamizga so'rov.
 
-    Enum'ni qo'lда yozib qo'ymaymiz — Uzum'ning o'zidan so'raymiz, aks holda
-    do'konda yirik gabaritli tovar paydo bo'lsa u xarid rejasidan JIMGINA
-    tushib qolardi.
+    `restock_plan.build_plan` bilan AYNAN bir xil shakldagi dict qaytaradi
+    ({days, date_from, date_to, custom, groups:[{key,name,image,short_sku,
+    variants:[...]}]}), lekin har bir qator jonli Uzum `sku-list`'idan emas,
+    `variants` jadvalidan quriladi. Uzum'dan olinadigan ikki qiymat allaqachon
+    bazamizда bor va ProductsSync fon-jarayoni ularni har necha daqiqada
+    yangilab turadi:
+
+        quantityActive → Variant.uzum_quantity   («На Uzum» qoldig'i)
+        purchasePrice  → Variant.purchase_price
+        image          → Variant.image_url
+
+    Xarid rejasi «nima sotib olish» tavsiyasi bo'lgani uchun bir necha daqiqa
+    eskirgan qoldiq mutlaqo yetarli — evaziga sahifa Uzum'ga BITTA ham so'rov
+    yubormaydi (ilgari har bosishда do'kon boshiga 2 ta jonli so'rov ketardi).
+
+    Eslatma: bu yerда o'lcham guruhi bo'yicha FILTR yo'q — do'kon sotayotgan
+    HAMMA narsani ko'rsatamiz (xarid uchun cheklov kerak emas). Sotilmagan
+    SKU'lar defitsit=0 bo'lib tabiiy ravishda ro'yxatdan tushib qoladi.
     """
-    try:
-        rows = client.dimensional_groups(str(shop_uzum_id)) or []
-        vals = [str(r.get("group") or "").strip() for r in rows]
-        vals = [v for v in vals if v]
-        return ",".join(vals) if vals else _FALLBACK_GROUPS
-    except Exception:
-        return _FALLBACK_GROUPS
+    win = restock_plan.resolve_window(days, date_from, date_to)
+
+    groups_by_key: dict[str, dict] = {}
+    with SessionLocal() as db:
+        shop = db.execute(
+            select(Shop).where(Shop.uzum_id == str(shop_uzum_id))
+        ).scalar_one_or_none()
+
+        rows = []
+        if shop:
+            rows = db.execute(
+                select(Variant, ProductGroup)
+                .join(ProductGroup, Variant.group_id == ProductGroup.id)
+                .where(ProductGroup.shop_id == shop.id)
+            ).all()
+
+        # Sotuv oynasi — o'z finance bazamizdan (Uzum'ga bog'liq emas).
+        sales = restock_plan._sales_map(
+            db, str(shop_uzum_id), win["start_ts"], win["end_ts"]
+        )
+
+    for v, g in rows:
+        # `skuId` bo'lmagan variant Uzum'да sotila olmaydi — xarid rejasiga
+        # kirmaydi (jonli sku-list'да ham faqat skuId'li qatorlar bor edi).
+        if not v.uzum_sku_id:
+            continue
+        sku_id_s = str(v.uzum_sku_id)
+        barcode = str(v.barcode or "")
+        uzum_qty = int(v.uzum_quantity or 0)
+        wh_qty = int(v.warehouse_quantity or 0)
+        sold = restock_plan._lookup_sales(sales, sku_id_s, v.sku, barcode)
+        price = int(v.purchase_price or 0)
+        image = normalize_uzum_image_url(v.image_url or "")
+
+        key = f"g:{g.id}"
+        grp = groups_by_key.get(key)
+        if grp is None:
+            grp = groups_by_key[key] = {
+                "key": key,
+                "name": g.name or "",
+                "image": normalize_uzum_image_url(g.image_url or "") or image,
+                "short_sku": "",
+                "variants": [],
+            }
+        try:
+            sku_id_val: int | str = int(sku_id_s)
+        except (TypeError, ValueError):
+            sku_id_val = sku_id_s
+        grp["variants"].append({
+            "skuId": sku_id_val,
+            "sku": v.sku or sku_id_s,
+            "color": v.color or "",
+            "barcode": barcode,
+            "image": image,
+            "price": price,
+            "sales": sold,
+            "uzum_qty": uzum_qty,
+            "wh_qty": wh_qty,
+        })
+
+    def _rank(x: dict) -> tuple:
+        # `build_plan` bilan bir xil tartib: eng shoshilinch (recommend) tepada.
+        need = max(int(x["sales"]) - int(x["uzum_qty"]), 0)
+        rec = min(need, max(int(x["wh_qty"]), 0))
+        return (-rec, -need, str(x["sku"]))
+
+    out = []
+    for grp in groups_by_key.values():
+        grp["variants"].sort(key=_rank)
+        first = str(grp["variants"][0]["sku"] or "") if grp["variants"] else ""
+        grp["short_sku"] = "-".join(first.split("-")[:2]) if "-" in first else first
+        out.append(grp)
+
+    return {
+        "days": win["days"],
+        "date_from": win["date_from"],
+        "date_to": win["date_to"],
+        "custom": win["custom"],
+        "groups": out,
+    }
 
 
 def to_order_qty(v: dict) -> int:
@@ -117,11 +210,15 @@ def build_order_plan(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> dict:
-    """Bitta do'kon uchun xarid rejasi."""
-    plan = restock_plan.build_plan(
+    """Bitta do'kon uchun xarid rejasi.
+
+    SKU qatorlari o'z bazamizdan olinadi (`_build_plan_from_db`) — sahifa
+    Uzum'ga hech qanday so'rov yubormaydi. Hisob-kitob (need/recommend/coverage)
+    o'zgarmagan: xuddi ilgarigidek xom raqamlardан qayta hisoblanadi.
+    """
+    plan = _build_plan_from_db(
         str(shop_uzum_id),
         days=days,
-        groups=shop_groups(shop_uzum_id),
         date_from=date_from,
         date_to=date_to,
     )

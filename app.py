@@ -460,7 +460,12 @@ from translations import get_translations
 
 @app.context_processor
 def _inject_lang():
-    lang = session.get("lang", "uz")
+    # Priority: explicit per-session override (topbar/settings) → the user's
+    # saved preference (users.language, also drives Telegram reports) → default.
+    lang = session.get("lang")
+    if not lang and current_user.is_authenticated:
+        lang = getattr(current_user, "language", None)
+    lang = lang if lang in ("ru", "uz") else "uz"
     return {"lang": lang, "t": get_translations(lang)}
 
 
@@ -897,11 +902,13 @@ def _start_tg_bot():
             user = _get_db_user(tg_id)
             if user:
                 # Already linked — show main menu
+                _lang = _lang_of(user)
                 bot.send_message(
                     msg.chat.id,
-                    f"👋 С возвращением, *{user.username}*!\nВыберите действие:",
+                    (f"👋 Xush kelibsiz, *{user.username}*!\nAmalni tanlang:" if _lang == "uz"
+                     else f"👋 С возвращением, *{user.username}*!\nВыберите действие:"),
                     parse_mode="Markdown",
-                    reply_markup=_main_menu(user.is_admin),
+                    reply_markup=_main_menu(user.is_admin, _lang),
                 )
             else:
                 # Not linked yet — ask to share phone
@@ -935,6 +942,7 @@ def _start_tg_bot():
                     db.commit()
                     user_id = user.id
                     is_admin = user.is_admin
+                    user_lang = user.language
                 else:
                     # Auto-create account for new user through telegram bot
                     from werkzeug.security import generate_password_hash as _gph
@@ -959,6 +967,7 @@ def _start_tg_bot():
                     db.refresh(user)
                     user_id = user.id
                     is_admin = False
+                    user_lang = user.language  # None → will be asked below
 
                 # Find and confirm any pending contact_link token for this phone
                 pending = db.execute(
@@ -974,38 +983,137 @@ def _start_tg_bot():
                     pending.tg_id = tg_id
                     db.commit()
 
-            bot.send_message(
-                msg.chat.id,
-                "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы.",
-                parse_mode="Markdown",
-                reply_markup=_main_menu(is_admin),
-            )
+            if user_lang:
+                # Language already chosen before — go straight to the menu.
+                bot.send_message(
+                    msg.chat.id,
+                    ("✅ *Kirish tasdiqlandi!* Kirish sahifasiga qayting — avtomatik ravishda tizimga kirasiz."
+                     if user_lang == "uz"
+                     else "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы."),
+                    parse_mode="Markdown",
+                    reply_markup=_main_menu(is_admin, user_lang),
+                )
+            else:
+                # Ask the user to pick a language (persisted in handle_lang_choice).
+                bot.send_message(
+                    msg.chat.id,
+                    "✅ *Номер привязан!*\n\n🌐 Выберите язык / Tilni tanlang:",
+                    parse_mode="Markdown",
+                    reply_markup=_lang_menu(),
+                )
 
         # ---- helpers used by shop commands ----
-        def _main_menu(is_admin=False):
-            """Persistent bottom keyboard."""
+        # Menu button labels per language. Handlers match against the value
+        # sets (_btn_all) so a tap works no matter which language rendered it.
+        _BTN = {
+            "shops":      {"ru": "🏪 Мои магазины",    "uz": "🏪 Do'konlarim"},
+            "addshop":    {"ru": "➕ Добавить магазин", "uz": "➕ Do'kon qo'shish"},
+            "settings":   {"ru": "⚙️ Настройки",       "uz": "⚙️ Sozlamalar"},
+            "help":       {"ru": "❓ Помощь",           "uz": "❓ Yordam"},
+            "changelang": {"ru": "🌐 Изменить язык",   "uz": "🌐 Tilni o'zgartirish"},
+            "back":       {"ru": "⬅️ Назад",           "uz": "⬅️ Orqaga"},
+        }
+
+        def _btn_all(key):
+            return set(_BTN[key].values())
+
+        def _main_menu(is_admin=False, lang="ru"):
+            """Persistent bottom keyboard, localised to the user's language."""
+            lang = lang if lang in ("ru", "uz") else "ru"
             markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-            markup.row(telebot.types.KeyboardButton("🏪 Мои магазины"))
-            markup.row(telebot.types.KeyboardButton("➕ Добавить магазин"))
-            markup.row(telebot.types.KeyboardButton("❓ Помощь"))
+            markup.row(telebot.types.KeyboardButton(_BTN["shops"][lang]))
+            markup.row(telebot.types.KeyboardButton(_BTN["addshop"][lang]))
+            markup.row(
+                telebot.types.KeyboardButton(_BTN["settings"][lang]),
+                telebot.types.KeyboardButton(_BTN["help"][lang]),
+            )
             return markup
+
+        def _settings_menu(lang):
+            """Bottom (reply) keyboard opened by the ⚙️ Settings button. One row
+            per setting — add more _BTN entries + handlers here to extend it."""
+            m = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+            m.row(telebot.types.KeyboardButton(_BTN["changelang"][lang]))
+            m.row(telebot.types.KeyboardButton(_BTN["back"][lang]))
+            return m
+
+        # Language picker shown after contact-share. Flag first, then name.
+        # Keys are the exact button labels Telegram echoes back on tap.
+        _LANG_LABELS = {"🇷🇺 Русский": "ru", "🇺🇿 Oʻzbekcha": "uz"}
+
+        def _lang_menu():
+            """Bottom keyboard to pick the bot language."""
+            markup = telebot.types.ReplyKeyboardMarkup(
+                one_time_keyboard=True, resize_keyboard=True
+            )
+            for label in _LANG_LABELS:
+                markup.row(telebot.types.KeyboardButton(label))
+            return markup
+
+        @bot.message_handler(func=lambda m: (m.text or "") in _LANG_LABELS)
+        def handle_lang_choice(msg):
+            tg_id = str(msg.from_user.id)
+            lang = _LANG_LABELS[msg.text]
+            is_admin = False
+            already_had_lang = False
+            with SessionLocal() as db:
+                user = db.execute(
+                    select(User).where(User.telegram_id == tg_id)
+                ).scalar_one_or_none()
+                if user:
+                    already_had_lang = bool(user.language)  # set before → a settings change
+                    user.language = lang
+                    db.commit()
+                    is_admin = user.is_admin
+            if already_had_lang:
+                # Reached via ⚙️ Settings → change language (not registration).
+                text = "✅ Til o'zgartirildi." if lang == "uz" else "✅ Язык изменён."
+            else:
+                # First-time pick right after contact-share (registration).
+                text = ("✅ *Kirish tasdiqlandi!* Kirish sahifasiga qayting — avtomatik ravishda tizimga kirasiz."
+                        if lang == "uz"
+                        else "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы.")
+            bot.send_message(
+                msg.chat.id, text, parse_mode="Markdown",
+                reply_markup=_main_menu(is_admin, lang),
+            )
 
         def _get_db_user(tg_id: str):
             with SessionLocal() as db:
                 return db.execute(select(User).where(User.telegram_id == tg_id)).scalar_one_or_none()
+
+        def _lang_of(user) -> str:
+            """User's bot language; NULL/unknown → the notification default (uz)."""
+            lang = (getattr(user, "language", None) if user else None) or _NOTIF_DEFAULT_LANG
+            return lang if lang in ("ru", "uz") else "uz"
+
+        def _user_lang(tg_id) -> str:
+            return _lang_of(_get_db_user(str(tg_id)))
 
         # ---- /help ----
         @bot.message_handler(commands=["help"])
         def handle_help(msg):
             tg_id = str(msg.from_user.id)
             user = _get_db_user(tg_id)
-            bot.send_message(msg.chat.id,
-                "📋 *Доступные команды:*\n\n"
-                "🏪 *Мои магазины* — просмотр ваших магазинов\n"
-                "➕ *Добавить магазин* — добавить магазин _(только админ)_\n"
-                "/start — привязать номер телефона\n",
-                parse_mode="Markdown",
-                reply_markup=_main_menu(user.is_admin if user else False))
+            lang = _lang_of(user)
+            if lang == "uz":
+                text = (
+                    "📋 *Mavjud buyruqlar:*\n\n"
+                    "🏪 *Do'konlarim* — do'konlaringizni ko'rish\n"
+                    "➕ *Do'kon qo'shish* — do'kon qo'shish _(faqat admin)_\n"
+                    "⚙️ *Sozlamalar* — til va boshqa sozlamalar\n"
+                    "/start — telefon raqamini bog'lash\n"
+                )
+            else:
+                text = (
+                    "📋 *Доступные команды:*\n\n"
+                    "🏪 *Мои магазины* — просмотр ваших магазинов\n"
+                    "➕ *Добавить магазин* — добавить магазин _(только админ)_\n"
+                    "⚙️ *Настройки* — язык и другие настройки\n"
+                    "/start — привязать номер телефона\n"
+                )
+            bot.send_message(msg.chat.id, text, parse_mode="Markdown",
+                reply_markup=_main_menu(user.is_admin if user else False, lang))
 
         # ---- /testsales — manually fire the hourly check for the requesting user only ----
         @bot.message_handler(commands=["testsales"])
@@ -1029,13 +1137,46 @@ def _start_tg_bot():
             _thr.Thread(target=_run, daemon=True).start()
 
         # ---- menu button text handlers ----
-        @bot.message_handler(func=lambda m: m.text == "🏪 Мои магазины")
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("shops"))
         def btn_my_shops(msg):
             msg.text = "/shops"
             handle_shops(msg)
 
+        # ---- ⚙️ Settings — all bottom (reply) keyboards, no inline panels ----
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("settings"))
+        def btn_settings(msg):
+            lang = _user_lang(msg.from_user.id)
+            bot.send_message(
+                msg.chat.id,
+                "⚙️ Sozlamalar" if lang == "uz" else "⚙️ Настройки",
+                reply_markup=_settings_menu(lang),
+            )
+
+        # "🌐 Change language" → show the two-language bottom picker (_lang_menu).
+        # The pick itself is saved by handle_lang_choice above.
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("changelang"))
+        def btn_change_lang(msg):
+            lang = _user_lang(msg.from_user.id)
+            bot.send_message(
+                msg.chat.id,
+                "🌐 Tilni tanlang:" if lang == "uz" else "🌐 Выберите язык:",
+                reply_markup=_lang_menu(),
+            )
+
+        # "⬅️ Back" → return to the main menu.
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("back"))
+        def btn_back(msg):
+            user = _get_db_user(str(msg.from_user.id))
+            lang = _lang_of(user)
+            bot.send_message(
+                msg.chat.id,
+                "🏠 Asosiy menyu" if lang == "uz" else "🏠 Главное меню",
+                reply_markup=_main_menu(user.is_admin if user else False, lang),
+            )
+
         # ---- multi-step add shop flow ----
         def _addshop_ask_name(msg, user_id, is_admin, uzum_id):
+            lang = _user_lang(msg.from_user.id)
             name = (msg.text or "").strip()
             if name in ("—", "-", ""):
                 name = ""
@@ -1045,12 +1186,12 @@ def _start_tg_bot():
                     if existing.owner_id and existing.owner_id != user_id:
                         bot.send_message(msg.chat.id,
                             f"❌ Магазин `{uzum_id}` уже привязан к другому аккаунту.",
-                            parse_mode="Markdown", reply_markup=_main_menu(is_admin))
+                            parse_mode="Markdown", reply_markup=_main_menu(is_admin, lang))
                         return
                     if existing.owner_id == user_id:
                         bot.send_message(msg.chat.id,
                             f"ℹ️ Магазин *{existing.name or uzum_id}* уже добавлен.",
-                            parse_mode="Markdown", reply_markup=_main_menu(is_admin))
+                            parse_mode="Markdown", reply_markup=_main_menu(is_admin, lang))
                         return
                     # Unassigned shop — claim it
                     existing.owner_id = user_id
@@ -1059,7 +1200,7 @@ def _start_tg_bot():
                     db.commit()
                     bot.send_message(msg.chat.id,
                         f"✅ Магазин *{existing.name or uzum_id}* привязан к вашему аккаунту!",
-                        parse_mode="Markdown", reply_markup=_main_menu(is_admin))
+                        parse_mode="Markdown", reply_markup=_main_menu(is_admin, lang))
                 else:
                     owner = None if is_admin else user_id
                     shop = Shop(uzum_id=uzum_id, name=name or None, owner_id=owner)
@@ -1071,7 +1212,7 @@ def _start_tg_bot():
                     bot.send_message(msg.chat.id,
                         f"✅ Магазин *{name or uzum_id}* {assigned}!\n\n"
                         f"💰 Запускаю загрузку продаж и истории финансов (с 2022 г.)...",
-                        parse_mode="Markdown", reply_markup=_main_menu(is_admin))
+                        parse_mode="Markdown", reply_markup=_main_menu(is_admin, lang))
                     def _seed_finance(uzum_id=uzum_id, shop_pk=new_shop_pk, chat_id=msg.chat.id, shop_name=name or uzum_id):
                         try:
                             res = _sync_finance_for_shop(uzum_id, shop_pk)
@@ -1099,7 +1240,7 @@ def _start_tg_bot():
             bot.register_next_step_handler(msg, _addshop_ask_name,
                 user_id=user_id, is_admin=is_admin, uzum_id=uzum_id)
 
-        @bot.message_handler(func=lambda m: m.text == "➕ Добавить магазин")
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("addshop"))
         def btn_add_shop(msg):
             tg_id = str(msg.from_user.id)
             user = _get_db_user(tg_id)
@@ -1113,7 +1254,7 @@ def _start_tg_bot():
             bot.register_next_step_handler(msg, _addshop_ask_id,
                 user_id=user.id, is_admin=user.is_admin)
 
-        @bot.message_handler(func=lambda m: m.text == "❓ Помощь")
+        @bot.message_handler(func=lambda m: (m.text or "") in _btn_all("help"))
         def btn_help(msg):
             handle_help(msg)
 
@@ -1148,9 +1289,14 @@ def _start_tg_bot():
                     markup.add(telebot.types.InlineKeyboardButton(label, callback_data=f"shop_menu:{s.id}"))
 
                 # Send persistent menu first, then inline shop list
-                bot.send_message(msg.chat.id, "🏪 *Ваши магазины:*", parse_mode="Markdown",
-                                 reply_markup=_main_menu(user.is_admin))
-                bot.send_message(msg.chat.id, "Выберите магазин:", reply_markup=markup)
+                _lang = _lang_of(user)
+                bot.send_message(msg.chat.id,
+                                 "🏪 *Do'konlaringiz:*" if _lang == "uz" else "🏪 *Ваши магазины:*",
+                                 parse_mode="Markdown",
+                                 reply_markup=_main_menu(user.is_admin, _lang))
+                bot.send_message(msg.chat.id,
+                                 "Do'konni tanlang:" if _lang == "uz" else "Выберите магазин:",
+                                 reply_markup=markup)
 
         # ---- /addshop command (shortcut) ----
         @bot.message_handler(commands=["addshop"])
@@ -1478,6 +1624,11 @@ def _fmt_sum(v: int) -> str:
     """Format large integer as e.g. '1 234 500'."""
     return f"{v:,}".replace(",", " ")
 
+# Fallback bot language for users who registered before the language picker
+# (users.language IS NULL). Matches the web app's default (session lang "uz").
+_NOTIF_DEFAULT_LANG = "uz"
+
+
 #drawing the picture for the Telegram notification
 def _render_sales_image(
     by_shop: dict,
@@ -1486,6 +1637,7 @@ def _render_sales_image(
     period_qty_label: str = "За час",
     day_qty_label: str = "С 00:00",
     show_period_qty_column: bool = True,
+    lang: str = "ru",
 ) -> bytes:
     """Render sales report as a light-theme PNG.
 
@@ -1558,19 +1710,46 @@ def _render_sales_image(
     FOOTER_FG   = (180, 185, 195)
     SHADOW      = (215, 218, 225)
 
+    # ── Localised labels (Telegram bot language: "ru" | "uz") ────────────
+    # Uzbek terms mirror the app's own translations.py (finance_* keys) so the
+    # notification speaks the same voice as the web UI. Titles themselves are
+    # picked upstream (RU = product_groups.name, UZ = finance_orders.product_title).
+    _UZ = str(lang or "ru").lower().startswith("uz")
+    L = {
+        "title":      "Sotuvlar — statistika" if _UZ else "Продажи — статистика",
+        "desc":       "Nomi"                   if _UZ else "Описание",
+        "revenue":    "Aylanma, so'm"          if _UZ else "Выручка, сум",
+        "payout":     "To'lov"                 if _UZ else "К выводу",
+        "profit":     "Foyda, so'm"            if _UZ else "Прибыль, сум",
+        "margin":     "Marja, %"               if _UZ else "Маржа, %",
+        "total_shop": "JAMI"                   if _UZ else "ИТОГО",
+        "total_all":  "UMUMIY"                 if _UZ else "ВСЕГО",
+        "exp_header": "Ombor xarajatlari"      if _UZ else "Складские расходы",
+        "exp_total":  "Jami ombor xarajatlari" if _UZ else "Итого складские расходы",
+        "refund":     "Pul qaytarish"          if _UZ else "Возврат Денег",
+        "cur":        "so'm"                   if _UZ else "сум",
+    }
+    # The period/day quantity labels arrive in Russian from the dispatch code;
+    # translate the known set for Uzbek recipients (fallback: pass through).
+    if _UZ:
+        _QTY_UZ = {"За час": "Soatlik", "За период": "Davr",
+                   "За день": "Kunlik", "С 00:00": "00:00 dan"}
+        period_qty_label = _QTY_UZ.get(period_qty_label, period_qty_label)
+        day_qty_label = _QTY_UZ.get(day_qty_label, day_qty_label)
+
     # ── Columns ──────────────────────────────────────────────────────────
     col_specs = [
-        ("Описание", 440, "left"),
+        (L["desc"], 440, "left"),
         ("SKU", 118, "left"),
     ]
     if show_period_qty_column:
         col_specs.append((period_qty_label, 62, "center"))
     col_specs.extend([
         (day_qty_label, 72, "center"),
-        ("Выручка, сум", 118, "right"),
-        ("К выводу", 114, "right"),
-        ("Прибыль, сум", 118, "right"),
-        ("Маржа, %", 76, "center"),
+        (L["revenue"], 118, "right"),
+        (L["payout"], 114, "right"),
+        (L["profit"], 118, "right"),
+        (L["margin"], 76, "center"),
     ])
     COL_LABELS = [label for label, _, _ in col_specs]
     COL_WIDTHS = [width * SCALE for _, width, _ in col_specs]
@@ -1653,7 +1832,7 @@ def _render_sales_image(
         for ei in expenses["items"]:
             wh_exp_lines.append((ei["name"], ei["amount"]))
         if len(wh_exp_lines) > 1:
-            wh_exp_lines.append(("Итого складские расходы", expenses.get("total", 0)))
+            wh_exp_lines.append((L["exp_total"], expenses.get("total", 0)))
     WH_BLOCK_H = (SVC_HEADER_H + len(wh_exp_lines) * SVCLINE_H + PAD_Y + 6 * SCALE) if wh_exp_lines else 0
 
     # Phase 3: "Возврат Денег" income bottom line (expenses_ledger op_type='Возврат').
@@ -1732,7 +1911,7 @@ def _render_sales_image(
     # ── Title bar (gradient) ─────────────────────────────────────────────
     ty = MARGIN
     draw_gradient_rect(0, 0, total_w, TITLE_H + MARGIN, TITLE_BG1, TITLE_BG2)
-    draw.text((MARGIN + PAD_X, ty + 12 * SCALE), "Продажи — статистика", font=font_title, fill=TITLE_FG)
+    draw.text((MARGIN + PAD_X, ty + 12 * SCALE), L["title"], font=font_title, fill=TITLE_FG)
     draw.text((MARGIN + PAD_X, ty + 36 * SCALE), hour_label, font=font_sub, fill=SUBTITLE_FG)
 
     cy = TITLE_H + MARGIN + PAD_Y
@@ -1812,7 +1991,7 @@ def _render_sales_image(
             draw.rectangle([cx_base, cy, cx_base + card_w - 1, cy + SUMM_H // 2], fill=TOTAL_BG)
 
             summ = [
-                "ИТОГО", "",
+                L["total_shop"], "",
             ]
             summ_colors = [TOTAL_ACCENT, MUTED]
             if show_period_qty_column:
@@ -1841,7 +2020,7 @@ def _render_sales_image(
             [cx_base, cy, cx_base + card_w - 1, cy + SUMM_H - 1],
             radius=CARD_R, fill=TOTAL_BG, outline=SHOP_BG, width=2 * SCALE)
         grand_cells = [
-            "ВСЕГО", "",
+            L["total_all"], "",
         ]
         grand_colors = [TOTAL_ACCENT, MUTED]
         if show_period_qty_column:
@@ -1872,12 +2051,12 @@ def _render_sales_image(
             [cx_base, cy, cx_base + card_w - 1, cy + SVC_HEADER_H - 1],
             radius=CARD_R, fill=EXP_HEADER)
         draw.rectangle([cx_base, cy + SVC_HEADER_H // 2, cx_base + card_w - 1, cy + SVC_HEADER_H - 1], fill=EXP_HEADER)
-        draw.text((cx_base + PAD_X + 4 * SCALE, cy + 8 * SCALE), "Складские расходы", font=font_exp_h, fill=EXP_TOTAL)
+        draw.text((cx_base + PAD_X + 4 * SCALE, cy + 8 * SCALE), L["exp_header"], font=font_exp_h, fill=EXP_TOTAL)
         cy += SVC_HEADER_H
 
         for ei, (label, val) in enumerate(wh_exp_lines):
             row_bg = ROW_ODD if ei % 2 == 0 else ROW_EVEN
-            is_total = (label == "Итого складские расходы")
+            is_total = (label == L["exp_total"])
             is_last  = (ei == len(wh_exp_lines) - 1)
 
             if is_last:
@@ -1892,7 +2071,7 @@ def _render_sales_image(
             fnt = font_bold if is_total else font_body
             clr = EXP_TOTAL if is_total else EXP_RED
             draw.text((cx_base + PAD_X + 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2), label, font=fnt, fill=BODY_FG)
-            val_str = _fmt_sum(val) + " сум"
+            val_str = _fmt_sum(val) + " " + L["cur"]
             vw = tw(val_str, fnt)
             draw.text((cx_base + card_w - PAD_X - vw - 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
                       val_str, font=fnt, fill=clr)
@@ -1913,12 +2092,12 @@ def _render_sales_image(
         draw.rounded_rectangle(
             [cx_base, cy, cx_base + card_w - 1, cy + SVCLINE_H + 3],
             radius=CARD_R, fill=TOTAL_BG)
-        label = "Возврат Денег"
+        label = L["refund"]
         draw.text(
             (cx_base + PAD_X + 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
             label, font=font_bold, fill=BODY_FG,
         )
-        val_str = "+" + _fmt_sum(refunds_income) + " сум"
+        val_str = "+" + _fmt_sum(refunds_income) + " " + L["cur"]
         vw = tw(val_str, font_bold)
         draw.text(
             (cx_base + card_w - PAD_X - vw - 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
@@ -2501,10 +2680,15 @@ def _do_hourly_sales_check(
                 # from Uzum) so the notification doesn't pick up whatever
                 # language the seller typed into ProductGroup.name locally.
                 vg = sku_to_vg.get(sku_id) or sku_to_vg.get(sku_id.upper() if sku_id else "")
+                group_ru_title = None
                 if vg:
                     v, g = vg
                     group_id = g.id
                     sku_label = v.sku or sku_id
+                    # RU product title from the products-sync (accept_language=ru,
+                    # stored on ProductGroup.name). Uzbek title stays product_title
+                    # (finance_orders). The per-user language picks between them below.
+                    group_ru_title = g.name
                     if sell_price == 0:
                         sell_price = v.sell_price_uzum or v.price_sum or 0
                     if purchase_price == 0:
@@ -2513,7 +2697,8 @@ def _do_hourly_sales_check(
                     group_id = sku_id
                     sku_label = sku_id
 
-                group_name = product_title or sku_id
+                group_name = product_title or sku_id                 # UZ (or seller title)
+                group_name_ru = group_ru_title or group_name          # RU, fallback to UZ/SKU
 
                 if d_qty <= 0:
                     continue
@@ -2570,7 +2755,7 @@ def _do_hourly_sales_check(
                     grp = uid_data.setdefault(uid, {}) \
                                   .setdefault(shop_label, {}) \
                                   .setdefault(group_id, {
-                                      "name": group_name, "skus": set(),
+                                      "name": group_name, "name_ru": group_name_ru, "skus": set(),
                                       "h_qty": 0, "d_qty": 0,
                                       "profit": 0.0, "revenue": 0.0, "payout": 0.0,
                                       "seller_profit_tot": 0.0, "cost_tot": 0.0,
@@ -2655,7 +2840,7 @@ def _do_hourly_sales_check(
         print(f"[HourlySales] TIMING: expenses skipped for interval notification = {_t2 - _t2_start:.2f}s")
 
     # ── Build per-user notification payloads ────────────────────────
-    user_payloads: list[tuple[str, dict, str, str, str, bool, bool]] = []  # (telegram_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin)
+    user_payloads: list[tuple[str, dict, str, str, str, bool, bool, str]] = []  # (telegram_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin, lang)
 
     with SessionLocal() as db:
         for uid, shops_d in uid_data.items():
@@ -2665,6 +2850,13 @@ def _do_hourly_sales_check(
             resolved_tg_id = target_tg_id if target_user_id is not None and uid == target_user_id and target_tg_id else (user.telegram_id if user else None)
             if not user or not resolved_tg_id:
                 continue
+
+            # Telegram bot language picked at registration (users.language).
+            # Null = user registered before the picker → fall back to the app's
+            # canonical default. Drives both the labels AND which product title
+            # (RU = ProductGroup.name, UZ = finance_orders.product_title) is shown.
+            user_lang = (user.language or _NOTIF_DEFAULT_LANG)
+            _use_ru = str(user_lang).lower().startswith("ru")
 
             by_shop:    dict = {}
             totals_map: dict = {}
@@ -2682,7 +2874,7 @@ def _do_hourly_sales_check(
                     profit = gd["profit"]
                     margin = round(profit / rev * 100, 1) if rev > 0 else 0.0
                     items.append({
-                        "group":    gd["name"],
+                        "group":    (gd.get("name_ru") or gd["name"]) if _use_ru else gd["name"],
                         "base_sku": _base_sku(list(gd["skus"])),
                         "hour_qty": gd["h_qty"],
                         "day_qty":  gd["d_qty"],
@@ -2719,13 +2911,13 @@ def _do_hourly_sales_check(
 
             by_shop["__totals__"] = totals_map
             by_shop["__expenses__"] = uid_expenses.get(uid, {})
-            user_payloads.append((resolved_tg_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin))
+            user_payloads.append((resolved_tg_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin, user_lang))
 
     # ── Parallel render + send for ALL users ──────────────────────
     # At 10 000 users: 20 workers × ~1.6s each = ~13 min (fits in 1 hour)
     _sent = _failed = 0
 
-    def _render_and_send(tg_id, by_shop_data, h_label, period_label, day_label, show_period_col, should_pin):
+    def _render_and_send(tg_id, by_shop_data, h_label, period_label, day_label, show_period_col, should_pin, lang):
         try:
             img_bytes = _render_sales_image(
                 by_shop_data,
@@ -2733,6 +2925,7 @@ def _do_hourly_sales_check(
                 period_qty_label=period_label,
                 day_qty_label=day_label,
                 show_period_qty_column=show_period_col,
+                lang=lang,
             )
             _send_tg_photo(tg_id, img_bytes, pin=should_pin)
             return True
@@ -2743,8 +2936,8 @@ def _do_hourly_sales_check(
     notify_workers = min(100, max(1, len(user_payloads)))
     with ThreadPoolExecutor(max_workers=notify_workers) as pool:
         futures = {
-            pool.submit(_render_and_send, tg_id, bs, hl, period_label, day_label, show_period_col, should_pin): tg_id
-            for tg_id, bs, hl, period_label, day_label, show_period_col, should_pin in user_payloads
+            pool.submit(_render_and_send, tg_id, bs, hl, period_label, day_label, show_period_col, should_pin, lang): tg_id
+            for tg_id, bs, hl, period_label, day_label, show_period_col, should_pin, lang in user_payloads
         }
         for future in as_completed(futures):
             if future.result():

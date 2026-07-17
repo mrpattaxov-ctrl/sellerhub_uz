@@ -196,6 +196,50 @@
     font-size: .94rem;
   }
 
+  .notify-lang {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+    max-width: 440px;
+  }
+
+  .notify-lang-opt {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    padding: .85rem 1rem;
+    border: 1.5px solid rgba(16, 24, 40, .1);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff, #fbfcff);
+    font-weight: 600;
+    color: #344054;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .18s ease;
+  }
+
+  .notify-lang-opt:hover {
+    border-color: rgba(52, 86, 185, .3);
+    transform: translateY(-1px);
+  }
+
+  .notify-lang-opt input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .notify-lang-flag { font-size: 1.15rem; line-height: 1; }
+
+  .notify-lang-opt:has(input:checked) {
+    border-color: #3456b9;
+    background: linear-gradient(180deg, #eef2ff, #e5ebff);
+    color: #1f3aa0;
+    box-shadow: 0 12px 26px rgba(52, 86, 185, .16);
+  }
+
   .notify-toggle-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -427,6 +471,31 @@
         <div class="notify-chip">
           <span class="notify-chip-label">{{ t.finance_today }}</span>
           <span class="notify-chip-value" id="notify-chip-summary">00:00</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="notify-card">
+      <div class="notify-card-body">
+        <div class="notify-card-head">
+          <div class="notify-card-step" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <div>
+            <h2 class="notify-card-title">{{ "Til" if lang == "uz" else "Язык" }}</h2>
+            <p class="notify-card-copy">{{ "Hisobotlar va bildirishnomalar tili (Telegram + ilova)" if lang == "uz" else "Язык отчётов и уведомлений (Telegram + приложение)" }}</p>
+          </div>
+        </div>
+
+        <div class="notify-lang" role="radiogroup" aria-label="{{ 'Til' if lang == 'uz' else 'Язык' }}">
+          <label class="notify-lang-opt">
+            <input type="radio" name="language" value="ru" {% if lang == "ru" %}checked{% endif %}>
+            <span class="notify-lang-flag">🇷🇺</span><span>Русский</span>
+          </label>
+          <label class="notify-lang-opt">
+            <input type="radio" name="language" value="uz" {% if lang == "uz" %}checked{% endif %}>
+            <span class="notify-lang-flag">🇺🇿</span><span>Oʻzbekcha</span>
+          </label>
         </div>
       </div>
     </section>

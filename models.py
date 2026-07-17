@@ -356,6 +356,8 @@ class User(UserMixin, Base):
     telegram_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
     # Phone number linked to this account (for Telegram approval login)
     phone: Mapped[str] = mapped_column(String(50), nullable=True, index=True)
+    # Preferred language for the Telegram bot ("ru" | "uz"); null = not chosen yet
+    language: Mapped[str] = mapped_column(String(2), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(
         Boolean,
         default=False,

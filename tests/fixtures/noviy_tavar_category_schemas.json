@@ -1,0 +1,7639 @@
+{
+ "_source": "Uzum portal getDefinedCharacteristics — 235 noyob kategoriya sxemasi",
+ "_generated": "2026-07-16 (Bosqich B)",
+ "_sanitized": "HAR javob tanasidan FAQAT kategoriya metama'lumoti olingan. Token/cookie/header/URL/shopId ko'chirilmagan. Kategoriya nomlari va ID'lari — ochiq katalog ma'lumoti.",
+ "_why": "Bizning render qoidamiz (noviy_tavar.js::buildCharOptions) shu 235 sxemada jonli tekshirilgan. Uzum shaklini o'zgartirsa — shu fiksturani qayta generatsiya qiling, testlar farqni ko'rsatadi.",
+ "contract": {
+  "characteristicKeys": [
+   "characteristicId",
+   "characteristicTitle",
+   "characteristicValues",
+   "flowA",
+   "orderingNumber",
+   "requiredType"
+  ],
+  "valueKeys": [
+   "skuValue",
+   "title",
+   "value"
+  ],
+  "titleKeys": [
+   "ru",
+   "uz"
+  ],
+  "requiredTypes": [
+   "NOT_REQUIRED",
+   "REQUIRED",
+   "REQUIRED_ONE_OF_SIZE"
+  ]
+ },
+ "observed": {
+  "categories": 235,
+  "characteristics": 697,
+  "values": 33441,
+  "maxRequiredPerCategory": 1,
+  "requiredTitlesRu": [
+   "Цвет"
+  ],
+  "categoriesWithZeroCharacteristics": [
+   12246,
+   15685,
+   13271,
+   12498
+  ]
+ },
+ "categories": [
+  {
+   "rank": 1,
+   "categoryId": 14614,
+   "path": [
+    "Обувь",
+    "Аксессуары для обуви",
+    "Стельки и вставки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -9,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -10,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -5,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 2,
+   "categoryId": 12271,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Босоножки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 3,
+   "categoryId": 13981,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Босоножки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 4,
+   "categoryId": 13983,
+   "path": [
+    "Обувь",
+    "Мужская обувь",
+    "Кроссовки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -9,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -10,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 5,
+   "categoryId": 15341,
+   "path": [
+    "Одежда",
+    "Мужская одежда",
+    "Национальная одежда",
+    "Национальные брюки"
+   ],
+   "characteristics": [
+    {
+     "id": -28,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami US",
+     "ru": "Размер мужских джинс US",
+     "valueCount": 52
+    },
+    {
+     "id": -20,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami EUR",
+     "ru": "Размер женских джинс EUR",
+     "valueCount": 12
+    },
+    {
+     "id": -19,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami RUS",
+     "ru": "Размер женских джинс RUS",
+     "valueCount": 17
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -18,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami EUR",
+     "ru": "Размер мужских джинс EUR",
+     "valueCount": 19
+    },
+    {
+     "id": -29,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami US",
+     "ru": "Размер женских джинс US",
+     "valueCount": 61
+    },
+    {
+     "id": -17,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami RUS",
+     "ru": "Размер мужских джинс RUS",
+     "valueCount": 19
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    }
+   ]
+  },
+  {
+   "rank": 6,
+   "categoryId": 17640,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Ботинки",
+    "Повседневные ботинки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -30,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -9,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -4,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -10,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -5,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 7,
+   "categoryId": 10292,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Балетки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 8,
+   "categoryId": 12127,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Балетки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 9,
+   "categoryId": 13006,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Ботинки",
+    "Берцы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -9,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -10,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 10,
+   "categoryId": 15786,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Бутсы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -9,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -4,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -10,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -5,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -6,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -3,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    }
+   ]
+  },
+  {
+   "rank": 11,
+   "categoryId": 11899,
+   "path": [
+    "Одежда",
+    "Одежда для девочек",
+    "Купальники и плавки",
+    "Купальники"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -26,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar byustgalterlarini o'lchamlari",
+     "ru": "Размер женских бюстгальтеров",
+     "valueCount": 111
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    }
+   ]
+  },
+  {
+   "rank": 12,
+   "categoryId": 14979,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Вязаные костюмы"
+   ],
+   "characteristics": [
+    {
+     "id": -28,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami US",
+     "ru": "Размер мужских джинс US",
+     "valueCount": 52
+    },
+    {
+     "id": -20,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami EUR",
+     "ru": "Размер женских джинс EUR",
+     "valueCount": 12
+    },
+    {
+     "id": -19,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami RUS",
+     "ru": "Размер женских джинс RUS",
+     "valueCount": 17
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -18,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami EUR",
+     "ru": "Размер мужских джинс EUR",
+     "valueCount": 19
+    },
+    {
+     "id": -29,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami US",
+     "ru": "Размер женских джинс US",
+     "valueCount": 61
+    },
+    {
+     "id": -17,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami RUS",
+     "ru": "Размер мужских джинс RUS",
+     "valueCount": 19
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    }
+   ]
+  },
+  {
+   "rank": 13,
+   "categoryId": 2605,
+   "path": [
+    "Одежда",
+    "Одежда для мальчиков",
+    "Носки",
+    "Колготки"
+   ],
+   "characteristics": [
+    {
+     "id": -41,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar kolgotkalar oʻlchami",
+     "ru": "Размер детских колготок",
+     "valueCount": 11
+    },
+    {
+     "id": -42,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kolgotkalar oʻlchami",
+     "ru": "Размер колготок",
+     "valueCount": 10
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    }
+   ]
+  },
+  {
+   "rank": 14,
+   "categoryId": 11548,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Одежда для беременных",
+    "Колготки"
+   ],
+   "characteristics": [
+    {
+     "id": -40,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kolgotkalar boʻyi boʻyicha oʻlchami",
+     "ru": "Размер колготок по росту",
+     "valueCount": 5
+    },
+    {
+     "id": -42,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kolgotkalar oʻlchami",
+     "ru": "Размер колготок",
+     "valueCount": 10
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    }
+   ]
+  },
+  {
+   "rank": 15,
+   "categoryId": 13537,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Носки, пинетки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    }
+   ]
+  },
+  {
+   "rank": 16,
+   "categoryId": 13570,
+   "path": [
+    "Одежда",
+    "Одежда для девочек",
+    "Юбки и шорты",
+    "Велосипедки"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 17,
+   "categoryId": 11624,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Домашняя обувь"
+   ],
+   "characteristics": [
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 18,
+   "categoryId": 12316,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Мюли"
+   ],
+   "characteristics": [
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -6,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -5,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -4,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -3,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 19,
+   "categoryId": 12862,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Кроссовки и кеды",
+    "Кроссовки"
+   ],
+   "characteristics": [
+    {
+     "id": -39,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -38,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -37,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 20,
+   "categoryId": 12561,
+   "path": [
+    "Обувь",
+    "Мужская обувь",
+    "Туфли и лоферы",
+    "Броги"
+   ],
+   "characteristics": [
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -10,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami US",
+     "ru": "Мужской размер обуви US",
+     "valueCount": 31
+    },
+    {
+     "id": -9,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami UK",
+     "ru": "Мужской размер обуви UK",
+     "valueCount": 31
+    },
+    {
+     "id": -8,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami EUR",
+     "ru": "Мужской размер обуви EUR",
+     "valueCount": 37
+    },
+    {
+     "id": -7,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 21,
+   "categoryId": 15127,
+   "path": [
+    "Одежда",
+    "Мужская одежда",
+    "Одежда больших размеров",
+    "Рубашки"
+   ],
+   "characteristics": [
+    {
+     "id": -24,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar ko'ylagi yoqasi bo'yicha o'lchamlari",
+     "ru": "Размер мужских рубашек по вороту",
+     "valueCount": 10
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 22,
+   "categoryId": 15030,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Одежда больших размеров",
+    "Купальники и парео"
+   ],
+   "characteristics": [
+    {
+     "id": -26,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar byustgalterlarini o'lchamlari",
+     "ru": "Размер женских бюстгальтеров",
+     "valueCount": 111
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 23,
+   "categoryId": 11594,
+   "path": [
+    "Обувь",
+    "Обувь для мальчиков",
+    "Резиновая обувь",
+    "Сапоги"
+   ],
+   "characteristics": [
+    {
+     "id": -39,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami UK",
+     "ru": "Детский размер обуви UK",
+     "valueCount": 22
+    },
+    {
+     "id": -38,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami US",
+     "ru": "Детский размер обуви US",
+     "valueCount": 23
+    },
+    {
+     "id": -37,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami EU",
+     "ru": "Детский размер обуви EU",
+     "valueCount": 38
+    },
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 24,
+   "categoryId": 15945,
+   "path": [
+    "Одежда",
+    "Одежда для девочек",
+    "Купальники и плавки",
+    "Топы"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 25,
+   "categoryId": 14099,
+   "path": [
+    "Одежда",
+    "Одежда для мальчиков",
+    "Носки",
+    "Носки и подследники"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 26,
+   "categoryId": 17684,
+   "path": [
+    "Обувь",
+    "Женская обувь",
+    "Туфли",
+    "Повседневные туфли"
+   ],
+   "characteristics": [
+    {
+     "id": -30,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -13,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -6,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami US",
+     "ru": "Женский размер обуви US",
+     "valueCount": 18
+    },
+    {
+     "id": -5,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami UK",
+     "ru": "Женский размер обуви UK",
+     "valueCount": 16
+    },
+    {
+     "id": -4,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami EUR",
+     "ru": "Женский размер обуви EUR",
+     "valueCount": 22
+    },
+    {
+     "id": -3,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 27,
+   "categoryId": 14186,
+   "path": [
+    "Одежда",
+    "Одежда для девочек",
+    "Нижнее бельё и термобельё",
+    "Топы и бюстгальтеры"
+   ],
+   "characteristics": [
+    {
+     "id": -26,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar byustgalterlarini o'lchamlari",
+     "ru": "Размер женских бюстгальтеров",
+     "valueCount": 111
+    },
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 28,
+   "categoryId": 13342,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Одежда для беременных",
+    "Футболки и поло"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 29,
+   "categoryId": 13515,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Одежда для беременных",
+    "Нижнее бельё"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 30,
+   "categoryId": 12415,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Боди и комбинезоны"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 31,
+   "categoryId": 14976,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Пиджаки и костюмы",
+    "Костюмы с брюками"
+   ],
+   "characteristics": [
+    {
+     "id": -29,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami US",
+     "ru": "Размер женских джинс US",
+     "valueCount": 61
+    },
+    {
+     "id": -20,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami EUR",
+     "ru": "Размер женских джинс EUR",
+     "valueCount": 12
+    },
+    {
+     "id": -19,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar uchun jinslar o'lchami RUS",
+     "ru": "Размер женских джинс RUS",
+     "valueCount": 17
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 32,
+   "categoryId": 13607,
+   "path": [
+    "Одежда",
+    "Мужская одежда",
+    "Домашняя одежда",
+    "Домашние брюки и шорты"
+   ],
+   "characteristics": [
+    {
+     "id": -28,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami US",
+     "ru": "Размер мужских джинс US",
+     "valueCount": 52
+    },
+    {
+     "id": -18,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami EUR",
+     "ru": "Размер мужских джинс EUR",
+     "valueCount": 19
+    },
+    {
+     "id": -17,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Erkaklar uchun jinslar o'lchami RUS",
+     "ru": "Размер мужских джинс RUS",
+     "valueCount": 19
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 33,
+   "categoryId": 14038,
+   "path": [
+    "Одежда",
+    "Одежда для мальчиков",
+    "Плавки и шорты для плавания"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 34,
+   "categoryId": 12197,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Ползунки и штанишки"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 35,
+   "categoryId": 12040,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Головные уборы",
+    "Чалма"
+   ],
+   "characteristics": [
+    {
+     "id": -23,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bosh kiyim o'lchamlari",
+     "ru": "Размер головных уборов",
+     "valueCount": 30
+    },
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 36,
+   "categoryId": 13058,
+   "path": [
+    "Одежда",
+    "Одежда для мальчиков",
+    "Носки",
+    "Гольфы и гетры"
+   ],
+   "characteristics": [
+    {
+     "id": -27,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Paypoq o'lchami",
+     "ru": "Размер носков",
+     "valueCount": 26
+    },
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 37,
+   "categoryId": 15285,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Носки, чулки и колготки",
+    "Колготки",
+    "Теплые колготки"
+   ],
+   "characteristics": [
+    {
+     "id": -42,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kolgotkalar oʻlchami",
+     "ru": "Размер колготок",
+     "valueCount": 10
+    },
+    {
+     "id": -40,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kolgotkalar boʻyi boʻyicha oʻlchami",
+     "ru": "Размер колготок по росту",
+     "valueCount": 5
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 38,
+   "categoryId": 13594,
+   "path": [
+    "Одежда",
+    "Одежда для девочек",
+    "Нижнее бельё и термобельё",
+    "Трусы"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 39,
+   "categoryId": 13985,
+   "path": [
+    "Зоотовары",
+    "Для грызунов",
+    "Игрушки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 40,
+   "categoryId": 14960,
+   "path": [
+    "Зоотовары",
+    "Для собак",
+    "Посуда",
+    "Автокормушки и автопоилки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 41,
+   "categoryId": 12295,
+   "path": [
+    "Бытовая химия",
+    "Средства по уходу за обувью",
+    "Краска для обуви"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 42,
+   "categoryId": 12913,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Футболки, рубашки и распашонки"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 43,
+   "categoryId": 16167,
+   "path": [
+    "Строительство и ремонт",
+    "Инструменты",
+    "Электроинструменты",
+    "Краскопульты и аэрографы",
+    "Пневмокраскопульт"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 44,
+   "categoryId": 14589,
+   "path": [
+    "Аксессуары",
+    "Религиозные аксессуары",
+    "Тюбетейки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 45,
+   "categoryId": 12453,
+   "path": [
+    "Зоотовары",
+    "Для собак",
+    "Вольеры и будки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 46,
+   "categoryId": 13738,
+   "path": [
+    "Детские товары",
+    "Гигиена и подгузники",
+    "Детская косметика",
+    "Масла, лосьоны и молочко для детей"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 47,
+   "categoryId": 11837,
+   "path": [
+    "Автотовары",
+    "Электроника для авто",
+    "Автомобильные телевизоры"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 48,
+   "categoryId": 11682,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Сапоги и угги",
+    "Угги"
+   ],
+   "characteristics": [
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 49,
+   "categoryId": 13210,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Нижнее бельё"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -15,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 50,
+   "categoryId": 16045,
+   "path": [
+    "Строительство и ремонт",
+    "Строительные материалы",
+    "Металлопрокат и металлоконструкции",
+    "Арматура"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 51,
+   "categoryId": 15019,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Нижнее бельё",
+    "Боди"
+   ],
+   "characteristics": [
+    {
+     "id": -26,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar byustgalterlarini o'lchamlari",
+     "ru": "Размер женских бюстгальтеров",
+     "valueCount": 111
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 52,
+   "categoryId": 16738,
+   "path": [
+    "Автотовары",
+    "Автозапчасти",
+    "Кузовные запчасти",
+    "Капот"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 53,
+   "categoryId": 14065,
+   "path": [
+    "Электроника",
+    "Аксессуары для электроники",
+    "Зарядные устройства для аккумуляторов"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 54,
+   "categoryId": 11650,
+   "path": [
+    "Аксессуары",
+    "Горнолыжные аксессуары",
+    "Перчатки и варежки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 55,
+   "categoryId": 17086,
+   "path": [
+    "Строительство и ремонт",
+    "Отопление",
+    "Печи и комплектующие",
+    "Духовой шкаф для печи"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 56,
+   "categoryId": 12443,
+   "path": [
+    "Зоотовары",
+    "Для рыб и рептилий",
+    "Корма"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 57,
+   "categoryId": 16838,
+   "path": [
+    "Электроника",
+    "Товары для геймеров",
+    "Игровые ноутбуки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 58,
+   "categoryId": 15822,
+   "path": [
+    "Аксессуары",
+    "Горнолыжные аксессуары",
+    "Снуды"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 59,
+   "categoryId": 16015,
+   "path": [
+    "Здоровье",
+    "Медицинские приборы",
+    "Тонометры и аксессуары",
+    "Тонометры"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 60,
+   "categoryId": 13982,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Топы и майки",
+    "Топы"
+   ],
+   "characteristics": [
+    {
+     "id": -26,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Ayollar byustgalterlarini o'lchamlari",
+     "ru": "Размер женских бюстгальтеров",
+     "valueCount": 111
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 61,
+   "categoryId": 12069,
+   "path": [
+    "Обувь",
+    "Обувь для девочек",
+    "Ботинки и полуботинки",
+    "Ботинки"
+   ],
+   "characteristics": [
+    {
+     "id": -30,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Juft o‘lchamlar",
+     "ru": "Двойные размеры",
+     "valueCount": 28
+    },
+    {
+     "id": -14,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -13,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uy poyabzali oʻlchami",
+     "ru": "Размер домашней обуви",
+     "valueCount": 47
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 62,
+   "categoryId": 14328,
+   "path": [
+    "Детские товары",
+    "Детское питание",
+    "Детское пюре"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 63,
+   "categoryId": 17984,
+   "path": [
+    "Хобби и творчество",
+    "Прочие хобби",
+    "Моделирование",
+    "Конструкторы"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 64,
+   "categoryId": 11587,
+   "path": [
+    "Электроника",
+    "Телевизоры и видеотехника",
+    "Стойки и кронштейны для телевизоров",
+    "Кронштейны для телевизора"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 65,
+   "categoryId": 11856,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для путешествий",
+    "Товары для сна",
+    "Маски для сна"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 66,
+   "categoryId": 17720,
+   "path": [
+    "Строительство и ремонт",
+    "Лакокрасочные материалы",
+    "Краски",
+    "Краски для внутренних работ",
+    "Масляные"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 67,
+   "categoryId": 15894,
+   "path": [
+    "Здоровье",
+    "Витамины и БАДы",
+    "Нервная система"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 68,
+   "categoryId": 15290,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Носки, чулки и колготки",
+    "Чулки",
+    "Теплые чулки"
+   ],
+   "characteristics": [
+    {
+     "id": -27,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Paypoq o'lchami",
+     "ru": "Размер носков",
+     "valueCount": 26
+    },
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 69,
+   "categoryId": 17721,
+   "path": [
+    "Строительство и ремонт",
+    "Лакокрасочные материалы",
+    "Краски",
+    "Краски для внутренних работ",
+    "Акриловые"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 70,
+   "categoryId": 12811,
+   "path": [
+    "Товары для дома",
+    "Декор и интерьер",
+    "Зеркала"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 71,
+   "categoryId": 12429,
+   "path": [
+    "Бытовая химия",
+    "Средства от насекомых и грызунов",
+    "Ратициды"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 72,
+   "categoryId": 17147,
+   "path": [
+    "Строительство и ремонт",
+    "Отопление",
+    "Теплоносители, промывки и герметизаторы",
+    "Реагент для систем отопления"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 73,
+   "categoryId": 15888,
+   "path": [
+    "Строительство и ремонт",
+    "Лакокрасочные материалы",
+    "Грунтовки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 74,
+   "categoryId": 14549,
+   "path": [
+    "Товары для дома",
+    "Товары для праздников",
+    "Карнавальные товары",
+    "Карнавальные костюмы",
+    "Детские карнавальные костюмы"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 75,
+   "categoryId": 17166,
+   "path": [
+    "Мебель",
+    "Мебель для хранения",
+    "Шкафы и гардеробы",
+    "Компактные шкафы"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 76,
+   "categoryId": 12264,
+   "path": [
+    "Зоотовары",
+    "Для грызунов",
+    "Корма и лакомства для грызунов",
+    "Корма"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 77,
+   "categoryId": 16366,
+   "path": [
+    "Красота и уход",
+    "Мебель и оборудование для салонов красоты",
+    "Для визажистов",
+    "Мобильная студия визажиста"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 78,
+   "categoryId": 17577,
+   "path": [
+    "Мебель",
+    "Фурнитура и комплектующие для мебели",
+    "Наполнители для кресел-мешков"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 79,
+   "categoryId": 17631,
+   "path": [
+    "Мебель",
+    "Кровати и матрасы",
+    "Матрасы",
+    "Независимые пружины"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 80,
+   "categoryId": 17575,
+   "path": [
+    "Мебель",
+    "Фурнитура и комплектующие для мебели",
+    "Основания для матрасов и ламели"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 81,
+   "categoryId": 16696,
+   "path": [
+    "Красота и уход",
+    "Дермакосметика",
+    "Уход за лицом",
+    "Очищение лица"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 82,
+   "categoryId": 13598,
+   "path": [
+    "Зоотовары",
+    "Гигиена",
+    "Пеленки и подгузники"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 83,
+   "categoryId": 11605,
+   "path": [
+    "Электроника",
+    "Компьютерная техника",
+    "Компьютеры",
+    "Промышленные компьютеры и серверы"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 84,
+   "categoryId": 13122,
+   "path": [
+    "Аксессуары",
+    "Мужские аксессуары",
+    "Ювелирные украшения",
+    "Ремешки, застежки для часов"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 85,
+   "categoryId": 14047,
+   "path": [
+    "Спорт и отдых",
+    "Ролики, скейты и самокаты",
+    "Роликовые коньки, экипировка и запчасти",
+    "Роликовые коньки"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -3,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Ayollar poyabzali oʻlchami RUS",
+     "ru": "Женский размер обуви RUS",
+     "valueCount": 27
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 86,
+   "categoryId": 12830,
+   "path": [
+    "Автотовары",
+    "Масла и автохимия",
+    "Смазки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 87,
+   "categoryId": 17100,
+   "path": [
+    "Строительство и ремонт",
+    "Строительные материалы",
+    "Изоляционные покрытия и материалы",
+    "Составы и клей для теплоизоляции"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 88,
+   "categoryId": 15821,
+   "path": [
+    "Аксессуары",
+    "Горнолыжные аксессуары",
+    "Шапки"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -12,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kamar oʻlchami",
+     "ru": "Размер ремня",
+     "valueCount": 15
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 89,
+   "categoryId": 11560,
+   "path": [
+    "Одежда",
+    "Одежда для новорождённых",
+    "Шапочки, чепчики и рукавички для новорождённых"
+   ],
+   "characteristics": [
+    {
+     "id": -25,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Yoshga qarab bolalar kiyimining o'lchamlari",
+     "ru": "Детский размер одежды по возрасту",
+     "valueCount": 29
+    },
+    {
+     "id": -15,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar kiyimining boʻyi boʻyicha oʻlchami",
+     "ru": "Детский размер одежды по росту",
+     "valueCount": 42
+    },
+    {
+     "id": -11,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 90,
+   "categoryId": 11956,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Футболки и поло",
+    "Футболки"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 91,
+   "categoryId": 14903,
+   "path": [
+    "Одежда",
+    "Мужская одежда",
+    "Нижнее бельё",
+    "Майки"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 92,
+   "categoryId": 12813,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Бижутерные украшения",
+    "Броши"
+   ],
+   "characteristics": [
+    {
+     "id": -44,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilaguzuk uzunligi, sm",
+     "ru": "Длина браслета, см",
+     "valueCount": 13
+    },
+    {
+     "id": -43,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilak aylanasi, sm",
+     "ru": "Обхват запястья, см",
+     "valueCount": 13
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 93,
+   "categoryId": 13736,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Ювелирные украшения",
+    "Броши"
+   ],
+   "characteristics": [
+    {
+     "id": -44,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilaguzuk uzunligi, sm",
+     "ru": "Длина браслета, см",
+     "valueCount": 13
+    },
+    {
+     "id": -43,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilak aylanasi, sm",
+     "ru": "Обхват запястья, см",
+     "valueCount": 13
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 94,
+   "categoryId": 13107,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Нижнее бельё",
+    "Откровенное бельё и костюмы",
+    "Пэстисы"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 95,
+   "categoryId": 14061,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Бижутерные украшения",
+    "Шармы"
+   ],
+   "characteristics": [
+    {
+     "id": -44,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilaguzuk uzunligi, sm",
+     "ru": "Длина браслета, см",
+     "valueCount": 13
+    },
+    {
+     "id": -43,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bilak aylanasi, sm",
+     "ru": "Обхват запястья, см",
+     "valueCount": 13
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 96,
+   "categoryId": 11894,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Бижутерные украшения",
+    "Кольца"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 97,
+   "categoryId": 12156,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для мальчиков",
+    "Головные уборы",
+    "Кепки и бейсболки"
+   ],
+   "characteristics": [
+    {
+     "id": -23,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bosh kiyim o'lchamlari",
+     "ru": "Размер головных уборов",
+     "valueCount": 30
+    },
+    {
+     "id": -2,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 98,
+   "categoryId": 11613,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Ювелирные украшения",
+    "Кольца"
+   ],
+   "characteristics": [
+    {
+     "id": -22,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk uzunligi bo'yicha o'lchamlari, mm",
+     "ru": "Размер колец по длине, мм",
+     "valueCount": 19
+    },
+    {
+     "id": -21,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Uzuk o'lchamlari",
+     "ru": "Размер колец",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 99,
+   "categoryId": 17680,
+   "path": [
+    "Спорт и отдых",
+    "Велоспорт",
+    "Велоодежда и велотуфли"
+   ],
+   "characteristics": [
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 100,
+   "categoryId": 14560,
+   "path": [
+    "Спорт и отдых",
+    "Зимний спорт",
+    "Горные лыжи",
+    "Лыжные ботинки"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 101,
+   "categoryId": 17730,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Бейсбол",
+    "Форма для бейсбола"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 102,
+   "categoryId": 17702,
+   "path": [
+    "Спорт и отдых",
+    "Бокс и единоборства",
+    "Форма для тренировок, рашгард"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 103,
+   "categoryId": 16287,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Футбольная форма"
+   ],
+   "characteristics": [
+    {
+     "id": -16,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami RUS",
+     "ru": "Размер одежды RUS",
+     "valueCount": 90
+    },
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 104,
+   "categoryId": 15599,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Щитки футбольные"
+   ],
+   "characteristics": [
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 105,
+   "categoryId": 13143,
+   "path": [
+    "Одежда",
+    "Женская одежда",
+    "Носки, чулки и колготки",
+    "Носки"
+   ],
+   "characteristics": [
+    {
+     "id": -27,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Paypoq o'lchami",
+     "ru": "Размер носков",
+     "valueCount": 26
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 106,
+   "categoryId": 15794,
+   "path": [
+    "Спорт и отдых",
+    "Зимний спорт",
+    "Горнолыжные шлемы"
+   ],
+   "characteristics": [
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 107,
+   "categoryId": 11607,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для мальчиков",
+    "Головные уборы",
+    "Шляпы"
+   ],
+   "characteristics": [
+    {
+     "id": -23,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bosh kiyim o'lchamlari",
+     "ru": "Размер головных уборов",
+     "valueCount": 30
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 108,
+   "categoryId": 14210,
+   "path": [
+    "Детские товары",
+    "Товары для мам",
+    "Бандажи для беременных"
+   ],
+   "characteristics": [
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 109,
+   "categoryId": 14654,
+   "path": [
+    "Детские товары",
+    "Детский активный отдых",
+    "Детский транспорт",
+    "Борды и доски"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 110,
+   "categoryId": 15296,
+   "path": [
+    "Бытовая техника",
+    "Крупная бытовая техника",
+    "Стиральные машины",
+    "Автоматические стиральные машины"
+   ],
+   "characteristics": [
+    {
+     "id": -31,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Maksimal yuklash, kg",
+     "ru": "Максимальная загрузка, в кг",
+     "valueCount": 22
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 111,
+   "categoryId": 14657,
+   "path": [
+    "Детские товары",
+    "Детский активный отдых",
+    "Детский транспорт",
+    "Защитная экипировка для детей"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 112,
+   "categoryId": 12948,
+   "path": [
+    "Аксессуары",
+    "Мужские аксессуары",
+    "Головные уборы",
+    "Кепки и бейсболки"
+   ],
+   "characteristics": [
+    {
+     "id": -23,
+     "requiredType": "REQUIRED_ONE_OF_SIZE",
+     "uz": "Bosh kiyim o'lchamlari",
+     "ru": "Размер головных уборов",
+     "valueCount": 30
+    },
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 113,
+   "categoryId": 11715,
+   "path": [
+    "Канцтовары",
+    "Бумажная продукция",
+    "Книги пожеланий"
+   ],
+   "characteristics": [
+    {
+     "id": -35,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Format",
+     "ru": "Формат",
+     "valueCount": 12
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 114,
+   "categoryId": 14650,
+   "path": [
+    "Детские товары",
+    "Детский активный отдых",
+    "Детский транспорт",
+    "Беговелы и каталки"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 115,
+   "categoryId": 14653,
+   "path": [
+    "Детские товары",
+    "Детский активный отдых",
+    "Детский транспорт",
+    "Велосипеды детские"
+   ],
+   "characteristics": [
+    {
+     "id": -14,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar poyabzali oʻlchami",
+     "ru": "Детский размер обуви",
+     "valueCount": 57
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 116,
+   "categoryId": 17784,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Детская футбольная форма"
+   ],
+   "characteristics": [
+    {
+     "id": -11,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Bolalar kiyimi oʻlchami",
+     "ru": "Детский размер одежды",
+     "valueCount": 28
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 117,
+   "categoryId": 14622,
+   "path": [
+    "Детские товары",
+    "Гигиена и подгузники",
+    "Подгузники и трусики",
+    "Многоразовые подгузники и вкладыши"
+   ],
+   "characteristics": [
+    {
+     "id": -32,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Taglik o'lchami",
+     "ru": "Размер подгузников",
+     "valueCount": 6
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 118,
+   "categoryId": 14623,
+   "path": [
+    "Детские товары",
+    "Гигиена и подгузники",
+    "Подгузники и трусики",
+    "Одноразовые подгузники и трусики"
+   ],
+   "characteristics": [
+    {
+     "id": -32,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Taglik o'lchami",
+     "ru": "Размер подгузников",
+     "valueCount": 6
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 119,
+   "categoryId": 15700,
+   "path": [
+    "Спорт и отдых",
+    "Зимний спорт",
+    "Сноуборд",
+    "Сноубордические ботинки"
+   ],
+   "characteristics": [
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 120,
+   "categoryId": 13097,
+   "path": [
+    "Спорт и отдых",
+    "Зимний спорт",
+    "Фигурные и прогулочные коньки"
+   ],
+   "characteristics": [
+    {
+     "id": -7,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Erkaklar poyabzali oʻlchami RUS",
+     "ru": "Мужской размер обуви RUS",
+     "valueCount": 43
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 121,
+   "categoryId": 12947,
+   "path": [
+    "Автотовары",
+    "Шины и диски",
+    "Шины"
+   ],
+   "characteristics": [
+    {
+     "id": -34,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Shina o'lchami",
+     "ru": "Размер шины",
+     "valueCount": 587
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 122,
+   "categoryId": 14655,
+   "path": [
+    "Детские товары",
+    "Детский активный отдых",
+    "Детский транспорт",
+    "Электрокары"
+   ],
+   "characteristics": [
+    {
+     "id": -36,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Elektrotransport turi",
+     "ru": "Тип электротранспорта",
+     "valueCount": 12
+    },
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 123,
+   "categoryId": 16127,
+   "path": [
+    "Книги",
+    "Художественная литература",
+    "Романы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 124,
+   "categoryId": 12336,
+   "path": [
+    "Детские товары",
+    "Игрушки и игры",
+    "Мягкие игрушки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 125,
+   "categoryId": 14433,
+   "path": [
+    "Красота и уход",
+    "Парфюмерия",
+    "Духи масляные"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 126,
+   "categoryId": 12964,
+   "path": [
+    "Электроника",
+    "Аксессуары для электроники",
+    "Аккумуляторные батарейки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 127,
+   "categoryId": 17790,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Футбольные гетры"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 128,
+   "categoryId": 15974,
+   "path": [
+    "Здоровье",
+    "Витамины и БАДы",
+    "Витамин К"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 129,
+   "categoryId": 12520,
+   "path": [
+    "Электроника",
+    "Ноутбуки, планшеты и электронные книги",
+    "Ноутбуки",
+    "Ноутбуки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 130,
+   "categoryId": 12115,
+   "path": [
+    "Строительство и ремонт",
+    "Инструменты",
+    "Электроинструменты",
+    "Фрезерные машины"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 131,
+   "categoryId": 17993,
+   "path": [
+    "Хобби и творчество",
+    "Рисование",
+    "Раскраски, наборы для росписи",
+    "Раскраски"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 132,
+   "categoryId": 15597,
+   "path": [
+    "Спорт и отдых",
+    "Футбол",
+    "Футбольные ворота"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 133,
+   "categoryId": 13948,
+   "path": [
+    "Электроника",
+    "Ноутбуки, планшеты и электронные книги",
+    "Аксессуары для ноутбуков",
+    "Сумки и рюкзаки для ноутбуков"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 134,
+   "categoryId": 13573,
+   "path": [
+    "Аксессуары",
+    "Мужские аксессуары",
+    "Галстуки, бабочки, карманные платки",
+    "Галстуки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 135,
+   "categoryId": 15575,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Туризм и отдых на природе",
+    "Насосы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 136,
+   "categoryId": 12983,
+   "path": [
+    "Спорт и отдых",
+    "Велоспорт",
+    "Велосипеды"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 137,
+   "categoryId": 12601,
+   "path": [
+    "Электроника",
+    "Телевизоры и видеотехника",
+    "Телевизоры"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 138,
+   "categoryId": 17851,
+   "path": [
+    "Продукты питания",
+    "Овощи, фрукты и ягоды",
+    "Овощи"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 139,
+   "categoryId": 13585,
+   "path": [
+    "Автотовары",
+    "Масла и автохимия",
+    "Промывочные масла"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 140,
+   "categoryId": 2598,
+   "path": [
+    "Строительство и ремонт",
+    "Двери, окна и комплектующие",
+    "Рольставни"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 141,
+   "categoryId": 14588,
+   "path": [
+    "Аксессуары",
+    "Религиозные аксессуары",
+    "Четки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 142,
+   "categoryId": 17486,
+   "path": [
+    "Мебель",
+    "Офисная и компьютерная мебель",
+    "Парты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 143,
+   "categoryId": 11593,
+   "path": [
+    "Детские товары",
+    "Гигиена и подгузники",
+    "Детская косметика",
+    "Детские кремы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 144,
+   "categoryId": 17406,
+   "path": [
+    "Строительство и ремонт",
+    "Лакокрасочные материалы",
+    "Материалы для реставрации"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 145,
+   "categoryId": 12633,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Палатки, тенты и шатры",
+    "Палатки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 146,
+   "categoryId": 12168,
+   "path": [
+    "Книги",
+    "Комиксы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 147,
+   "categoryId": 17646,
+   "path": [
+    "Мебель",
+    "Мебель для хранения",
+    "Шкафы и гардеробы",
+    "Шкафы архивные"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 148,
+   "categoryId": 17644,
+   "path": [
+    "Мебель",
+    "Мебель для хранения",
+    "Шкафы и гардеробы",
+    "Шкафы для одежды"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 149,
+   "categoryId": 15899,
+   "path": [
+    "Строительство и ремонт",
+    "Лакокрасочные материалы",
+    "Аэрозольные краски"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 150,
+   "categoryId": 2607,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Часы и ремешки",
+    "Часы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 151,
+   "categoryId": 17989,
+   "path": [
+    "Хобби и творчество",
+    "Рисование",
+    "Краски, пигменты",
+    "Масляные краски"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 152,
+   "categoryId": 12746,
+   "path": [
+    "Товары для дома",
+    "Хозяйственные товары",
+    "Лестницы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 153,
+   "categoryId": 13721,
+   "path": [
+    "Автотовары",
+    "Шины и диски",
+    "Мотошины"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 154,
+   "categoryId": 11750,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Перчатки и варежки",
+    "Перчатки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 155,
+   "categoryId": 12099,
+   "path": [
+    "Здоровье",
+    "Медицинские приборы",
+    "Допплер"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 156,
+   "categoryId": 12935,
+   "path": [
+    "Дача, сад и огород",
+    "Садовый инструмент",
+    "Лопаты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 157,
+   "categoryId": 12464,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для девочек",
+    "Зонты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 158,
+   "categoryId": 13080,
+   "path": [
+    "Бытовая химия",
+    "Средства от насекомых и грызунов",
+    "Инсектициды"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 159,
+   "categoryId": 2628,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Туризм и отдых на природе",
+    "Походная посуда"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 160,
+   "categoryId": 16069,
+   "path": [
+    "Дача, сад и огород",
+    "Садовая техника",
+    "Снегоуборочные машины"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 161,
+   "categoryId": 15634,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Конный спорт",
+    "Хлысты и бичи"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 162,
+   "categoryId": 17769,
+   "path": [
+    "Спорт и отдых",
+    "Ролики, скейты и самокаты",
+    "Защита"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 163,
+   "categoryId": 17914,
+   "path": [
+    "Животные",
+    "Сельскохозяйственные животные",
+    "Лошади"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 164,
+   "categoryId": 15649,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Спортивная гимнастика",
+    "Маты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 165,
+   "categoryId": 17534,
+   "path": [
+    "Строительство и ремонт",
+    "Электрика",
+    "Электрощитовое оборудование",
+    "Телекоммуникационные шкафы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 166,
+   "categoryId": 13908,
+   "path": [
+    "Электроника",
+    "Фото и видеотехника",
+    "Оборудование для фотографов",
+    "Фотостолы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 167,
+   "categoryId": 63,
+   "path": [
+    "Мебель",
+    "Офисная и компьютерная мебель",
+    "Сейфы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 168,
+   "categoryId": 12140,
+   "path": [
+    "Автотовары",
+    "Товары для мототехники, мотоэкипировка",
+    "Скутеры"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 169,
+   "categoryId": 14273,
+   "path": [
+    "Зоотовары",
+    "Для собак",
+    "Корма и лакомства",
+    "Сухие корма"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 170,
+   "categoryId": 11597,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для девочек",
+    "Головные уборы",
+    "Шапки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 171,
+   "categoryId": 17777,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Тактическая одежда",
+    "Тактическая обувь"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 172,
+   "categoryId": 17697,
+   "path": [
+    "Строительство и ремонт",
+    "Отделочные материалы",
+    "Декор и лепнина"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 173,
+   "categoryId": 15849,
+   "path": [
+    "Дача, сад и огород",
+    "Садовая техника",
+    "Запчасти для садовой техники",
+    "Масло и смазочные материалы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 174,
+   "categoryId": 17969,
+   "path": [
+    "Животные",
+    "Пчелы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 175,
+   "categoryId": 17330,
+   "path": [
+    "Дача, сад и огород",
+    "Садовая мебель",
+    "Садовые качели"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 176,
+   "categoryId": 12890,
+   "path": [
+    "Автотовары",
+    "Масла и автохимия",
+    "Специальные масла"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 177,
+   "categoryId": 15103,
+   "path": [
+    "Здоровье",
+    "Спортивное питание",
+    "Витамины и минералы для спортсменов"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 178,
+   "categoryId": 12012,
+   "path": [
+    "Автотовары",
+    "Уход за автомобилем",
+    "Краски и грунтовки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 179,
+   "categoryId": 14280,
+   "path": [
+    "Автотовары",
+    "Аксессуары и принадлежности",
+    "Аварийные принадлежности",
+    "Огнетушители"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 180,
+   "categoryId": 15637,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Рыбалка",
+    "Прикормки, насадки, ароматизаторы для рыбалки",
+    "Прикормки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 181,
+   "categoryId": 13292,
+   "path": [
+    "Зоотовары",
+    "Для кошек",
+    "Корма и лакомства",
+    "Сухие корма"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 182,
+   "categoryId": 17426,
+   "path": [
+    "Дача, сад и огород",
+    "Комнатные растения и цветы",
+    "Цветущие растения"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 183,
+   "categoryId": 14303,
+   "path": [
+    "Продукты питания",
+    "Чай, кофе и какао",
+    "Чага"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 184,
+   "categoryId": 17761,
+   "path": [
+    "Здоровье",
+    "Товары для реабилитации",
+    "Адаптивная одежда"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 185,
+   "categoryId": 11890,
+   "path": [
+    "Автотовары",
+    "Шины и диски",
+    "Диски"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 186,
+   "categoryId": 13230,
+   "path": [
+    "Товары для дома",
+    "Товары для кухни",
+    "Кухонные аксессуары",
+    "Зажигалки кухонные"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 187,
+   "categoryId": 16222,
+   "path": [
+    "Дача, сад и огород",
+    "Луковичные и мицелий",
+    "Лук-севок"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 188,
+   "categoryId": 17278,
+   "path": [
+    "Дача, сад и огород",
+    "Садовая техника",
+    "Цепные пилы",
+    "Мини-пилы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 189,
+   "categoryId": 14360,
+   "path": [
+    "Строительство и ремонт",
+    "Сантехника",
+    "Ванны и комплектующие",
+    "Комплектующие",
+    "Ножки для ванны"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 190,
+   "categoryId": 15556,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Туризм и отдых на природе",
+    "Горелки, походные печи и газовые обогреватели",
+    "Огниво и пьезоподжиг"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 191,
+   "categoryId": 17503,
+   "path": [
+    "Продукты питания",
+    "Здоровое питание",
+    "Полезные десерты и сладости",
+    "Печенье"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 192,
+   "categoryId": 14682,
+   "path": [
+    "Дача, сад и огород",
+    "Садовый инструмент",
+    "Тележки и тачки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 193,
+   "categoryId": 16813,
+   "path": [
+    "Строительство и ремонт",
+    "Водоснабжение для дома и сада",
+    "Водоочистка и фильтры",
+    "Фильтры под мойку"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 194,
+   "categoryId": 14612,
+   "path": [
+    "Обувь",
+    "Аксессуары для обуви",
+    "Чехлы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 195,
+   "categoryId": 14286,
+   "path": [
+    "Строительство и ремонт",
+    "Сантехника",
+    "Ванны и комплектующие",
+    "Комплектующие",
+    "Экран для ванны"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 196,
+   "categoryId": 15548,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Баскетбол",
+    "Баскетбольные кольца"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 197,
+   "categoryId": 16068,
+   "path": [
+    "Строительство и ремонт",
+    "Инструменты",
+    "Измерительные инструменты",
+    "Измерители длин и углов"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 198,
+   "categoryId": 14357,
+   "path": [
+    "Продукты питания",
+    "Здоровое питание",
+    "Кэроб"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 199,
+   "categoryId": 14565,
+   "path": [
+    "Здоровье",
+    "Ортопедические изделия",
+    "Ортопедическая обувь"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 200,
+   "categoryId": 17170,
+   "path": [
+    "Дача, сад и огород",
+    "Садовая мебель",
+    "Комплекты садовой мебели",
+    "Садовая кухня"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 201,
+   "categoryId": 10057,
+   "path": [
+    "Дача, сад и огород",
+    "Семена"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 202,
+   "categoryId": 18059,
+   "path": [
+    "Автотовары",
+    "Страхование для авто"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 203,
+   "categoryId": 17477,
+   "path": [
+    "Автотовары",
+    "Транспортные средства",
+    "Автомобили"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 204,
+   "categoryId": 11867,
+   "path": [
+    "Автотовары",
+    "Аккумуляторы и аксессуары",
+    "Аккумуляторные батареи"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 205,
+   "categoryId": 15544,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Палатки, тенты и шатры",
+    "Аксессуары для палаток и тентов"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 206,
+   "categoryId": 12101,
+   "path": [
+    "Бытовая техника",
+    "Техника для дома",
+    "Пылесосы и аксессуары",
+    "Запчасти и аксессуары для пылесосов",
+    "Ароматизаторы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 207,
+   "categoryId": 12620,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Бейсбол",
+    "Бейсбольные биты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 208,
+   "categoryId": 17441,
+   "path": [
+    "Дача, сад и огород",
+    "Комнатные растения и цветы",
+    "Букеты цветов"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 209,
+   "categoryId": 15587,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Гандбол",
+    "Гандбольная экипировка"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 210,
+   "categoryId": 15585,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Гандбол",
+    "Гандбольные мячи"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 211,
+   "categoryId": 16266,
+   "path": [
+    "Дача, сад и огород",
+    "Пикник, барбекю, гриль",
+    "Уголь, дрова и средства для розжига",
+    "Дрова"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 212,
+   "categoryId": 12432,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Туризм и отдых на природе",
+    "Горелки, походные печи и газовые обогреватели",
+    "Зажигалки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 213,
+   "categoryId": 15601,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Фехтование",
+    "Защитная экипировка для фехтования"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 214,
+   "categoryId": 16016,
+   "path": [
+    "Здоровье",
+    "Медицинские приборы",
+    "Тонометры и аксессуары",
+    "Кабели для зарядки тонометров"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 215,
+   "categoryId": 17663,
+   "path": [
+    "Строительство и ремонт",
+    "Средства индивидуальной защиты",
+    "Очки строительные",
+    "Лицевые защитные щитки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 216,
+   "categoryId": 17439,
+   "path": [
+    "Автотовары",
+    "Товары для мототехники, мотоэкипировка",
+    "Мототехника"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 217,
+   "categoryId": 12285,
+   "path": [
+    "Электроника",
+    "Смартфоны и телефоны",
+    "Аксессуары для смартфонов",
+    "Перчатки для сенсорных экранов"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 218,
+   "categoryId": 12090,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для путешествий",
+    "Товары для сна",
+    "Подушки для сна"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 219,
+   "categoryId": 17409,
+   "path": [
+    "Продукты питания",
+    "Замороженные продукты",
+    "Полуфабрикаты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 220,
+   "categoryId": 10098,
+   "path": [
+    "Аксессуары",
+    "Аксессуары для девочек",
+    "Ремни и пояса"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 221,
+   "categoryId": 16810,
+   "path": [
+    "Красота и уход",
+    "Дермакосметика",
+    "Солнцезащитные средства"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 222,
+   "categoryId": 16217,
+   "path": [
+    "Дача, сад и огород",
+    "Пикник, барбекю, гриль",
+    "Решетки и аксессуары для мангала, коптильни",
+    "Средства для чистки мангалов и грилей"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 223,
+   "categoryId": 17484,
+   "path": [
+    "Мебель",
+    "Столы и стулья",
+    "Столы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 224,
+   "categoryId": 15576,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Тактическая одежда",
+    "Тактические костюмы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 225,
+   "categoryId": 17788,
+   "path": [
+    "Туризм, рыбалка и охота",
+    "Тактическая одежда",
+    "Тактические перчатки"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 226,
+   "categoryId": 16200,
+   "path": [
+    "Строительство и ремонт",
+    "Водоснабжение для дома и сада",
+    "Контрольно-измерительные приборы",
+    "Теплосчетчики и термописцы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 227,
+   "categoryId": 17487,
+   "path": [
+    "Мебель",
+    "Столы и стулья",
+    "Туалетные столики и консоли"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 228,
+   "categoryId": 17729,
+   "path": [
+    "Спорт и отдых",
+    "Командный спорт",
+    "Гольф",
+    "Форма для гольфа"
+   ],
+   "characteristics": [
+    {
+     "id": -2,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Kiyim oʻlchami",
+     "ru": "Размер одежды",
+     "valueCount": 20
+    }
+   ]
+  },
+  {
+   "rank": 229,
+   "categoryId": 13882,
+   "path": [
+    "Аксессуары",
+    "Женские аксессуары",
+    "Ювелирные украшения",
+    "Часы"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 230,
+   "categoryId": 16123,
+   "path": [
+    "Мебель",
+    "Мебель для ванной комнаты",
+    "Шкафчики для ванной комнаты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 231,
+   "categoryId": 10924,
+   "path": [
+    "Здоровье",
+    "Спортивное питание",
+    "BCAA и аминокислоты"
+   ],
+   "characteristics": [
+    {
+     "id": -1,
+     "requiredType": "NOT_REQUIRED",
+     "uz": "Rang",
+     "ru": "Цвет",
+     "valueCount": 83
+    }
+   ]
+  },
+  {
+   "rank": 232,
+   "categoryId": 12246,
+   "path": [
+    "Товары для дома",
+    "Товары для кухни",
+    "Измельчители и соковыжималки",
+    "Терки"
+   ],
+   "characteristics": []
+  },
+  {
+   "rank": 233,
+   "categoryId": 15685,
+   "path": [
+    "Спорт и отдых",
+    "Зимний спорт",
+    "Горные лыжи",
+    "Лыжные стоки (палки для лыж)"
+   ],
+   "characteristics": []
+  },
+  {
+   "rank": 234,
+   "categoryId": 13271,
+   "path": [
+    "Товары для дома",
+    "Товары для кухни",
+    "Кухонные инструменты",
+    "Фрукто-овощечистки"
+   ],
+   "characteristics": []
+  },
+  {
+   "rank": 235,
+   "categoryId": 12498,
+   "path": [
+    "Бытовая техника",
+    "Техника для кухни",
+    "Техника для жарки и варки",
+    "Прочая техника для жарки и варки",
+    "Хлебопечки"
+   ],
+   "characteristics": []
+  }
+ ]
+}

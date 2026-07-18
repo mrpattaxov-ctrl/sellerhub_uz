@@ -13,3 +13,4 @@ server.cfg
 *.xlsx
 scripts/probe_tokens.txt
 .uicheck/
+artifacts/

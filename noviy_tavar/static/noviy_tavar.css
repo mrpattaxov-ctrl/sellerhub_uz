@@ -1,0 +1,1993 @@
+/* «Новый товар» — feature-local styles.
+ *
+ * HAMMA selektor [data-page="noviy-tavar"] ostida qulflangan — boshqa
+ * sahifalarga sizib chiqmaydi. Global/shared CSS'ga TEGILMAYDI.
+ *
+ * Qiymatlar referens kadrdan O'LCHAB olingan (ko'z bilan chamalanmagan):
+ *   artifacts/uzum-product-form-reference/screenshots/sacvoyage-blank-entry/
+ *   sacvoyage-blank-entry-02.png (1920x912)
+ * O'lchov usuli: mediana bo'yicha rang (JPEG shovqiniga chidamli), ustun/qator
+ * skani bo'yicha geometriya.
+ */
+
+[data-page="noviy-tavar"] {
+  /* ── Ranglar (mediana o'lchovi) ──────────────────────────────── */
+  --nt-bg: #f1f1f1;              /* sahifa foni — chap/o'ng gutter */
+  --nt-card-bg: #ffffff;         /* karta foni */
+  --nt-header-bg: #ffffff;
+  --nt-header-shadow: #ececec;   /* header ostidagi 7px chiziq */
+
+  --nt-ink: #1f2025;             /* asosiy matn */
+  --nt-ink-muted: #6b6b73;       /* label / yordamchi matn */
+  --nt-ink-placeholder: #9a9aa2;
+
+  --nt-line: #e0e0e0;            /* tip karta chegarasi */
+  --nt-line-input: #d5d5db;      /* input chegarasi */
+
+  --nt-tip-yellow: #fff7e6;      /* sariq maslahat foni */
+  --nt-violet-soft: #e5e4ff;     /* «Добавить» tugma foni */
+  --nt-violet-ink: #6f5ce6;      /* violet matn/link */
+  --nt-disabled-bg: #e3e2e7;     /* o'chiq tugma */
+  --nt-disabled-ink: #9f9ea3;
+  --nt-step-active: #6da5d4;     /* faol qadam doirasi */
+  --nt-step-idle: #c5c9d5;       /* nofaol qadam doirasi */
+  --nt-req: #f5222d;             /* majburiy yulduzcha */
+
+  /* ── Geometriya (skan o'lchovi) ──────────────────────────────── */
+  --nt-header-h: 104px;          /* header 0..103 */
+  --nt-col-w: 1064px;            /* karta x=530..1593 */
+  --nt-card-gap: 10px;           /* kartalar orasi */
+  --nt-card-pad-x: 25px;         /* karta chap/o'ng ichki bo'shliq */
+  --nt-card-pad-y: 28px;
+  --nt-control-h: 40px;          /* input/tugma balandligi */
+  --nt-radius-card: 0;           /* O'LCHANGAN: kartalar o'tkir burchakli */
+  --nt-radius-control: 8px;
+  --nt-radius-pill: 999px;
+
+  --nt-fs-h1: 24px;
+  --nt-fs-h2: 20px;              /* karta sarlavhasi */
+  --nt-fs-body: 14px;
+  --nt-fs-small: 13px;
+
+  --nt-motion: 180ms;            /* INTERACTION_SPEC: ~150-250ms */
+}
+
+/* base.html'dagi <main class="container-fluid px-3 py-4"> paddingidan
+   chiqib, to'liq kenglikda fon berish. base.html'ning O'ZI o'zgarmaydi. */
+[data-page="noviy-tavar"] {
+  margin: -1.5rem -1rem;
+  background: var(--nt-bg);
+  color: var(--nt-ink);
+  font-size: var(--nt-fs-body);
+  min-height: calc(100vh - 56px);
+}
+
+[data-page="noviy-tavar"] *,
+[data-page="noviy-tavar"] *::before,
+[data-page="noviy-tavar"] *::after { box-sizing: border-box; }
+
+/* ── Sticky header ─────────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--nt-header-h);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 28px;
+  background: var(--nt-header-bg);
+  box-shadow: 0 1px 0 var(--nt-header-shadow);
+}
+
+[data-page="noviy-tavar"] .nt-crumb {
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+  margin-bottom: 4px;
+}
+
+[data-page="noviy-tavar"] .nt-h1 {
+  font-size: var(--nt-fs-h1);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+/* qadamlar — markazda */
+[data-page="noviy-tavar"] .nt-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: auto;
+}
+
+[data-page="noviy-tavar"] .nt-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+[data-page="noviy-tavar"] .nt-step-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--nt-radius-pill);
+  background: var(--nt-step-idle);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+[data-page="noviy-tavar"] .nt-step.is-active .nt-step-dot { background: var(--nt-step-active); }
+
+[data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot {
+  background: #22c55e;
+  font-size: 0;
+}
+[data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot::after {
+  content: "";
+  width: 5px; height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+[data-page="noviy-tavar"] .nt-step-label {
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  white-space: nowrap;
+}
+[data-page="noviy-tavar"] .nt-step:not(.is-active) .nt-step-label { display: none; }
+
+[data-page="noviy-tavar"] .nt-step-sep {
+  width: 44px;
+  height: 1px;
+  background: #d9d9df;
+  margin: 0 12px;
+  flex: none;
+}
+
+/* header o'ng tugmalari */
+[data-page="noviy-tavar"] .nt-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 24px;
+}
+
+/* ── Tugmalar ──────────────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-btn {
+  height: var(--nt-control-h);
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  font-size: var(--nt-fs-body);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background var(--nt-motion) ease, opacity var(--nt-motion) ease;
+}
+
+/* `display:inline-flex` (muallif uslubi) UA'ning `[hidden]{display:none}` idan
+   USTUN keladi -> `btn.hidden = true` tugmani yashirmaydi. Aniq qoida shart.
+   (`.nt-panel[hidden]` uchun shunday himoya allaqachon bor.) */
+[data-page="noviy-tavar"] .nt-btn[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-btn:disabled,
+[data-page="noviy-tavar"] .nt-btn[aria-disabled="true"] {
+  background: var(--nt-disabled-bg);
+  color: var(--nt-disabled-ink);
+  cursor: not-allowed;
+}
+
+/* «Скрыть подсказки» — qora pill */
+[data-page="noviy-tavar"] .nt-btn--tips {
+  background: var(--nt-ink);
+  color: #fff;
+  border-radius: var(--nt-radius-control);
+}
+[data-page="noviy-tavar"] .nt-btn--tips:hover { background: #33343c; }
+
+[data-page="noviy-tavar"] .nt-btn--tips .nt-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* «Сохранить и продолжить» — asosiy (bo'sh formada o'chiq) */
+[data-page="noviy-tavar"] .nt-btn--primary {
+  background: var(--nt-violet-ink);
+  color: #fff;
+}
+[data-page="noviy-tavar"] .nt-btn--primary:not(:disabled):hover { background: #5d4bd4; }
+
+/* «Добавить» — yumshoq violet */
+[data-page="noviy-tavar"] .nt-btn--soft {
+  background: var(--nt-violet-soft);
+  color: var(--nt-violet-ink);
+}
+[data-page="noviy-tavar"] .nt-btn--soft:hover { background: #d9d7ff; }
+
+/* «＋ Добавить» — sertifikat kartasidagi variant. O'LCHANGAN (kadr 08):
+   Состав/Инструкция dagi «Добавить» BELGISIZ, Сертификаты dagi esa PLYUS
+   belgili — bandl `h["dd"]` (plus ikonka) + `certificates.add`. */
+[data-page="noviy-tavar"] .nt-btn--plus { gap: 6px; }
+[data-page="noviy-tavar"] .nt-btn--plus .nt-plus {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* «Принять» */
+[data-page="noviy-tavar"] .nt-btn--accept {
+  background: var(--nt-violet-ink);
+  color: #fff;
+  min-width: 88px;
+}
+
+/* ── Kontent ustuni ────────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-col {
+  width: var(--nt-col-w);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 14px 0 40px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nt-card-gap);
+}
+
+[data-page="noviy-tavar"] .nt-card {
+  background: var(--nt-card-bg);
+  border-radius: var(--nt-radius-card);
+  padding: var(--nt-card-pad-y) var(--nt-card-pad-x);
+}
+
+[data-page="noviy-tavar"] .nt-card-title {
+  font-size: var(--nt-fs-h2);
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -0.2px;
+}
+
+[data-page="noviy-tavar"] .nt-card-title .nt-req { color: var(--nt-req); margin-left: 4px; }
+
+[data-page="noviy-tavar"] .nt-card-title .nt-max {
+  font-size: var(--nt-fs-body);
+  font-weight: 400;
+  color: var(--nt-ink-muted);
+  margin-left: 8px;
+}
+
+[data-page="noviy-tavar"] .nt-doclink {
+  display: inline-block;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-violet-ink);
+  text-decoration: none;
+  margin: 8px 0 16px;
+}
+[data-page="noviy-tavar"] .nt-doclink:hover { text-decoration: underline; }
+
+/* ── Maslahat kartasi (tips) ───────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-tips {
+  display: flex;
+  border: 1px solid var(--nt-line);
+  border-radius: 10px;
+  margin: 12px 0 16px;
+  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* O'lchangan (frame 02): ustun kengligi 215px, ichki padding 16/14,
+   sarlavha qator balandligi 18px, matn qator oralig'i 19px. */
+/* O'LCHANGAN: referens ustunlari TENG EMAS — 215/210/226px (frame 02).
+   Demak kenglik kontentga moslashadi, qat'iy emas. Shuning uchun flex-basis
+   215px + o'sish/qisqarish ruxsati; aks holda uzun sarlavha ikkiga bo'linib
+   butun kartani cho'zadi. */
+[data-page="noviy-tavar"] .nt-tip {
+  padding: 16px 14px;
+  flex: 1 1 215px;
+  min-width: 195px;
+  max-width: 232px;
+  border-right: 1px solid var(--nt-line);
+}
+[data-page="noviy-tavar"] .nt-tip:last-child { border-right: 0; }
+
+[data-page="noviy-tavar"] .nt-tip-h {
+  font-size: var(--nt-fs-body);
+  font-weight: 600;
+  margin: 0 0 8px;
+  line-height: 18px;
+}
+
+[data-page="noviy-tavar"] .nt-tip-b {
+  /* O'LCHANGAN: referens tip tanasi ~5.76px/belgi, 13px Inter esa 6.59px/belgi
+     berardi (14% keng) — shuning uchun 12px. Qator oralig'i 19px ham o'lchangan. */
+  font-size: 12px;
+  color: var(--nt-ink-muted);
+  line-height: 19px;
+  margin: 0;
+}
+
+[data-page="noviy-tavar"] .nt-tip-b ul { margin: 0; padding-left: 16px; }
+
+/* podskazkalar yashirilgan holat — frame: sacvoyage-blank-entry-tips-hidden */
+[data-page="noviy-tavar"].nt-tips-hidden .nt-tips { display: none; }
+
+/* ── Sariq eslatma ─────────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-note {
+  background: var(--nt-tip-yellow);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: var(--nt-fs-body);
+  line-height: 1.45;
+  max-width: 400px;
+}
+
+[data-page="noviy-tavar"] .nt-note a { color: var(--nt-violet-ink); }
+
+/* ── Form kontrollari ──────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-label {
+  display: block;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+  margin-bottom: 6px;
+}
+[data-page="noviy-tavar"] .nt-label .nt-req { color: var(--nt-req); margin-left: 2px; }
+
+[data-page="noviy-tavar"] .nt-field { margin-bottom: 16px; }
+
+[data-page="noviy-tavar"] .nt-input,
+[data-page="noviy-tavar"] .nt-select,
+[data-page="noviy-tavar"] .nt-textarea {
+  width: 100%;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  padding: 0 14px;
+  height: var(--nt-control-h);
+  transition: border-color var(--nt-motion) ease;
+}
+
+[data-page="noviy-tavar"] .nt-textarea {
+  height: auto;
+  min-height: 120px;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+[data-page="noviy-tavar"] .nt-input::placeholder,
+[data-page="noviy-tavar"] .nt-textarea::placeholder { color: var(--nt-ink-placeholder); }
+
+[data-page="noviy-tavar"] .nt-input:focus,
+[data-page="noviy-tavar"] .nt-textarea:focus,
+[data-page="noviy-tavar"] .nt-select:focus {
+  outline: none;
+  border-color: var(--nt-violet-ink);
+}
+
+[data-page="noviy-tavar"] .nt-input:disabled,
+[data-page="noviy-tavar"] .nt-select:disabled { background: #f5f5f7; color: var(--nt-disabled-ink); }
+
+/* input + hisoblagich */
+[data-page="noviy-tavar"] .nt-input-wrap { position: relative; width: 506px; max-width: 100%; }
+[data-page="noviy-tavar"] .nt-input-wrap .nt-input { padding-right: 56px; }
+
+[data-page="noviy-tavar"] .nt-counter {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+  pointer-events: none;
+}
+
+[data-page="noviy-tavar"] .nt-counter--below {
+  position: static;
+  transform: none;
+  display: block;
+  margin-top: 6px;
+}
+
+/* select (chevron bilan) */
+[data-page="noviy-tavar"] .nt-select-wrap { position: relative; width: 398px; max-width: 100%; }
+
+[data-page="noviy-tavar"] .nt-select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 8px; height: 8px;
+  border: solid var(--nt-ink-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+[data-page="noviy-tavar"] .nt-select-wrap.is-disabled::after { border-color: var(--nt-disabled-ink); }
+
+[data-page="noviy-tavar"] .nt-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+/* ── Boy matn muharriri ────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-editor {
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  overflow: hidden;
+  background: #fff;
+}
+
+[data-page="noviy-tavar"] .nt-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ededf0;
+}
+
+[data-page="noviy-tavar"] .nt-tb-btn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nt-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--nt-motion) ease;
+}
+[data-page="noviy-tavar"] .nt-tb-btn:hover { background: #f2f2f5; }
+
+/* faol formatlash tugmasi — ko'k tanlangan holat (INTERACTION_SPEC) */
+[data-page="noviy-tavar"] .nt-tb-btn[aria-pressed="true"] {
+  background: #e7f0fb;
+  color: #2b7cd3;
+}
+
+[data-page="noviy-tavar"] .nt-tb-select {
+  height: 30px;
+  border: 1px solid var(--nt-line-input);
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink);
+  padding: 0 6px;
+  margin: 0 4px;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-editor-area {
+  min-height: 356px;
+  padding: 14px;
+  font-size: var(--nt-fs-body);
+  line-height: 1.5;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+[data-page="noviy-tavar"] .nt-editor-area:empty::before {
+  content: attr(data-placeholder);
+  color: var(--nt-ink-placeholder);
+  pointer-events: none;
+}
+
+[data-page="noviy-tavar"] .nt-editor-area h2 { font-size: 20px; font-weight: 700; margin: 12px 0 6px; }
+[data-page="noviy-tavar"] .nt-editor-area h3 { font-size: 17px; font-weight: 700; margin: 10px 0 6px; }
+[data-page="noviy-tavar"] .nt-editor-area h4 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
+[data-page="noviy-tavar"] .nt-editor-area img { max-width: 100%; height: auto; }
+
+[data-page="noviy-tavar"] .nt-editor:focus-within { border-color: var(--nt-violet-ink); }
+
+/* ── Media qo'shish plitkasi (Видео / Фото 360) ────────────────── */
+
+[data-page="noviy-tavar"] .nt-tile {
+  width: 106px;
+  height: 138px;
+  border: 1px dashed #c9c9d1;
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink);
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.3;
+  font-family: inherit;
+  transition: border-color var(--nt-motion) ease;
+}
+[data-page="noviy-tavar"] .nt-tile:hover { border-color: var(--nt-violet-ink); }
+[data-page="noviy-tavar"] .nt-tile .nt-plus { font-size: 20px; line-height: 1; }
+
+/* ── Xususiyat qatori ──────────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-char-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+  border-top: 1px solid #ededf0;
+}
+
+[data-page="noviy-tavar"] .nt-char-name { width: 250px; flex: none; }
+
+[data-page="noviy-tavar"] .nt-btn--danger {
+  background: #ffe3e3;
+  color: #e03131;
+  margin-left: auto;
+}
+
+/* ── Fokus ko'rinishi (a11y) ───────────────────────────────────── */
+
+[data-page="noviy-tavar"] :focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Harakatni kamaytirish ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-page="noviy-tavar"] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Tor ekran: ustun kengligini moslashtirish ─────────────────── */
+
+@media (max-width: 1200px) {
+  [data-page="noviy-tavar"] .nt-col { width: 100%; padding-left: 16px; padding-right: 16px; }
+  [data-page="noviy-tavar"] .nt-tips { flex-wrap: wrap; width: 100%; }
+  [data-page="noviy-tavar"] .nt-tip { border-right: 0; border-bottom: 1px solid var(--nt-line); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOSQICH A — kategoriya kaskadi, xususiyat qatorlari, qiymat modali
+
+   Qiymatlar REFERENSDAN O'LCHANGAN (taxmin emas):
+     screenshots/category-interactions/001_..._category-14614/
+       012_..._characteristic-dropdown-open.png  -> panel geometriyasi
+       005_-1_Цвет_value-dropdown-open.png       -> modal + rang doirasi
+       019_..._value-dropdown-open.png           -> doirasiz modal (o'lcham)
+       001_category-baseline-viewport.png        -> qator + tugmalar
+
+   O'lchov usuli: segment skani (geometriya) + mediana (rang, JPEG shovqiniga
+   chidamli). Overlay alfasi IKKI xil fonda tekshirildi — 0.302 va 0.303 →
+   rgba(0,0,0,.30) ishonchli.
+
+   ⚠️ TAXMIN QILINGAN (referens kadr YO'Q — ochiq yozamiz):
+     Kategoriya kaskad panelining ichki ko'rinishi (orqaga tugmasi, yo'l
+     satri, «bolasi bor» chevroni). Uzum'da bu holatning kadri OLINMAGAN,
+     ikkala HAR'da ham qidiruv endpointi yo'q. Geometriya xususiyat
+     panelidan MEROS (bir xil kontrol oilasi: to'liq kenglik, 44px element)
+     — shakl esa bizniki.
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-page="noviy-tavar"] {
+  --nt-panel-item-h: 44px;      /* O'LCHANGAN: 012 — elementlar qadami 44px */
+  --nt-panel-gap: 10px;         /* O'LCHANGAN: select pastidan panelgacha */
+  --nt-modal-w: 640px;          /* O'LCHANGAN: 005 — x=640..1279, markazda */
+  --nt-modal-item-h: 55px;      /* O'LCHANGAN: 005 — ro'yxat qadami 55px */
+  --nt-swatch: 30px;            /* O'LCHANGAN: 005 — rang doirasi 30x30 */
+  --nt-overlay: rgba(0, 0, 0, .30);  /* O'LCHANGAN: alpha 0.302/0.303 */
+  --nt-violet-solid: #7000ff;   /* O'LCHANGAN: «Сохранить» foni */
+  --nt-add-bg: #e5e5ff;         /* O'LCHANGAN: «+ Добавить» foni */
+  --nt-add-ink: #7f5eff;        /* O'LCHANGAN: «+ Добавить» matni */
+  --nt-del-bg: #ffd6db;         /* O'LCHANGAN: «Удалить» foni */
+  --nt-del-ink: #e3363c;
+  --nt-row-line: #f6f6f7;       /* O'LCHANGAN: qator ajratuvchisi */
+  --nt-modal-line: #e2e2e3;     /* O'LCHANGAN: modal header ajratuvchisi */
+  --nt-list-line: #eeeeee;      /* O'LCHANGAN: modal ro'yxat ajratuvchisi */
+}
+
+/* ── Combobox: tugma + ochiladigan panel ───────────────────────── */
+
+/* DIQQAT: `width` BERILMAYDI. Kategoriya combo'si `.nt-select-wrap` bilan birga
+   ishlatiladi (398px) — bu yerda 100% qo'ysak uni bosib ketadi va kontrol
+   kartaning butun enini egallaydi (bir marta shunday bo'lgan). Kenglikni
+   chaqiruvchi beradi. */
+[data-page="noviy-tavar"] .nt-combo { position: relative; }
+
+[data-page="noviy-tavar"] .nt-combo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: var(--nt-control-h);
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-combo-btn.is-placeholder { color: var(--nt-ink-placeholder); }
+
+[data-page="noviy-tavar"] .nt-combo-btn:disabled {
+  background: #f5f5f7;
+  color: var(--nt-disabled-ink);
+  cursor: not-allowed;
+}
+
+[data-page="noviy-tavar"] .nt-combo-btn:focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: 1px;
+}
+
+/* chevron — ochilganda ^ ga aylanadi (O'LCHANGAN: 012) */
+[data-page="noviy-tavar"] .nt-combo-caret {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-right: 1.6px solid var(--nt-ink-muted);
+  border-bottom: 1.6px solid var(--nt-ink-muted);
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform var(--nt-motion) ease;
+}
+
+[data-page="noviy-tavar"] .nt-combo-btn[aria-expanded="true"] .nt-combo-caret {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+[data-page="noviy-tavar"] .nt-combo-btn:disabled .nt-combo-caret { border-color: var(--nt-disabled-ink); }
+
+/* panel — kontrol bilan BIR XIL kenglikda (O'LCHANGAN: 012 — 506px = 548..1053) */
+[data-page="noviy-tavar"] .nt-panel {
+  position: absolute;
+  top: calc(100% + var(--nt-panel-gap));
+  left: 0;
+  z-index: 40;
+  width: 100%;
+  max-height: calc(var(--nt-panel-item-h) * 6);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08);
+}
+
+[data-page="noviy-tavar"] .nt-panel[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-panel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--nt-panel-item-h);
+  padding: 0 16px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-panel-item:hover,
+[data-page="noviy-tavar"] .nt-panel-item.is-active { background: #f5f5f7; }
+
+[data-page="noviy-tavar"] .nt-panel-item:focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: -2px;
+}
+
+/* «bolasi bor» ko'rsatkichi — TAXMIN (referens kadr yo'q) */
+[data-page="noviy-tavar"] .nt-panel-item .nt-chev {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid var(--nt-ink-placeholder);
+  border-top: 1.6px solid var(--nt-ink-placeholder);
+  transform: rotate(45deg);
+}
+
+[data-page="noviy-tavar"] .nt-panel-empty {
+  padding: 14px 16px;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+/* kaskad yo'li — TAXMIN (referens kadr yo'q) */
+[data-page="noviy-tavar"] .nt-panel-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nt-list-line);
+  background: #fafafa;
+}
+
+[data-page="noviy-tavar"] .nt-panel-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-violet-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-panel-back:hover { background: #efedff; }
+
+[data-page="noviy-tavar"] .nt-panel-path {
+  font-size: 12px;
+  color: var(--nt-ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Xususiyat qatorlari (O'LCHANGAN: 001 baseline) ────────────── */
+
+[data-page="noviy-tavar"] .nt-char-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 64px;
+  padding: 12px 0;
+  border-top: 1px solid var(--nt-row-line);
+}
+
+[data-page="noviy-tavar"] .nt-char-name {
+  flex: 0 0 240px;
+  font-size: var(--nt-fs-body);
+  line-height: 20px;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-char-mid { flex: 1 1 auto; }
+
+/* «+ Добавить» — O'LCHANGAN fon #E5E5FF / matn #7F5EFF */
+[data-page="noviy-tavar"] .nt-btn--add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--nt-control-h);
+  padding: 0 16px;
+  background: var(--nt-add-bg);
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-add-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-btn--add:hover { background: #dcdcff; }
+
+/* «Удалить» — O'LCHANGAN fon #FFD6DB */
+[data-page="noviy-tavar"] .nt-btn--del {
+  flex: 0 0 auto;
+  height: var(--nt-control-h);
+  padding: 0 16px;
+  background: var(--nt-del-bg);
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-del-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-btn--del:hover { background: #ffc4cb; }
+
+/* tanlangan qiymatlar — chip'lar */
+[data-page="noviy-tavar"] .nt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+[data-page="noviy-tavar"] .nt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f2f2f4;
+  border-radius: var(--nt-radius-pill);
+  font-size: 12px;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-chip-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, .12);
+}
+
+/* ── Qiymat modali «Выбрать характеристики» (O'LCHANGAN: 005/019) ─ */
+
+[data-page="noviy-tavar"] .nt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nt-overlay);
+}
+
+[data-page="noviy-tavar"] .nt-modal-overlay[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-modal {
+  display: flex;
+  flex-direction: column;
+  width: var(--nt-modal-w);
+  max-width: calc(100vw - 32px);
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+[data-page="noviy-tavar"] .nt-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--nt-modal-line);
+}
+
+[data-page="noviy-tavar"] .nt-modal-title {
+  margin: 0;
+  font-size: var(--nt-fs-h2);
+  font-weight: 700;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-modal-x {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--nt-ink-muted);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-modal-x:hover { background: #f2f2f4; }
+
+[data-page="noviy-tavar"] .nt-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 24px;
+}
+
+[data-page="noviy-tavar"] .nt-modal-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 20px 0 12px;
+  background: #fff;
+}
+
+[data-page="noviy-tavar"] .nt-modal-search .nt-input { width: 100%; }
+
+[data-page="noviy-tavar"] .nt-opt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--nt-modal-item-h);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--nt-list-line);
+  font-size: 15px;
+  color: var(--nt-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-opt input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--nt-violet-solid);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-opt-swatch {
+  flex: 0 0 auto;
+  width: var(--nt-swatch);
+  height: var(--nt-swatch);
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, .10);
+}
+
+[data-page="noviy-tavar"] .nt-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px 20px;
+}
+
+[data-page="noviy-tavar"] .nt-btn--ghost {
+  height: var(--nt-control-h);
+  padding: 0 8px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  cursor: pointer;
+}
+
+/* «Сохранить» — O'LCHANGAN fon #7000FF */
+[data-page="noviy-tavar"] .nt-btn--solid {
+  height: var(--nt-control-h);
+  padding: 0 24px;
+  background: var(--nt-violet-solid);
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: #fff;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-btn--solid:hover { background: #6000dd; }
+
+[data-page="noviy-tavar"] .nt-btn--solid:disabled {
+  background: var(--nt-disabled-bg);
+  color: var(--nt-disabled-ink);
+  cursor: not-allowed;
+}
+
+[data-page="noviy-tavar"] .nt-modal-empty {
+  padding: 24px 0;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KATEGORIYA TANLASH — Uzum oqimiga qayta qurilgan
+
+   ⚠️ Birinchi urinishda BU XATO edi: drill-down panel (bitta kontrol,
+   ichida «⟵ Orqaga» bilan pastga tushish). Uzum'da UNDAY EMAS.
+
+   HAQIQIY oqim (foydalanuvchi bergan jonli kadrlar + artifacts dalili):
+     1) «Название категории или товара» -> dropdown (ildizlar, alifbo bo'yicha)
+     2) tanlangach OSTIGA «Выбрать подкатегорию» select'i QO'SHILADI
+     3) barg tanlangunча takrorlanadi; barg tanlangach «Принять» YONADI (#7000FF)
+     4) «Принять» -> select'lar o'rniga BREADCRUMB + «Изменить» (qora tugma)
+     5) «Изменить» -> select'lar qaytadi, endi «Отмена» ham bor
+
+   O'LCHANGAN (blank-step1-category-typed.png, 1920x842):
+     - select: x=545..945 -> 400px, y=253..292 -> 40px
+     - «Принять» (o'chiq): 89x40, select pastidan 41px
+     - o'chiq tugma foni #E6E5EA (mediana; HANDOFF #E3E2E7 — JPEG shovqini)
+   O'LCHANGAN (sacvoyage-filled-step1-product-card.png):
+     - tasdiqlangach select'lar YO'Q, faqat «A › B › C › D» breadcrumb
+
+   ⚠️ TAXMIN (aniq CSS dalili yo'q — ochiq yozamiz): select'lar orasidagi
+   vertikal oraliq. Foydalanuvchining 3 ta kadridan nisbat bo'yicha
+   hisoblandi (oraliq/balandlik: 0.63 / 0.70 / 0.71) -> 40px balandlikda
+   ~25-28px. 24px olindi.
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-page="noviy-tavar"] {
+  --nt-cat-w: 400px;         /* O'LCHANGAN: select x=545..945 */
+  --nt-cat-gap: 24px;        /* TAXMIN: kadrlardan nisbat ~25-28px */
+  --nt-cat-actions-gap: 41px;/* O'LCHANGAN: select(292) -> «Принять»(333) */
+  --nt-dark-bg: #1f2025;     /* «Изменить» — qora tugma */
+}
+
+/* «* - обязательные поля» — kartalar ustida, fon ustida */
+[data-page="noviy-tavar"] .nt-required-legend {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--nt-ink);
+}
+
+/* ── Ustma-ust select'lar ──────────────────────────────────────── */
+
+[data-page="noviy-tavar"] .nt-cat-levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nt-cat-gap);
+  width: var(--nt-cat-w);
+  max-width: 100%;
+}
+
+[data-page="noviy-tavar"] .nt-cat-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: var(--nt-cat-actions-gap);
+}
+
+/* «Принять» faol holatda — O'LCHANGAN #7000FF (modal «Сохранить» bilan bir xil) */
+[data-page="noviy-tavar"] .nt-btn--accept:not(:disabled) {
+  background: var(--nt-violet-solid);
+  color: #fff;
+}
+
+[data-page="noviy-tavar"] .nt-btn--accept:not(:disabled):hover { background: #6000dd; }
+
+/* ── Tasdiqlangan holat: breadcrumb + «Изменить» ───────────────── */
+
+[data-page="noviy-tavar"] .nt-cat-done[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-crumb-sep {
+  color: var(--nt-ink-placeholder);
+  user-select: none;
+}
+
+/* «Изменить» — qora fon, oq matn */
+[data-page="noviy-tavar"] .nt-btn--dark {
+  height: var(--nt-control-h);
+  padding: 0 20px;
+  background: var(--nt-dark-bg);
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: #fff;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-btn--dark:hover { background: #35363d; }
+
+[data-page="noviy-tavar"] .nt-cat-pick[hidden] { display: none; }
+
+/* Panel xatosi + qayta urinish — bo'sh ro'yxatdan FARQLI ko'rinadi.
+   Sabab: token o'lganda (Uzum 401 -> proxy 502) avval «kategoriya yo'q»
+   derdi va foydalanuvchi yolg'on xulosa chiqarardi. */
+[data-page="noviy-tavar"] .nt-panel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--nt-del-ink);
+}
+
+[data-page="noviy-tavar"] .nt-panel-retry {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  background: var(--nt-add-bg);
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--nt-add-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-panel-retry:hover { background: #dcdcff; }
+
+
+/* ── Ixtiyoriy bo'limlar (Состав / Размеры / Инструкция / Сертификация) ──
+   Referens: blank-step1-composition-expanded.png — yorliq «Состав на
+   узбекском (НЕОБЯЗАТЕЛЬНО)», ostida muharrir, ostida «Удалить».
+   Har til ALOHIDA blok (Uzum removeComment(tur, til) semantikasi). */
+
+[data-page="noviy-tavar"] .nt-optsec-block {
+  margin-bottom: 24px;
+}
+[data-page="noviy-tavar"] .nt-optsec-block:last-child {
+  margin-bottom: 0;
+}
+
+[data-page="noviy-tavar"] .nt-optsec-label {
+  margin: 0 0 8px;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+/* «(НЕОБЯЗАТЕЛЬНО)» — referensda yorliqdan och rangda, 8px chapga surilgan */
+[data-page="noviy-tavar"] .nt-optsec-note {
+  margin-left: 8px;
+  color: var(--nt-ink-faint, #9f9ea3);
+}
+
+/* «Удалить» muharrir ostida, referensda 12px oraliq */
+[data-page="noviy-tavar"] .nt-optsec-block > div:last-child {
+  margin-top: 12px;
+}
+
+
+/* ── Umumiy rasmlar (Общие фотографии товара) ─────────────────────
+   Plitka o'lchami Видео/Фото 360 bilan bir xil (o'lchangan 106x138).
+   Rasm plitkasi ham shu o'lchamda — Uzum yuklagichi ham bir xil to'rda. */
+
+[data-page="noviy-tavar"] .nt-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+[data-page="noviy-tavar"] .nt-photo {
+  position: relative;
+  width: 106px;
+  height: 138px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f6f6f7;
+}
+
+[data-page="noviy-tavar"] .nt-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Sudrab tartiblash matni — rasm bo'lganda (ui_uploader.draggable_text) */
+[data-page="noviy-tavar"] .nt-photos-hint {
+  margin: 0 0 10px;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-photo[draggable="true"] { cursor: grab; }
+[data-page="noviy-tavar"] .nt-photo[draggable="true"]:active { cursor: grabbing; }
+
+/* Tartib raqami — referens kadrda chap yuqorida, oq doira */
+[data-page="noviy-tavar"] .nt-photo-num {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--nt-ink);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ⋮ — referens kadrda o'ng yuqorida */
+[data-page="noviy-tavar"] .nt-photo-menu {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--nt-ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-photo-menu:hover { background: rgba(255, 255, 255, .7); }
+
+[data-page="noviy-tavar"] .nt-photo-actions {
+  position: absolute;
+  top: 26px;
+  right: 4px;
+  z-index: 2;
+  background: #fff;
+  border: 1px solid var(--nt-list-line);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+  overflow: hidden;
+}
+[data-page="noviy-tavar"] .nt-photo-actions button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-del-ink, #d5334a);
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-photo-actions button:hover { background: var(--nt-row-line); }
+
+/* Yuklash xatosi/holati — JIM yutilmasin */
+[data-page="noviy-tavar"] .nt-photo-msg {
+  margin: 10px 0 0;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+
+/* ── Filtr kartasi: «Отсутствует <nom>» katakchasi ────────────────
+   Bandl: .checkbox-container { margin-top: 14px } */
+
+[data-page="noviy-tavar"] .nt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--nt-violet-solid);
+  cursor: pointer;
+}
+
+
+/* ── Har bir rang uchun mediafayllar (colorImages) ────────────────
+   Geometriya TAXMIN EMAS — bandl CSS'idan (chunk-3ca9d890 @412300,
+   `product-color-images-uploader.ce`, scope data-v-4c712cab):
+     .color-images__container      {width:100%}
+     .color-images__color          {display:flex;align-items:center;margin-bottom:16px}
+     .color-images__title          {font-weight:500;font-size:15px;line-height:18px;
+                                    color:#494b50;margin-left:8px}
+     .color-images__draggable-text {color:#8b8e99;font-size:12px;line-height:16px;
+                                    margin-bottom:10px}
+     .color-images__view           {display:flex;flex-wrap:wrap}
+     .color-images__view:not(:last-child) {margin-bottom:16px}
+   Rang doirasi (mf-products @3113077):
+     .color-preview     {border:2px solid #e0e4eb;border-radius:50%;width:20px;height:20px}
+     .color-preview.big {width:24px;height:24px}      <- rang-mediada «big» ishlatilgan */
+
+[data-page="noviy-tavar"] .nt-cm-block:not(:last-child) { margin-bottom: 16px; }
+
+[data-page="noviy-tavar"] .nt-cm-color {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* .color-preview.big — 24px, 2px chegara, doira */
+[data-page="noviy-tavar"] .nt-cm-swatch {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e0e4eb;
+  border-radius: 50%;
+}
+
+[data-page="noviy-tavar"] .nt-cm-title {
+  margin-left: 8px;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 18px;
+  color: #494b50;
+}
+
+/* Sudrab tartiblash matni — bandl: faqat shu rangda RASM BOR bo'lsa */
+[data-page="noviy-tavar"] .nt-cm-drag {
+  margin: 0 0 10px;
+  color: #8b8e99;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+[data-page="noviy-tavar"] .nt-cm-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ── Video / Foto 360 ────────────────────────────────────────────
+   Yuklangan media yoki «+» plitkasi shu konteynerda (JS almashtiradi). */
+[data-page="noviy-tavar"] .nt-media-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Video preview — rasm plitkasi bilan bir xil geometriya (106x138),
+   `object-fit: cover` bilan ramkani to'ldiradi. */
+[data-page="noviy-tavar"] .nt-photo--video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+/* Per-rang video/360 uyasi — rang bloki ichida, rasmlardan keyin */
+[data-page="noviy-tavar"] .nt-cm-slot { margin-top: 12px; }
+
+[data-page="noviy-tavar"] .nt-cm-slot-h {
+  margin: 0 0 6px;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+
+/* ── Sertifikatlar formasi (productCertificates) ──────────────────
+   Geometriya TAXMIN EMAS — bandlning O'Z CSS'idan ko'chirildi
+   (chunk-3ca9d890 @383401, `data-v-a391eb68` scope):
+     .certificates-form__item        {padding:24px;border-radius:8px;
+                                      border:1px solid var(--border-regular);
+                                      margin-bottom:24px;position:relative}
+     .certificates-form__item__title {margin-bottom:16px}
+     .certificates-form__item__close {position:absolute;top:15px;right:15px}
+     .certificates-form__item:last-child {margin-bottom:0}
+     .certificates-form__text-fields {display:flex;gap:24px}
+     .certificates-form__field       {width:250px}
+   Ya'ni har sertifikat — CHEGARALI QUTI; `×` shu qutining yuqori-o'ng burchagida.
+   `--border-regular` bizda `--nt-line` (#E0E0E0, karta chegarasidan o'lchangan).
+   Rasm yuklagich ostidagi 16px — bandldagi `class="mb-4"` dan. */
+
+[data-page="noviy-tavar"] .nt-cert {
+  position: relative;
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid var(--nt-line);
+  border-radius: 8px;
+}
+[data-page="noviy-tavar"] .nt-cert:last-child { margin-bottom: 0; }
+
+[data-page="noviy-tavar"] .nt-cert-title {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nt-ink);
+}
+
+/* Bandl: `certificates-form__item__close`, `icon-only`, `variant:"text-neutral"` */
+[data-page="noviy-tavar"] .nt-cert-x {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  background: transparent;
+  color: var(--nt-ink-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-cert-x:hover { background: #f2f2f4; }
+
+/* Bandl: `certificates-form__text-fields` {display:flex;gap:24px}
+   flex-wrap — bizning qo'shimchamiz (tor ekranda sinsin); 1064px kartada
+   ishga tushmaydi (250+24+250 = 524px). */
+[data-page="noviy-tavar"] .nt-cert-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+/* Bandl: `certificates-form__field` {width:250px} */
+[data-page="noviy-tavar"] .nt-cert-field { width: 250px; max-width: 100%; }
+
+[data-page="noviy-tavar"] .nt-cert-field .nt-input { width: 100%; }
+
+/* Sertifikat rasmlari — umumiy rasm to'ri bilan bir xil plitka o'lchami.
+   Ostidagi 24px = bandldagi yuklagich `class="mb-4"`; bandl CSS'ida
+   O'LCHANGAN: `.mb-4{margin-bottom:1.5rem!important}` = 24px (16px EMAS). */
+[data-page="noviy-tavar"] .nt-cert-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+/* «＋ Добавить» — bandl: `class="mt-4"` -> `.mt-4{margin-top:1.5rem}` = 24px */
+[data-page="noviy-tavar"] #ntCertAdd { margin-top: 24px; }
+
+/* Sariq ogohlantirish (bandl: variant "caution", has-close).
+   Fon — kartadagi O'LCHANGAN sariq; geometriya taxminiy (kadri yo'q). */
+[data-page="noviy-tavar"] .nt-cert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;   /* bandl: banner `class="mb-4"` = 1.5rem = 24px */
+  padding: 14px 16px;
+  background: var(--nt-tip-yellow);
+  border-radius: var(--nt-radius-control);
+}
+[data-page="noviy-tavar"] .nt-cert-banner[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-cert-banner-h {
+  margin: 0 0 4px;
+  font-size: var(--nt-fs-body);
+  font-weight: 600;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-cert-banner-b {
+  margin: 0;
+  font-size: var(--nt-fs-small);
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-cert-banner-x {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--nt-radius-control);
+  background: transparent;
+  color: var(--nt-ink-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-cert-banner-x:hover { background: #f6ecd6; }
+
+/* O'chirish tasdig'i — mavjud modal tokenlarining tor varianti */
+[data-page="noviy-tavar"] .nt-modal--confirm { width: 440px; }
+
+[data-page="noviy-tavar"] .nt-modal--confirm .nt-modal-body { padding: 24px 24px 0; }
+
+[data-page="noviy-tavar"] .nt-modal--confirm .nt-modal-title { margin-bottom: 8px; }
+
+[data-page="noviy-tavar"] .nt-cert-del-desc {
+  margin: 0;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ *  2-QADAM «Цены и SKU»
+ *
+ *  Referens: screenshots/sacvoyage-filled-step2-prices-sku.png (2400x1053).
+ *  ⚠️ HALOL QAYD — o'lchov ishonchliligi ikki xil:
+ *    · ISHONCHLI (katta tekis maydon, mediana):
+ *        sarlavha bandi #e6e9f0 (y=628..670) · qator foni #ffffff
+ *        nishon foni #fef4d2 · sub-matn #969799 (mavjud --nt-ink-placeholder
+ *        bilan mos tushdi)
+ *    · TAXMINIY (ingichka chiziq/matn — fayl nomi .png, ASLIDA JPEG →
+ *      antialiasing + siqilish artefaktlari): nishon ramkasi va matni.
+ *      «Piksel-perfect» DEB AYTMAYMAN.
+ *
+ *  Gorizontal skroll — Uzumda ham bor (referensni aynan shu kesib qo'ygan:
+ *  «Цена, сум» dan keyingi 5 ta ustun kadrga sig'magan).
+ * ══════════════════════════════════════════════════════════════════ */
+
+[data-page="noviy-tavar"] {
+  --nt-th-bg: #e6e9f0;        /* sarlavha bandi — mediana, ishonchli */
+  --nt-th-ink: #8a8d94;       /* sarlavha matni */
+  --nt-badge-bg: #fef4d2;     /* «закончился» foni — mediana, ishonchli */
+  --nt-badge-line: #e0a83c;   /* ramka — TAXMINIY (JPEG artefakti) */
+  --nt-badge-ink: #b07d18;    /* matn — TAXMINIY (JPEG artefakti) */
+  --nt-row-line: #eeeeee;     /* qatorlar orasidagi chiziq */
+  --nt-neg: #f5222d;          /* manfiy «К выводу» */
+}
+
+[data-page="noviy-tavar"] .nt-step2-intro {
+  margin: 0 0 18px;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink-muted);
+  line-height: 1.5;
+}
+
+[data-page="noviy-tavar"] .nt-step2-sub {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-field--sku { max-width: 520px; }
+
+[data-page="noviy-tavar"] .nt-err {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--nt-req);
+}
+
+/* ── Tablar «SKU | Все · Активные · Архивные» ─────────────────── */
+[data-page="noviy-tavar"] .nt-sku-tabs {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin: 22px 0 14px;
+}
+
+[data-page="noviy-tavar"] .nt-sku-tabs-label {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--nt-ink);
+  margin-right: 6px;
+}
+
+[data-page="noviy-tavar"] .nt-sku-tab {
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+[data-page="noviy-tavar"] .nt-sku-tab.is-active {
+  color: var(--nt-ink);
+  border-bottom-color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-tbl-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--nt-ink);
+}
+
+/* ── Jadval ──────────────────────────────────────────────────── */
+[data-page="noviy-tavar"] .nt-tbl-scroll {
+  overflow-x: auto;
+  background: var(--nt-card-bg);
+  border-radius: 8px;
+}
+
+[data-page="noviy-tavar"] .nt-tbl {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: var(--nt-fs-body);
+}
+
+[data-page="noviy-tavar"] .nt-th {
+  position: sticky;
+  top: 0;
+  background: var(--nt-th-bg);
+  color: var(--nt-th-ink);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+  padding: 14px 12px;
+  z-index: 1;
+}
+
+/* Birinchi ustun skrollda joyida qoladi — 16 ta ustun bor, aks holda
+   qaysi rang ekani ko'rinmay qoladi. */
+[data-page="noviy-tavar"] .nt-th--sticky,
+[data-page="noviy-tavar"] .nt-td--sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-right: 1px solid var(--nt-row-line);
+}
+
+[data-page="noviy-tavar"] .nt-th--sticky { z-index: 3; }
+[data-page="noviy-tavar"] .nt-td--sticky { background: var(--nt-card-bg); }
+
+[data-page="noviy-tavar"] .nt-tr { border-top: 1px solid var(--nt-row-line); }
+
+[data-page="noviy-tavar"] .nt-td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+[data-page="noviy-tavar"] .nt-td--ro { color: var(--nt-ink); }
+[data-page="noviy-tavar"] .nt-td--ro.is-muted { color: var(--nt-ink-placeholder); }
+[data-page="noviy-tavar"] .nt-td--sell { font-weight: 600; }
+[data-page="noviy-tavar"] .nt-td--ro.is-neg { color: var(--nt-neg); }
+
+[data-page="noviy-tavar"] .nt-art-top { color: var(--nt-ink); }
+
+[data-page="noviy-tavar"] .nt-art-sub {
+  margin-top: 2px;
+  color: var(--nt-ink-placeholder);   /* o'lchangan #969799 ga mos tushdi */
+  font-size: 13px;
+}
+
+[data-page="noviy-tavar"] .nt-sku-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid var(--nt-badge-line);
+  border-radius: 6px;
+  background: var(--nt-badge-bg);
+  color: var(--nt-badge-ink);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ── Katak input'lari ────────────────────────────────────────── */
+[data-page="noviy-tavar"] .nt-td-input {
+  position: relative;
+  display: inline-block;
+}
+
+[data-page="noviy-tavar"] .nt-input--cell {
+  width: 118px;
+  padding: 8px 10px;
+}
+
+[data-page="noviy-tavar"] .nt-td-input.has-unit .nt-input--cell { padding-right: 40px; }
+
+[data-page="noviy-tavar"] .nt-td-unit {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nt-ink-placeholder);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* ── ⚡ bulk-fill ─────────────────────────────────────────────── */
+[data-page="noviy-tavar"] .nt-bulk {
+  margin-left: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  filter: grayscale(1);
+  opacity: .55;
+}
+
+[data-page="noviy-tavar"] .nt-bulk:hover,
+[data-page="noviy-tavar"] .nt-bulk[aria-expanded="true"] {
+  filter: none;
+  opacity: 1;
+}
+
+[data-page="noviy-tavar"] .nt-bulk-pop,
+[data-page="noviy-tavar"] .nt-ikpu-pop {
+  position: absolute;
+  z-index: 60;
+  background: var(--nt-card-bg);
+  border: 1px solid var(--nt-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+  padding: 14px;
+}
+
+/* .nt-btn{display:inline-flex} UA'ning [hidden] idan ustun — aniq qoida shart
+   (bu tuzoq oldin urilgan: handoff §11 №4). */
+[data-page="noviy-tavar"] .nt-bulk-pop[hidden],
+[data-page="noviy-tavar"] .nt-ikpu-pop[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-bulk-pop { width: 260px; }
+
+[data-page="noviy-tavar"] .nt-bulk-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-bulk-foot {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* ── IKPU tanlagich ──────────────────────────────────────────── */
+[data-page="noviy-tavar"] .nt-ikpu-pop { width: 460px; }
+
+[data-page="noviy-tavar"] .nt-ikpu-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-btn {
+  border: 1px solid var(--nt-line-input);
+  border-radius: 8px;
+  background: var(--nt-card-bg);
+  padding: 8px 10px;
+  min-width: 150px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--nt-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-btn.is-empty { color: var(--nt-ink-placeholder); }
+
+[data-page="noviy-tavar"] .nt-ikpu-btn:disabled {
+  background: var(--nt-disabled-bg);
+  cursor: default;
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-item:hover { background: #f5f5f7; }
+
+[data-page="noviy-tavar"] .nt-ikpu-code {
+  display: block;
+  font-size: 13px;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-name {
+  display: block;
+  font-size: 12px;
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-warn {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--nt-req);
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-step2-empty {
+  margin: 16px 0 0;
+  color: var(--nt-ink-muted);
+  font-size: var(--nt-fs-body);
+}
+
+/* Bajarilgan qadam — header nishoni */
+[data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot {
+  background: var(--nt-step-active);
+  color: #fff;
+}
+
+/* ── ⓘ maslahat nishoni ──────────────────────────────────────────
+   Referensda jadval sarlavhasidagi ⓘ — KULRANG, to'ldirilgan doira
+   (qator ichidagi o'lchov ⓘ si esa KO'K — u boshqa komponent,
+   `dim_range` chegara maslahati; u BU YERDA QILINMAGAN, chunki min/max
+   alohida endpointdan keladi). */
+[data-page="noviy-tavar"] .nt-hint {
+  display: inline-block;
+  margin-left: 5px;
+  color: var(--nt-ink-placeholder);
+  font-size: 13px;
+  line-height: 1;
+  cursor: help;
+  vertical-align: baseline;
+}
+
+[data-page="noviy-tavar"] .nt-hint:hover,
+[data-page="noviy-tavar"] .nt-hint:focus-visible {
+  color: var(--nt-ink-muted);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ *  3-QADAM «Свойства»
+ *  Referens: sacvoyage-filled-step3-properties.png (2400x1053, JPEG).
+ * ════════════════════════════════════════════════════════════════ */
+[data-page="noviy-tavar"] .nt-s3-intro {
+  margin: 8px 0 0;
+  color: var(--nt-ink-muted);
+  font-size: var(--nt-fs-body);
+  line-height: 1.5;
+}
+
+/* SKU yo'q ekrani — markazlashtirilgan bo'sh holat (Uzumdek). */
+[data-page="noviy-tavar"] .nt-s3-forbidden {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 64px 24px;
+  background: var(--nt-card-bg);
+  border-radius: 8px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-forbidden[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-s3-fb-main {
+  margin: 0;
+  max-width: 420px;
+  font-size: var(--nt-fs-h2);
+  font-weight: 600;
+  color: var(--nt-ink);
+}
+
+[data-page="noviy-tavar"] .nt-s3-fb-add {
+  margin: 0;
+  max-width: 460px;
+  color: var(--nt-ink-muted);
+  font-size: var(--nt-fs-body);
+  line-height: 1.5;
+}
+
+[data-page="noviy-tavar"] .nt-s3-forbidden .nt-btn { margin-top: 8px; }
+
+/* Atribut jadvali — sarlavha va kataklar. */
+[data-page="noviy-tavar"] .nt-s3-th { vertical-align: top; }
+
+[data-page="noviy-tavar"] .nt-s3-th-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--nt-ink-placeholder);
+  font-weight: 400;
+}
+
+[data-page="noviy-tavar"] .nt-s3-td { min-width: 200px; }
+
+[data-page="noviy-tavar"] .nt-s3-prod-top { color: var(--nt-ink); }
+
+/* Enum combosi — katak ichidagi ochiluvchi tugma. */
+[data-page="noviy-tavar"] .nt-s3-combo {
+  display: block;
+  width: 100%;
+  min-width: 180px;
+  height: var(--nt-control-h);
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-s3-combo.is-placeholder { color: var(--nt-ink-placeholder); }
+
+[data-page="noviy-tavar"] .nt-s3-combo:focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: 1px;
+}
+
+/* Numerik katak — birlik qo'shimchasi bilan. */
+[data-page="noviy-tavar"] .nt-s3-num {
+  position: relative;
+  display: inline-block;
+}
+
+[data-page="noviy-tavar"] .nt-s3-num .nt-input {
+  width: 160px;
+  height: var(--nt-control-h);
+  padding: 0 40px 0 12px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-unit {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nt-ink-placeholder);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* Boolean — «Ha / Yoʻq» segmentli tugma. */
+[data-page="noviy-tavar"] .nt-s3-bool {
+  display: inline-flex;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  overflow: hidden;
+}
+
+[data-page="noviy-tavar"] .nt-s3-bool-btn {
+  border: 0;
+  background: #fff;
+  padding: 0 16px;
+  height: var(--nt-control-h);
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-s3-bool-btn + .nt-s3-bool-btn { border-left: 1px solid var(--nt-line-input); }
+
+[data-page="noviy-tavar"] .nt-s3-bool-btn.is-on {
+  background: var(--nt-violet-ink);
+  color: #fff;
+}
+
+/* Enum dropdown popoveri (bitta nusxa, JS ko'chiradi). */
+[data-page="noviy-tavar"] .nt-s3-pop {
+  position: absolute;
+  z-index: 60;
+  background: var(--nt-card-bg);
+  border: 1px solid var(--nt-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+  padding: 12px;
+  width: 300px;
+  max-width: 90vw;
+}
+
+[data-page="noviy-tavar"] .nt-s3-pop[hidden] { display: none; }
+
+[data-page="noviy-tavar"] .nt-s3-pop-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-opt {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 8px;
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-s3-opt:hover { background: #f5f5f7; }
+
+[data-page="noviy-tavar"] .nt-s3-opt.is-on {
+  background: var(--nt-violet-soft);
+  color: var(--nt-violet-ink);
+  font-weight: 600;
+}
+
+[data-page="noviy-tavar"] .nt-s3-pop-empty {
+  margin: 8px 4px;
+  color: var(--nt-ink-placeholder);
+  font-size: 13px;
+}

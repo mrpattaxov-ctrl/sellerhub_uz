@@ -1,797 +1,1088 @@
 {% extends "base.html" %}
+{#
+  «Новый товар» — 1-bosqich (Карточка товара) bo'sh holati.
+
+  Bo'lim tartibi referens kadrlardan O'LCHAB olingan (promptdagi tartib xato edi;
+  haqiqiy yuqoridan-pastga ketma-ketlik: 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08):
+    artifacts/uzum-product-form-reference/screenshots/sacvoyage-blank-entry/
+
+  DIQQAT: bo'sh formada umumiy rasm bo'limi YO'Q — frame 05 da «Описание товара»
+  dan keyin to'g'ridan-to'g'ri «Видео» keladi.
+
+  ⚠️ LEKIN «yo'q» degani «umuman mavjud emas» EMAS (Bosqich C dalili): Uzum
+  bandlida `edit-product-card-photo.ce` komponenti BOR — sarlavhasi «Общие
+  фотографии товара» / «Tovar umumiy rasmlari», `required` bayrog'i bilan.
+  Ya'ni u SHARTLI ko'rinadi; sharti hali ANIQLANMAGAN (referens kadrlar sahifa
+  tepasini ko'rsatmaydi — «fullpage» aslida 1080px viewport). Rang kartasi
+  («Медиафайлы для каждого цвета») esa rang qatori bo'lganda chiqadi — bu
+  rank 001 (rang bor) va rank 113 (rang yo'q) kadrlari bilan tasdiqlangan.
+#}
 {% set lang = session.get('lang', 'uz') %}
+{#
+  ⚠️ Jinja izohi `{% set %}` IFODASI ICHIGA yozilmaydi — «unexpected char '#'»
+  bilan butun sahifa 500 beradi (jonli urilgan). Shuning uchun 2-qadam
+  yorliqlarining dalili shu yerda, dict'dan TASHQARIDA.
+
+  2-qadam «Цены и SKU» — HAR IKKALA til Uzum bandlining O'Z i18n blokidan
+  SO'ZMA-SO'Z olingan. Bandlda IKKI nusxa bor:
+      ru `create_sku` bloki  -> mf-products @356800..362900
+      uz `create_sku` bloki  -> mf-products @419100..425900
+  (`tooltip_messages` ham ikki marta: ru @358439, uz @420860.)
+
+  ⚠️ O'ZBEKCHANI O'YLAB TOPMA — Uzum'ning O'ZINIKI bor va u JIDDIY farq qiladi.
+  Men avval o'zim tarjima qilib, keyin bandldan topib almashtirdim:
+      Артикул          -> «Sotuvchi kodi»  (men «Artikul» degandim  — XATO)
+      ИКПУ             -> «MXIK»           (men «IKPU» degandim     — XATO)
+      Ширина, мм       -> «Kenglik, mm»    (men «Eni, mm»           — XATO)
+      Вес, г           -> «Vazn, g»        (men «Ogʻirligi, g»      — XATO)
+      Цена продажи     -> «Sotish narxi»   (men «Sotuv narxi»       — XATO)
+      Все/Архивные     -> «Barchasi»/«Arxivdagilar»                 — XATO edi
+  Xotira `reference_uzum_portal_bundle_source` buni aytgan: «bandl ichida
+  uz/ru i18n bor». Boshidan shu yerga qarash kerak edi.
+
+  «Идентификатор SKU» -> uz «Seller SKU kodi» (`seller_sku_code`,
+  ru @399618 / uz @464099 — u BOSHQA blokda, mahsulot ro'yxati i18n'ida).
+#}
+{% set L = {
+  'crumb':        {'uz': "Mening tovarlarim",  'ru': "Мои товары"},
+  'h1':           {'uz': "Tovar yaratish",     'ru': "Создание товара"},
+  'step1':        {'uz': "Tovar kartasi",      'ru': "Карточка товара"},
+  'step2':        {'uz': "Narx va SKU",        'ru': "Цены и SKU"},
+  'step3':        {'uz': "Xususiyatlar",       'ru': "Свойства"},
+  'tips_hide':    {'uz': "Maslahatlarni yashirish", 'ru': "Скрыть подсказки"},
+  'tips_show':    {'uz': "Maslahatlarni ko'rsatish", 'ru': "Показать подсказки"},
+  'save':         {'uz': "Saqlash va davom etish", 'ru': "Сохранить и продолжить"},
+  'docs':         {'uz': "Batafsil yo'riqnomada", 'ru': "Подробности в инструкции"},
+  'add':          {'uz': "Qo'shish",           'ru': "Добавить"},
+  'accept':       {'uz': "Qabul qilish",       'ru': "Принять"},
+  'delete':       {'uz': "O'chirish",          'ru': "Удалить"},
+
+  'step2_title':  {'uz': "Narx va SKU",        'ru': "Цены и SKU"},
+  'sku_head':     {'uz': "Tovar nomi uchun SKU", 'ru': "SKU для названия товара"},
+  'sku_label':    {'uz': "Mahsulot SKU (100 tagacha harf yoki raqam)",
+                   'ru': "SKU продукта (до 100 букв или цифр)"},
+  'tab_all':      {'uz': "Barchasi",           'ru': "Все"},
+  'tab_active':   {'uz': "Faol",               'ru': "Активные"},
+  'tab_archived': {'uz': "Arxivdagilar",       'ru': "Архивные"},
+  'tbl_title':    {'uz': "Tovar jadvali",      'ru': "Таблица товара"},
+  'c_article':    {'uz': "Sotuvchi kodi",      'ru': "Артикул"},
+  'c_status':     {'uz': "Holat",              'ru': "Статус"},
+  'c_seller_code':{'uz': "Seller SKU kodi",    'ru': "Идентификатор SKU"},
+  'c_barcode':    {'uz': "Shtrix-kod",         'ru': "Штрихкод"},
+  'c_ikpu':       {'uz': "MXIK",               'ru': "ИКПУ"},
+  'c_width':      {'uz': "Kenglik, mm",        'ru': "Ширина, мм"},
+  'c_length':     {'uz': "Uzunlik, mm",        'ru': "Длина, мм"},
+  'c_height':     {'uz': "Balandlik, mm",      'ru': "Высота, мм"},
+  'c_weight':     {'uz': "Vazn, g",            'ru': "Вес, г"},
+  'c_market':     {'uz': "Tavsiya qilinadigan narx", 'ru': "Рекомендуемая цена"},
+  'c_price':      {'uz': "Narx, so’m",         'ru': "Цена, сум"},
+  'c_off':        {'uz': "Chegirma, so’m",     'ru': "Скидка, сум"},
+  'c_sell':       {'uz': "Sotish narxi, so’m", 'ru': "Цена продажи, сум"},
+  'c_logistics':  {'uz': "Dona uchun logistika to’lovi",
+                   'ru': "Логистический сбор (за шт.)"},
+  'c_comm':       {'uz': "Dona uchun komissiya", 'ru': "Комиссия (за шт.)"},
+  'c_withdraw':   {'uz': "Har bir dona uchun chiqarish", 'ru': "К выводу (за шт.)"},
+  'no_market':    {'uz': "Hozircha narxni topmadik", 'ru': "Пока не нашли цену"},
+  'bulk_apply':   {'uz': "Barcha ustunlar uchun koʻrsating",
+                   'ru': "Указать для всей колонки"},
+  'tip_ikpu':     {'uz': "Mahsulot va xizmatlarning identifikatsiya kodi",
+                   'ru': "Идентификационный код продукции и услуг"},
+  'tip_market':   {'uz': "Bozordagi o‘xshash tovarlarni tahlil qilamiz va sotuvchilar uchun maqbul narxni tavsiya qilamiz — u tovarni izlash natijalarida ko‘tarish va sotuvlarni oshirishga yordam beradi",
+                   'ru': "Анализируем похожие товары на рынке и рекомендуем оптимальную цену для продавцов — она помогает поднять товар в поисковой выдаче и увеличить продажи"},
+  'tip_market_none': {'uz': "Bozorni doimiy ravishda tahlil qilamiz — raqobatchilar bo‘yicha ma’lumot qayta ishlanishi bilan tavsiya qilinadigan narxni ko‘rsatamiz",
+                   'ru': "Постоянно анализируем рынок — покажем рекомендуемую цену, как только обработаем данные по конкурентам"},
+  'back':         {'uz': "Orqaga",             'ru': "Назад"},
+
+  's3_title':     {'uz': "Mahsulot xususiyatlari", 'ru': "Свойства товара"},
+  's3_intro1':    {'uz': "Tovar xususiyatlari tovarlarni qidirishda, katalogda va saralashlarda filtrlash uchun ishlatiladi.",
+                   'ru': "Свойства товара используются для фильтрации товаров при поиске, в каталоге и подборках."},
+  's3_intro2':    {'uz': "Xususiyatlarni qoʻshing va ularning qiymatlarini koʻrsating. Bu mijozlarga mahsulotingizni topishni osonlashtiradi.",
+                   'ru': "Добавьте свойства и укажите их значения. Благодаря этому покупателям будет проще найти именно ваш товар."},
+  's3_col_product':{'uz': "Tovar",             'ru': "Товар"},
+  's3_choose':    {'uz': "Qiymatni tanlang",   'ru': "Выберите значение"},
+  's3_choose_multi':{'uz': "Qiymatlarni tanlang", 'ru': "Выберите значения"},
+  's3_enter':     {'uz': "Qiymatni kiriting",  'ru': "Введите значение"},
+  's3_enter_num': {'uz': "Raqamni kiriting",   'ru': "Введите число"},
+  's3_search':    {'uz': "Qidirish...",        'ru': "Поиск..."},
+  's3_yes':       {'uz': "Ha",                 'ru': "Да"},
+  's3_no':        {'uz': "Yoʻq",               'ru': "Нет"},
+  's3_max_values':{'uz': "maks. qiymatlar:",   'ru': "макс. значений:"},
+  's3_fb_main':   {'uz': "SKU kodsiz mahsulot xususiyatlarini qoʻsha olmaysiz",
+                   'ru': "Вы не можете добавить свойства товаров без SKU"},
+  's3_fb_add':    {'uz': "Tovar xususiyatlarini qoʻshish uchun oldingi bosqichga qayting va tovar SKUʼsini yarating",
+                   'ru': "Чтобы добавить свойства товара, вернитесь на предыдущий шаг и создайте SKU товара"},
+  's3_fb_btn':    {'uz': "\"Narxlar va SKU\"ga qaytish", 'ru': "Назад к «Цены и SKU»"}
+} %}
+{# DIQQAT: makro nomi `t` BO'LMASIN — base.html `t` ni tarjima obyekti sifatida
+   ishlatadi (t.token_expired ...). `t` deb nomlasak, meros orqali uni soya qilib
+   base.html'ni buzardik. Shuning uchun `nt_t`. #}
+{% macro nt_t(key) %}{{ L[key][lang] if lang in L[key] else L[key]['ru'] }}{% endmacro %}
+{% from 'partials/nt_editor.html' import nt_editor with context %}
+
+{#
+  Ixtiyoriy bo'lim (Состав / Размеры / Инструкция / Сертификация).
+
+  DALIL — Uzum portalining O'Z kodi (chunk-3ca9d890, editProductCard/Comments store):
+    addComment(tur)          -> comments.push({comment:{ru:"",uz:""}, commentType:tur})
+    removeComment(tur, til)  -> faqat o'sha TILNI o'chiradi; ikkala til o'chsa,
+                                comment butunlay splice qilinadi va «Qo'shish» qaytadi
+    «Qo'shish» tugmasi faqat comments[tur] YO'Q bo'lganda ko'rinadi.
+
+  ⚠️ TUZOQ: UI yorlig'i «Размерная сетка», lekin API kaliti «Размеры».
+     Sertifikatlar yorlig'i «Сертификаты», API kaliti «Сертификация».
+     Kalitlar shu yerda — HTML'da — saqlanadi, JS ularni o'zi o'ylab topmaydi.
+#}
+{% macro nt_optional(ctype, id_base, lbl_uz_uz, lbl_uz_ru, lbl_ru_uz, lbl_ru_ru, ph_uz, ph_ru) %}
+  <div class="nt-optsec" data-nt-opt="{{ ctype }}" hidden>
+    {% for code in ['uz', 'ru'] %}
+    <div class="nt-optsec-block" data-opt-lang="{{ code }}" hidden>
+      <p class="nt-optsec-label">
+        {% if code == 'uz' %}{{ lbl_uz_uz if lang == 'uz' else lbl_uz_ru }}
+        {% else %}{{ lbl_ru_uz if lang == 'uz' else lbl_ru_ru }}{% endif %}
+        <span class="nt-optsec-note">{{ '(Majburiy emas)' if lang == 'uz' else '(НЕОБЯЗАТЕЛЬНО)' }}</span>
+      </p>
+      {{ nt_editor(id_base ~ (code | capitalize), ph_uz if lang == 'uz' else ph_ru) }}
+      <div>
+        <button type="button" class="nt-btn nt-btn--del" data-opt-del="{{ code }}">{{ nt_t('delete') }}</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div data-opt-add="{{ ctype }}">
+    <button type="button" class="nt-btn nt-btn--soft" data-nt-optional="{{ ctype }}">{{ nt_t('add') }}</button>
+  </div>
+{% endmacro %}
+
+{#
+  «Hammasiga qo'llash» (bulk-fill) tugmasi — jadval sarlavhasidagi ⚡.
+
+  DALIL (bandl, chunk-2619e7c4 @64888 `forAllValues` + @62800 `openForAllPopup`):
+    forAllValues = ref({fullPrice:0, off:0, ikpu:"", width:0, length:0,
+                        height:0, weight:0})
+  Ya'ni ANIQ SHU 7 maydon bulk-fill qilinadi — boshqasi emas. Referens
+  skrinshotdagi ⚡ nishonlari shu ro'yxatga mos tushdi.
+#}
+{% macro nt_bulk(field) %}<button type="button" class="nt-bulk"
+        data-nt-bulk="{{ field }}" aria-expanded="false"
+        title="{{ nt_t('bulk_apply') }}" aria-label="{{ nt_t('bulk_apply') }}"
+        >&#9889;</button>{% endmacro %}
+
+{#
+  ⓘ maslahat nishoni. Matn Uzum bandlining `tooltip_messages` blokidan
+  SO'ZMA-SO'Z (ru @358439 / uz @420860) — o'ylab topilmagan.
+
+  Referensda ⓘ shu ustunlarda bor: «Идентификатор SKU», «ИКПУ»,
+  «Рекомендуемая цена» (+ o'lchov INPUT'lari yonida ko'k ⓘ — u boshqa narsa:
+  `dim_range`/`weight_range` chegara maslahati, u uchun min/max kerak va
+  ular ALOHIDA endpointdan keladi -> BU YERDA QILINMAGAN, halol qayd).
+
+  `title` atributi ishlatiladi: shell'ning tooltip komponenti yo'q va uni
+  yasash doiradan tashqari bo'lardi. Klaviatura/skrinrider uchun
+  `aria-label` ham beriladi.
+#}
+  ⚠️ SINF NOMI `nt-hint`, `nt-tip` EMAS — `.nt-tip` ALLAQACHON BAND
+  (sariq maslahat kartasi, noviy_tavar.css:298). Bu tuzoq oldin ham urilgan:
+  `.nt-opt` band bo'lgani uchun ixtiyoriy bo'limlar `nt-optsec` bo'lgan.
+  Yangi sinf qo'shishdan oldin CSS'da grep qil.
+#}
+{% macro nt_tip(text) %}<span class="nt-hint" role="img" tabindex="0"
+        title="{{ text }}" aria-label="{{ text }}">&#9432;</span>{% endmacro %}
 
 {% block extra_css %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-/* ===== «Новый товар» — wizard (aurora/glass, postavki uslubi) ===== */
-.nt-app { font-family:'Manrope', system-ui, sans-serif; color:#1C2030; font-size:14px; -webkit-font-smoothing:antialiased;
-  background:
-    radial-gradient(640px 300px at 6% -60px, rgba(65,105,225,.13), transparent 70%),
-    radial-gradient(560px 280px at 94% -50px, rgba(124,58,237,.12), transparent 70%);
-  padding:0 0 40px; }
-.nt-app *{ box-sizing:border-box; }
-.nt-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(22,22,40,.05); }
-.nt-glass { background:rgba(255,255,255,.74); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
-  border:1px solid rgba(255,255,255,.55); box-shadow:0 10px 30px -12px rgba(20,16,40,.18); }
-
-/* Header + stepper */
-.nt-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
-  border-radius:18px; padding:14px 18px; margin:14px 0 18px; position:sticky; top:8px; z-index:30; }
-.nt-h1 { font-size:19px; font-weight:800; margin:0; letter-spacing:-.02em; }
-.nt-h1 small { display:block; font-size:12px; font-weight:600; color:#7A8099; margin-top:2px; }
-.nt-steps { display:flex; gap:6px; align-items:center; }
-.nt-step { display:flex; align-items:center; gap:8px; padding:7px 13px; border-radius:12px; font-weight:700;
-  font-size:12.5px; color:#7A8099; background:transparent; transition:all .25s ease; white-space:nowrap; }
-.nt-step .n { width:20px; height:20px; border-radius:7px; display:grid; place-items:center; font-size:11px;
-  background:#E8E9F2; color:#7A8099; transition:all .25s ease; }
-.nt-step.is-active { color:#fff; background:linear-gradient(135deg,#4169E1,#7C3AED); box-shadow:0 6px 16px -6px rgba(93,74,226,.5); }
-.nt-step.is-active .n { background:rgba(255,255,255,.22); color:#fff; }
-.nt-step.is-done { color:#2E9E6B; }
-.nt-step.is-done .n { background:#DCF3E8; color:#2E9E6B; }
-.nt-step-sep { width:16px; height:2px; border-radius:2px; background:#DDDFEA; }
-
-/* Layout */
-.nt-grid { display:grid; grid-template-columns:1fr 320px; gap:16px; align-items:start; }
-@media (max-width: 1100px){ .nt-grid { grid-template-columns:1fr; } }
-.nt-main { padding:20px; }
-.nt-side { padding:18px; position:sticky; top:84px; }
-
-/* Section titles */
-.nt-sec { font-size:13px; font-weight:800; letter-spacing:.02em; color:#3A3F55; margin:0 0 10px;
-  display:flex; align-items:center; gap:8px; }
-.nt-sec .req { color:#E24A6A; }
-.nt-hint { font-size:12px; color:#8A90A8; margin:4px 0 12px; }
-
-/* Shop picker */
-.nt-shop-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-.nt-shop-pill { padding:9px 16px; border-radius:12px; border:1.5px solid #E3E5F0; background:#fff; cursor:pointer;
-  font-weight:700; font-size:13px; color:#4A5068; transition:all .2s ease; }
-.nt-shop-pill:hover { border-color:#B9C4F2; }
-.nt-shop-pill.is-on { border-color:#4169E1; background:linear-gradient(135deg,rgba(65,105,225,.08),rgba(124,58,237,.08)); color:#3A50C8; }
-
-/* Category miller columns */
-.nt-cats { display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; min-height:280px; }
-.nt-cat-col { min-width:230px; max-width:250px; flex:0 0 auto; background:#F7F8FC; border-radius:14px;
-  border:1px solid #ECEEF6; max-height:420px; overflow-y:auto; padding:6px; animation:ntColIn .25s ease; }
-@keyframes ntColIn { from { opacity:0; transform:translateX(10px);} to { opacity:1; transform:none;} }
-.nt-cat-item { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
-  text-align:left; border:0; background:transparent; padding:9px 11px; border-radius:10px; cursor:pointer;
-  font-size:13px; font-weight:600; color:#3A3F55; transition:background .15s ease; }
-.nt-cat-item:hover { background:#EDEFFA; }
-.nt-cat-item.is-on { background:linear-gradient(135deg,rgba(65,105,225,.13),rgba(124,58,237,.13)); color:#3A50C8; }
-.nt-cat-item.is-off { opacity:.45; cursor:not-allowed; }
-.nt-cat-item .chev { flex:0 0 auto; color:#A6ACBF; }
-.nt-crumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 12px; font-size:12.5px; font-weight:700; color:#7A8099; }
-.nt-crumb b { color:#3A50C8; }
-.nt-cat-search { width:100%; padding:10px 14px; border-radius:12px; border:1.5px solid #E3E5F0; font-size:13px;
-  margin-bottom:12px; outline:none; transition:border .2s; background:#fff; color:inherit; }
-.nt-cat-search:focus { border-color:#4169E1; }
-.nt-search-res { max-height:300px; overflow-y:auto; border:1px solid #ECEEF6; border-radius:14px; padding:6px; background:#F7F8FC; }
-
-/* Meta panel (commission etc.) */
-.nt-meta-title { font-size:12px; font-weight:800; color:#7A8099; letter-spacing:.06em; text-transform:uppercase; margin:0 0 10px; }
-.nt-kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.nt-kpi { background:#F7F8FC; border:1px solid #ECEEF6; border-radius:12px; padding:10px 12px; }
-.nt-kpi .v { font-size:16px; font-weight:800; color:#1C2030; }
-.nt-kpi .l { font-size:11px; font-weight:700; color:#8A90A8; margin-top:2px; }
-.nt-scheme { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:800; }
-.nt-scheme.on  { background:#DCF3E8; color:#227A52; }
-.nt-scheme.off { background:#F3E9E9; color:#B0596A; text-decoration:line-through; opacity:.7; }
-.nt-meta-note { font-size:12px; color:#8A90A8; margin-top:10px; line-height:1.5; }
-.nt-meta-note b { color:#4A5068; }
-
-/* Form fields */
-.nt-frm { display:grid; gap:14px; }
-.nt-two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-@media (max-width: 800px){ .nt-two { grid-template-columns:1fr; } }
-.nt-fld label { display:block; font-size:12px; font-weight:800; color:#4A5068; margin-bottom:6px; }
-.nt-fld label .req { color:#E24A6A; }
-.nt-fld input, .nt-fld textarea { width:100%; padding:11px 14px; border-radius:12px; border:1.5px solid #E3E5F0;
-  font-size:13.5px; font-family:inherit; outline:none; transition:border .2s, box-shadow .2s; background:#fff; color:inherit; }
-.nt-fld input:focus, .nt-fld textarea:focus { border-color:#4169E1; box-shadow:0 0 0 4px rgba(65,105,225,.1); }
-.nt-fld textarea { min-height:96px; resize:vertical; }
-.nt-cnt { font-size:11px; color:#A6ACBF; text-align:right; margin-top:3px; }
-.nt-badwords { margin-top:6px; font-size:12px; font-weight:700; color:#C4384F; display:none; }
-.nt-badwords.show { display:block; animation:ntShake .3s ease; }
-@keyframes ntShake { 25%{transform:translateX(-3px);} 75%{transform:translateX(3px);} }
-.nt-okmark { color:#2E9E6B; font-weight:800; font-size:12px; display:none; margin-top:6px; }
-.nt-okmark.show { display:block; }
-
-/* Filter dropdowns (brend/model/davlat) */
-.nt-filters { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
-.nt-dd { position:relative; }
-.nt-dd-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
-  padding:11px 14px; border-radius:12px; border:1.5px solid #E3E5F0; background:#fff; cursor:pointer;
-  font-size:13.5px; font-weight:600; color:#3A3F55; transition:border .2s; text-align:left; }
-.nt-dd-btn:hover { border-color:#B9C4F2; }
-.nt-dd-btn .ph { color:#A6ACBF; font-weight:600; }
-.nt-dd-pop { position:absolute; z-index:40; top:calc(100% + 6px); left:0; right:0; background:#fff;
-  border-radius:14px; border:1px solid #E7E9F2; box-shadow:0 18px 40px -12px rgba(20,16,40,.25);
-  padding:8px; display:none; }
-.nt-dd.open .nt-dd-pop { display:block; animation:ntColIn .2s ease; }
-.nt-dd-pop input { width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid #E3E5F0; font-size:13px;
-  outline:none; margin-bottom:6px; background:#fff; color:inherit; }
-.nt-dd-list { max-height:230px; overflow-y:auto; }
-.nt-dd-item { display:block; width:100%; text-align:left; border:0; background:transparent; padding:8px 11px;
-  border-radius:9px; cursor:pointer; font-size:13px; font-weight:600; color:#3A3F55; }
-.nt-dd-item:hover { background:#EDEFFA; }
-.nt-dd-more { width:100%; border:0; background:#F1F2F9; border-radius:9px; padding:8px; font-size:12px;
-  font-weight:800; color:#4A5068; cursor:pointer; margin-top:4px; }
-
-/* Characteristics (rang chiplari) */
-.nt-chars { display:grid; gap:14px; }
-.nt-chips { display:flex; flex-wrap:wrap; gap:8px; }
-.nt-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:999px;
-  border:1.5px solid #E3E5F0; background:#fff; cursor:pointer; font-size:12.5px; font-weight:700; color:#4A5068;
-  transition:all .18s ease; }
-.nt-chip:hover { border-color:#B9C4F2; transform:translateY(-1px); }
-.nt-chip.is-on { border-color:#4169E1; background:linear-gradient(135deg,rgba(65,105,225,.1),rgba(124,58,237,.1)); color:#3A50C8; }
-.nt-chip .sw { width:14px; height:14px; border-radius:5px; border:1px solid rgba(0,0,0,.12); flex:0 0 auto; }
-
-/* Images */
-.nt-imgs { display:flex; flex-wrap:wrap; gap:12px; }
-.nt-drop { width:150px; height:200px; border-radius:16px; border:2px dashed #C9CEE4; display:grid; place-items:center;
-  cursor:pointer; color:#8A90A8; font-weight:700; font-size:12.5px; text-align:center; transition:all .2s ease; background:#FAFBFF; }
-.nt-drop:hover, .nt-drop.drag { border-color:#4169E1; color:#3A50C8; background:rgba(65,105,225,.05); }
-.nt-img { width:150px; height:200px; border-radius:16px; overflow:hidden; position:relative; border:1px solid #ECEEF6;
-  animation:ntColIn .25s ease; background:#F1F2F9; }
-.nt-img img { width:100%; height:100%; object-fit:cover; }
-.nt-img .main-tag { position:absolute; top:8px; left:8px; background:linear-gradient(135deg,#4169E1,#7C3AED);
-  color:#fff; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; }
-.nt-img .del { position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:8px; border:0;
-  background:rgba(15,17,26,.55); color:#fff; cursor:pointer; display:grid; place-items:center; font-size:13px; }
-.nt-img .st { position:absolute; bottom:0; left:0; right:0; padding:6px 8px; font-size:10.5px; font-weight:800;
-  color:#fff; background:linear-gradient(transparent, rgba(15,17,26,.75)); }
-.nt-img.warn { border-color:#E7B742; }
-.nt-img .warn-tag { position:absolute; bottom:28px; left:8px; right:8px; background:rgba(160,120,20,.9); color:#fff;
-  font-size:10px; font-weight:700; border-radius:8px; padding:4px 7px; }
-
-/* Review */
-.nt-rev { display:grid; gap:10px; }
-.nt-rev-row { display:flex; justify-content:space-between; gap:14px; padding:10px 14px; background:#F7F8FC;
-  border:1px solid #ECEEF6; border-radius:12px; font-size:13px; }
-.nt-rev-row .k { font-weight:700; color:#8A90A8; flex:0 0 auto; }
-.nt-rev-row .v { font-weight:700; color:#1C2030; text-align:right; word-break:break-word; }
-
-/* Footer nav */
-.nt-nav { display:flex; justify-content:space-between; gap:10px; margin-top:20px; }
-.nt-btn { border:0; border-radius:13px; padding:12px 22px; font-size:13.5px; font-weight:800; cursor:pointer;
-  transition:all .2s ease; font-family:inherit; }
-.nt-btn-primary { color:#fff; background:linear-gradient(135deg,#4169E1,#7C3AED); box-shadow:0 8px 20px -8px rgba(93,74,226,.55); }
-.nt-btn-primary:hover { transform:translateY(-1px); box-shadow:0 12px 26px -8px rgba(93,74,226,.6); }
-.nt-btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.nt-btn-ghost { background:#EEF0F8; color:#4A5068; }
-.nt-btn-ghost:hover { background:#E4E7F3; }
-
-/* Success */
-.nt-done { text-align:center; padding:44px 20px; }
-.nt-done .big { width:74px; height:74px; margin:0 auto 16px; border-radius:24px; display:grid; place-items:center;
-  background:linear-gradient(135deg,#22B573,#0E9F6E); color:#fff; font-size:34px; box-shadow:0 14px 34px -10px rgba(20,150,100,.5);
-  animation:ntPop .45s cubic-bezier(.2,1.4,.4,1); }
-@keyframes ntPop { from { transform:scale(.4); opacity:0;} to { transform:scale(1); opacity:1;} }
-.nt-done h2 { font-size:20px; font-weight:800; margin:0 0 6px; }
-.nt-done p { color:#7A8099; font-size:13.5px; margin:0 0 18px; line-height:1.6; }
-.nt-done .pid { display:inline-block; background:#F1F2F9; border-radius:10px; padding:6px 14px; font-weight:800; color:#3A50C8; margin-bottom:18px; }
-
-/* Toast */
-.nt-toasts { position:fixed; right:18px; bottom:18px; z-index:1000; display:grid; gap:8px; }
-.nt-toast { background:#16182A; color:#fff; border-radius:13px; padding:11px 16px; font-size:13px; font-weight:700;
-  box-shadow:0 14px 34px -10px rgba(10,10,30,.5); animation:ntColIn .25s ease; max-width:360px; }
-.nt-toast.err { background:#7C2437; }
-.nt-toast.ok  { background:#155E43; }
-
-/* Spinner */
-.nt-spin { width:16px; height:16px; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%;
-  display:inline-block; vertical-align:-3px; animation:ntRot .7s linear infinite; margin-right:7px; }
-.nt-spin.dark { border-color:rgba(60,70,120,.25); border-top-color:#4169E1; }
-@keyframes ntRot { to { transform:rotate(360deg);} }
-.nt-load { display:grid; place-items:center; padding:40px; color:#8A90A8; font-weight:700; font-size:13px; }
-
-/* ===== Dark mode ===== */
-[data-bs-theme="dark"] .nt-app { color:#DFE2F2;
-  background:
-    radial-gradient(640px 300px at 6% -60px, rgba(93,110,255,.10), transparent 70%),
-    radial-gradient(560px 280px at 94% -50px, rgba(150,90,255,.09), transparent 70%); }
-[data-bs-theme="dark"] .nt-card { background:#1a1d27; box-shadow:0 1px 3px rgba(0,0,0,.4); }
-[data-bs-theme="dark"] .nt-glass { background:rgba(26,29,39,.78); border-color:rgba(60,66,96,.5); }
-[data-bs-theme="dark"] .nt-h1, [data-bs-theme="dark"] .nt-kpi .v, [data-bs-theme="dark"] .nt-rev-row .v { color:#EDEFFB; }
-[data-bs-theme="dark"] .nt-step .n { background:#262a3a; color:#8b90ab; }
-[data-bs-theme="dark"] .nt-step-sep { background:#2d3148; }
-[data-bs-theme="dark"] .nt-sec { color:#C9CDE4; }
-[data-bs-theme="dark"] .nt-cat-col, [data-bs-theme="dark"] .nt-search-res { background:#151823; border-color:#2d3148; }
-[data-bs-theme="dark"] .nt-cat-item { color:#C9CDE4; }
-[data-bs-theme="dark"] .nt-cat-item:hover { background:#232739; }
-[data-bs-theme="dark"] .nt-cat-item.is-on { color:#B7BEFF; }
-[data-bs-theme="dark"] .nt-cat-search, [data-bs-theme="dark"] .nt-fld input, [data-bs-theme="dark"] .nt-fld textarea,
-[data-bs-theme="dark"] .nt-dd-btn, [data-bs-theme="dark"] .nt-dd-pop, [data-bs-theme="dark"] .nt-dd-pop input,
-[data-bs-theme="dark"] .nt-shop-pill, [data-bs-theme="dark"] .nt-chip { background:#151823; border-color:#2d3148; color:#DFE2F2; }
-[data-bs-theme="dark"] .nt-dd-item { color:#C9CDE4; }
-[data-bs-theme="dark"] .nt-dd-item:hover { background:#232739; }
-[data-bs-theme="dark"] .nt-dd-more { background:#232739; color:#C9CDE4; }
-[data-bs-theme="dark"] .nt-kpi, [data-bs-theme="dark"] .nt-rev-row { background:#151823; border-color:#2d3148; }
-[data-bs-theme="dark"] .nt-fld label { color:#A9AEC9; }
-[data-bs-theme="dark"] .nt-btn-ghost { background:#232739; color:#C9CDE4; }
-[data-bs-theme="dark"] .nt-drop { background:#151823; border-color:#3a3f5c; color:#8b90ab; }
-[data-bs-theme="dark"] .nt-img { border-color:#2d3148; background:#151823; }
-[data-bs-theme="dark"] .nt-scheme.on { background:#0f3527; color:#6ee7b7; }
-[data-bs-theme="dark"] .nt-scheme.off { background:#331b22; color:#e59aab; }
-[data-bs-theme="dark"] .nt-step.is-done .n { background:#0f3527; color:#6ee7b7; }
-</style>
+<link rel="stylesheet" href="{{ url_for('noviy_tavar_bp.static', filename='noviy_tavar.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="nt-app">
-  <div class="nt-head nt-glass">
-    <h1 class="nt-h1">Yangi tovar yaratish
-      <small>Uzum katalogiga karta — qoralama sifatida, xavfsiz</small>
-    </h1>
-    <div class="nt-steps" id="ntSteps">
-      <div class="nt-step" data-step="1"><span class="n">1</span>Kategoriya</div>
-      <div class="nt-step-sep"></div>
-      <div class="nt-step" data-step="2"><span class="n">2</span>Ma'lumotlar</div>
-      <div class="nt-step-sep"></div>
-      <div class="nt-step" data-step="3"><span class="n">3</span>Rasmlar</div>
-      <div class="nt-step-sep"></div>
-      <div class="nt-step" data-step="4"><span class="n">4</span>Yaratish</div>
+<div class="nt-root" data-page="noviy-tavar" data-lang="{{ lang }}"
+     data-shops='{{ shops | tojson }}'>
+
+  <!-- ── Sticky header (o'lchangan balandlik: 104px) ──────────── -->
+  <header class="nt-header">
+    <div>
+      <div class="nt-crumb">{{ nt_t('crumb') }}</div>
+      <h1 class="nt-h1">{{ nt_t('h1') }}</h1>
+    </div>
+
+    <nav class="nt-steps" aria-label="{{ nt_t('h1') }}">
+      <div class="nt-step is-active" aria-current="step">
+        <span class="nt-step-dot">1</span>
+        <span class="nt-step-label">{{ nt_t('step1') }}</span>
+      </div>
+      <span class="nt-step-sep"></span>
+      <div class="nt-step">
+        <span class="nt-step-dot">2</span>
+        <span class="nt-step-label">{{ nt_t('step2') }}</span>
+      </div>
+      <span class="nt-step-sep"></span>
+      <div class="nt-step">
+        <span class="nt-step-dot">3</span>
+        <span class="nt-step-label">{{ nt_t('step3') }}</span>
+      </div>
+    </nav>
+
+    <div class="nt-header-actions">
+      <button type="button" class="nt-btn nt-btn--tips" id="ntTipsToggle"
+              aria-pressed="false">
+        <span class="nt-dot" aria-hidden="true"></span>
+        <span id="ntTipsLabel">{{ nt_t('tips_hide') }}</span>
+      </button>
+      <button type="button" class="nt-btn nt-btn--primary" id="ntSave" disabled>
+        {{ nt_t('save') }}
+      </button>
+    </div>
+  </header>
+
+  <div class="nt-col">
+
+   {# 1-qadam kartalari — 2-qadamga o'tilganda BUTUNLAY yashiriladi.
+      Bitta o'rovchi: har bir kartani alohida yashirish mo'rt bo'lardi. #}
+   <div id="ntStep1">
+
+    {# Referens: kartalar ustida, fon ustida — «* - обязательные поля»
+       (blank-step1-category-typed.png va sacvoyage-filled-step1 da bor). #}
+    <p class="nt-required-legend">
+      <span class="nt-req" aria-hidden="true">*</span> &ndash;
+      {{ 'majburiy maydonlar' if lang == 'uz' else 'обязательные поля' }}
+    </p>
+
+    {# ── 0. Do'kon tanlash (SellerHub'ga xos: bitta user KO'P do'kon) ──
+       DALIL: kartochka `state.shop` do'koniga yaratiladi; ilgari do'kon
+       jimgina `shops[0]` ga o'rnatilardi (noviy_tavar.js) va uni almashtirish
+       UI'si yo'q edi -> ko'p do'konli userda noto'g'ri do'konga ketishi
+       mumkin edi. Faqat >1 do'kon bo'lganda ko'rsatamiz (bitta do'konda
+       tanlov shart emas). Uslublar kategoriya combo'sinikini QAYTA ishlatadi. #}
+    {% if shops | length > 1 %}
+    <section class="nt-card" id="ntCardShop">
+      <h2 class="nt-card-title">
+        {{ "Do'kon" if lang == 'uz' else 'Магазин' }}
+        <span class="nt-req" aria-hidden="true">*</span>
+      </h2>
+      <div style="display:flex; gap:20px; align-items:flex-start;">
+        <div class="nt-select-wrap">
+          <select class="nt-select" id="ntShopSelect"
+                  aria-label="{{ "Do'kon" if lang == 'uz' else 'Магазин' }}">
+            {% for s in shops %}
+            <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="nt-note">
+          {{ "Kartochka tanlangan do'konda yaratiladi"
+             if lang == 'uz' else
+             'Карточка создаётся в выбранном магазине' }}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ── 1. Kategoriya (frame 02) ───────────────────────────── -->
+    <section class="nt-card" id="ntCardCategory">
+      <h2 class="nt-card-title">
+        {{ 'Tovar kategoriyasi' if lang == 'uz' else 'Категория товара' }}
+        <span class="nt-req" aria-hidden="true">*</span>
+      </h2>
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      {# ── TANLASH REJIMI: har daraja O'Z QATORIDA (ustma-ust select'lar) ──
+         DALIL (foydalanuvchi bergan jonli Uzum kadrlari + blank-step1-category-typed.png):
+         Uzum drill-down panel EMAS — 1-select tanlangach ostiga «Выбрать
+         подкатегорию» qo'shiladi, barg tanlangunча shu davom etadi; barg
+         tanlangach «Принять» yonadi. HAR dalili: rootCategories +
+         childCategories, qidiruv endpointi yo'q -> terish joriy darajani
+         filtrlaydi. #}
+      <div class="nt-cat-pick" id="ntCatPick">
+        <div style="display:flex; gap:20px; align-items:flex-start;">
+          <div class="nt-cat-levels" id="ntCatLevels"></div>
+          <div class="nt-note" id="ntCatNote">
+            {{ "Tovar kategoriyasini o'zgartirsangiz — avvalgi xususiyatlar saqlanmaydi"
+               if lang == 'uz' else
+               'Если изменить категорию товара — прежние характеристики не сохранятся' }}
+          </div>
+        </div>
+
+        <div class="nt-cat-actions">
+          {# «Отмена» faqat TAHRIR rejimida («Изменить» bosilgach) chiqadi —
+             birinchi tanlashda referensda yo'q. #}
+          <button type="button" class="nt-btn nt-btn--soft" id="ntCatCancel" hidden>
+            {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
+          </button>
+          <button type="button" class="nt-btn nt-btn--accept" id="ntAccept" disabled>
+            {{ nt_t('accept') }}
+          </button>
+        </div>
+      </div>
+
+      {# ── TASDIQLANGAN REJIM: breadcrumb + «Изменить» ──
+         DALIL: sacvoyage-filled-step1-product-card.png — «Электроника › Умные
+         часы и фитнес браслеты › Умные часы › Умные часы» (select'lar YO'Q). #}
+      <div class="nt-cat-done" id="ntCatDone" hidden>
+        <nav class="nt-crumbs" id="ntCrumbs" aria-label="{{ 'Tovar kategoriyasi' if lang == 'uz' else 'Категория товара' }}"></nav>
+        <button type="button" class="nt-btn nt-btn--dark" id="ntCatChange">
+          {{ "O'zgartirish" if lang == 'uz' else 'Изменить' }}
+        </button>
+      </div>
+    </section>
+
+    <!-- ── 2. Tovar nomi (frame 02) ───────────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">
+        {{ 'Tovar nomi' if lang == 'uz' else 'Название товара' }}
+        <span class="nt-req" aria-hidden="true">*</span>
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Nom sxemasi' if lang == 'uz' else 'Схема названия' }}</p>
+          <p class="nt-tip-b">{{ 'Tovar turi + brend + model + asosiy xususiyat'
+             if lang == 'uz' else 'Тип товара + бренд + модель + ключевая характеристика' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ '90 ta belgi hajmi' if lang == 'uz' else 'Объём 90 символов' }}</p>
+          <p class="nt-tip-b">{{ 'Qisqa nomlar raqobatchilar bilan mos kelishi mumkin — bu Yandex va Google qidiruvidagi ko\'rsatishlarni kamaytiradi'
+             if lang == 'uz' else 'Названия короче могут совпадать с конкурентами — это уменьшает показы в поиске Яндекс и Google' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Bitta nomdagi variantlar' if lang == 'uz' else 'Варианты в одном названии' }}</p>
+          <p class="nt-tip-b">{{ 'Ruxsat etiladi, lekin 90 belgidan oshmasin, masalan: Simsiz quloqchinlar AKG N 700 NC'
+             if lang == 'uz' else 'Допустимо, но не больше 90 символов, например: Беспроводные наушники AKG N 700 NC' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      <div class="nt-field">
+        <label class="nt-label" for="ntTitleUz">
+          {{ 'Tovar nomi o\'zbekcha' if lang == 'uz' else 'Название товара на узбекском' }}
+          <span class="nt-req" aria-hidden="true">*</span>
+        </label>
+        <div class="nt-input-wrap">
+          <input class="nt-input" id="ntTitleUz" type="text" maxlength="90"
+                 data-nt-counter="ntTitleUzCount"
+                 placeholder="{{ 'Aniq tovar nomi' if lang == 'uz' else 'Точное название товара' }}">
+          <span class="nt-counter" id="ntTitleUzCount">0/90</span>
+        </div>
+      </div>
+
+      <div class="nt-field" style="margin-bottom:0;">
+        <label class="nt-label" for="ntTitleRu">
+          {{ 'Tovar nomi ruscha' if lang == 'uz' else 'Название товара на русском' }}
+          <span class="nt-req" aria-hidden="true">*</span>
+        </label>
+        <div class="nt-input-wrap">
+          <input class="nt-input" id="ntTitleRu" type="text" maxlength="90"
+                 data-nt-counter="ntTitleRuCount"
+                 placeholder="{{ 'Aniq tovar nomi' if lang == 'uz' else 'Точное название товара' }}">
+          <span class="nt-counter" id="ntTitleRuCount">0/90</span>
+        </div>
+      </div>
+    </section>
+
+    {# ── 3. Filtrlar: Бренд / Модель / Страна производства ──────────
+       DALIL:
+         · sacvoyage-filled-step1-product-card.png — «Название товара» dan
+           KEYIN «Страна производства» kartasi keladi (tanlagich + «Отсутствует
+           страна производства» katakchasi).
+         · Bandl (edit-product-card-filters.ce): har filtr O'Z KARTASI,
+           `v-for` API qaytargan TARTIBDA; katakcha yorlig'i =
+           `filter_missing + " " + title.toLowerCase()`.
+         · Bosqich B fiksturasi: har bargda AYNAN 3 filtr, «Бренд» HAMMASIDA
+           majburiy -> usiz forma haqiqiy tovar bermaydi.
+       Kartalar kategoriyaga bog'liq (meta.filters) — JS quradi. #}
+    <div id="ntFilters"></div>
+
+    <!-- ── 4. Qisqa tavsif (frame 02-03) ──────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">
+        {{ 'Tovarning qisqa tavsifi' if lang == 'uz' else 'Краткое описание товара' }}
+      </h2>
+
+      <div class="nt-field" style="margin-top:16px;">
+        <label class="nt-label" for="ntShortUz">
+          {{ 'Qisqa tavsif o\'zbekcha' if lang == 'uz' else 'Краткое описание товара на узбекском' }}
+        </label>
+        <textarea class="nt-textarea" id="ntShortUz" maxlength="390"
+                  data-nt-counter="ntShortUzCount"
+                  placeholder="{{ 'Potensial xaridorni bir necha gap bilan qiziqtiring' if lang == 'uz' else 'Заинтересуйте потенциального покупателя парой предложений' }}"></textarea>
+        <span class="nt-counter nt-counter--below" id="ntShortUzCount">0/390</span>
+      </div>
+
+      <div class="nt-field" style="margin-bottom:0;">
+        <label class="nt-label" for="ntShortRu">
+          {{ 'Qisqa tavsif ruscha' if lang == 'uz' else 'Краткое описание товара на русском' }}
+        </label>
+        <textarea class="nt-textarea" id="ntShortRu" maxlength="390"
+                  data-nt-counter="ntShortRuCount"
+                  placeholder="{{ 'Potensial xaridorni bir necha gap bilan qiziqtiring' if lang == 'uz' else 'Заинтересуйте потенциального покупателя парой предложений' }}"></textarea>
+        <span class="nt-counter nt-counter--below" id="ntShortRuCount">0/390</span>
+      </div>
+    </section>
+
+    <!-- ── 4. Tavsif (frame 03-04) ────────────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">
+        {{ 'Tovar tavsifi' if lang == 'uz' else 'Описание товара' }}
+        <span class="nt-req" aria-hidden="true">*</span>
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Iloji boricha batafsil' if lang == 'uz' else 'Как можно подробнее' }}</p>
+          <p class="nt-tip-b">{{ 'Bu xaridorlarga yordam beradi va sotuvni oshiradi'
+             if lang == 'uz' else 'Это помогает покупателям и увеличивает продажи' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Noyob' if lang == 'uz' else 'Уникально' }}</p>
+          <p class="nt-tip-b">{{ 'Original tavsifni olib, o\'z so\'zlaringiz bilan qayta yozish mumkin'
+             if lang == 'uz' else 'Можно взять оригинальное описание и переписать своими словами' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Matn qo\'shing' if lang == 'uz' else 'Добавьте текст' }}</p>
+          <p class="nt-tip-b">{{ 'Faqat foto ishlatilsa — marketpleys, Yandex va Google qidiruvida yomonroq chiqadi'
+             if lang == 'uz' else 'Если использовать только фото — будет хуже выдача в поиске маркетплейса, Яндекса и Google' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Yengil fayllardan foydalaning' if lang == 'uz' else 'Используйте лёгкие файлы' }}</p>
+          <p class="nt-tip-b">{{ 'Masalan, JPEG, JPG, WebP formatlari va 3 Mb dan katta emas'
+             if lang == 'uz' else 'Например, форматы JPEG, JPG, WebP и не больше 3 Мб' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      <div class="nt-field">
+        <label class="nt-label" for="ntDescUz">
+          {{ 'Tovar tavsifi o\'zbekcha' if lang == 'uz' else 'Описание товара на узбекском' }}
+          <span class="nt-req" aria-hidden="true">*</span>
+        </label>
+        {{ nt_editor('ntDescUz') }}
+      </div>
+
+      <div class="nt-field" style="margin-bottom:0;">
+        <label class="nt-label" for="ntDescRu">
+          {{ 'Tovar tavsifi ruscha' if lang == 'uz' else 'Описание товара на русском' }}
+          <span class="nt-req" aria-hidden="true">*</span>
+        </label>
+        {{ nt_editor('ntDescRu') }}
+      </div>
+    </section>
+
+    {# ── 5. Umumiy rasmlar ──────────────────────────────────────
+       DALIL (Uzum bandli, chunk-3ca9d890 ota-render):
+           requiredMediaType !== NOT_DEFINED ? <edit-product-card-photo/> : null
+       Bosqich B fiksturasi: 5078 bargning HAMMASIDA requiredMediaType="ANY"
+       -> kategoriya tanlangach karta DOIM chiqadi; kategoriyasiz esa qiymat
+       NOT_DEFINED bo'lgani uchun yashirin (frame 05: Описание -> Видео).
+       Shu sababli bu karta boshlang'ich holatda `hidden`.
+       Maslahat matnlari — bandlning `editProductCard.hints.photo` lug'atidan
+       (uz va ru, o'zimizdan tarjima EMAS). Yuklagich chegarasi: max-size 5. #}
+    <section class="nt-card" id="ntCardPhoto" hidden>
+      <h2 class="nt-card-title">
+        {{ 'Tovar umumiy rasmlari' if lang == 'uz' else 'Общие фотографии товара' }}
+        <span class="nt-req" aria-hidden="true">*</span>
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Format' if lang == 'uz' else 'Формат' }}</p>
+          <div class="nt-tip-b"><ul>
+            <li>JPEG, JPG, WebP, PNG</li>
+            <li>{{ '750*1000 (3 ga 4)' if lang == 'uz' else '750*1000 (3 на 4)' }}</li>
+            <li>{{ '5 Mb dan katta emas' if lang == 'uz' else 'Не больше 5 Мб' }}</li>
+            <li>{{ 'Yaqindan va har xil burchaklardan' if lang == 'uz' else 'Вблизи и с разных ракурсов' }}</li>
+          </ul></div>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Agar har xil ranglari bo‘lsa' if lang == 'uz' else 'Если есть разные цвета' }}</p>
+          <p class="nt-tip-b">{{ 'Ular uchun fotosuratni “Tavsiflar” joylashtirish mumkin'
+             if lang == 'uz' else 'Для них можно добавить фото в блоке «Характеристики»' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Fotosuratlar sotishga yordam beradi' if lang == 'uz' else 'Фото помогают продавать' }}</p>
+          <p class="nt-tip-b">{{ 'Har xil rakurslar va yaqindan olingan fotosuratlar tovar va materialni — ayniqsa kiyimlarni yaxshiroq ko‘rsatishga imkon beradi'
+             if lang == 'uz' else 'Разные ракурсы и фото вблизи позволяют лучше показать товар и материал — особенно одежду' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Fotosuratlar moderatsiyadan o‘tadi' if lang == 'uz' else 'Фото проходят модерацию' }}</p>
+          <p class="nt-tip-b">{{ 'Fotosuratlar tekshiruvdan o‘tishi uchun ularning sifati, formati va boshqa talablarga mosligi muhim'
+             if lang == 'uz' else 'Качество, формат и соответствие другим требованиям важно, чтобы фотографии прошли проверку' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      {# Sudrab tartiblash matni — faqat rasm bor bo'lganda (bandl: v-if
+         productImagesUrls.length; foydalanuvchi kadri ham shuni ko'rsatdi).
+         Matn ui_uploader.draggable_text lug'atidan. #}
+      <p class="nt-photos-hint" id="ntPhotosHint" hidden>
+        {{ 'Fotosuratlar tartibini oʻzgartirish uchun ularni kerakli joyga tortib qoʻying'
+           if lang == 'uz' else
+           'Вы можете легко изменять порядок фотографий, перетаскивая их в нужное место' }}
+      </p>
+
+      {# Plitkalar JS bilan quriladi; oxirgisi — «Rasm qo'shish» (ui_uploader.add_photo). #}
+      <div class="nt-photos" id="ntPhotos"></div>
+      <p class="nt-photo-msg" id="ntPhotoMsg" role="status" hidden></p>
+      {# Tokenli yuklash faqat server orqali: /noviy-tavar/api/upload-image #}
+      <input type="file" id="ntPhotoInput" accept="image/jpeg,image/png,image/webp"
+             multiple hidden>
+    </section>
+
+    <!-- ── 6. Video (frame 05) ────────────────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ 'Video' if lang == 'uz' else 'Видео' }}</h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Format' if lang == 'uz' else 'Формат' }}</p>
+          <div class="nt-tip-b"><ul><li>1080*1440</li>
+            <li>{{ '3 Mb dan katta emas' if lang == 'uz' else 'Не больше 3 Мб' }}</li></ul></div>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Video sotishga yordam beradi' if lang == 'uz' else 'Видео помогает продавать' }}</p>
+          <p class="nt-tip-b">{{ 'Sifatli video tovarni xaridorlarga yaxshiroq ko\'rsatadi'
+             if lang == 'uz' else 'Качественное видео позволяет лучше показать товар покупателям' }}</p>
+        </div>
+      </div>
+
+      {# Yuklangan video shu yerda; plitka JS bilan boshqariladi. #}
+      <div class="nt-media-view" id="ntVideoView"></div>
+      <input type="file" id="ntVideoInput" accept="video/mp4, video/mov" hidden>
+      <p class="nt-photo-msg" id="ntVideoMsg" role="status" hidden></p>
+    </section>
+
+    <!-- ── 6. Foto 360 (frame 05-06) ──────────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ 'Foto 360' if lang == 'uz' else 'Фото 360' }}</h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Format' if lang == 'uz' else 'Формат' }}</p>
+          <p class="nt-tip-b">{{ 'Arxiv .P3D, .ZIP' if lang == 'uz' else 'Архив .P3D, .ZIP' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Fayl hajmi' if lang == 'uz' else 'Размер файла' }}</p>
+          <p class="nt-tip-b">{{ '10 Mb dan katta emas' if lang == 'uz' else 'Не больше 10 Мб' }}</p>
+        </div>
+      </div>
+
+      {# Yuklangan 360-to'plam shu yerda; plitka JS bilan boshqariladi. #}
+      <div class="nt-media-view" id="nt360View"></div>
+      <input type="file" id="nt360Input" accept=".p3d,.P3D,.zip,.ZIP,application/zip" hidden>
+      <p class="nt-photo-msg" id="nt360Msg" role="status" hidden></p>
+    </section>
+
+    <!-- ── 7. Xususiyatlar (frame 06) ─────────────────────────── -->
+    <section class="nt-card" id="ntCardChars">
+      <h2 class="nt-card-title">
+        {{ 'Tovar xususiyatlari' if lang == 'uz' else 'Характеристики товара' }}
+        <span class="nt-max">({{ 'Maksimum 5' if lang == 'uz' else 'Максимум 5' }})</span>
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Tovarlarni qanday guruhlash' if lang == 'uz' else 'Как группировать товары' }}</p>
+          <p class="nt-tip-b">{{ 'Masalan, Razmer xususiyatli futbolka — XS, S, M, L, XL, XXL'
+             if lang == 'uz' else 'Например, футболка с характеристикой Размер — XS, S, M, L, XL, XXL' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Agar tovar turlari har xil bo\'lsa' if lang == 'uz' else 'Если разные типы товаров' }}</p>
+          <p class="nt-tip-b">{{ 'Masalan, telefon g\'ilofi va telefonni guruhlash mumkin emas'
+             if lang == 'uz' else 'Например, чехол для телефона и телефон группировать нельзя' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Agar kerakli xususiyat bo\'lmasa' if lang == 'uz' else 'Если нет нужной характеристики' }}</p>
+          <p class="nt-tip-b">{{ 'O\'zingizning noyobini yaratishingiz mumkin'
+             if lang == 'uz' else 'Можно создать свою уникальную' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      {# frame 06: kategoriya tanlanmaguncha O'CHIQ + sariq eslatma.
+         O'LCHANGAN (012_..._characteristic-dropdown-open.png): panel kontrol
+         bilan bir xil kenglikda (506px), elementlar 44px, QIDIRUVSIZ. #}
+      <div class="nt-combo" style="width:506px; max-width:100%;">
+        <button type="button" class="nt-combo-btn is-placeholder" id="ntCharBtn" disabled
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="ntCharPanel"
+                aria-describedby="ntCharHint">
+          <span>{{ 'Xususiyat qo\'shish' if lang == 'uz' else 'Добавить характеристику' }}</span>
+          <span class="nt-combo-caret" aria-hidden="true"></span>
+        </button>
+        <div class="nt-panel" id="ntCharPanel" role="listbox" hidden></div>
+      </div>
+
+      <div class="nt-note" id="ntCharHint" style="margin-top:16px; max-width:560px;">
+        {{ 'Xususiyat qo\'shish faqat kategoriya tanlangandan keyin mumkin'
+           if lang == 'uz' else 'Добавить характеристику можно только после выбора категории' }}<br>
+        <a href="#" id="ntPickCategoryLink">{{ 'Kategoriyani tanlang' if lang == 'uz' else 'Выберите категорию' }}</a>
+      </div>
+
+      <div id="ntCharRows"></div>
+    </section>
+
+    {# ── 7b. Har bir rang uchun mediafayllar ──────────────────────
+       JOYLASHUV — VIZUAL DALIL bor (men avval «kadri yo'q» deb XATO aytgandim):
+         screenshots/category-interactions/001_.../009_-1_Цвет_value-selected-popup-closed.png
+       U «Характеристики» kartasidan KEYIN, «Размерная сетка» dan OLDIN turadi
+       va Цвет qiymati tanlangach chiqadi (kadrda chip «Alvon / Алый»).
+
+       DARVOZA (bandl ota-render, chunk-3ca9d890 @498913):
+         productColors && requiredMediaType === ANY  ->  <edit-product-color-media/>
+       `productColors` (store @43526) = tanlangan xususiyatlar ichidan sarlavhasi
+       (ixtiyoriy tilda) «Цвет» bo'lganining characteristicValues'i:
+         We(e) => Object.values(e.characteristicTitle).includes("Цвет")
+       Bosqich B: 5078 bargda requiredMediaType=ANY -> darvoza amalda «rang
+       qatorida qiymat tanlanganmi». Shu sababli boshlang'ich holatda `hidden`.
+
+       Maslahatlar `editProductCard.hints.color_media` dan AYNAN ko'chirilgan.
+       ⚠️ Uzumning O'Z lug'atida nomuvofiqlik: rasm hajmi ru'da «Не больше 5 Мб»,
+       uz'da «3 Mb dan katta emas». Kod esa `max-size: 5`. Matnni o'zgartirmadik
+       (kadr 009 ru'da 5 Mb ko'rsatadi), chegara — 5 MB. #}
+    <section class="nt-card" id="ntCardColorMedia" hidden>
+      <h2 class="nt-card-title">
+        {{ 'Har bir rang uchun mediafayllar' if lang == 'uz' else 'Медиафайлы для каждого цвета' }}
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Fotosuratlar uchun format' if lang == 'uz' else 'Формат для фотографий' }}</p>
+          <div class="nt-tip-b"><ul>
+            <li>JPEG, JPG, WebP, PNG</li>
+            <li>{{ '750*1000 (3 ga 4)' if lang == 'uz' else '750*1000 (3 на 4)' }}</li>
+            <li>{{ '3 Mb dan katta emas' if lang == 'uz' else 'Не больше 5 Мб' }}</li>
+            <li>{{ 'Yaqindan va har xil burchaklardan' if lang == 'uz' else 'Вблизи и с разных ракурсов' }}</li>
+          </ul></div>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Video uchun format' if lang == 'uz' else 'Формат для видео' }}</p>
+          <div class="nt-tip-b"><ul><li>1080*1440</li>
+            <li>{{ '3 Mb dan katta emas' if lang == 'uz' else 'Не больше 3 Мб' }}</li></ul></div>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ '360 fotosuratlar uchun format' if lang == 'uz' else 'Формат для фотографий 360' }}</p>
+          <div class="nt-tip-b"><ul>
+            <li>{{ 'Arxiv .P3D, .ZIP' if lang == 'uz' else 'Архив .P3D, .ZIP' }}</li>
+            <li>{{ '10 Mb dan katta emas' if lang == 'uz' else 'Не больше 10 Мб' }}</li></ul></div>
+        </div>
+      </div>
+
+      {# Rang bloklari JS bilan quriladi (bandl: v-for colors). #}
+      <div id="ntColorMedia"></div>
+      <p class="nt-photo-msg" id="ntColorMsg" role="status" hidden></p>
+      <input type="file" id="ntColorInput"
+             accept="image/jpeg,image/png,image/webp" multiple hidden>
+      {# Per-rang video / 360 — kartaning maslahatlari ikkalasini ham va'da
+         qiladi, demak ikkalasi ham ISHLASHI shart (dars: HANDOFF_2026_07_18 §2.5). #}
+      <input type="file" id="ntColorVideoInput" accept="video/mp4, video/mov" hidden>
+      <input type="file" id="ntColor360Input"
+             accept=".p3d,.P3D,.zip,.ZIP,application/zip" hidden>
+    </section>
+
+    <!-- ── 8. O'lchamli setka (frame 06-07) ────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ 'Oʻlchamli setka' if lang == 'uz' else 'Размерная сетка' }}</h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Nega o\'lchamlar muhim' if lang == 'uz' else 'Почему важны размеры' }}</p>
+          <p class="nt-tip-b">{{ 'Bu xaridorlarga mos o\'lchamni tanlashga yordam beradi va qaytarishlar sonini kamaytiradi'
+             if lang == 'uz' else 'Это помогает покупателям выбрать подходящий размер и уменьшает количество возвратов' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Ayniqsa kiyim uchun' if lang == 'uz' else 'Особенно для одежды' }}</p>
+          <p class="nt-tip-b">{{ 'Intervyuga ko\'ra, xaridorlarning 60% ga yaqini Kiyim va Poyabzal kategoriyalarida o\'lchamlarni ko\'radi'
+             if lang == 'uz' else 'Согласно интервью, около 60% покупателей смотрят размеры в категориях Одежда и Обувь' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Iloji boricha batafsil' if lang == 'uz' else 'Как можно подробнее' }}</p>
+          <p class="nt-tip-b">{{ 'Masalan, kiyim uchun santimetrlarni ko\'rsating: S o\'lchami (bel aylanasi 80-90 sm, son aylanasi 90-98 sm)'
+             if lang == 'uz' else 'Например, для одежды укажите сантиметры: размер S (обхват талии 80-90 см, обхват бёдер 90-98 см)' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Yana nimani ko\'rsatish mumkin' if lang == 'uz' else 'Что ещё можно указать' }}</p>
+          <p class="nt-tip-b">{{ 'Maydon tovar gabaritlari va vazni uchun mos keladi'
+             if lang == 'uz' else 'Поле подходит для габаритов и веса товара' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+      {{ nt_optional('Размеры', 'ntSize',
+           'Oʻlcham setkasi oʻzbek tilida', 'Размерная сетка на узбекском',
+           'Oʻlcham setkasi rus tilida', 'Размерная сетка на русском',
+           'Oʻlcham setkasi yoki tovar hajmi haqida maʼlumot joylashtiring',
+           'Разместите здесь информацию о размерной сетке или размерах и габаритах товара') }}
+    </section>
+
+    <!-- ── 9. Tarkib (frame 07-08) ────────────────────────────── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ 'Tarkib' if lang == 'uz' else 'Состав' }}</h2>
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+      {{ nt_optional('Состав', 'ntComp',
+           'Tarkib oʻzbek tilida', 'Состав на узбекском',
+           'Tarkib rus tilida', 'Состав на русском',
+           'Aloe barglari sharbati, lotus ekstrakti, sentella ekstrakti...',
+           'Сок листьев алоэ, экстракт лотоса, экстракт центеллы...') }}
+    </section>
+
+    <!-- ── 10. Foydalanish bo'yicha yo'riqnoma (frame 07-08) ──── -->
+    <section class="nt-card">
+      <h2 class="nt-card-title">
+        {{ 'Foydalanish boʻyicha yoʻriqnoma' if lang == 'uz' else 'Инструкция по уходу и эксплуатации' }}
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Tovardan qanday foydalanishni ayting' if lang == 'uz' else 'Расскажите, как использовать товар' }}</p>
+          <p class="nt-tip-b">{{ 'Bu texnik murakkab tovarlarni sotishga yordam beradi'
+             if lang == 'uz' else 'Это поможет с продажами технически сложных товаров' }}</p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Mijozlarga mahsulotni tushunishga yordam bering' if lang == 'uz' else 'Помогите клиентам понять продукт' }}</p>
+          <p class="nt-tip-b">{{ 'Maslahatlar xizmat muddatini uzaytiradi va nosozliklarning oldini oladi'
+             if lang == 'uz' else 'Советы и подсказки продлят срок службы и предотвратят поломки' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+      {{ nt_optional('Инструкция', 'ntCare',
+           'Oʻzbek tilida foydalanish boʻyicha koʻrsatmalar',
+           'Инструкция по уходу и эксплуатации на узбекском',
+           'Rus tilida foydalanish boʻyicha koʻrsatmalar',
+           'Инструкция по уходу и эксплуатации на русском',
+           'Foydalanish va parvarish boʻyicha koʻrsatmalar',
+           'Инструкция по уходу и эксплуатации') }}
+    </section>
+
+    {# ── 11. Sertifikatlar (frame 08) ─────────────────────────────
+       Bu karta MATN MUHARRIRI EMAS — `productCertificates` FORMASI.
+       DALIL (uchta mustaqil manba, 2026-07-17 da o'lchangan):
+         1) Kadr 08: Состав/Инструкция da «Добавить», Сертификаты da esa
+            «＋ Добавить» — PLYUS belgili boshqa tugma.
+         2) Bandl `edit-product-card-certificates.ce` (chunk-3ca9d890 @374046):
+            karta = [REQUIRED banner] + maslahatlar + v-for(certificates)
+            [rasm yuklagich + number + expirationDate] + «Добавить» + dialog.
+            Muharrir esa `key:2` da va faqat `comments.Сертификация` MAVJUD
+            bo'lsa render bo'ladi — bu TAHRIRLASH yo'li; yaratishda uni
+            qo'shadigan tugma YO'Q (kadr 08 tasdiqlaydi).
+         3) 235 full-flow HAR: `productCertificates` 24/235 to'ldirilgan —
+            va bu aynan `fillType=REQUIRED` bo'lgan 24 kategoriya.
+       fillType manbai: GET product-certification-filltype (o'ramsiz javob:
+       {"fillType":"OPTIONAL"}). 235 HAR: OPTIONAL 211, REQUIRED 24, DISABLED 0.
+       Matnlar Uzum i18n lug'atidan (uz+ru) — o'zimizdan tarjima EMAS. #}
+    <section class="nt-card" id="ntCardCert">
+      <h2 class="nt-card-title">
+        {{ 'Sertifikatlar' if lang == 'uz' else 'Сертификаты' }}
+        {# Bandl: `required: certificateFillType === REQUIRED` -> shartli `*` #}
+        <span class="nt-req" id="ntCertReq" aria-hidden="true" hidden>*</span>
+      </h2>
+
+      {# Bandl: v-if fillType===REQUIRED && IS_CERTIFICATE_REQUIRED_VISIBLE,
+         `variant:"caution"`, `has-close`. ⚠️ TAXMIN: bu banner faqat REQUIRED
+         kategoriyalarda chiqadi, referens kadrlarimiz esa OPTIONAL kategoriyada
+         olingan -> bannerning O'LCHANGAN rasmi YO'Q. Rang sifatida kartadagi
+         o'lchangan sariq (#FFF7E6) ishlatildi; geometriya taxminiy. #}
+      <div class="nt-cert-banner" id="ntCertBanner" role="note" hidden>
+        <div>
+          <p class="nt-cert-banner-h">
+            {{ 'Bu toifadagi tovarlar sertifikatsiz sotila olmaydi' if lang == 'uz'
+               else 'Товары этой категории не могут продаваться без сертификата' }}
+          </p>
+          <p class="nt-cert-banner-b">
+            {{ 'Shaxsiy kabinetda muvofiqlik sertifikatini qoʻshing yoki biznes-qoʻllab-quvvatlashdan sotish uchun talablarni aniqlashtiring'
+               if lang == 'uz'
+               else 'Добавьте сертификат соответствия в личном кабинете или уточните требования для продажи в бизнес-поддержке' }}
+          </p>
+        </div>
+        <button type="button" class="nt-cert-banner-x" id="ntCertBannerX"
+                aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">×</button>
+      </div>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Qayerdan olish' if lang == 'uz' else 'Где получить' }}</p>
+          <p class="nt-tip-b">{{ 'Beradi' if lang == 'uz' else 'Выдаёт' }}
+            <a href="#" style="color:var(--nt-violet-ink);">{{ 'Akkreditatsiya davlat markazi (GTsA)' if lang == 'uz' else 'Государственный центр аккредитации (ГЦА)' }}</a></p>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Format' if lang == 'uz' else 'Формат' }}</p>
+          <div class="nt-tip-b"><ul><li>JPEG, JPG, PNG</li>
+            <li>{{ '5 Mb dan katta emas' if lang == 'uz' else 'Не больше 5 Мб' }}</li></ul></div>
+        </div>
+        <div class="nt-tip">
+          <p class="nt-tip-h">{{ 'Agar faqat PDF formatida bo\'lsa' if lang == 'uz' else 'Если есть только в формате PDF' }}</p>
+          <p class="nt-tip-b">{{ 'Har bir sahifaning skrinshotini oling va qo\'shing'
+             if lang == 'uz' else 'Сделайте и добавьте скриншоты каждой страницы' }}</p>
+        </div>
+      </div>
+
+      <a class="nt-doclink" href="#" target="_blank" rel="noopener">{{ nt_t('docs') }}</a>
+
+      {# Sertifikat elementlari JS bilan quriladi (bandl: v-for certificates).
+         Har element: [× yopish] + «Сертификат N» + rasm yuklagich + number +
+         expirationDate. Boshlang'ich holatda ro'yxat BO'SH — kadr 08 dagidek
+         faqat «＋ Добавить» ko'rinadi. #}
+      <div id="ntCertList"></div>
+
+      {# Bandl: v-if fillType !== DISABLED. 235 HAR'da DISABLED 0 marta uchradi
+         -> amalda tugma doim ko'rinadi (kadr 08: kategoriyasiz ham turibdi). #}
+      <button type="button" class="nt-btn nt-btn--soft nt-btn--plus" id="ntCertAdd">
+        <span class="nt-plus" aria-hidden="true">+</span>{{ 'Qo’shish' if lang == 'uz' else 'Добавить' }}
+      </button>
+
+      <p class="nt-photo-msg" id="ntCertMsg" role="status" hidden></p>
+      {# Kartadagi o'lchangan maslahat: «JPEG, JPG, PNG», «Не больше 5 Мб»
+         (umumiy rasmlardan FARQI: WebP yo'q). Yuklash proxy orqali. #}
+      <input type="file" id="ntCertInput" accept="image/jpeg,image/png" hidden>
+    </section>
+
+   </div>{# /#ntStep1 #}
+
+   {# ── 2-QADAM «Цены и SKU» ────────────────────────────────────────
+      Referens: screenshots/sacvoyage-filled-step2-prices-sku.png (2400x1053).
+      ⚠️ Referens gorizontal skroll bilan KESILGAN — «Цена, сум» dan keyingi
+      ustunlar unda KO'RINMAYDI. Ular bandl i18n'idan olindi (L dict izohiga
+      qara) va JONLI komissiya javobi bilan tasdiqlandi.
+
+      MA'LUMOT MANBAI: /noviy-tavar/api/sku-step (description-response) —
+      `get_product` EMAS: unda `shopSkuTitle` yo'q. Uzum har rang uchun
+      qatorni O'ZI oldindan quradi (jonli: 3 rang -> 3 qator). #}
+   <div id="ntStep2" hidden>
+
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ nt_t('step2_title') }}</h2>
+
+      <p class="nt-step2-intro">
+        {{ 'SKU — tovarning noyob identifikatori. Uzum uni do‘kon prefiksi, siz kiritgan SKU va rang/o‘lcham qiymatidan o‘zi yig‘adi.'
+           if lang == 'uz' else
+           'SKU — уникальный идентификатор товара. Uzum собирает его сам из префикса магазина, вашего SKU и значения цвета/размера.' }}
+      </p>
+
+      <h3 class="nt-step2-sub">{{ nt_t('sku_head') }}</h3>
+      <div class="nt-field nt-field--sku">
+        <label class="nt-label" for="ntSkuPrefix">
+          {{ nt_t('sku_label') }}<span class="nt-req" aria-hidden="true">*</span>
+        </label>
+        <div class="nt-input-wrap">
+          {# Bandl: `sku_restriction` -> butunlay lotin+raqam YOKI kirill+raqam. #}
+          <input class="nt-input" id="ntSkuPrefix" type="text" maxlength="100"
+                 autocomplete="off"
+                 placeholder="{{ 'Masalan: SOCH01' if lang == 'uz' else 'Например: SOCH01' }}">
+          <span class="nt-counter" id="ntSkuPrefixCount">0/100</span>
+        </div>
+        <p class="nt-err" id="ntSkuPrefixErr" role="alert" hidden></p>
+      </div>
+    </section>
+
+    <div class="nt-sku-tabs" role="tablist" aria-label="SKU">
+      <span class="nt-sku-tabs-label">SKU</span>
+      <button type="button" class="nt-sku-tab is-active" role="tab"
+              aria-selected="true" data-nt-tab="all">{{ nt_t('tab_all') }}</button>
+      <button type="button" class="nt-sku-tab" role="tab"
+              aria-selected="false" data-nt-tab="active">{{ nt_t('tab_active') }}</button>
+      <button type="button" class="nt-sku-tab" role="tab"
+              aria-selected="false" data-nt-tab="archived">{{ nt_t('tab_archived') }}</button>
+    </div>
+
+    <h3 class="nt-tbl-title" id="ntTblTitle">{{ nt_t('tbl_title') }}</h3>
+
+    {# Gorizontal skroll — Uzumda ham shunday (referens kesilgani shundan). #}
+    <div class="nt-tbl-scroll">
+      <table class="nt-tbl" id="ntSkuTbl">
+        <thead>
+          <tr>
+            <th class="nt-th nt-th--sticky">{{ nt_t('c_article') }}</th>
+            <th class="nt-th">{{ nt_t('c_status') }}</th>
+            <th class="nt-th">{{ nt_t('c_seller_code') }}</th>
+            <th class="nt-th">{{ nt_t('c_barcode') }}</th>
+            {# ⚡ = «hammasiga qo'llash». Bandl `forAllValues` ANIQ 7 ta maydon
+               beradi: {fullPrice, off, ikpu, width, length, height, weight}. #}
+            <th class="nt-th">{{ nt_t('c_ikpu') }}<span class="nt-req" aria-hidden="true">*</span>
+              {{ nt_tip(nt_t('tip_ikpu')) }}{{ nt_bulk('ikpu') }}</th>
+            <th class="nt-th">{{ nt_t('c_width') }}{{ nt_bulk('width') }}</th>
+            <th class="nt-th">{{ nt_t('c_length') }}{{ nt_bulk('length') }}</th>
+            <th class="nt-th">{{ nt_t('c_height') }}{{ nt_bulk('height') }}</th>
+            <th class="nt-th">{{ nt_t('c_weight') }}{{ nt_bulk('weight') }}</th>
+            <th class="nt-th">{{ nt_t('c_market') }}{{ nt_tip(nt_t('tip_market')) }}</th>
+            <th class="nt-th">{{ nt_t('c_price') }}<span class="nt-req" aria-hidden="true">*</span>
+              {{ nt_bulk('fullPrice') }}</th>
+            <th class="nt-th">{{ nt_t('c_off') }}{{ nt_bulk('off') }}</th>
+            <th class="nt-th">{{ nt_t('c_sell') }}</th>
+            {# ⚠️ Komissiya ustunlari YARATISH oqimida BO'SH bo'ladi —
+               Uzum `skuPrices` uchun `skuId` talab qiladi, yangi qoralamada
+               esa SKU hali yo'q (jonli 2 marta tasdiqlangan). Uzumning O'Z
+               portali ham aynan shu bo'sh javobni oladi. #}
+            <th class="nt-th">{{ nt_t('c_logistics') }}</th>
+            <th class="nt-th">{{ nt_t('c_comm') }}</th>
+            <th class="nt-th">{{ nt_t('c_withdraw') }}</th>
+          </tr>
+        </thead>
+        <tbody id="ntSkuRows"></tbody>
+      </table>
+    </div>
+
+    <p class="nt-step2-empty" id="ntSkuEmpty" hidden></p>
+   </div>{# /#ntStep2 #}
+
+   {# ── 3-QADAM «Свойства» ─────────────────────────────────────────
+      Referens: screenshots/sacvoyage-filled-step3-properties.png +
+      sacvoyage-step3-operating-system-dropdown.png (2400x1053, JPEG).
+
+      MA'LUMOT MANBAI (jonli tasdiqlangan 2026-07-17):
+        · Jadval  — /noviy-tavar/api/step3 (filters/product/{id}) → skuAttributes+sku
+        · Qiymat  — /noviy-tavar/api/attr-enums (assortment /attributes/enums)
+        · Saqlash — /noviy-tavar/api/save-filters (filters/product POST, YOZUVCHI)
+
+      ⚠️ Ustunlar kategoriyaga qarab O'ZGARADI → jadval JS'da quriladi.
+      ⚠️ SKU yo'q bo'lsa Uzum «taqiq» ekranini ko'rsatadi (i18n
+         filters_forbidden). #}
+   <div id="ntStep3" hidden>
+
+    <section class="nt-card">
+      <h2 class="nt-card-title">{{ nt_t('s3_title') }}</h2>
+      <p class="nt-s3-intro">
+        {{ nt_t('s3_intro1') }}<br>{{ nt_t('s3_intro2') }}
+      </p>
+    </section>
+
+    {# SKU yo'q ekrani — Uzumdek: «SKU kodsiz xususiyat qo'sha olmaysiz». #}
+    <div class="nt-s3-forbidden" id="ntS3Forbidden" hidden>
+      <p class="nt-s3-fb-main">{{ nt_t('s3_fb_main') }}</p>
+      <p class="nt-s3-fb-add">{{ nt_t('s3_fb_add') }}</p>
+      <button type="button" class="nt-btn nt-btn--dark" id="ntS3Back">
+        {{ nt_t('s3_fb_btn') }}
+      </button>
+    </div>
+
+    {# Atribut jadvali — thead/tbody JS'da to'ldiriladi (ustunlar dinamik). #}
+    <div class="nt-tbl-scroll" id="ntS3TblWrap" hidden>
+      <table class="nt-tbl nt-s3-tbl" id="ntS3Tbl">
+        <thead><tr id="ntS3Head"></tr></thead>
+        <tbody id="ntS3Rows"></tbody>
+      </table>
+    </div>
+
+    <p class="nt-step2-empty" id="ntS3Empty" hidden></p>
+   </div>{# /#ntStep3 #}
+
+  </div>
+
+  {# ── Bulk-fill popoveri (⚡) — bitta nusxa, JS uni ustunga ko'chiradi.
+       Nusxa ko'paytirmaymiz: 7 ta ustun × alohida popover = 7 marta
+       sinxronlash kerak bo'lardi (drop-off modali xatosi shundan chiqqan). #}
+  <div class="nt-bulk-pop" id="ntBulkPop" hidden role="dialog"
+       aria-labelledby="ntBulkTitle">
+    {# «Указать для всей колонки» / «Barcha ustunlar uchun koʻrsating» —
+       bandl `specify_for_entire_column` (ru @357034 / uz @419328).
+       ⚠️ Men avval «Для всех строк» deb O'YLAB TOPGANDIM — Uzumda unday
+       matn YO'Q. Bandlda bori turgan bo'lsa, o'zimniki to'qilmaydi. #}
+    <p class="nt-bulk-title" id="ntBulkTitle">{{ nt_t('bulk_apply') }}</p>
+    <div id="ntBulkField"></div>
+    <div class="nt-bulk-foot">
+      <button type="button" class="nt-btn nt-btn--soft" id="ntBulkCancel">
+        {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
+      </button>
+      <button type="button" class="nt-btn nt-btn--accept" id="ntBulkApply">
+        {{ 'Qo‘llash' if lang == 'uz' else 'Применить' }}
+      </button>
     </div>
   </div>
 
-  <div class="nt-grid">
-    <div class="nt-card nt-main" id="ntMain"><div class="nt-load"><span class="nt-spin dark"></span>Yuklanmoqda…</div></div>
-    <div class="nt-card nt-side" id="ntSide" style="display:none"></div>
+  {# ── IKPU tanlagich paneli — bitta nusxa, JS uni faol katakka ko'chiradi.
+       Manba: /noviy-tavar/api/ikpu-search (do'kon id'siz endpoint). #}
+  <div class="nt-ikpu-pop" id="ntIkpuPop" hidden role="dialog"
+       aria-label="{{ nt_t('c_ikpu') }}">
+    <div class="nt-ikpu-search">
+      <label class="visually-hidden" for="ntIkpuSearch">{{ nt_t('c_ikpu') }}</label>
+      {# Bandl `ikpu_input`: ru «Код или название» / uz «Kod yoki nomi». #}
+      <input class="nt-input" id="ntIkpuSearch" type="text" autocomplete="off"
+             placeholder="{{ 'Kod yoki nomi' if lang == 'uz' else 'Код или название' }}">
+    </div>
+    <div class="nt-ikpu-list" id="ntIkpuList"></div>
+    <p class="nt-ikpu-note" id="ntIkpuNote" hidden></p>
+  </div>
+
+  {# ── 3-qadam atribut dropdown'i — bitta nusxa, JS uni faol katakka ko'chiradi.
+     Manba: /noviy-tavar/api/attr-enums (assortment). Enum katak bosilganda
+     ochiladi (Uzumdek lazy yuklash). Ko'p tanlovli (enumArray) uchun checkbox,
+     bitta tanlov uchun radio-effekti (JS boshqaradi). #}
+  <div class="nt-s3-pop" id="ntS3Pop" hidden role="dialog"
+       aria-label="{{ nt_t('s3_title') }}">
+    <div class="nt-s3-pop-search">
+      <label class="visually-hidden" for="ntS3Search">{{ nt_t('s3_search') }}</label>
+      <input class="nt-input" id="ntS3Search" type="text" autocomplete="off"
+             placeholder="{{ nt_t('s3_search') }}">
+    </div>
+    <div class="nt-s3-pop-list" id="ntS3PopList"></div>
+  </div>
+
+  {# ── Qiymat modali «Выбрать характеристики» ─────────────────────
+     O'LCHANGAN: screenshots/category-interactions/001_.../
+       005_-1_Цвет_value-dropdown-open.png   (rang -> 30px doira)
+       019_..._value-dropdown-open.png       (o'lcham -> doirasiz, ayni modal)
+     Kenglik 640px (x=640..1279, markazda), overlay rgba(0,0,0,.30)
+     (alfa ikki xil fonda tekshirildi: 0.302 va 0.303), ro'yxat qadami 55px.
+     DIQQAT: fayl nomida «dropdown» deyilgan — aslida MODAL. #}
+  <div class="nt-modal-overlay" id="ntValueModal" hidden>
+    <div class="nt-modal" role="dialog" aria-modal="true" aria-labelledby="ntValueTitle">
+      <div class="nt-modal-head">
+        <h2 class="nt-modal-title" id="ntValueTitle">
+          {{ 'Xususiyatlarni tanlang' if lang == 'uz' else 'Выбрать характеристики' }}
+        </h2>
+        <button type="button" class="nt-modal-x" id="ntValueClose"
+                aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">&times;</button>
+      </div>
+      <div class="nt-modal-body">
+        <div class="nt-modal-search">
+          <label class="visually-hidden" for="ntValueSearch">
+            {{ 'Qidirish' if lang == 'uz' else 'Поиск' }}
+          </label>
+          <input class="nt-input" id="ntValueSearch" type="text" autocomplete="off"
+                 placeholder="{{ 'Qidirish' if lang == 'uz' else 'Поиск' }}">
+        </div>
+        <div id="ntValueList"></div>
+      </div>
+      <div class="nt-modal-foot">
+        <button type="button" class="nt-btn nt-btn--ghost" id="ntValueCancel">
+          {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
+        </button>
+        <button type="button" class="nt-btn nt-btn--solid" id="ntValueSave">
+          {{ 'Saqlash' if lang == 'uz' else 'Сохранить' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Sertifikatni o'chirish tasdig'i ────────────────────────────
+     Bandl: `certificates.delete_dialog` — sarlavha + tavsif + [Отменить][Удалить].
+     Matnlar Uzum i18n lug'atidan (uz+ru). ⚠️ Bu dialogning referens KADRI YO'Q
+     (u faqat sertifikat qo'shilgach ochiladi) — o'lchamlar mavjud modal
+     tokenlaridan olindi, geometriya taxminiy. #}
+  <div class="nt-modal-overlay" id="ntCertDelModal" hidden>
+    <div class="nt-modal nt-modal--confirm" role="dialog" aria-modal="true"
+         aria-labelledby="ntCertDelTitle" aria-describedby="ntCertDelDesc">
+      <div class="nt-modal-body">
+        <h2 class="nt-modal-title" id="ntCertDelTitle">
+          {{ 'Sertifikat oʻchirib yuborilsinmi?' if lang == 'uz' else 'Удалить сертификат?' }}
+        </h2>
+        <p class="nt-cert-del-desc" id="ntCertDelDesc">
+          {{ 'Sertifikat boʻyicha maʼlumotni tiklashning imkoni boʻlmaydi — faqat qaytadan qoʻshish mumkin'
+             if lang == 'uz'
+             else 'Восстановить информацию по сертификату не получится — только добавить заново' }}
+        </p>
+      </div>
+      <div class="nt-modal-foot">
+        <button type="button" class="nt-btn nt-btn--ghost" id="ntCertDelCancel">
+          {{ 'Bekor qilish' if lang == 'uz' else 'Отменить' }}
+        </button>
+        <button type="button" class="nt-btn nt-btn--del" id="ntCertDelOk">
+          {{ 'Oʻchirib yuborish' if lang == 'uz' else 'Удалить' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>
-<div class="nt-toasts" id="ntToasts"></div>
+{% endblock %}
 
-<script>
-(function(){
-  'use strict';
-  var SHOPS = {{ shops | tojson }};
-
-  var S = {
-    step: 1,
-    shop: SHOPS.length ? SHOPS[0].uzum_id : null,
-    cols: [],          // miller ustunlar: [{parentId, items:[]}]
-    path: [],          // tanlangan zanjir: [{id,title,...}]
-    leaf: null,        // yakuniy tanlangan kategoriya
-    meta: null,        // category_meta javobi
-    form: { titleUz:'', titleRu:'', shortUz:'', shortRu:'', descUz:'', descRu:'', productFields:{} },
-    filterSel: {},     // filterId -> {id, title}
-    charSel: {},       // charKey -> {char, values:[]}
-    images: [],        // {key,url,preview,warn,recommendations}
-    creating: false,
-    created: null,
-    badWords: {}       // fieldKey -> [words]
-  };
-
-  var $main = document.getElementById('ntMain');
-  var $side = document.getElementById('ntSide');
-
-  /* ── utils ── */
-  function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
-  function toast(msg, cls){ var t=document.createElement('div'); t.className='nt-toast '+(cls||'');
-    t.textContent=msg; document.getElementById('ntToasts').appendChild(t);
-    setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(function(){ t.remove(); },400); }, 4200); }
-  function api(url, opts){
-    return fetch(url, opts).then(function(r){
-      return r.json().catch(function(){ return {}; }).then(function(j){
-        if(!r.ok){ throw new Error(j.error || ('HTTP '+r.status)); }
-        return j;
-      });
-    });
-  }
-  function qs(o){ return Object.keys(o).map(function(k){ return k+'='+encodeURIComponent(o[k]); }).join('&'); }
-
-  function setStep(n){
-    S.step = n;
-    document.querySelectorAll('#ntSteps .nt-step').forEach(function(el){
-      var s = +el.dataset.step;
-      el.classList.toggle('is-active', s===n);
-      el.classList.toggle('is-done', s<n);
-    });
-    render();
-    window.scrollTo({top:0, behavior:'smooth'});
-  }
-
-  /* ── STEP 1: kategoriya ── */
-  function loadCol(parentId, colIdx){
-    var p = {shop:S.shop}; if(parentId!=null) p.parentId = parentId;
-    return api('/noviy-tavar/api/categories?'+qs(p)).then(function(j){
-      S.cols = S.cols.slice(0, colIdx);
-      S.cols.push({parentId:parentId, items:j.categories||[]});
-    });
-  }
-  function pickCat(colIdx, cat){
-    S.path = S.path.slice(0, colIdx); S.path.push(cat);
-    S.leaf = null; S.meta = null;
-    if(cat.hasChildren){
-      loadCol(cat.id, colIdx+1).then(render).catch(function(e){ toast(e.message,'err'); });
-    } else {
-      S.leaf = cat;
-      render();
-      api('/noviy-tavar/api/category-meta?'+qs({shop:S.shop, categoryId:cat.id}))
-        .then(function(m){ S.meta = m; render(); })
-        .catch(function(e){ toast('Kategoriya ma\'lumotini olib bo\'lmadi: '+e.message,'err'); });
-    }
-    render();
-  }
-  function catItemHtml(colIdx, c, selId){
-    var off = c.canUse===false;
-    return '<button type="button" class="nt-cat-item'+(selId===c.id?' is-on':'')+(off?' is-off':'')+'" '+
-      (off?'disabled':'')+' data-col="'+colIdx+'" data-id="'+c.id+'">'+
-      '<span>'+esc(c.title)+'</span>'+
-      (c.hasChildren?'<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>':'')+
-      '</button>';
-  }
-  function step1Html(){
-    var h = '';
-    if(SHOPS.length > 1){
-      h += '<div class="nt-sec">Do\'kon</div><div class="nt-shop-row">';
-      SHOPS.forEach(function(s){
-        h += '<button type="button" class="nt-shop-pill'+(S.shop===s.uzum_id?' is-on':'')+'" data-shop="'+esc(s.uzum_id)+'">'+esc(s.name||s.uzum_id)+'</button>';
-      });
-      h += '</div>';
-    }
-    h += '<div class="nt-sec">Kategoriya tanlang <span class="req">*</span></div>';
-    h += '<div class="nt-hint">Oxirgi bargacha kirib boring — tanlangach o\'ng panelda komissiya va shartlar chiqadi.</div>';
-    if(S.path.length){
-      h += '<div class="nt-crumb">';
-      S.path.forEach(function(c,i){
-        if(i) h += '<span>›</span>';
-        h += (i===S.path.length-1 ? '<b>'+esc(c.title)+'</b>' : '<span>'+esc(c.title)+'</span>');
-      });
-      h += '</div>';
-    }
-    h += '<div class="nt-cats">';
-    S.cols.forEach(function(col, ci){
-      var selId = S.path[ci] ? S.path[ci].id : null;
-      h += '<div class="nt-cat-col">' + col.items.map(function(c){ return catItemHtml(ci,c,selId); }).join('') + '</div>';
-    });
-    h += '</div>';
-    return h;
-  }
-
-  /* ── STEP 2: ma'lumotlar ── */
-  function fld(key, label, req, ph, isArea, extra){
-    var v = S.form[key]||'';
-    var inner = isArea
-      ? '<textarea data-f="'+key+'" placeholder="'+esc(ph||'')+'">'+esc(v)+'</textarea>'
-      : '<input type="text" data-f="'+key+'" value="'+esc(v)+'" placeholder="'+esc(ph||'')+'">';
-    return '<div class="nt-fld"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+inner+
-      (extra||'')+'<div class="nt-badwords" id="bw_'+key+'"></div></div>';
-  }
-  function step2Html(){
-    var m = S.meta || {};
-    var h = '<div class="nt-frm">';
-    h += '<div class="nt-sec">Nomi</div>';
-    h += '<div class="nt-two">'
-      + fld('titleUz','Nomi (o\'zbekcha)', true, 'Masalan: Avto organayzer')
-      + fld('titleRu','Nomi (ruscha)', false, 'Bo\'sh qolsa o\'zbekchasidan nusxa olinadi')
-      + '</div>';
-    h += '<div class="nt-sec">Qisqa tavsif</div>';
-    h += '<div class="nt-two">'
-      + fld('shortUz','Qisqa tavsif (uz)', false, 'Bir jumla', false)
-      + fld('shortRu','Qisqa tavsif (ru)', false, 'Bo\'sh qolsa uz nusxa', false)
-      + '</div>';
-    h += '<div class="nt-sec">To\'liq tavsif</div>';
-    h += '<div class="nt-two">'
-      + fld('descUz','Tavsif (uz)', false, 'Har abzats yangi qatordan', true)
-      + fld('descRu','Tavsif (ru)', false, 'Bo\'sh qolsa uz nusxa', true)
-      + '</div>';
-
-    // Dinamik product fields (WARRANTY va h.k.)
-    var fds = (m.fieldDescriptions||[]);
-    if(fds.length){
-      h += '<div class="nt-sec">Qo\'shimcha maydonlar</div><div class="nt-two">';
-      fds.forEach(function(fd){
-        var val = S.form.productFields[fd.fieldName];
-        h += '<div class="nt-fld"><label>'+esc(fd.fieldTitle||fd.fieldName)+(fd.required?' <span class="req">*</span>':'')+'</label>'
-          + '<input type="'+(fd.fieldType==='INTEGER'?'number':'text')+'" data-pf="'+esc(fd.fieldName)+'" value="'+(val!=null?esc(val):'')+'" placeholder="'+esc(fd.fieldPlaceholder||'')+'"></div>';
-      });
-      h += '</div>';
-    }
-
-    // Filtrlar (Brend/Model/Davlat)
-    var flts = (m.filters||[]);
-    if(flts.length){
-      h += '<div class="nt-sec">Filtrlar</div><div class="nt-filters">';
-      flts.forEach(function(f){
-        var sel = S.filterSel[f.id];
-        var lbl = sel ? esc(sel.title) : (f.emptyValue ? '' : '');
-        h += '<div class="nt-fld"><label>'+esc(f.title)+(f.required?' <span class="req">*</span>':'')+'</label>'
-          + '<div class="nt-dd" data-fid="'+f.id+'">'
-          + '<button type="button" class="nt-dd-btn">'
-          + (sel ? '<span>'+esc(sel.title)+'</span>' : '<span class="ph">Tanlang…</span>')
-          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>'
-          + '</button>'
-          + '<div class="nt-dd-pop"><input type="text" placeholder="Qidirish…" data-ddsearch="'+f.id+'">'
-          + '<div class="nt-dd-list" id="ddl_'+f.id+'"></div></div></div></div>';
-      });
-      h += '</div>';
-    }
-
-    // Xususiyatlar (Rang chiplari va h.k.)
-    var chars = (m.characteristics||[]);
-    if(chars.length){
-      h += '<div class="nt-sec" style="margin-top:6px">Xususiyatlar</div><div class="nt-chars">';
-      chars.forEach(function(ch, ci){
-        var key = 'c'+ci;
-        var selVals = (S.charSel[key] && S.charSel[key].values) || [];
-        var selSet = {}; selVals.forEach(function(v){ selSet[v.skuValue||JSON.stringify(v.title)] = 1; });
-        var title = (ch.characteristicTitle && (ch.characteristicTitle.uz || ch.characteristicTitle.ru)) || 'Xususiyat';
-        h += '<div class="nt-fld"><label>'+esc(title)+'</label><div class="nt-chips" data-char="'+ci+'">';
-        (ch.characteristicValues||[]).forEach(function(v, vi){
-          var isColor = typeof v.value === 'string' && v.value.indexOf('#')===0;
-          var vt = (v.title && (v.title.uz || v.title.ru)) || v.skuValue || '';
-          var on = selSet[v.skuValue||JSON.stringify(v.title)] ? ' is-on' : '';
-          h += '<button type="button" class="nt-chip'+on+'" data-char="'+ci+'" data-vi="'+vi+'">'
-            + (isColor ? '<span class="sw" style="background:'+esc(v.value)+'"></span>' : '')
-            + esc(vt) + '</button>';
-        });
-        h += '</div></div>';
-      });
-      h += '</div>';
-    }
-    h += '</div>';
-    return h;
-  }
-
-  /* ── STEP 3: rasmlar ── */
-  function step3Html(){
-    var h = '<div class="nt-sec">Mahsulot rasmlari <span class="req">*</span></div>';
-    h += '<div class="nt-hint">Kamida 1 ta. Tavsiya: 1080×1440 px va katta (3:4). Birinchi rasm — asosiy.</div>';
-    h += '<div class="nt-imgs" id="ntImgs">';
-    S.images.forEach(function(im, i){
-      h += '<div class="nt-img'+(im.warn?' warn':'')+'">'
-        + '<img src="'+esc(im.preview||im.url)+'">'
-        + (i===0?'<span class="main-tag">ASOSIY</span>':'')
-        + '<button type="button" class="del" data-del="'+i+'">✕</button>'
-        + (im.uploading?'<span class="st"><span class="nt-spin"></span>Yuklanmoqda…</span>'
-           : (im.key?'<span class="st">✓ Yuklandi</span>':''))
-        + (im.warn?'<span class="warn-tag">'+esc(im.warn)+'</span>':'')
-        + '</div>';
-    });
-    h += '<div class="nt-drop" id="ntDrop">+ Rasm qo\'shish<br><small>yoki shu yerga tashlang</small></div>';
-    h += '<input type="file" id="ntFile" accept="image/*" multiple style="display:none">';
-    h += '</div>';
-    return h;
-  }
-
-  /* ── STEP 4: review ── */
-  function step4Html(){
-    if(S.created){
-      return '<div class="nt-done">'
-        + '<div class="big">✓</div>'
-        + '<h2>Karta yaratildi!</h2>'
-        + '<div class="pid">ID: '+esc(S.created.id)+'</div>'
-        + '<p>Karta <b>qoralama</b> sifatida yaratildi — moderatsiyaga hali yuborilmadi.<br>'
-        + 'SKU (narx, shtrix-kod, o\'lchov) bosqichini hozircha Uzum kabinetida to\'ldirasiz —<br>'
-        + 'bu bosqich tez orada shu yerga ham qo\'shiladi.</p>'
-        + '<div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">'
-        + '<a class="nt-btn nt-btn-primary" style="text-decoration:none" target="_blank" href="https://seller.uzum.uz/seller/'+esc(S.shop)+'/products">Uzum kabinetida ochish</a>'
-        + '<button type="button" class="nt-btn nt-btn-ghost" id="ntAgain">Yana bitta yaratish</button>'
-        + '</div></div>';
-    }
-    var m = S.meta||{}; var f = S.form;
-    var fltNames = Object.keys(S.filterSel).map(function(k){ return S.filterSel[k].title; }).join(', ') || '—';
-    var charCnt = Object.keys(S.charSel).reduce(function(a,k){ return a + ((S.charSel[k].values||[]).length); }, 0);
-    var h = '<div class="nt-sec">Ko\'rib chiqish</div><div class="nt-rev">';
-    h += '<div class="nt-rev-row"><span class="k">Kategoriya</span><span class="v">'+esc(S.path.map(function(c){return c.title;}).join(' › '))+'</span></div>';
-    h += '<div class="nt-rev-row"><span class="k">Nomi (uz)</span><span class="v">'+esc(f.titleUz||f.titleRu||'—')+'</span></div>';
-    h += '<div class="nt-rev-row"><span class="k">Nomi (ru)</span><span class="v">'+esc(f.titleRu||f.titleUz||'—')+'</span></div>';
-    h += '<div class="nt-rev-row"><span class="k">Filtrlar</span><span class="v">'+esc(fltNames)+'</span></div>';
-    h += '<div class="nt-rev-row"><span class="k">Xususiyat qiymatlari</span><span class="v">'+charCnt+' ta</span></div>';
-    h += '<div class="nt-rev-row"><span class="k">Rasmlar</span><span class="v">'+S.images.filter(function(i){return i.key;}).length+' ta</span></div>';
-    h += '</div>';
-    h += '<div class="nt-hint" style="margin-top:14px">«Yaratish» bosilganda karta Uzum\'da <b>qoralama</b> sifatida paydo bo\'ladi — moderatsiyaga yuborilmaydi, hech narsa e\'lon qilinmaydi. Xavfsiz.</div>';
-    return h;
-  }
-
-  /* ── Side panel (kategoriya meta) ── */
-  function sideHtml(){
-    if(!S.leaf) return '';
-    var m = S.meta;
-    var h = '<div class="nt-meta-title">Tanlangan kategoriya</div>';
-    h += '<div style="font-weight:800; font-size:14px; margin-bottom:12px">'+esc(S.leaf.title)+'</div>';
-    if(!m){ return h + '<div class="nt-load"><span class="nt-spin dark"></span>Shartlar yuklanmoqda…</div>'; }
-    var flds = (m.fields && m.fields.fields) || {};
-    function commOf(key){
-      var c = flds[key];
-      try { return c.borders[0].commission + '%'; } catch(e){ return '—'; }
-    }
-    h += '<div class="nt-kpis">'
-      + '<div class="nt-kpi"><div class="v">'+commOf('commissionFormula')+'</div><div class="l">FBO komissiya</div></div>'
-      + '<div class="nt-kpi"><div class="v">'+commOf('fbsCommissionFormula')+'</div><div class="l">FBS komissiya</div></div>'
-      + '<div class="nt-kpi"><div class="v">'+commOf('dbsCommissionFormula')+'</div><div class="l">DBS komissiya</div></div>'
-      + '<div class="nt-kpi"><div class="v">'+esc(flds.DIMENSIONAL_GROUP||'—')+'</div><div class="l">O\'lchov guruhi</div></div>'
-      + '</div>';
-    h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:12px">';
-    [['SOLD_BY_FBO','FBO'],['SOLD_BY_FBS','FBS'],['SOLD_BY_DBS','DBS']].forEach(function(p){
-      h += '<span class="nt-scheme '+(flds[p[0]]?'on':'off')+'">'+p[1]+'</span>';
-    });
-    h += '</div>';
-    var cert = (m.certification && m.certification.fillType) || null;
-    var ret = flds.returnability;
-    h += '<div class="nt-meta-note">'
-      + (cert ? ('Sertifikat: <b>'+(cert==='OPTIONAL'?'ixtiyoriy':cert)+'</b><br>') : '')
-      + (ret ? ('Qaytarish: <b>'+(ret==='RETURNABLE'?'mumkin':ret)+'</b><br>') : '')
-      + (S.leaf.okpd2Required ? '<b style="color:#C77B24">⚠ OKPD2 kod talab qilinadi</b>' : '')
-      + '</div>';
-    return h;
-  }
-
-  /* ── render ── */
-  function navHtml(){
-    var h = '<div class="nt-nav">';
-    h += (S.step>1 && !S.created)
-      ? '<button type="button" class="nt-btn nt-btn-ghost" id="ntBack">← Orqaga</button>'
-      : '<span></span>';
-    if(S.step<4){
-      var dis = '';
-      if(S.step===1 && !S.leaf) dis = 'disabled';
-      if(S.step===2 && !(S.form.titleUz||S.form.titleRu)) dis = 'disabled';
-      if(S.step===3 && !S.images.some(function(i){return i.key;})) dis = 'disabled';
-      h += '<button type="button" class="nt-btn nt-btn-primary" id="ntNext" '+dis+'>Davom etish →</button>';
-    } else if(!S.created){
-      h += '<button type="button" class="nt-btn nt-btn-primary" id="ntCreate" '+(S.creating?'disabled':'')+'>'
-        + (S.creating?'<span class="nt-spin"></span>Yaratilmoqda…':'✨ Yaratish (qoralama)')+'</button>';
-    }
-    h += '</div>';
-    return h;
-  }
-  function render(){
-    var body = '';
-    if(S.step===1) body = step1Html();
-    else if(S.step===2) body = step2Html();
-    else if(S.step===3) body = step3Html();
-    else body = step4Html();
-    $main.innerHTML = body + (S.created ? '' : navHtml());
-    var sh = sideHtml();
-    $side.style.display = sh ? '' : 'none';
-    $side.innerHTML = sh;
-    bind();
-  }
-
-  /* ── events ── */
-  function bind(){
-    $main.querySelectorAll('.nt-shop-pill').forEach(function(b){
-      b.onclick = function(){
-        S.shop = b.dataset.shop; S.cols=[]; S.path=[]; S.leaf=null; S.meta=null;
-        loadCol(null,0).then(render).catch(function(e){ toast(e.message,'err'); });
-      };
-    });
-    $main.querySelectorAll('.nt-cat-item').forEach(function(b){
-      b.onclick = function(){
-        var ci = +b.dataset.col, id = +b.dataset.id;
-        var cat = S.cols[ci].items.find(function(c){ return c.id===id; });
-        if(cat) pickCat(ci, cat);
-      };
-    });
-    var back = document.getElementById('ntBack');
-    if(back) back.onclick = function(){ setStep(S.step-1); };
-    var next = document.getElementById('ntNext');
-    if(next) next.onclick = function(){ setStep(S.step+1); };
-    var again = document.getElementById('ntAgain');
-    if(again) again.onclick = function(){ location.reload(); };
-    var create = document.getElementById('ntCreate');
-    if(create) create.onclick = doCreate;
-
-    // form inputs
-    $main.querySelectorAll('[data-f]').forEach(function(inp){
-      inp.oninput = function(){ S.form[inp.dataset.f] = inp.value; refreshNav(); };
-      if(inp.dataset.f.indexOf('title')===0 || inp.dataset.f.indexOf('desc')===0){
-        inp.onblur = function(){ checkWords(inp.dataset.f, inp.value); };
-      }
-    });
-    $main.querySelectorAll('[data-pf]').forEach(function(inp){
-      inp.oninput = function(){
-        var v = inp.value.trim();
-        if(v==='') delete S.form.productFields[inp.dataset.pf];
-        else S.form.productFields[inp.dataset.pf] = (inp.type==='number' ? +v : v);
-      };
-    });
-
-    // filter dropdowns
-    $main.querySelectorAll('.nt-dd').forEach(function(dd){
-      var fid = +dd.dataset.fid;
-      var btn = dd.querySelector('.nt-dd-btn');
-      btn.onclick = function(e){
-        e.stopPropagation();
-        var was = dd.classList.contains('open');
-        document.querySelectorAll('.nt-dd.open').forEach(function(o){ o.classList.remove('open'); });
-        if(!was){ dd.classList.add('open'); loadFilterValues(fid, '', 0, false); }
-      };
-      var si = dd.querySelector('[data-ddsearch]');
-      var deb;
-      si.oninput = function(){
-        clearTimeout(deb);
-        deb = setTimeout(function(){ loadFilterValues(fid, si.value.trim(), 0, false); }, 350);
-      };
-      si.onclick = function(e){ e.stopPropagation(); };
-    });
-
-    // characteristic chips
-    $main.querySelectorAll('.nt-chip').forEach(function(chip){
-      chip.onclick = function(){
-        var ci = +chip.dataset.char, vi = +chip.dataset.vi;
-        var ch = (S.meta.characteristics||[])[ci];
-        var v = (ch.characteristicValues||[])[vi];
-        var key = 'c'+ci;
-        if(!S.charSel[key]) S.charSel[key] = {char: ch, values: []};
-        var arr = S.charSel[key].values;
-        var sig = v.skuValue || JSON.stringify(v.title);
-        var idx = arr.findIndex(function(x){ return (x.skuValue||JSON.stringify(x.title))===sig; });
-        if(idx>=0) arr.splice(idx,1); else arr.push(v);
-        chip.classList.toggle('is-on', idx<0);
-      };
-    });
-
-    // images
-    var drop = document.getElementById('ntDrop');
-    var file = document.getElementById('ntFile');
-    if(drop && file){
-      drop.onclick = function(){ file.click(); };
-      file.onchange = function(){ addFiles(file.files); file.value=''; };
-      drop.ondragover = function(e){ e.preventDefault(); drop.classList.add('drag'); };
-      drop.ondragleave = function(){ drop.classList.remove('drag'); };
-      drop.ondrop = function(e){ e.preventDefault(); drop.classList.remove('drag'); addFiles(e.dataTransfer.files); };
-    }
-    $main.querySelectorAll('[data-del]').forEach(function(b){
-      b.onclick = function(){ S.images.splice(+b.dataset.del,1); render(); };
-    });
-  }
-  document.addEventListener('click', function(){
-    document.querySelectorAll('.nt-dd.open').forEach(function(o){ o.classList.remove('open'); });
-  });
-  function refreshNav(){
-    var next = document.getElementById('ntNext');
-    if(!next) return;
-    if(S.step===2) next.disabled = !(S.form.titleUz||S.form.titleRu);
-  }
-
-  /* ── check-words ── */
-  function checkWords(key, text){
-    if(!text.trim()) return;
-    api('/noviy-tavar/api/check-words', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({shop:S.shop, text:text})})
-      .then(function(j){
-        var el = document.getElementById('bw_'+key);
-        if(!el) return;
-        var words = j.words||[];
-        if(words.length){
-          el.textContent = '⚠ Taqiqlangan so\'zlar: '+words.map(function(w){ return typeof w==='string'?w:JSON.stringify(w); }).join(', ');
-          el.classList.add('show');
-        } else { el.classList.remove('show'); }
-      }).catch(function(){});
-  }
-
-  /* ── filter values ── */
-  var fvCache = {};
-  function loadFilterValues(fid, search, page, append){
-    var list = document.getElementById('ddl_'+fid);
-    if(!list) return;
-    if(!append) list.innerHTML = '<div class="nt-load" style="padding:14px"><span class="nt-spin dark"></span></div>';
-    api('/noviy-tavar/api/filter-values?'+qs({shop:S.shop, filterId:fid, categoryId:S.leaf.id, search:search, page:page}))
-      .then(function(j){
-        var data = j.values;
-        var items = [];
-        if(Array.isArray(data)) items = data;
-        else if(data && Array.isArray(data.content)) items = data.content;
-        else if(data && Array.isArray(data.values)) items = data.values;
-        var html = items.map(function(v){
-          return '<button type="button" class="nt-dd-item" data-vid="'+v.id+'" data-vtitle="'+esc(v.title||v.value||'')+'">'+esc(v.title||v.value||'')+'</button>';
-        }).join('');
-        if(items.length >= 24){
-          html += '<button type="button" class="nt-dd-more" data-more="'+(page+1)+'">Yana yuklash…</button>';
-        }
-        if(!items.length && !append) html = '<div class="nt-load" style="padding:12px">Topilmadi</div>';
-        if(append){
-          var more = list.querySelector('.nt-dd-more'); if(more) more.remove();
-          list.insertAdjacentHTML('beforeend', html);
-        } else list.innerHTML = html;
-        list.querySelectorAll('.nt-dd-item').forEach(function(b){
-          b.onclick = function(e){
-            e.stopPropagation();
-            S.filterSel[fid] = {id:+b.dataset.vid, title:b.dataset.vtitle};
-            render();
-          };
-        });
-        var moreBtn = list.querySelector('.nt-dd-more');
-        if(moreBtn) moreBtn.onclick = function(e){ e.stopPropagation(); loadFilterValues(fid, search, +moreBtn.dataset.more, true); };
-      })
-      .catch(function(e){ list.innerHTML = '<div class="nt-load" style="padding:12px">'+esc(e.message)+'</div>'; });
-  }
-
-  /* ── images ── */
-  function addFiles(files){
-    Array.prototype.slice.call(files||[]).forEach(function(f){
-      if(!/^image\//.test(f.type)){ toast('Faqat rasm fayllari','err'); return; }
-      var im = {key:null, url:null, preview:URL.createObjectURL(f), uploading:true, warn:null};
-      S.images.push(im);
-      // Mahalliy o'lcham tekshiruvi (Uzum tavsiyasi 1080×1440)
-      var img = new Image();
-      img.onload = function(){
-        if(img.naturalWidth < 1080 || img.naturalHeight < 1440){
-          im.warn = img.naturalWidth+'×'+img.naturalHeight+' — 1080×1440 dan kichik';
-          render();
-        }
-      };
-      img.src = im.preview;
-      render();
-      var fd = new FormData();
-      fd.append('shop', S.shop);
-      fd.append('file', f, f.name);
-      api('/noviy-tavar/api/upload-image', {method:'POST', body:fd})
-        .then(function(j){
-          im.key = j.key; im.url = j.url; im.uploading = false;
-          (j.recommendations||[]).forEach(function(r){ toast(r,''); });
-          render();
-        })
-        .catch(function(e){
-          im.uploading = false;
-          var i = S.images.indexOf(im); if(i>=0) S.images.splice(i,1);
-          toast('Rasm yuklanmadi: '+e.message,'err');
-          render();
-        });
-    });
-  }
-
-  /* ── create ── */
-  function doCreate(){
-    if(S.creating) return;
-    // Majburiy filtr tekshiruvi
-    var missing = (S.meta && S.meta.filters || []).filter(function(f){ return f.required && !S.filterSel[f.id]; });
-    if(missing.length){
-      toast('Majburiy filtr tanlanmagan: '+missing.map(function(f){return f.title;}).join(', '),'err');
-      setStep(2); return;
-    }
-    S.creating = true; render();
-    var chars = Object.keys(S.charSel).map(function(k){
-      var e = S.charSel[k];
-      return {
-        characteristicId: (e.char.characteristicId!=null ? e.char.characteristicId : -1),
-        characteristicTitle: e.char.characteristicTitle || {},
-        orderingNumber: e.char.orderingNumber || 0,
-        values: e.values
-      };
-    }).filter(function(c){ return c.values.length; });
-    var body = {
-      shop: S.shop,
-      categoryId: S.leaf.id,
-      titleUz: S.form.titleUz, titleRu: S.form.titleRu,
-      shortUz: S.form.shortUz, shortRu: S.form.shortRu,
-      descUz: S.form.descUz, descRu: S.form.descRu,
-      productFields: S.form.productFields,
-      filterValues: Object.keys(S.filterSel).map(function(fid){
-        return {filterId:+fid, filterValueId:S.filterSel[fid].id};
-      }),
-      characteristics: chars,
-      images: S.images.filter(function(i){return i.key;}).map(function(i){ return {key:i.key, url:i.url}; })
-    };
-    api('/noviy-tavar/api/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
-      .then(function(j){
-        S.creating = false; S.created = j;
-        toast('Karta yaratildi — ID '+j.id, 'ok');
-        render();
-      })
-      .catch(function(e){
-        S.creating = false; render();
-        toast('Yaratib bo\'lmadi: '+e.message, 'err');
-      });
-  }
-
-  /* ── init ── */
-  if(!SHOPS.length){
-    $main.innerHTML = '<div class="nt-load">Do\'kon topilmadi — avval do\'kon ulang.</div>';
-  } else {
-    setStep(1);
-    loadCol(null,0).then(render).catch(function(e){
-      $main.innerHTML = '<div class="nt-load">Kategoriya yuklanmadi: '+esc(e.message)+'</div>';
-    });
-  }
-})();
-</script>
+{% block extra_js %}
+<script src="{{ url_for('noviy_tavar_bp.static', filename='noviy_tavar.js') }}" defer></script>
 {% endblock %}

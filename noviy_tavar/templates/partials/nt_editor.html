@@ -1,0 +1,78 @@
+{# Boy matn muharriri — «Описание товара» va ixtiyoriy bo'limlar uchun.
+   Panel tarkibi referensdan: undo, redo, Paragraph select, B, I, rasm.
+   Manba: blank-step1-rich-text-toolbar.png, sacvoyage-blank-entry-03/04.png
+
+   Parametrlar:
+     editor_id          — majburiy, DOM id
+     editor_placeholder — ixtiyoriy; berilmasa «Описание товара» matni ishlatiladi
+                          (Uzum bandlidan olingan aniq matnlar chaqiruvchida).
+
+   ⚠️ MAKRO, `include` EMAS: `{% include %}` makro ichidan chaqirilganda makroning
+   lokal o'zgaruvchilarini KO'RMAYDI (Jinja kontekst qoidasi) — ixtiyoriy bo'limlar
+   aynan makro ichidan chaqiradi. Chaqirish:
+     {% from 'partials/nt_editor.html' import nt_editor with context %} #}
+{% macro nt_editor(editor_id, editor_placeholder='') %}
+<div class="nt-editor" data-nt-editor>
+  <div class="nt-editor-bar" role="toolbar"
+       aria-label="{{ 'Matn formatlash' if lang == 'uz' else 'Форматирование текста' }}">
+    <button type="button" class="nt-tb-btn" data-cmd="undo"
+            title="{{ 'Bekor qilish' if lang == 'uz' else 'Отменить' }}"
+            aria-label="{{ 'Bekor qilish' if lang == 'uz' else 'Отменить' }}">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 7h6.5a3.5 3.5 0 1 1 0 7H7" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5.5 4.5 3 7l2.5 2.5" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button type="button" class="nt-tb-btn" data-cmd="redo"
+            title="{{ 'Qaytarish' if lang == 'uz' else 'Вернуть' }}"
+            aria-label="{{ 'Qaytarish' if lang == 'uz' else 'Вернуть' }}">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M13 7H6.5a3.5 3.5 0 1 0 0 7H9" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.5 4.5 13 7l-2.5 2.5" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <select class="nt-tb-select" data-cmd="block"
+            aria-label="{{ 'Matn uslubi' if lang == 'uz' else 'Стиль текста' }}">
+      <option value="p">Paragraph</option>
+      <option value="h2">Heading 2</option>
+      <option value="h3">Heading 3</option>
+      <option value="h4">Heading 4</option>
+    </select>
+
+    <button type="button" class="nt-tb-btn" data-cmd="bold" aria-pressed="false"
+            title="{{ 'Qalin' if lang == 'uz' else 'Жирный' }}"
+            aria-label="{{ 'Qalin' if lang == 'uz' else 'Жирный' }}">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4.5 3h4a2.5 2.5 0 0 1 0 5h-4V3Zm0 5h4.75a2.75 2.75 0 0 1 0 5.5H4.5V8Z"
+              stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button type="button" class="nt-tb-btn" data-cmd="italic" aria-pressed="false"
+            title="{{ 'Kursiv' if lang == 'uz' else 'Курсив' }}"
+            aria-label="{{ 'Kursiv' if lang == 'uz' else 'Курсив' }}">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3H6.5m3 10H6m4.5-10L8 13" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button type="button" class="nt-tb-btn" data-cmd="image"
+            title="{{ 'Rasm qo\'shish' if lang == 'uz' else 'Добавить изображение' }}"
+            aria-label="{{ 'Rasm qo\'shish' if lang == 'uz' else 'Добавить изображение' }}">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <rect x="2" y="3" width="9" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="m2 9 2.5-2 3 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M13 8v5m2.5-2.5H10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="nt-editor-area" id="{{ editor_id }}" contenteditable="true" role="textbox"
+       aria-multiline="true"
+       data-placeholder="{{ editor_placeholder if editor_placeholder else ('Tovaringiz, uning xususiyatlari va afzalliklari haqida gapiring' if lang == 'uz' else 'Расскажите о своем товаре, его характеристиках и преимуществах') }}"></div>
+</div>
+{% endmacro %}

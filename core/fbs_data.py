@@ -49,6 +49,9 @@ from core.redis_client import redis_client
 from core.swr import swr_get
 from core.fbs_sync import (
     fetch_all_pages as _fbs_fetch_all_pages,
+    # Drain + a "did we see the whole status?" flag. The interactive live path
+    # PRUNES off the result, so it must know when the set is truncated.
+    fetch_all_pages_checked as _fbs_fetch_all_pages_checked,
     upsert_orders as _fbs_upsert_orders,
     row_to_dict as _fbs_row_to_dict,
     # The button-prune (Yangilash) and the worker reconcile must agree on
@@ -279,8 +282,111 @@ def _read_count_from_db(
 # ─────────────────────────────────────────────────────────────────────
 
 
+# An order that joins a накладная LEAVES its active status on Uzum
+# (PACKING → PENDING_DELIVERY) — it did not vanish. PENDING_DELIVERY is never
+# background-synced (app.py: no entry in the status interval map), so a prune
+# that DELETES the departed row destroys the only local trace of it — and that
+# row's ``invoice_number`` is what proves the накладная belongs to this seller
+# (``_user_owns_invoice``). Deleting it made the seller's own invoice detail
+# 403 as "foreign shop" (2026-07-13).
+#
+# The rule must NOT be "keep the row if it carries an invoice_number": that
+# column stays populated all the way through DELIVERED/COMPLETED, so keying off
+# it would restamp a just-delivered order BACKWARDS into PENDING_DELIVERY.
+#
+# Instead we ask Uzum where the order actually went. A departed row triggers one
+# PENDING_DELIVERY drain; Uzum's PENDING_DELIVERY payload carries the
+# invoiceNumber (verified 2026-07-13 — the repair run restored 6 rows complete
+# with their numbers), so the upsert re-homes the order into the right status
+# with the right number, for invoices we created AND ones the seller built in
+# the Uzum app. Whatever is STILL sitting in the drained status afterwards was
+# not in an invoice — it is a genuine phantom, and the delete is safe.
+_INVOICE_HOLDING_STATUS = "PENDING_DELIVERY"
+
+# Page cap for the INTERACTIVE drain. The seller is waiting on this request and
+# the browser aborts at 15s, while each page is paced ≥1s through the shared
+# per-token bucket. 10 pages = up to 500 orders in one status — far above any
+# real active queue — and bounds the worst case at ~10s. Hitting the cap marks
+# the drain incomplete, so it degrades to "render what we got, prune nothing"
+# instead of deleting the orders behind the cap.
+_LIVE_DRAIN_MAX_PAGES = 10
+
+
+def _settle_departed_status_rows(
+    db, shop_uzum_ids, status: str, fresh_ids: set | None,
+    *, token: str | None = None,
+) -> tuple[int, int]:
+    """Reconcile rows that Uzum no longer reports under ``status``.
+
+    ``fresh_ids`` is the authoritative set Uzum just returned; ``None`` means
+    Uzum reported the status EMPTY (the caller must have confirmed that
+    independently — see :func:`_confirm_status_empty`), so every row in the
+    status has departed.
+
+    ``token`` enables the re-home step (one extra paced Uzum call, and ONLY
+    when something actually departed). Without it the departed rows are simply
+    deleted — the pre-2026-07-13 behaviour, which loses invoice ownership.
+
+    Returns ``(rehomed, deleted)``.
+    """
+    ids = [str(s) for s in shop_uzum_ids if s is not None and str(s).strip()]
+    if not ids:
+        return (0, 0)
+
+    def _departed():
+        """WHERE clauses selecting the rows that left ``status``."""
+        clauses = [FbsOrder.shop_id.in_(ids), FbsOrder.status == status]
+        if fresh_ids:
+            clauses.append(~FbsOrder.order_id.in_({str(i) for i in fresh_ids}))
+        return clauses
+
+    departed_ids = {
+        str(r[0]) for r in db.execute(
+            select(FbsOrder.order_id).where(*_departed())
+        ).all()
+    }
+    if not departed_ids:
+        return (0, 0)
+
+    rehomed = 0
+    # Only a non-invoice status can have lost orders TO an invoice.
+    if token and status != _INVOICE_HOLDING_STATUS:
+        try:
+            pd_orders = _fbs_fetch_all_pages(
+                token, ids, status=_INVOICE_HOLDING_STATUS, fail_fast=True,
+            )
+        except Exception as e:
+            # Re-home unavailable → do NOT delete on a guess. The rows stay put
+            # (a phantom lingers until the next press) rather than risk wiping
+            # an invoice's ownership proof on a transient Uzum error.
+            print(f"[fbs_data] prune: {_INVOICE_HOLDING_STATUS} re-home fetch "
+                  f"failed ({e!r}) — keeping {len(departed_ids)} departed "
+                  f"{status} row(s)")
+            return (0, 0)
+        if pd_orders:
+            _fbs_upsert_orders(db, ids[0], orders=pd_orders)
+            rehomed = len(
+                departed_ids & {str(o.get("id")) for o in pd_orders
+                                if o.get("id") is not None}
+            )
+            if rehomed:
+                print(f"[fbs_data] prune: re-homed {rehomed} {status} row(s) → "
+                      f"{_INVOICE_HOLDING_STATUS} (joined a накладная) "
+                      f"shops={','.join(ids)}")
+
+    # Re-homed rows no longer match ``status``, so this delete cannot touch
+    # them. What remains departed is a phantom.
+    res = db.execute(delete(FbsOrder).where(*_departed()))
+    deleted = res.rowcount or 0
+    if deleted:
+        print(f"[fbs_data] prune: removed {deleted} phantom {status} row(s) "
+              f"shops={','.join(ids)}")
+    return (rehomed, deleted)
+
+
 def _prune_departed_status_rows(
     db, shop_uzum_ids, status: str, fresh_ids: set,
+    *, token: str | None = None,
 ) -> int:
     """Delete ``fbs_orders`` rows for these shops still sitting in
     ``status`` that Uzum's authoritative drain no longer returned — the
@@ -304,27 +410,142 @@ def _prune_departed_status_rows(
          ``fresh_ids`` is EMPTY we do NOTHING. An empty drain means "Uzum
          reports zero orders in this status" — trusting that to wipe the
          whole status would let a single fluke empty-200 nuke live orders.
-         The all-phantom case is deliberately left to the unattended
-         worker, which guards it with a 2-strike (two consecutive empties)
-         confirmation. The interactive press only ever removes phantoms
-         that sit ALONGSIDE at least one still-present order.
+         The all-phantom case is handled by the callers that can confirm it
+         independently (:func:`refresh_shops_status_live` via ``/count``, the
+         worker via its 2-strike counter), never here.
+
+      3. A row that departed INTO a накладная is re-homed, not deleted — see
+         :func:`_settle_departed_status_rows`. Pass ``token`` to enable that;
+         without it a departed invoiced row is deleted and its накладная loses
+         its ownership proof.
 
     Returns the number of rows deleted.
     """
     ids = [str(s) for s in shop_uzum_ids if s is not None and str(s).strip()]
     if not ids or not fresh_ids:
         return 0
-    res = db.execute(
-        delete(FbsOrder)
-        .where(FbsOrder.shop_id.in_(ids))
-        .where(FbsOrder.status == status)
-        .where(~FbsOrder.order_id.in_({str(i) for i in fresh_ids}))
+    _rehomed, deleted = _settle_departed_status_rows(
+        db, ids, status, fresh_ids, token=token,
     )
-    pruned = res.rowcount or 0
-    if pruned:
-        print(f"[fbs_data] Yangilash-prune: removed {pruned} phantom "
-              f"{status} row(s) shops={','.join(ids)}")
-    return pruned
+    return deleted
+
+
+def _wipe_status_rows(db, shop_uzum_ids, status: str, *, token: str | None = None) -> int:
+    """Clear a status Uzum reports as EMPTY: rows that joined a накладная are
+    re-homed to PENDING_DELIVERY, the rest are phantoms and get deleted. Only
+    ever called after :func:`_confirm_status_empty` has independently agreed the
+    status is empty — see :func:`refresh_shops_status_live` for the two-source
+    safety model.
+    """
+    ids = [str(s) for s in shop_uzum_ids if s is not None and str(s).strip()]
+    if not ids:
+        return 0
+    _rehomed, deleted = _settle_departed_status_rows(
+        db, ids, status, None, token=token,
+    )
+    return deleted
+
+
+def _confirm_status_empty(token: str, shop_uzum_ids, status: str) -> bool:
+    """Second opinion on "this status has zero orders", via the independent
+    ``/v2/fbs/orders/count`` endpoint.
+
+    The list drain returning an empty page is the one signal we must not trust
+    on its own: a single fluke empty-200 from Uzum would otherwise wipe live
+    orders. ``/count`` is a different endpoint with a different payload shape,
+    so both lying with the same fake zero in the same second is not a failure
+    mode we've ever seen. Requiring BOTH to say zero is what lets the
+    interactive press clear an all-phantom status immediately instead of
+    deferring to the worker's 2-strike reconcile (~10-20 min).
+
+    Fails CLOSED: any error (429, 5xx, timeout) returns False → no wipe.
+    """
+    try:
+        count, _ = fetch_fbs_orders_count(
+            token, [str(s) for s in shop_uzum_ids], status=status, fail_fast=True,
+        )
+    except Exception as e:
+        print(f"[fbs_data] live-prune: /count confirm FAILED for {status} "
+              f"({e!r}) — keeping rows")
+        return False
+    return int(count or 0) == 0
+
+
+def refresh_shops_status_live(
+    token: str,
+    shop_uzum_ids: list[str | int] | tuple,
+    status: str,
+) -> tuple[int, int]:
+    """Make ``fbs_orders`` for this (shops, status) EXACTLY match Uzum, now.
+
+    This is the interactive read path for the active chips (Yangi /
+    Yig'ilmoqda / Yo'lda). It drains every page of the status — so the result
+    is the COMPLETE authoritative set, not the visible page — then upserts it
+    and deletes whatever local row Uzum no longer reports. After it returns,
+    a plain DB read of this status yields precisely what Uzum just said, which
+    is what makes the rendered list phantom-free by construction.
+
+    Why the DB is still written at all when the goal is "live": the row is the
+    only server-side source for things the orders list itself never shows —
+    the label warm-set (``core.fbs_label_cache``), product-QR items, bulk-action
+    ownership, invoice creation and time-slot deadlines. Those keep working
+    because the mirror keeps being written; the *screen* just stops depending
+    on it being fresh.
+
+    Three prune modes, split by how much we trust the drain:
+
+      * drain COMPLETE and non-empty → TARGETED prune (rows not in the fresh
+        set). The set is the whole truth, so anything else in this status has
+        departed.
+      * drain complete and EMPTY → the risky case (clear the whole status). We
+        require an independent ``/count`` to also report zero before deleting
+        anything (:func:`_confirm_status_empty`). Previously this case pruned
+        nothing at all, which is exactly why an all-phantom status (Uzum says
+        0, we hold 1) could never be cleared by pressing the chip.
+      * drain INCOMPLETE (hit the page cap, or an empty page landed mid-drain —
+        see ``fetch_all_pages_checked``) → NO prune. The rows we didn't see are
+        not phantoms, and deleting them would destroy live orders. The list
+        still renders whatever Uzum did return.
+
+    Returns ``(upserted, pruned)``.
+    """
+    ids = [str(s).strip() for s in shop_uzum_ids if s is not None and str(s).strip()]
+    if not ids:
+        return (0, 0)
+
+    orders, complete = _fbs_fetch_all_pages_checked(
+        token, ids, status=status, fail_fast=True,
+        max_pages=_LIVE_DRAIN_MAX_PAGES,
+    )
+    fresh_ids = {str(o.get("id")) for o in orders if o.get("id") is not None}
+
+    prunable = complete and status in _FBS_ACTIVE_SYNC_STATUSES
+    if not complete:
+        print(f"[fbs_data] live: {status} drain INCOMPLETE ({len(orders)} order(s) "
+              f"in {_LIVE_DRAIN_MAX_PAGES} page(s) max) — skipping prune")
+    # Second-source an empty drain BEFORE opening the session: this is a paced
+    # network round-trip and must not sit inside an open transaction.
+    empty_confirmed = (
+        prunable and not fresh_ids and _confirm_status_empty(token, ids, status)
+    )
+
+    upserted = 0
+    pruned = 0
+    with SessionLocal() as db:
+        if orders:
+            upserted = _fbs_upsert_orders(db, ids[0], orders=orders)
+        # Prune is for the active queues only: a terminal status can exceed the
+        # paginator's cap, so its drain is not authoritative and a delete there
+        # could destroy real history.
+        if prunable:
+            if fresh_ids:
+                pruned = _prune_departed_status_rows(
+                    db, ids, status, fresh_ids, token=token,
+                )
+            elif empty_confirmed:
+                pruned = _wipe_status_rows(db, ids, status, token=token)
+        db.commit()
+    return (upserted, pruned)
 
 
 def _refresh_shop_status(token: str, shop_uzum_id: str | int, status: str) -> int:
@@ -529,6 +750,16 @@ def get_fbs_orders(
     the DB read, so the seller's "Yangilash" press surfaces orders
     that were created between worker ticks.
 
+    ``refresh=True`` is the LIVE path (Abdulaziz 2026-07-13: "har bosilganda
+    Uzumdan jonli olinsin, Uzum bilan 100% bir xil bo'lsin"): it reconciles the
+    status against Uzum — drain every page, upsert, delete what Uzum no longer
+    reports — and then reads back WITHOUT the SWR cache. Reading a status that
+    was just made byte-identical to Uzum is the same thing as rendering Uzum's
+    reply, minus a second parse of the payload; going through the row also
+    keeps the fields Uzum omits from the list (customer name, localized title).
+    Serving that read from a 15s cache would hand back a pre-reconcile snapshot
+    and put the phantom straight back on screen, so ``refresh`` skips SWR.
+
     Filter calls (``date_from_ms`` / ``date_to_ms`` / ``q``) bypass the
     SWR layer — the caller is asking for a custom slice we shouldn't
     share across sellers/requests. They still go through the DB.
@@ -538,14 +769,14 @@ def get_fbs_orders(
         # block the read — it just means the user sees whatever the
         # worker had last time. Logging the failure helps debugging.
         try:
-            _refresh_shop_status(token, shop_uzum_id, status)
+            refresh_shops_status_live(token, [shop_uzum_id], status)
             # Wipe the SWR layer so the next loader actually hits DB,
             # not a stale cached value.
             invalidate_fbs_cache(shop_uzum_id)
         except Exception as e:
             print(f"[fbs_data] refresh shop={shop_uzum_id} status={status} ERROR: {e!r}")
 
-    if date_from_ms is not None or date_to_ms is not None or q:
+    if refresh or date_from_ms is not None or date_to_ms is not None or q:
         result = _read_orders_from_db(
             shop_uzum_id,
             status=status, scheme=scheme,

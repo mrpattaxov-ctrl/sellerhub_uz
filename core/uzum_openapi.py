@@ -685,9 +685,17 @@ def _fbs_orders_request_with_auth(
             if _LOG_RATELIMIT:
                 try:
                     _rl = _extract_ratelimit_headers(resp.headers)
-                    if _rl:
-                        print(f"[UzumOpenAPI] RATELIMIT {method} {debug_label}/{auth_label} "
-                              f"HTTP {resp.status_code} {_rl!r}")
+                    # Log EVERY response, not only those carrying rate-limit
+                    # headers (Abdulaziz 2026-07-14). The old `if _rl:` gate
+                    # made any Uzum endpoint that omits the x-ratelimit-*
+                    # family INVISIBLE in the logs — yet those calls still burn
+                    # the token's budget. Live proof: during a heavy session the
+                    # `x-ratelimit-remaining-per-day` counter dropped by 2–3
+                    # between consecutive LOGGED calls, i.e. ~1 unlogged Uzum
+                    # request per logged one. Without this line we cannot tell
+                    # which endpoint that is.
+                    print(f"[UzumOpenAPI] RATELIMIT {method} {debug_label}/{auth_label} "
+                          f"HTTP {resp.status_code} {_rl if _rl else 'hdr=yoq'!r}")
                 except Exception:
                     pass  # diagnostics must never break a real Uzum call
 

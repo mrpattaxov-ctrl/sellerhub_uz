@@ -2324,6 +2324,10 @@
       // length heuristic only if an older backend omits it.
       _invHasMore.set(key, (typeof data.has_more === "boolean")
         ? data.has_more : (list.length >= PAGE_SIZE));
+      // (Badge postMessage OLIB TASHLANDI — Abdulaziz 2026-07-15. Bu yer
+      // parent'ning «Поставки» nav-badge'ini `list.length` bilan yozardi, lekin
+      // ro'yxat status-filtriga bog'liq (Все/Создана/Отменена) → badge beqaror
+      // sakrardi. Endi parent uni DB'dan oladi, showPostavkaView izohiga qara.)
       renderPage(list);
     } catch (e) {
       if (myReq !== _invReqSeq) return;

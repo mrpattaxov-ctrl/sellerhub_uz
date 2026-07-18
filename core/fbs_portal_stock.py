@@ -19,7 +19,9 @@ Probe bilan tasdiqlangan qoidalar (2026-07-03):
         Shuning uchun ``SOLD_OUT`` ISHLATILMAYDI; «Tugagan» (amount==0) ni
         chaqiruvchi ``ALL``dan client-side ajratadi.
   * ``searchText`` nom / SKU-kod / shtrix-kod bo'yicha ishlaydi (server-side).
-  * ``linked`` param ixtiyoriy — tashlab yuborilsa HAMMA SKU keladi.
+  * ``linked=true`` — «Ombor» ro'yxatining O'ZAGI: faqat sxemaga ulangan SKU.
+    Tashlab yuborilsa HAMMA SKU keladi (~2200) va ombor Uzum'nikiga o'xshamay
+    qoladi + o'chirilgan tovar ro'yxatda qolib ketadi (2026-07-13 bug).
   * javob ``payload.hasMore`` DOIM False (Uzum UI ham ishlatmaydi) —
     ISHONMANG; «to'liq sahifa keldi (20) = yana bor» qoidasi ishlatiladi.
   * javob qatorida per-SKU rasm (``photo``) tayyor keladi — lokal Variant
@@ -95,8 +97,17 @@ def fetch_portal_sku_stocks_page(
     page: int = 0,
     search: str = "",
     in_stock_only: bool = False,
+    linked_only: bool = True,
 ) -> tuple[list[dict], bool]:
     """BITTA portal sahifa (≤20 qator, normalize qilingan) + has_more.
+
+    ``linked_only`` (default TRUE) → ``linked=true``: FAQAT sxemaga (FBS/DBS)
+    ulangan SKU'lar, ya'ni HAQIQATAN omborda turganlari. Uzum'ning o'z
+    «Ombor» sahifasi aynan shunday so'raydi (HAR t.har/t1.har, 2026-07-13) —
+    uning «Только по FBS и DBS» tugmasi shu parametr. Buni yubormasak butun
+    katalog (~2200 SKU) keladi va ombordan O'CHIRILGAN (sxemadan uzilgan)
+    tovar ro'yxatda qolib ketadi. ``linked_only=False`` → «Barcha tovarlar»
+    ko'rinishi (omborga yangi SKU qo'shish uchun).
 
     ``in_stock_only`` → ``amountFilter=IN_STOCK`` (faqat amount>0), aks holda
     ``ALL``. «Tugagan» (amount==0) chaqiruvchi tomonda ALL'dan ajratiladi —
@@ -119,6 +130,8 @@ def fetch_portal_sku_stocks_page(
         f"&amountFilter={amount_filter}&sortBy=SKU_ID"
         f"&page={max(0, int(page))}&size={PORTAL_STOCK_PAGE_SIZE}"
     )
+    if linked_only:
+        url += "&linked=true"
     search = (search or "").strip()
     if search:
         url += f"&searchText={quote(search, safe='')}"

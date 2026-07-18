@@ -230,6 +230,14 @@
   .stk-table tbody tr.is-dirty { background: #fffbeb; }
   .stk-table tbody tr.is-dirty:hover { background: #fff7e0; }
   .stk-table tbody tr.is-dirty td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+  /* Ombordan olib tashlanmoqda (qoldiq 0 + sxemasiz) — qizil, xira. */
+  .stk-table tbody tr.is-removing { background: #fef2f2; }
+  .stk-table tbody tr.is-removing:hover { background: #fee9e9; }
+  .stk-table tbody tr.is-removing td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
+  .stk-table tbody tr.is-removing .stk-prod-title,
+  .stk-table tbody tr.is-removing .stk-prod-meta { opacity: .55; text-decoration: line-through; }
+  .stk-table tbody tr.is-removing .stk-thumb,
+  .stk-table tbody tr.is-removing .stk-thumb-ph { opacity: .45; }
 
   .stk-prod { display: flex; align-items: center; gap: .7rem; min-width: 260px; }
   .stk-thumb {
@@ -548,6 +556,8 @@
   [data-bs-theme="dark"] .stk-table tbody td { border-bottom-color: #222a3a; }
   [data-bs-theme="dark"] .stk-table tbody tr:hover { background: #1a2132; }
   [data-bs-theme="dark"] .stk-table tbody tr.is-dirty { background: rgba(245,158,11,.10); }
+  [data-bs-theme="dark"] .stk-table tbody tr.is-removing { background: rgba(239,68,68,.12); }
+  [data-bs-theme="dark"] .stk-table tbody tr.is-removing:hover { background: rgba(239,68,68,.16); }
   [data-bs-theme="dark"] .stk-prod-title { color: #e8edf5; }
   [data-bs-theme="dark"] .stk-prod-meta { color: #6b7589; }
   /* Qorong'i rejim — kapsula bu yerda ham YO'Q (sodda matn). */
@@ -772,10 +782,18 @@
   <div class="stk-trackrow">
     {# Sanoq badge'lari YO'Q — portal server-side filtrlaydi, jami son faqat
        to'liq aylanishda ma'lum bo'lardi (Uzum'ning o'z UI'sida ham yo'q). #}
+    {# «Barcha tovarlar» = butun katalog (sxemaga ulanmaganlar ham) — Uzum'ning
+       «Все товары» tabi. «Mavjud» / «Tugagan» esa OMBOR ko'rinishlari: faqat
+       FBS/DBS sxemasiga ulanganlar (`linked=true`). Shuning uchun ombordan
+       o'chirilgan (sxemadan uzilgan) tovar ulardan darhol chiqib ketadi,
+       katalogda esa belgisiz holda turaveradi. #}
     <div class="stk-seg" id="stkSeg">
-      <button type="button" class="stk-seg-btn is-active" data-avail="all">{{ labels.seg_all }}</button>
-      <button type="button" class="stk-seg-btn" data-avail="in">{{ labels.seg_in }}</button>
-      <button type="button" class="stk-seg-btn" data-avail="out">{{ labels.seg_out }}</button>
+      <button type="button" class="stk-seg-btn is-active" data-avail="all"
+              title="{{ labels.mode_all_hint }}">{{ labels.mode_all }}</button>
+      <button type="button" class="stk-seg-btn" data-avail="in"
+              title="{{ labels.mode_linked_hint }}">{{ labels.seg_in }}</button>
+      <button type="button" class="stk-seg-btn" data-avail="out"
+              title="{{ labels.mode_linked_hint }}">{{ labels.seg_out }}</button>
     </div>
     <div class="stk-searchbox">
       <div class="stk-search">
@@ -878,6 +896,11 @@
   let _shop = "";         // do'kon filtri: "" = hammasi (server shopIds)
   let _query = "";        // qidiruv matni (server searchText)
   let _page = 0;          // keyingi so'raladigan server sahifasi
+  // «Mavjud» / «Tugagan» = OMBOR ko'rinishlari → faqat sxemaga ulanganlar
+  // (`linked=true`). «Barcha tovarlar» = butun katalog, ulanmaganlari ham
+  // (Uzum'ning «Все товары» tabi). Shu bitta qoida ombordan o'chirilgan
+  // tovarning ombor ro'yxatlarida qolib ketmasligini kafolatlaydi.
+  function isWarehouseView() { return _avail !== "all"; }
   let _hasMore = true;    // serverda yana sahifa bormi
   let _loading = false;   // 0-sahifa ketyapti (to'liq loader holati)
   let _fetching = false;  // hozir so'rov ketyapti
@@ -925,23 +948,66 @@
     }
   }
 
-  // ── Sxemasiz qatorga miqdor kiritilsa → FBS'ni avto-yoqadi ────────────
-  // Uzum sxemaga (FBS/DBS) bog'lanmagan SKU'ga qoldiq YOZMAYDI: so'rov 200
-  // qaytadi-yu, amount jimgina 0 bo'lib qoladi (Abdulaziz 2026-07-10, jonli
-  // log bilan tasdiqlangan). Shuning uchun musbat miqdor kiritilib hech
-  // qaysi sxema belgilanmagan bo'lsa, avtomatik FBS'ni yoqamiz (mumkin
-  // bo'lmasa DBS'ga tushamiz) va checkbox'ni jonli moslaymiz.
-  function autoLinkScheme(sid, tr) {
+  // ── Miqdor ↔ sxema bog'liqligi (UZUM SEMANTIKASI) ─────────────────────
+  // Uzum'da SKU omborda bo'lish-bo'lmasligini QOLDIQ emas, SXEMAGA ULANISH
+  // (fbsLinked/dbsLinked) belgilaydi. Ikki yo'nalishli qoida:
+  //
+  //  1) MUSBAT miqdor + sxemasiz → FBS avto-yoqiladi. Uzum sxemaga
+  //     bog'lanmagan SKU'ga qoldiq YOZMAYDI: 200 qaytadi-yu, amount jimgina
+  //     0 bo'lib qoladi (jonli log, 2026-07-10).
+  //
+  //  2) Miqdor musbatdan 0 ga TUSHIRILSA → OMBORDAN OLIB TASHLASH: ikkala
+  //     sxema ham uziladi. Uzum'ning o'z 🗑 tugmasi aynan shuni yuboradi —
+  //     `{amount:0, fbsLinked:false, dbsLinked:false}` (HAR t1.har,
+  //     2026-07-13). «Qoldiqni 0 qilib, omborda qoldirish» degan holat
+  //     Uzum'da YO'Q: u `amount:0` ni JIMGINA RAD ETADI (updatedRecords>0
+  //     desa ham eski son qolaveradi — bir xil so'rovda sxema bayrog'i
+  //     qo'llanib, amount=0 qo'llanmagani HAR bilan isbotlangan).
+  //
+  // Yuklanganda ALLAQACHON 0 bo'lgan qatorga tegilmaydi (`orig.amount > 0`
+  // sharti) — aks holda 0 li maydonga bosib qo'yish tovarni beixtiyor
+  // ombordan chiqarib yuborardi. Bunday qatorni o'chirish uchun sxema
+  // belgisini QO'LDA olib tashlash kifoya (eski «belgilab o'chirish» oqimi).
+  function syncSchemeToAmount(sid, tr) {
     const row = _byId.get(sid);
     if (!row) return;
     const st = stateOf(row);
-    if ((Number(st.amount) || 0) <= 0) return;   // faqat musbat miqdorda
-    if (st.fbsLinked || st.dbsLinked) return;     // allaqachon sxema bor
-    const field = (row.fbsAllowed !== false) ? "fbsLinked"
-                : (row.dbsAllowed !== false) ? "dbsLinked" : null;
-    if (!field) return;                           // ikkovi ham mumkin emas
-    setField(sid, field, true);
+    const amt = Number(st.amount) || 0;
+    if (amt > 0) {
+      if (st.fbsLinked || st.dbsLinked) return;   // allaqachon sxema bor
+      const field = (row.fbsAllowed !== false) ? "fbsLinked"
+                  : (row.dbsAllowed !== false) ? "dbsLinked" : null;
+      if (!field) return;                         // ikkovi ham mumkin emas
+      setField(sid, field, true);
+    } else {
+      if ((Number(origState(row).amount) || 0) <= 0) return;  // yuklanganda ham 0 edi
+      if (!st.fbsLinked && !st.dbsLinked) return;             // allaqachon uzilgan
+      setField(sid, "fbsLinked", false);
+      setField(sid, "dbsLinked", false);
+    }
     syncSchemeUI(sid, tr);
+  }
+
+  // Qator ombordan OLIB TASHLANMOQDAMI? Uzum'da omborda bo'lishni QOLDIQ
+  // emas, SXEMA belgilaydi — shuning uchun shart: ilgari sxemada edi, endi
+  // ikkala sxema ham yo'q. Ikkala oqim ham shu yerga tushadi:
+  //   * qoldiq musbatdan 0 ga tushirildi → sxemalar avto-uzildi;
+  //   * FBS/DBS belgisi QO'LDA olib tashlandi (qoldiq musbat bo'lsa ham).
+  // Yuklanganda allaqachon sxemasiz bo'lgan qator «olib tashlanmoqda» EMAS —
+  // u omborda hech qachon bo'lmagan.
+  function isRemoving(row) {
+    const st = stateOf(row);
+    if (st.fbsLinked || st.dbsLinked) return false;
+    const orig = origState(row);
+    return !!(orig.fbsLinked || orig.dbsLinked);
+  }
+  // Qator holatini (dirty / olib tashlanmoqda) jonli ko'rsatadi.
+  function markRow(sid, tr) {
+    if (!tr) return;
+    const row = _byId.get(sid);
+    const dirty = _edited.has(sid);
+    tr.classList.toggle("is-dirty", dirty);
+    tr.classList.toggle("is-removing", dirty && !!row && isRemoving(row));
   }
   // _edited holatiga qarab qatordagi FBS/DBS checkbox'larini jonli moslaydi.
   function syncSchemeUI(sid, tr) {
@@ -973,6 +1039,7 @@
     const sid = String(row.skuId);
     const st = stateOf(row);
     const dirty = _edited.has(sid);
+    const removing = dirty && isRemoving(row);
     const thumb = row.image
       ? `<img class="stk-thumb" src="${escapeHtml(row.image)}" alt="" loading="lazy" decoding="async">`
       : '<div class="stk-thumb-ph">📦</div>';
@@ -980,7 +1047,8 @@
     if (row.skuTitle) meta.push(`<span>${escapeHtml(row.skuTitle)}</span>`);
     if (row.sellerSkuCode) meta.push(`<span>${escapeHtml(row.sellerSkuCode)}</span>`);
     return `
-      <tr data-sku-id="${escapeHtml(sid)}" class="${dirty ? "is-dirty" : ""}">
+      <tr data-sku-id="${escapeHtml(sid)}" class="${dirty ? "is-dirty" : ""} ${removing ? "is-removing" : ""}"
+          ${removing ? `title="${STK_LBL.scheme_removed}"` : ""}>
         <td>
           <div class="stk-prod">
             ${thumb}
@@ -1084,8 +1152,8 @@
     if (!isFinite(val) || val < 0) val = 0;
     setField(sid, "amount", val);
     const tr = input.closest("tr");
-    autoLinkScheme(sid, tr);
-    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    syncSchemeToAmount(sid, tr);
+    markRow(sid, tr);
     updateSaveBar();
     updateSummary();
   });
@@ -1107,7 +1175,8 @@
     const sid = input.getAttribute("data-sku-id");
     setField(sid, "amount", 0);
     const tr = input.closest("tr");
-    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    syncSchemeToAmount(sid, tr);
+    markRow(sid, tr);
     updateSaveBar();
     updateSummary();
   });
@@ -1121,8 +1190,8 @@
     input.value = String(val);   // programmatik — "input" event fire qilmaydi
     setField(sid, "amount", val);
     const tr = input.closest("tr");
-    autoLinkScheme(sid, tr);
-    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    syncSchemeToAmount(sid, tr);
+    markRow(sid, tr);
     updateSaveBar();
     updateSummary();
   }
@@ -1153,7 +1222,7 @@
     const field = cb.getAttribute("data-scheme") === "fbs" ? "fbsLinked" : "dbsLinked";
     setField(sid, field, cb.checked);
     const tr = cb.closest("tr");
-    if (tr) tr.classList.toggle("is-dirty", _edited.has(sid));
+    markRow(sid, tr);
     const lbl = cb.closest(".stk-scheme-toggle");
     if (lbl) lbl.classList.toggle("is-off", !cb.checked);  // dim label live
     updateSaveBar();
@@ -1254,18 +1323,62 @@
         saveBtn.innerHTML = oldHtml;
         return;
       }
+      // Uzum HTTP 200 qaytarib turib HECH NARSANI yangilamasligi mumkin
+      // (`updatedRecords: 0`) — bunda «saqlandi ✓» deb aldamaymiz va
+      // tahrirlarni saqlab qolamiz, foydalanuvchi qayta urinib ko'radi.
+      const upd = data.result ? data.result.updatedRecords : undefined;
+      if (upd === 0) {
+        showToast(STK_LBL.save_no_effect, "err");
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = oldHtml;
+        return;
+      }
+      // Olib tashlanganlarni AVVAL aniqlaymiz — `isRemoving` qatorning
+      // YUKLANGANDAGI sxemasiga qaraydi, quyidagi commit esa uni ustidan
+      // yozib yuboradi (tartib muhim).
+      const removedIds = [];
+      _edited.forEach((_st, sid) => {
+        const row = _byId.get(sid);
+        if (row && isRemoving(row)) removedIds.push(sid);
+      });
       // Commit edits into the base data so the view reflects the new truth.
       _edited.forEach((st, sid) => {
         const row = _byId.get(sid);
-        if (row) { row.amount = st.amount; row.fbsLinked = st.fbsLinked; row.dbsLinked = st.dbsLinked; }
+        if (!row) return;
+        row.amount = st.amount; row.fbsLinked = st.fbsLinked; row.dbsLinked = st.dbsLinked;
       });
-      const n = _edited.size;
+      const total = _edited.size;
+      const removedN = removedIds.length;
+      const savedN = total - removedN;
       _edited.clear();
+
+      // OMBOR ko'rinishida («Mavjud»/«Tugagan») olib tashlangan qatorlar
+      // ro'yxatdan chiqadi — Uzum ham shunday, sxemadan uzilgan SKU omborda
+      // ko'rinmaydi. «Barcha tovarlar»da esa ular KATALOG a'zosi bo'lib
+      // qolaveradi — faqat sxema belgisi bo'shab qoladi, qator joyida turadi.
+      // Qolganlari joriy segmentga qayta solishtiriladi: «Mavjud»da turib
+      // qoldiqni 0 qilgan qator o'z-o'zidan ketishi kerak (ilgari qolib
+      // ketardi va ro'yxat o'zi bilan ziddiyatga tushardi).
+      if (isWarehouseView() && removedN) removedIds.forEach((sid) => _byId.delete(sid));
+      _rows = _rows.filter((row) => {
+        const sid = String(row.skuId);
+        if (isWarehouseView() && removedIds.indexOf(sid) !== -1) return false;
+        const amt = Number(row.amount) || 0;
+        if (_avail === "in") return amt > 0;
+        if (_avail === "out") return amt === 0;
+        return true;
+      });
+
       saveBtn.innerHTML = oldHtml;
       updateSaveBar();
-      updateSummary();
-      render();   // yangilangan qatorlar joyida ko'rinadi (sahifa saqlanadi)
-      showToast(STK_LBL.saved_ok.replace("{n}", n), "ok");
+      render();
+      showToast(
+        (savedN && removedN)
+          ? STK_LBL.saved_mixed.replace("{n}", savedN).replace("{m}", removedN)
+          : removedN
+            ? STK_LBL.removed_ok.replace("{n}", removedN)
+            : STK_LBL.saved_ok.replace("{n}", savedN),
+        "ok");
     } catch (e) {
       showToast(STK_LBL.net_err_prefix + " " + (e.message || e), "err");
       saveBtn.disabled = false;
@@ -1295,6 +1408,7 @@
     if (_query) p.set("search", _query);
     if (_shop) p.set("shop", _shop);
     if (_avail !== "all") p.set("avail", _avail);
+    if (!isWarehouseView()) p.set("linked", "0");   // «Barcha tovarlar» → butun katalog
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 30000);
     try {

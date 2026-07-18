@@ -12,6 +12,7 @@ server.cfg
 .claude/
 *.xlsx
 scripts/probe_tokens.txt
+.uicheck/
 
 # macOS
 .DS_Store

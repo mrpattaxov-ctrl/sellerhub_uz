@@ -224,6 +224,11 @@ def prefetch_labels_for_token(
         if fetched >= max_labels:
             break
         try:
+            # Background warm: hold to 1 call/sec so this (up to ``max_labels``
+            # back-to-back fetches) never spends Uzum's whole 2/s budget and
+            # push a seller's live click into a 429. Nothing waits on the warm.
+            from core.fbs_locks import pace_background_call
+            pace_background_call(token)
             pdf = fetch_label_live(token, oid, size=size_norm)
             if pdf:
                 store_label(user_id, oid, size_norm, pdf)

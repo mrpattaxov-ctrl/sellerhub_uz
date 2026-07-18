@@ -1,0 +1,749 @@
+{% extends "base.html" %}
+{% set lang = session.get('lang', 'uz') %}
+{% set is_uz = (lang == 'uz') %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="/static/daterange.css?v=1">
+<style>
+/* ═══ План закупки — «Складские расходы» bilan bir xil tilda (zk- prefiksi) ═══ */
+[data-bs-theme="light"] .zk-page, .zk-page {
+  --zk-page-bg:#F4F4F7;
+  --zk-surface:#FFFFFF;
+  --zk-border:#ECECF0;
+  --zk-border-strong:#E0DFE6;
+  --zk-text:#1A1A22;
+  --zk-text-2:#5A5762;
+  --zk-text-muted:#8E8B97;
+  --zk-active-bg:#EFEEF2;
+  --zk-mono-pill-bg:#F4F4F7;
+  --zk-mono-pill-text:#3A3744;
+  --zk-hover:#F8F8FA;
+  --zk-head-bg:#F9F9FB;
+  --zk-shadow-pop:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+  --zk-store-default-bg:#EFEEF2; --zk-store-default-fg:#3A3744;
+  --zk-luxuz-bg:#E5ECFB;  --zk-luxuz-fg:#4169E1;
+  --zk-blummy-bg:#FCEAEA; --zk-blummy-fg:#E84747;
+  /* Qoplama (coverage) — sahifaning YURAGI */
+  --zk-cov-uzum:#1E293B;      /* Uzum'da turgan qoldiq — sotilyapti */
+  --zk-cov-wh:#8FA6D8;        /* bizning omborda — jo'natishga tayyor */
+  --zk-cov-gap:#E84747;       /* TESHIK — aynan shuni sotib olamiz */
+  --zk-cov-track:#ECECF0;
+  --zk-ord-bg:#FCEAEA; --zk-ord-fg:#C93B3B;
+  --zk-ok-bg:#E7F6EE;  --zk-ok-fg:#2E9E63;
+  --zk-warn-bg:#FDF0DC; --zk-warn-fg:#B4762A;
+  --zk-brand:#4169E1; --zk-brand-soft:#EAEFFB;
+}
+[data-bs-theme="dark"] .zk-page {
+  --zk-page-bg:#0E0E14;
+  --zk-surface:#18181F;
+  --zk-border:#25252F;
+  --zk-border-strong:#2E2E3A;
+  --zk-text:#F0EDF5;
+  --zk-text-2:#B6B4C2;
+  --zk-text-muted:#8A8896;
+  --zk-active-bg:#22222D;
+  --zk-mono-pill-bg:#101018;
+  --zk-mono-pill-text:#D7D4DF;
+  --zk-hover:#1C1C26;
+  --zk-head-bg:#1B1B23;
+  --zk-shadow-pop:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  --zk-store-default-bg:#22222D; --zk-store-default-fg:#D7D4DF;
+  --zk-luxuz-bg:rgba(110,143,232,.18); --zk-luxuz-fg:#A4B9F0;
+  --zk-blummy-bg:rgba(252,165,165,.16); --zk-blummy-fg:#FCA5A5;
+  --zk-cov-uzum:#CBD5E1;
+  --zk-cov-wh:#5C7BC0;
+  --zk-cov-gap:#FCA5A5;
+  --zk-cov-track:#25252F;
+  --zk-ord-bg:rgba(252,165,165,.16); --zk-ord-fg:#FCA5A5;
+  --zk-ok-bg:rgba(52,211,153,.14);   --zk-ok-fg:#6EE7B7;
+  --zk-warn-bg:rgba(251,191,36,.16); --zk-warn-fg:#FCD34D;
+  --zk-brand:#7C9BF0; --zk-brand-soft:rgba(99,102,241,.16);
+}
+
+.zk-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--zk-text); }
+
+.zk-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+.zk-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
+
+/* Ko'rsatkichлар — Claude Design «Stat Card Variations» 1c (tinted blocks),
+   «Складские расходы» sahifаsi bilan bir xил. Uch rangли triada: ko'k (soni) ·
+   oltin (K zakazu) · yashил (summa). Manrope, raqамдан keyин birlиk. L+D. */
+.zk-stats { display:flex; align-items:stretch; gap:14px; flex-wrap:wrap; }
+.zk-stat { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:196px;
+  padding:15px 24px; border-radius:18px;
+  background:var(--zk-stat-bg); border:1px solid var(--zk-stat-bd); }
+.zk-stat-txt { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.zk-stat-lbl { font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:11px; font-weight:700; line-height:1; text-transform:uppercase; letter-spacing:1.4px;
+  color:var(--zk-stat-lbl); white-space:nowrap; }
+.zk-stat-val { display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap;
+  font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:36px; font-weight:800; line-height:1; letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums; color:var(--zk-stat-fg); }
+.zk-stat-unit { font-size:15px; font-weight:700; letter-spacing:.2px;
+  color:var(--zk-stat-fg); /* fallback */
+  color:color-mix(in srgb, var(--zk-stat-fg) 78%, #fff); }
+/* Uch rangли triada — och (light). Товары→ko'k · K zakazu→oltin · Summa→yashил. */
+.zk-stat--blue  { --zk-stat-bg:#EEF0FF; --zk-stat-bd:rgba(59,91,254,.12); --zk-stat-fg:#3B5BFE; --zk-stat-lbl:#191A1E; }
+.zk-stat--gold  { --zk-stat-bg:#FBF3DA; --zk-stat-bd:rgba(181,133,28,.18); --zk-stat-fg:#B5851C; --zk-stat-lbl:#191A1E; }
+.zk-stat--green { --zk-stat-bg:#E7F6EC; --zk-stat-bd:rgba(30,158,87,.20);  --zk-stat-fg:#1E9E57; --zk-stat-lbl:#191A1E; }
+[data-bs-theme="dark"] .zk-stat--blue  { --zk-stat-bg:rgba(59,91,254,.14); --zk-stat-bd:rgba(99,130,255,.22); --zk-stat-fg:#7C9BF0; --zk-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .zk-stat--gold  { --zk-stat-bg:rgba(212,160,55,.15); --zk-stat-bd:rgba(224,190,110,.24); --zk-stat-fg:#E3C15A; --zk-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .zk-stat--green { --zk-stat-bg:rgba(30,158,87,.16);  --zk-stat-bd:rgba(110,231,183,.24); --zk-stat-fg:#5FD09A; --zk-stat-lbl:#F0EDF5; }
+
+/* ── Filtrlar ── */
+.zk-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.zk-search { flex:1 1 300px; max-width:360px; height:44px; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:14px; transition:border-color .15s, box-shadow .15s; }
+.zk-search:focus-within { border-color:var(--zk-text-2); box-shadow:0 0 0 4px rgba(26,26,34,.06); }
+.zk-search svg { color:var(--zk-text-muted); width:16px; height:16px; flex:none; }
+.zk-search input { border:0; outline:0; background:transparent; width:100%; font-size:14px; color:var(--zk-text); font-family:inherit; }
+.zk-search input::placeholder { color:var(--zk-text-muted); }
+
+.zk-picker { position:relative; }
+.zk-picker-btn { height:44px; display:flex; align-items:center; gap:9px; padding:0 14px; background:var(--zk-surface);
+  border:1px solid var(--zk-border); border-radius:14px; font-size:14px; font-weight:600; color:var(--zk-text);
+  cursor:pointer; font-family:inherit; }
+.zk-picker-btn:hover { border-color:var(--zk-border-strong); }
+.zk-picker-menu { position:absolute; top:calc(100% + 6px); left:0; min-width:210px; z-index:40; padding:6px;
+  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:14px; box-shadow:var(--zk-shadow-pop); display:none; }
+.zk-picker.is-open .zk-picker-menu { display:block; }
+.zk-picker-item { padding:10px 12px; border-radius:10px; font-size:14px; font-weight:600; color:var(--zk-text); cursor:pointer; }
+.zk-picker-item:hover { background:var(--zk-hover); }
+.zk-picker-item.is-active { background:var(--zk-active-bg); }
+
+.zk-chips { display:flex; align-items:center; gap:4px; padding:4px; background:var(--zk-surface);
+  border:1px solid var(--zk-border); border-radius:14px; }
+.zk-chip { border:0; background:none; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700;
+  color:var(--zk-text-muted); cursor:pointer; font-family:inherit; white-space:nowrap; transition:background .12s, color .12s; }
+.zk-chip:hover { color:var(--zk-text); }
+.zk-chip.is-active { background:var(--zk-text); color:var(--zk-surface); }
+
+.zk-spacer { flex:1 1 auto; }
+
+/* ── Jadval ── */
+/* «Складские расходы»даги AYNAN o'sha retsept (Ulug'bek, 2026-07-14):
+   `overflow` bo'lgan ota-element `position:sticky`ни O'Z ICHIГА qamab qo'yadi.
+   Shu bois bu yerда HECH QAYERДА overflow yo'q — na kartaда, na wrapper'да.
+   Natijada sarlavha SAHIFАГА (viewport'ga) yopishadi: jadval tabiiy uzunligiча
+   cho'ziladi, sahifа oddiy scroll bo'ladi, faqat sarlavha qatori qotиб turadi.
+   Burchakларни radius bilan emas, chekka kataklarга radius berиб hosil qilamiz. */
+.zk-card { background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:16px; }
+.zk-tablewrap { }
+.zk-table { width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+/* 64px — ilovaning sticky top-bar balandligi (styles.css): sarlavha AYNAN uning
+   ostiga yopishadi. z-index 5 < top-bar'нинг 30'си, ya'ni ustiga chiqmaydi. */
+.zk-table thead th { position:sticky; top:64px; z-index:5; background:var(--zk-head-bg); text-align:left;
+  padding:14px 11px; font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--zk-text); border-bottom:1px solid var(--zk-border-strong); white-space:nowrap;
+  box-shadow:0 1px 0 var(--zk-border-strong); }   /* border-collapse:separate — chegara sticky'да yo'qolmasin */
+/* Legenda olib tashlangач, kartaning tepа burchakларини sarlavha qatори hosil qilади */
+.zk-table thead tr:first-child th:first-child { border-top-left-radius:16px; }
+.zk-table thead tr:first-child th:last-child  { border-top-right-radius:16px; }
+.zk-table th.zk-num, .zk-table td.zk-num { text-align:right; }
+.zk-table td { padding:12px 11px; border-bottom:1px solid var(--zk-border); vertical-align:middle; }
+.zk-table tbody tr:last-child td { border-bottom:0; }
+.zk-table tbody tr:last-child td:first-child { border-bottom-left-radius:16px; }
+.zk-table tbody tr:last-child td:last-child  { border-bottom-right-radius:16px; }
+
+/* Ustun kengliklari — `table-layout:fixed`да BIRINCHI qator kataklaridan olinadi,
+   ya'ni to'g'ridan-to'g'ri `th`дан. Shu sababli ustunni `display:none` qilsak, u
+   BUTUNLAY yo'qoladi (colgroup ishlatilса, `col` kengligi baribir joy egallardi). */
+.zk-table th.c-img  { width:56px; }
+.zk-table th.c-cov  { width:126px; }
+.zk-table th.c-sold { width:82px; }
+.zk-table th.c-uzum { width:84px; }
+.zk-table th.c-wh   { width:88px; }
+.zk-table th.c-ord  { width:96px; }
+.zk-table th.c-prc  { width:96px; }
+.zk-table th.c-sum  { width:112px; }
+
+/* Jadval HAR DOIM sig'ishi kerak: gorizontal scroll'li wrapper qaytib kelса,
+   sticky sarlavha yana qamalиб qolади. Shuning uchun ekran torayганда ustunlar
+   MUHIMLIK tartibida olib tashlanadi. Eng oxиргиси — «Себест.» (guruh qatorида
+   baribir «—»), keyin «На Uzum» va «На складе» (ularни QOPLAMA chizig'и allaqachon
+   ko'rsatиб turadi), eng oxirида «Продано». «К заказу» va «Сумма» — sahifaning
+   JAVOBI — hech qachon yo'qolmaydi. Yon panel 220px (≤768px'да yo'qoladi). */
+@media (max-width:1400px) { .zk-table .c-prc  { display:none; } }
+@media (max-width:1240px) { .zk-table .c-uzum { display:none; } }
+@media (max-width:1120px) { .zk-table .c-wh   { display:none; } }
+@media (max-width:1010px) { .zk-table .c-cov  { display:none; } }
+@media (max-width:900px)  { .zk-table .c-sold { display:none; } }
+@media (min-width:769px) and (max-width:1240px) {
+  .zk-table thead th, .zk-table tbody td { padding-left:8px; padding-right:8px; }
+}
+/* Telefon: yon panel yo'q, lekin joy baribir yetmaydi. Bu yerда — expenses kabi —
+   HAMMA ustunni qaytaramiz va jadval O'Z ICHIДА yon tomonga scroll bo'ladi.
+   Scroll-konteyner paydo bo'lgani uchun sarlavha unга nisbatan yopishadi →
+   `top:0` va wrapper'га balandlik SHART, aks holda u umuman yopishmaydi. */
+@media (max-width:768px) {
+  .zk-tablewrap { overflow:auto; -webkit-overflow-scrolling:touch; max-height:calc(100vh - 150px);
+    border-radius:16px; }
+  .zk-table { min-width:1120px; }
+  .zk-table thead th { top:0; }
+  .zk-table .c-prc, .zk-table .c-uzum, .zk-table .c-wh,
+  .zk-table .c-cov, .zk-table .c-sold { display:table-cell; }
+}
+.zk-grow { cursor:pointer; transition:background .12s; }
+.zk-grow:hover { background:var(--zk-hover); }
+.zk-vrow { background:var(--zk-head-bg); }
+.zk-vrow td { padding-top:9px; padding-bottom:9px; font-size:13px; color:var(--zk-text-2); }
+
+.zk-thumb { width:46px; height:46px; border-radius:10px; overflow:hidden; background:var(--zk-active-bg);
+  display:flex; align-items:center; justify-content:center; flex:none; border:1px solid var(--zk-border); }
+.zk-thumb img { width:100%; height:100%; object-fit:cover; }
+.zk-thumb-empty { color:var(--zk-text-muted); font-size:13px; }
+/* Summary-row image fills the row height and stays square (as tall as the line).
+   The variant thumb (inside the name cell) keeps its small fixed size. */
+.zk-grow > td.c-img { height:1px; padding-top:8px; padding-bottom:8px; }
+.zk-grow > td.c-img .zk-thumb { width:auto; height:100%; min-height:46px; aspect-ratio:1/1; margin:0 auto; }
+/* Hover-zoom image preview (position:fixed so it escapes table overflow) */
+.zk-thumb[data-zoom-src] { cursor:zoom-in; }
+.zk-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--zk-surface); border:1px solid var(--zk-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.zk-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.zk-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .zk-zoom-preview { display:none; } }
+
+.zk-lead { display:flex; align-items:center; gap:10px; min-width:0; }
+.zk-chev { flex:none; width:16px; height:16px; margin-left:16px; color:var(--zk-text-muted); transition:transform .16s ease; }
+.zk-grow.is-open .zk-chev { transform:rotate(90deg); }
+.zk-info { min-width:0; flex:1 1 auto; }   /* flex bolasi — nomga joy qolishi uchun shart */
+.zk-name { font-size:14px; font-weight:500; color:var(--zk-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Minimalistik meta-satr: qutilar/nuqtalar YO'Q — ierarxiyani faqat rang va vazn
+   ushlaydi. Do'kon nomi — yagona rangli aksent; SKU va SKU-soni sokin kulrang
+   matn; nomuvofiqlik — yumshoq amber matn. Hammasi bitta yengil satrда. */
+.zk-tags { display:flex; align-items:center; gap:12px; margin-top:4px; flex-wrap:wrap; }
+.zk-shop { font-size:11px; font-weight:600; letter-spacing:.04em; color:var(--zk-store-default-fg); }
+.zk-shop.is-luxuz { color:var(--zk-luxuz-fg); }
+.zk-shop.is-blummy { color:var(--zk-blummy-fg); }
+.zk-pill { font-size:11px; font-weight:400; white-space:nowrap; letter-spacing:.01em;
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--zk-text-muted); }
+.zk-vcount { font-size:11px; font-weight:400; color:var(--zk-text-muted); }
+.zk-mismatch { font-size:11px; font-weight:500; cursor:help; color:var(--zk-warn-fg); white-space:nowrap; }
+
+.zk-n { font-size:14px; font-weight:400; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.zk-n-soft { color:var(--zk-text-muted); font-weight:400; }
+.zk-cur { font-size:11px; color:var(--zk-text-muted); font-weight:500; margin-left:3px; }
+
+/* «К заказу» — sahifaning JAVOBI, shuning uchun yagona rangli raqam */
+.zk-ord { display:inline-block; min-width:56px; padding:5px 10px; border-radius:9px; font-size:14px; font-weight:400;
+  background:var(--zk-ord-bg); color:var(--zk-ord-fg); font-variant-numeric:tabular-nums; text-align:right; }
+.zk-ord.is-zero { background:var(--zk-ok-bg); color:var(--zk-ok-fg); font-weight:400; }
+.zk-sum { font-size:14px; font-weight:400; color:var(--zk-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.zk-noprice { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px;
+  background:var(--zk-warn-bg); color:var(--zk-warn-fg); white-space:nowrap; }
+
+/* ═══ IMZO: qoplama chizig'i ═══════════════════════════════════════════
+   Qator raqamlari mustaqil emas — ular BITTA tenglama:
+       spros = Uzum qoldig'i + ombor qoldig'i + DEFITSIT
+   Shuning uchun ularni bittalab o'qitish o'rniga, sprosga nisbatan
+   masshtablangan uch bo'lakli o'lchagich chizamiz. To'la — hech narsa
+   kerak emas. Qizil bor — o'sha qizil aynan xarid miqdori. */
+.zk-cov { display:flex; width:112px; height:8px; border-radius:99px; overflow:hidden; background:var(--zk-cov-track); }
+.zk-cov > i { display:block; height:100%; }
+.zk-cov .zk-cov-u { background:var(--zk-cov-uzum); }
+.zk-cov .zk-cov-w { background:var(--zk-cov-wh); }
+.zk-cov .zk-cov-g { background:var(--zk-cov-gap); }
+.zk-cov-wrap { display:flex; flex-direction:column; gap:5px; }
+.zk-cov-lab { font-size:11px; font-weight:400; color:var(--zk-text-muted); font-variant-numeric:tabular-nums; }
+.zk-cov-lab b { color:var(--zk-cov-gap); font-weight:400; }
+.zk-cov-lab.is-full b { color:var(--zk-ok-fg); }
+
+/* Qoplama nuqtалари — legendани har bir mahsulot yonига ko'chиrдик. Faqat
+   MAVJUD qoldiq manbаси ko'rsатилади (Uzum / bizning ombor), qizil TESHIK emas.
+   Rang tili qoplама chizиg'и bilan bir xил; tooltip nomни tutиб turади. */
+.zk-dots { display:inline-flex; align-items:center; gap:5px; flex:none; }
+.zk-dot { display:inline-block; width:7px; height:7px; border-radius:50%; flex:none; box-shadow:inset 0 0 0 1px rgba(0,0,0,.10); }
+.zk-dot--u { background:var(--zk-cov-uzum); }
+.zk-dot--w { background:var(--zk-cov-wh); }
+.zk-dot--g { background:var(--zk-cov-gap); }
+[data-bs-theme="dark"] .zk-dot { box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+
+/* Ranglar kaliti — «Товар» sarlavhаси yonида. Nuqtалар satrлардагі bilan bir xил;
+   bu yerда UCHALаси (qizil TESHIK ham) — foydаланувчи rang tilини shu yerдан o'qiydi. */
+/* «Товар» sarlavhasini chapga suramiz — RASMNING chap chetiga tekislanadi
+   (rasm katakда bir oz ich-padding'ли), ustun kengligi o'zgarmaydi. */
+.zk-hlabel { margin-left:-56px; }
+.zk-hkey { display:inline-flex; align-items:center; gap:15px; margin-left:34px; vertical-align:middle;
+  text-transform:none; letter-spacing:0; font-weight:600; font-size:11px; color:var(--zk-text-muted); }
+.zk-hkey > span { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+@media (max-width:1080px) { .zk-hkey { display:none; } }
+
+.zk-msg { padding:64px 24px; text-align:center; color:var(--zk-text-muted); font-size:14px; font-weight:600; }
+.zk-msg-big { font-size:16px; font-weight:700; color:var(--zk-text); margin-bottom:6px; }
+.zk-err { display:flex; align-items:flex-start; gap:10px; margin-bottom:16px; padding:12px 15px; border-radius:12px;
+  background:var(--zk-warn-bg); color:var(--zk-warn-fg); font-size:13px; font-weight:600; }
+.zk-err > div { flex:1 1 auto; }
+.zk-err-x { flex:none; margin-left:8px; margin-top:-1px; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; padding:0; border:none; border-radius:6px; background:transparent; color:inherit;
+  opacity:.5; cursor:pointer; transition:opacity .12s, background .12s; }
+.zk-err-x:hover { opacity:1; background:rgba(148,110,60,.16); }
+
+@media (max-width:900px) {
+  .zk-h1 { font-size:23px; }
+  .zk-search { flex:1 1 100%; max-width:none; }
+  .zk-spacer { display:none; }
+  .zk-chips { overflow-x:auto; scrollbar-width:none; }
+  .zk-chips::-webkit-scrollbar { display:none; }
+  .zk-chip { flex:none; }
+  .zk-title-row { align-items:flex-start; }
+  .zk-stats { width:100%; }
+  .zk-stat { flex:1 1 auto; }
+}
+@media (max-width:560px) {
+  .zk-stats { flex-direction:column; }
+  .zk-stat { width:100%; padding:16px 20px; }
+  .zk-stat-val { font-size:30px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="zk-page">
+  <div class="zk-title-row">
+    <h1 class="zk-h1">{{ 'Xarid rejasi' if is_uz else 'План закупки' }}</h1>
+
+    <div class="zk-stats" id="zkStats" aria-live="polite">
+      <div class="zk-stat zk-stat--blue">
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="zk-stat-val"><span id="zkStProducts">—</span><span class="zk-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
+        </span>
+      </div>
+      <div class="zk-stat zk-stat--gold">
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Sotib olish' if is_uz else 'К заказу' }}</span>
+          <span class="zk-stat-val"><span id="zkStUnits">—</span><span class="zk-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
+        </span>
+      </div>
+      <div class="zk-stat zk-stat--green">
+        <span class="zk-stat-txt">
+          <span class="zk-stat-lbl">{{ 'Summa' if is_uz else 'Сумма' }}</span>
+          <span class="zk-stat-val"><span id="zkStCost">—</span><span class="zk-stat-unit">{{ 'so‘m' if is_uz else 'сум' }}</span></span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="zk-filter-row">
+    <label class="zk-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="zkSearch" type="search" autocomplete="off" spellcheck="false"
+             placeholder="{{ 'Nomi yoki SKU…' if is_uz else 'Название или SKU…' }}">
+    </label>
+
+    {% if shops | length > 1 %}
+    <div class="zk-picker" id="zkShopPicker">
+      <button class="zk-picker-btn" type="button" id="zkShopBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span id="zkShopLabel">{{ 'Barcha do‘konlar' if is_uz else 'Все магазины' }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="zk-picker-menu">
+        <div class="zk-picker-item is-active" data-shop="all">{{ 'Barcha do‘konlar' if is_uz else 'Все магазины' }}</div>
+        {% for s in shops %}
+        <div class="zk-picker-item" data-shop="{{ s.uzum_id }}">{{ s.name or s.uzum_id }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="zk-spacer"></div>
+
+    <div class="zk-chips" id="zkDays"></div>
+    <div id="zkCal"></div>
+  </div>
+
+  <div id="zkErr"></div>
+
+  <div class="zk-card">
+    <div class="zk-tablewrap">
+      <table class="zk-table">
+        <thead>
+          <tr>
+            <th class="c-img"></th>
+            <th class="c-name"><span class="zk-hlabel">{{ 'Mahsulot' if is_uz else 'Товар' }}</span><span class="zk-hkey">
+              <span><i class="zk-dot zk-dot--u"></i>{{ 'Uzum omborida' if is_uz else 'На Uzum' }}</span>
+              <span><i class="zk-dot zk-dot--w"></i>{{ 'Bizning omborda' if is_uz else 'На нашем складе' }}</span>
+              <span><i class="zk-dot zk-dot--g"></i>{{ 'Yetishmaydi' if is_uz else 'Не хватает' }}</span>
+            </span></th>
+            <th class="c-cov">{{ 'Qoplama' if is_uz else 'Покрытие' }}</th>
+            <th class="zk-num c-sold" id="zkSoldHead">{{ 'Sotildi' if is_uz else 'Продано' }}</th>
+            <th class="zk-num c-uzum">{{ 'Uzum‘da' if is_uz else 'На Uzum' }}</th>
+            <th class="zk-num c-wh">{{ 'Omborda' if is_uz else 'На складе' }}</th>
+            <th class="zk-num c-ord">{{ 'Sotib olish' if is_uz else 'К заказу' }}</th>
+            <th class="zk-num c-prc">{{ 'Tannarx' if is_uz else 'Себест.' }}</th>
+            <th class="zk-num c-sum">{{ 'Summa' if is_uz else 'Сумма' }}</th>
+          </tr>
+        </thead>
+        <tbody id="zkBody">
+          <tr><td colspan="9"><div class="zk-msg">{{ 'Yuklanmoqda…' if is_uz else 'Загрузка…' }}</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="/static/daterange.js?v=1"></script>
+<script>
+(function(){
+  const UZ = {{ 'true' if is_uz else 'false' }};
+  const T = UZ ? {
+    sold:'Sotildi', nothing:'Hammasi yetarli', nothingSub:'Bu davr uchun sotib olishga hojat yo‘q.',
+    empty:'Ma’lumot yo‘q', notFound:'Hech narsa topilmadi', loading:'Yuklanmoqda…',
+    products:'tovar', units:'dona', toBuy:'Sotib olish', noPrice:'tannarxsiz',
+    sum:'so‘m', covered:'to‘liq qoplangan', period:'Davr', full:'yetarli',
+    err:'do‘kon rejasi tuzilmadi', noPriceHint:'tannarx ko‘rsatilmagan — summa hisoblanmadi',
+    negHint:'Ombor qoldig‘i manfiy — hisob adashgan. Hisobda 0 deb olindi.',
+    mism:'qoldiq boshqa SKU‘da',
+    mismHint:'Qoldiq bor, lekin KERAKLI o‘lcham/rangda emas. Shuning uchun «sotib olish» guruh yig‘indisidan katta: har bir SKU alohida hisoblanadi.',
+    covUzum:'Uzum omborida', covWh:'Bizning omborda',
+  } : {
+    sold:'Продано', nothing:'Всё покрыто', nothingSub:'За этот период заказывать нечего.',
+    empty:'Нет данных', notFound:'Ничего не найдено', loading:'Загрузка…',
+    products:'товар(ов)', units:'шт', toBuy:'К заказу', noPrice:'без себестоимости',
+    sum:'сум', covered:'полностью покрыто', period:'Период', full:'хватает',
+    err:'не удалось построить план', noPriceHint:'не указана себестоимость — сумма не посчитана',
+    negHint:'Остаток на складе отрицательный — учёт разошёлся. В расчёте принят за 0.',
+    mism:'остаток не в тех SKU',
+    mismHint:'Остаток есть, но не в нужном размере/цвете. Поэтому «к заказу» больше, чем даёт вычитание по строке: дефицит считается по каждому SKU отдельно.',
+    covUzum:'На Uzum', covWh:'На нашем складе',
+  };
+  const DAYS = [7, 10, 15, 30, 60];
+  const S = { shop:'all', days:30, from:null, to:null, custom:false, search:'', data:null, open:{}, busy:false, gen:0 };
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = n => Number(n || 0).toLocaleString('ru-RU').replace(/ /g, ' ');
+
+  // ── Qoplama o'lchagichi. Sprosga (davr sotuvi) nisbatan masshtablanadi.
+  // Sotuv 0 bo'lsa — o'lchash uchun asos yo'q: bo'sh yo'lak chizamiz.
+  function covHtml(g){
+    // Bo'laklar SERVERDA, HAR BIR SKU uchun alohida hisoblangan va yig'ilgan —
+    // shuning uchun ular sprosga ANIQ teng va chiziq har doim to'la.
+    const c = g.cov || { demand:0, uzum:0, wh:0, gap:0 };
+    const demand = c.demand | 0;
+    if (demand <= 0) return `<div class="zk-cov-wrap"><div class="zk-cov"></div><div class="zk-cov-lab">${UZ?'sotuv yo‘q':'нет продаж'}</div></div>`;
+    const pu = c.uzum / demand * 100;
+    const pw = c.wh   / demand * 100;
+    const pg = c.gap  / demand * 100;
+    const covered = Math.round((c.uzum + c.wh) / demand * 100);
+    const lab = c.gap > 0
+      ? `<b>${num(c.gap)}</b> ${T.units} ${UZ?'yetishmaydi':'не хватает'}`
+      : `${covered}% — ${T.full}`;
+    return `<div class="zk-cov-wrap">
+      <div class="zk-cov">
+        ${pu > 0 ? `<i class="zk-cov-u" style="width:${pu}%"></i>` : ''}
+        ${pw > 0 ? `<i class="zk-cov-w" style="width:${pw}%"></i>` : ''}
+        ${pg > 0 ? `<i class="zk-cov-g" style="width:${pg}%"></i>` : ''}
+      </div>
+      <div class="zk-cov-lab${c.gap > 0 ? '' : ' is-full'}">${lab}</div>
+    </div>`;
+  }
+
+  // Qoplama nuqtалари — mahsulot nomи yonида. Faqat MAVJUD manba: qora = Uzum'да,
+  // ko'k = bizning omborда. Qizil teshик BU YERДА yo'q (u «К заказу» ustunида).
+  function covDots(o){
+    const c = o.cov || {};
+    const u = (c.uzum | 0) > 0, w = (c.wh | 0) > 0;
+    if (!u && !w) return '';
+    return `<span class="zk-dots">${u ? `<span class="zk-dot zk-dot--u" title="${T.covUzum}"></span>` : ''}${w ? `<span class="zk-dot zk-dot--w" title="${T.covWh}"></span>` : ''}</span>`;
+  }
+
+  // Ombor ustuni. Manfiy qoldiq — buzilgan hisob: hisobда 0 deb olinadi, lekin
+  // raqamni YASHIRMAYMIZ, sariq qilib ko'rsatamiz — ombor auditini talab qiladi.
+  function whCell(o){
+    const w = o.wh_qty | 0;
+    if (w < 0) return `<span class="zk-noprice" title="${T.negHint}">${num(w)}</span>`;
+    return `<span class="zk-n zk-n-soft">${num(w)}</span>`;
+  }
+
+  const shopCls = n => { const s = String(n||'').toLowerCase();
+    return s.includes('luxuz') ? ' is-luxuz' : s.includes('blummy') ? ' is-blummy' : ''; };
+
+  function thumb(src){
+    return src
+      ? `<div class="zk-thumb" data-zoom-src="${esc(src)}"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
+      : `<div class="zk-thumb"><div class="zk-thumb-empty">—</div></div>`;
+  }
+
+  function ordCell(n){
+    return n > 0 ? `<span class="zk-ord">${num(n)}</span>`
+                 : `<span class="zk-ord is-zero">0</span>`;
+  }
+
+  function sumCell(o){
+    if (o.no_price) return `<span class="zk-noprice" title="${T.noPriceHint}">${T.noPrice}</span>`;
+    if (!o.cost) return `<span class="zk-n zk-n-soft">—</span>`;
+    return `<span class="zk-sum">${num(o.cost)}<span class="zk-cur">${T.sum}</span></span>`;
+  }
+
+  function groupRow(g, i){
+    const open = !!S.open[g.key];
+    const multi = S.data && S.data.multi;
+    return `<tr class="zk-grow${open?' is-open':''}" data-k="${esc(g.key)}">
+      <td class="c-img" style="padding-right:0">${thumb(g.image)}</td>
+      <td class="c-name">
+        <div class="zk-lead">
+          <span class="zk-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <div class="zk-info">
+            <div class="zk-name" title="${esc(g.name)}">${esc(g.name)}</div>
+            <div class="zk-tags">
+              ${multi && g.shop ? `<span class="zk-shop${shopCls(g.shop)}">${esc(g.shop)}</span>` : ''}
+              ${g.short_sku ? `<span class="zk-pill">${esc(g.short_sku)}</span>` : ''}
+              <span class="zk-vcount">${g.vcount} SKU</span>
+              ${g.mismatch ? `<span class="zk-mismatch" title="${T.mismHint}">${T.mism}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td class="c-cov">${covHtml(g)}</td>
+      <td class="zk-num c-sold"><span class="zk-n">${num(g.sales)}</span></td>
+      <td class="zk-num c-uzum"><span class="zk-n zk-n-soft">${num(g.uzum_qty)}</span></td>
+      <td class="zk-num c-wh">${whCell(g)}</td>
+      <td class="zk-num c-ord">${ordCell(g.to_order)}</td>
+      <td class="zk-num c-prc"><span class="zk-n zk-n-soft">—</span></td>
+      <td class="zk-num c-sum">${sumCell(g)}</td>
+    </tr>`;
+  }
+
+  function varRow(g, v){
+    return `<tr class="zk-vrow" data-v="${esc(g.key)}">
+      <td class="c-img"></td>
+      <td class="c-name">
+        <div class="zk-lead" style="padding-left:26px">
+          ${thumb(v.image)}
+          <div class="zk-info">
+            <div class="zk-name" style="font-weight:500" title="${esc(v.color || v.sku)}">${esc(v.color || v.sku)}</div>
+            <div class="zk-tags"><span class="zk-pill">${esc(v.sku)}</span></div>
+          </div>
+        </div>
+      </td>
+      <td class="c-cov">${covHtml(v)}</td>
+      <td class="zk-num c-sold"><span class="zk-n">${num(v.sales)}</span></td>
+      <td class="zk-num c-uzum"><span class="zk-n zk-n-soft">${num(v.uzum_qty)}</span></td>
+      <td class="zk-num c-wh">${whCell(v)}</td>
+      <td class="zk-num c-ord">${ordCell(v.to_order)}</td>
+      <td class="zk-num c-prc">${v.price > 0 ? `<span class="zk-n zk-n-soft">${num(v.price)}<span class="zk-cur">${T.sum}</span></span>` : `<span class="zk-n zk-n-soft">—</span>`}</td>
+      <td class="zk-num c-sum">${sumCell(v)}</td>
+    </tr>`;
+  }
+
+  function filtered(){
+    const gs = (S.data && S.data.groups) || [];
+    const q = S.search.trim().toLowerCase();
+    if (!q) return gs;
+    return gs.filter(g =>
+      (g.name || '').toLowerCase().includes(q) ||
+      (g.short_sku || '').toLowerCase().includes(q) ||
+      (g.variants || []).some(v => (v.sku || '').toLowerCase().includes(q)));
+  }
+
+  function renderBody(){
+    const body = $('#zkBody');
+    if (!S.data) { body.innerHTML = `<tr><td colspan="9"><div class="zk-msg">${T.loading}</div></td></tr>`; return; }
+    const gs = filtered();
+    if (!gs.length) {
+      const msg = S.search.trim() ? T.notFound : T.empty;
+      body.innerHTML = `<tr><td colspan="9"><div class="zk-msg">${msg}</div></td></tr>`;
+      return;
+    }
+    // Sotib olish kerak bo'lgani tepada (server allaqachon shunday tartiblagan).
+    // Hammasi yetarli bo'lsa — bu ham javob, jimgina aytamiz.
+    const need = gs.filter(g => g.to_order > 0);
+    if (!need.length && !S.search.trim()) {
+      body.innerHTML = `<tr><td colspan="9"><div class="zk-msg">
+        <div class="zk-msg-big">${T.nothing}</div>${T.nothingSub}</div></td></tr>`;
+      return;
+    }
+    body.innerHTML = gs.map(g => {
+      const rows = [groupRow(g)];
+      if (S.open[g.key]) (g.variants || []).forEach(v => rows.push(varRow(g, v)));
+      return rows.join('');
+    }).join('');
+  }
+
+  // Uchta katakни bitta qiymatга qo'yamiz (yuklаш / xato holатларида '—' / '…').
+  function setStats(v){ ['zkStProducts','zkStUnits','zkStCost'].forEach(id => { const el=$('#'+id); if(el) el.textContent = v; }); }
+  function renderMeta(){
+    if (!S.data) return;
+    const t = S.data.totals || {};
+    const set = (id, v) => { const el = $('#' + id); if (el) el.textContent = num(v || 0); };
+    set('zkStProducts', t.products);
+    set('zkStUnits', t.units);
+    set('zkStCost', t.cost);
+    // Sotuv ustuni sarlavhasi oynani AYNIQ aytadi
+    $('#zkSoldHead').innerHTML = S.custom && window.SHDateRange
+      ? `${T.sold}<br>${esc(SHDateRange.label(S.from, S.to))}`
+      : `${T.sold}<br>${UZ ? `${S.days} kun` : `за ${S.days} дн.`}`;
+  }
+
+  // Sariq eslatmalarni yopib qo'yish — foydalanuvchi belgisiga ko'ra eslab qolamiz.
+  // Belgi ichida raqam bor: raqam o'zgarsa (yangi ma'lumot) — eslatma yana chiqadi.
+  function errDismissed(sig){
+    try { return localStorage.getItem('zkDismiss:' + sig) === '1'; } catch(_) { return false; }
+  }
+  const ERR_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>`;
+  const errX = () => `<button type="button" class="zk-err-x" aria-label="${UZ?'Yopish':'Закрыть'}" title="${UZ?'Yopish':'Закрыть'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+
+  function renderErr(){
+    const box = $('#zkErr');
+    const errs = (S.data && S.data.errors) || [];
+    const t = (S.data && S.data.totals) || {};
+    const out = [];
+    errs.forEach(e => out.push(`<div class="zk-err">
+      ${ERR_ICON}
+      <div><b>${esc(e.shop)}</b> — ${T.err}. ${esc(e.error).slice(0, 140)}</div></div>`));
+    // Narxi yo'q tovar bor bo'lsa — jami summa TO'LIQ EMAS. Buni aytmasak,
+    // raqam ishonchli ko'rinadi-yu, aslida kam bo'ladi. Yopiladigan eslatma.
+    const noPriceSig = 'noprice:' + t.no_price;
+    if (t.no_price && !errDismissed(noPriceSig)) out.push(`<div class="zk-err" data-sig="${esc(noPriceSig)}">
+      ${ERR_ICON}
+      <div>${UZ
+        ? `<b>${num(t.no_price)}</b> ta tovarda tannarx yo‘q — ular umumiy summaga kirmadi.`
+        : `У <b>${num(t.no_price)}</b> товаров нет себестоимости — они не вошли в общую сумму.`}</div>${errX()}</div>`);
+    const negWhSig = 'negwh:' + t.neg_wh;
+    if (t.neg_wh && !errDismissed(negWhSig)) out.push(`<div class="zk-err" data-sig="${esc(negWhSig)}">
+      ${ERR_ICON}
+      <div>${UZ
+        ? `<b>${num(t.neg_wh)}</b> ta SKU'да ombor qoldig‘i MANFIY — ombor hisobi sotuvdan orqada qolgan. Rejada ular 0 deb olindi, ya'ni xarid miqdori to‘g‘ri; lekin ombor raqamlarini tekshirish kerak.`
+        : `У <b>${num(t.neg_wh)}</b> SKU остаток на складе ОТРИЦАТЕЛЬНЫЙ — учёт склада разошёлся с продажами. В плане они приняты за 0, так что количество к заказу верное; но склад стоит перепроверить.`}</div>${errX()}</div>`);
+    box.innerHTML = out.join('');
+  }
+
+  function daysHtml(){
+    return DAYS.map(d => `<button class="zk-chip${(!S.custom && S.days === d) ? ' is-active' : ''}" data-days="${d}">${d} ${UZ?'kun':'дн.'}</button>`).join('');
+  }
+
+  async function load(){
+    const gen = ++S.gen;
+    S.busy = true;
+    $('#zkBody').innerHTML = `<tr><td colspan="9"><div class="zk-msg">${T.loading}</div></td></tr>`;
+    setStats('…');
+    const p = new URLSearchParams({ shop: S.shop });
+    if (S.custom && S.from && S.to) { p.set('date_from', S.from); p.set('date_to', S.to); }
+    else p.set('days', String(S.days));
+    try {
+      const r = await fetch(`/zakupka/api/plan?${p}`, { credentials:'same-origin' });
+      const j = await r.json();
+      if (gen !== S.gen) return;                  // eskirgan javob — tashlaymiz
+      if (!r.ok) throw new Error(j.error || 'error');
+      S.data = j; S.open = {};
+      renderMeta(); renderErr(); renderBody();
+    } catch (e) {
+      if (gen !== S.gen) return;
+      S.data = null;
+      setStats('—');
+      $('#zkErr').innerHTML = `<div class="zk-err"><div>${esc(e.message)}</div></div>`;
+      $('#zkBody').innerHTML = `<tr><td colspan="9"><div class="zk-msg">${T.empty}</div></td></tr>`;
+    } finally { S.busy = false; }
+  }
+
+  function wireCal(){
+    const box = $('#zkCal');
+    if (!window.SHDateRange) return;
+    box.innerHTML = SHDateRange.html({
+      from: S.custom ? S.from : null, to: S.custom ? S.to : null,
+      placeholder: UZ ? 'O‘z davrim' : 'Свой период',
+    });
+    SHDateRange.wire(box, { onPick: (from, to) => {
+      S.from = from; S.to = to; S.custom = !!(from && to);
+      $('#zkDays').innerHTML = daysHtml();
+      load();
+    }});
+  }
+
+  // ── wiring
+  $('#zkDays').innerHTML = daysHtml();
+  $('#zkDays').addEventListener('click', e => {
+    const b = e.target.closest('[data-days]'); if (!b) return;
+    S.days = parseInt(b.dataset.days, 10); S.custom = false; S.from = S.to = null;
+    $('#zkDays').innerHTML = daysHtml();
+    wireCal();                                   // kalendar tanlovini tozalaymiz
+    load();
+  });
+
+  let _t = null;
+  $('#zkSearch').addEventListener('input', e => {
+    S.search = e.target.value;
+    clearTimeout(_t); _t = setTimeout(renderBody, 140);   // faqat mahalliy filtr
+  });
+
+  $('#zkBody').addEventListener('click', e => {
+    const row = e.target.closest('.zk-grow'); if (!row) return;
+    const k = row.dataset.k;
+    S.open[k] = !S.open[k];
+    renderBody();
+  });
+
+  // Sariq eslatmani yopish — belgisini eslab qolamiz va DOM'dan olib tashlaymiz.
+  $('#zkErr').addEventListener('click', e => {
+    const btn = e.target.closest('.zk-err-x'); if (!btn) return;
+    const card = btn.closest('.zk-err[data-sig]'); if (!card) return;
+    try { localStorage.setItem('zkDismiss:' + card.dataset.sig, '1'); } catch(_) {}
+    card.remove();
+  });
+
+  const picker = $('#zkShopPicker');
+  if (picker) {
+    $('#zkShopBtn').addEventListener('click', () => picker.classList.toggle('is-open'));
+    document.addEventListener('click', e => { if (!picker.contains(e.target)) picker.classList.remove('is-open'); });
+    picker.querySelectorAll('.zk-picker-item').forEach(it => it.addEventListener('click', () => {
+      S.shop = it.dataset.shop;
+      picker.querySelectorAll('.zk-picker-item').forEach(x => x.classList.toggle('is-active', x === it));
+      $('#zkShopLabel').textContent = it.textContent.trim();
+      picker.classList.remove('is-open');
+      load();
+    }));
+  }
+
+  wireCal();
+  load();
+})();
+
+// Hover-zoom preview for product thumbnails. Delegated so it survives table
+// re-renders; position:fixed so it escapes the table's overflow clipping.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'zk-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+  var GAP = 14, SIZE = 260;   // SIZE must match .zk-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
+})();
+</script>
+{% endblock %}

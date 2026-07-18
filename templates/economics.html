@@ -3,7 +3,10 @@
 <head>
   <script>(function(){var t=localStorage.getItem('sh-theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
   <meta charset="UTF-8">
-  <title>{{ t.eco_title }}</title>
+  <title>SellerHub</title>
+  <link rel="icon" href="/static/favicon.ico?v=5" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=5">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=5">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -613,13 +616,45 @@
     .eco-table tbody tr.totals-row { background: var(--surface-2); font-weight: 600; }
     .eco-table tbody tr.totals-row td { color: var(--ink); border-bottom: none; }
 
-    .prod-cell { display: flex; align-items: center; gap: 12px; min-width: 240px; }
-    .prod-img {
-      width: 40px; height: 40px; flex-shrink: 0;
-      border-radius: 10px; object-fit: cover; background: var(--surface-2);
-      border: 1px solid var(--line);
+    /* Lazy-load sentinel / loading row */
+    .eco-sentinel-row td { padding: 0 !important; border-bottom: none !important; }
+    .eco-loading {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 18px 20px; color: var(--muted); font-size: 13px; font-weight: 500;
     }
-    .prod-img-fallback { width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .eco-spinner {
+      width: 16px; height: 16px; flex: 0 0 auto;
+      border: 2px solid var(--line); border-top-color: var(--brand);
+      border-radius: 50%; animation: eco-spin .7s linear infinite;
+    }
+    @keyframes eco-spin { to { transform: rotate(360deg); } }
+
+    .prod-cell { display: flex; align-items: center; gap: 12px; min-width: 240px; }
+    /* Square, row-height thumbnail — matches the group-detail (variants) page */
+    .prod-thumb {
+      position: relative;
+      width: 56px; height: 56px; flex: 0 0 auto;
+      border-radius: 12px; overflow: hidden;
+      background: var(--surface-2); border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .prod-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .prod-thumb[data-zoom-src] { cursor: zoom-in; }
+    .prod-thumb--empty { color: var(--brand); background: var(--brand-soft); font-size: 22px; }
+
+    /* Floating hover-zoom preview (position:fixed so it escapes table overflow) */
+    .prod-zoom-preview {
+      position: fixed; top: 0; left: 0;
+      width: 240px; height: 240px; padding: 6px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.30);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transform: scale(.92); transform-origin: left center;
+      transition: opacity .14s ease, transform .14s ease;
+      z-index: 9999;
+    }
+    .prod-zoom-preview.is-visible { opacity: 1; visibility: visible; transform: scale(1); }
+    .prod-zoom-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
     .prod-name { font-weight: 500; font-size: 13px; color: var(--ink); line-height: 1.35; }
     .prod-id   { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -734,7 +769,7 @@
           <div class="eco-limit-values">
             <span class="eco-limit-current" id="ecoLimitCurrent">—</span>
             <span class="eco-limit-sep">/</span>
-            <span class="eco-limit-max" id="ecoLimitMax">5 000 000 000 {{ "so'm" if lang == "uz" else "сум" }}</span>
+            <span class="eco-limit-max" id="ecoLimitMax">5 280 000 000 {{ "so'm" if lang == "uz" else "сум" }}</span>
           </div>
         </div>
         <div class="eco-limit-pct" id="ecoLimitPct">—</div>
@@ -839,7 +874,7 @@
         </div>
         <div class="dyn-toggle">
           <button class="active" data-dyn="revenue">{{ "Aylanma" if lang == "uz" else "Выручка" }}</button>
-          <button data-dyn="profit">{{ "Foyda" if lang == "uz" else "Прибыль" }}</button>
+          <button data-dyn="profit">{{ "Olishga" if lang == "uz" else "К выводу" }}</button>
         </div>
       </div>
       <div class="dyn-chart-wrap" id="dynChartHost"></div>
@@ -892,7 +927,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
-  <script src="/static/uzum_ui.js?v=20260613a"></script>
+  <script src="/static/uzum_ui.js?v=20260715c"></script>
   <script>
     const _ET = {
       loading: "{{ t.eco_loading }}",
@@ -924,7 +959,7 @@
       productsCount: "{{ 'ta mahsulot' if lang == 'uz' else 'товаров' }}",
       ttOrders: "{{ 'buyurtma' if lang == 'uz' else 'заказов' }}",
       ttRevenue: "{{ 'Aylanma' if lang == 'uz' else 'Выручка' }}",
-      ttProfit: "{{ 'Foyda' if lang == 'uz' else 'Прибыль' }}",
+      ttProfit: "{{ 'Olishga' if lang == 'uz' else 'К выводу' }}",
       unitDona: "{{ 'dona' if lang == 'uz' else 'шт' }}",
       frozen: "{{ 'muzlatilgan' if lang == 'uz' else 'заморожено' }}",
       hintTotal: "{{ 'jami' if lang == 'uz' else 'всего' }}",
@@ -1093,11 +1128,11 @@
       }
     }
 
-    // ── Annual revenue limit (year-to-date vs 5 000 000 000 сум) ──
+    // ── Annual revenue limit (year-to-date vs 5 280 000 000 сум) ──
     // Value now arrives inside the main payload (payload.year_to_date_revenue,
     // always all-shops) — no separate request. Pass null while unknown to
     // keep the shimmer.
-    const ANNUAL_LIMIT = 5_000_000_000; // UZS cap for the IP (sole-proprietor) tax regime
+    const ANNUAL_LIMIT = 5_280_000_000; // UZS cap for the IP (sole-proprietor) tax regime
     function applyAnnualLimit(revenue){
       const fillEl    = document.getElementById("ecoLimitFill");
       const pctEl     = document.getElementById("ecoLimitPct");
@@ -1463,17 +1498,98 @@
 
     // ── Products table ──────────────────────────
     let allItems = [];
+    const ECO_PAGE = 30;          // rows revealed per lazy-load batch
+    const ECO_REVEAL_MS = 1000;   // spinner dwell before revealing the next batch
+    // Pagination state, reset on every renderTable() call (new data or new search).
+    const _pg = { filtered: [], shown: 0, loading: false, observer: null };
+
+    // Row order: sold + positive ROI on top, then sold + non-positive ROI,
+    // then never-sold products at the very bottom. Within each group, higher
+    // profit first (so the least-negative sits above the most-negative).
+    function ecoOrderRank(it){
+      const sold = (it.sales_qty || 0) > 0;
+      if (sold && (it.roi || 0) > 0) return 0;
+      if (sold) return 1;
+      return 2;
+    }
+    function ecoOrderCmp(a, b){
+      const ra = ecoOrderRank(a), rb = ecoOrderRank(b);
+      if (ra !== rb) return ra - rb;
+      return (b.sales_profit || 0) - (a.sales_profit || 0);
+    }
+
+    function ecoRowHTML(item, i){
+      const roi = Math.round(item.roi || 0);
+      const roiCls = roi > 0 ? "pos" : roi < 0 ? "neg" : "neu";
+      const roiTxt = `${roi}%`;
+      const profitCls = (item.sales_profit||0) >= 0 ? "num-green" : "num-red";
+      const profitSign = (item.sales_profit||0) > 0 ? "+" : "";
+      return `
+        <tr class="fade-in" style="animation-delay:${Math.min((i % ECO_PAGE)*.025,.3)}s">
+          <td>
+            <div class="prod-cell">
+              ${item.image_url
+                ? `<div class="prod-thumb" data-zoom-src="${item.image_url}"><img src="${item.image_url}" loading="lazy" alt=""></div>`
+                : `<div class="prod-thumb prod-thumb--empty">📦</div>`}
+              <div>
+                <div class="prod-name">${item.name || "—"}</div>
+                <div class="prod-id">ID: ${item.id}</div>
+              </div>
+            </div>
+          </td>
+          <td class="stock-cell" data-label="{{ t.eco_col_stock }}">
+            <div class="stock-val">
+              <div class="qty-main">${fmt(item.stock_qty)}</div>
+              <div class="qty-split"><span><span class="dot" style="background:var(--brand);"></span>${fmt(item.stock_qty_uzum||0)}</span><span><span class="dot" style="background:var(--green);"></span>${fmt(item.stock_qty_warehouse||0)}</span></div>
+            </div>
+          </td>
+          <td class="num-muted" data-label="{{ 'Qoldiq tannarxi' if lang == 'uz' else 'Себест. остатка' }}">${fmt(item.stock_cost)}</td>
+          <td class="num-bold" data-label="{{ 'Sotilgan' if lang == 'uz' else 'Продано' }}">${fmt(item.sales_qty)}</td>
+          <td class="num-muted" data-label="{{ t.eco_col_revenue }}">${fmt(item.sales_revenue)}</td>
+          <td class="num-red" data-label="{{ t.eco_col_commission }}">${fmt(item.sales_commission)}</td>
+          <td class="num-red" data-label="{{ t.eco_col_logistics }}">${fmt(item.sales_logistics)}</td>
+          <td class="num-muted" data-label="{{ t.eco_col_sales_cost }}">${fmt(item.sales_cost)}</td>
+          <td class="${profitCls}" data-label="{{ t.eco_col_net_profit }}">${profitSign}${fmt(item.sales_profit)}</td>
+          <td data-label="ROI"><span class="roi-pill ${roiCls}">${roiTxt}</span></td>
+        </tr>`;
+    }
+
+    const ecoSentinelHTML = `<tr id="ecoSentinel" class="eco-sentinel-row"><td colspan="10"><div class="eco-loading"><span class="eco-spinner"></span><span>${_ET.loading}</span></div></td></tr>`;
+
+    // Reveal the next batch of rows (inserted above the sentinel) after a short
+    // spinner dwell, so the table never renders thousands of rows at once.
+    function ecoLoadMore(){
+      if (_pg.loading || _pg.shown >= _pg.filtered.length) return;
+      _pg.loading = true;
+      setTimeout(() => {
+        const sentinel = document.getElementById("ecoSentinel");
+        if (!sentinel) { _pg.loading = false; return; }
+        const next = _pg.filtered.slice(_pg.shown, _pg.shown + ECO_PAGE);
+        sentinel.insertAdjacentHTML("beforebegin", next.map((it, k) => ecoRowHTML(it, _pg.shown + k)).join(""));
+        _pg.shown += next.length;
+        _pg.loading = false;
+        if (_pg.shown >= _pg.filtered.length) {
+          if (_pg.observer) _pg.observer.disconnect();
+          sentinel.remove();
+        }
+      }, ECO_REVEAL_MS);
+    }
+
     function renderTable(items){
       allItems = items || [];
       const totals = currentData?.totals || {};
       const tbody = document.getElementById("ecoTbody");
       const q = (document.getElementById("productSearch").value || "").trim().toLowerCase();
-      const filtered = !q ? allItems : allItems.filter(it =>
+      const filtered = (!q ? allItems.slice() : allItems.filter(it =>
         (it.name||"").toLowerCase().includes(q) || String(it.id||"").includes(q) ||
         (it.sku||"").toLowerCase().includes(q)
-      );
+      )).sort(ecoOrderCmp);
       document.getElementById("tableCount").textContent = filtered.length;
       { const el = document.getElementById("productsCount"); if (el) el.textContent = filtered.length + " " + _ET.productsCount; }
+
+      // Reset pagination for the new result set.
+      if (_pg.observer) { _pg.observer.disconnect(); _pg.observer = null; }
+      _pg.filtered = filtered; _pg.shown = 0; _pg.loading = false;
 
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 50px 20px;">
@@ -1484,41 +1600,10 @@
         return;
       }
 
-      const rows = filtered.map((item, i) => {
-        const roi = Math.round(item.roi || 0);
-        const roiCls = roi > 0 ? "pos" : roi < 0 ? "neg" : "neu";
-        const roiTxt = roi > 0 ? `${roi}%` : `${roi}%`;
-        const profitCls = (item.sales_profit||0) >= 0 ? "num-green" : "num-red";
-        const profitSign = (item.sales_profit||0) > 0 ? "+" : "";
-        return `
-          <tr class="fade-in" style="animation-delay:${Math.min(i*.025,.3)}s">
-            <td>
-              <div class="prod-cell">
-                ${item.image_url
-                  ? `<img src="${item.image_url}" class="prod-img" loading="lazy" alt="">`
-                  : `<div class="prod-img-fallback">📦</div>`}
-                <div>
-                  <div class="prod-name">${item.name || "—"}</div>
-                  <div class="prod-id">ID: ${item.id}</div>
-                </div>
-              </div>
-            </td>
-            <td class="stock-cell" data-label="{{ t.eco_col_stock }}">
-              <div class="stock-val">
-                <div class="qty-main">${fmt(item.stock_qty)}</div>
-                <div class="qty-split"><span><span class="dot" style="background:var(--brand);"></span>${fmt(item.stock_qty_uzum||0)}</span><span><span class="dot" style="background:var(--green);"></span>${fmt(item.stock_qty_warehouse||0)}</span></div>
-              </div>
-            </td>
-            <td class="num-muted" data-label="{{ 'Qoldiq tannarxi' if lang == 'uz' else 'Себест. остатка' }}">${fmt(item.stock_cost)}</td>
-            <td class="num-bold" data-label="{{ 'Sotilgan' if lang == 'uz' else 'Продано' }}">${fmt(item.sales_qty)}</td>
-            <td class="num-muted" data-label="{{ t.eco_col_revenue }}">${fmt(item.sales_revenue)}</td>
-            <td class="num-red" data-label="{{ t.eco_col_commission }}">${fmt(item.sales_commission)}</td>
-            <td class="num-red" data-label="{{ t.eco_col_logistics }}">${fmt(item.sales_logistics)}</td>
-            <td class="num-muted" data-label="{{ t.eco_col_sales_cost }}">${fmt(item.sales_cost)}</td>
-            <td class="${profitCls}" data-label="{{ t.eco_col_net_profit }}">${profitSign}${fmt(item.sales_profit)}</td>
-            <td data-label="ROI"><span class="roi-pill ${roiCls}">${roiTxt}</span></td>
-          </tr>`;
-      }).join("");
+      const firstBatch = filtered.slice(0, ECO_PAGE);
+      _pg.shown = firstBatch.length;
+      const rows = firstBatch.map((item, i) => ecoRowHTML(item, i)).join("");
+      const hasMore = _pg.shown < filtered.length;
 
       // Totals row
       const totalProfit = totals.sales_profit||0;
@@ -1539,7 +1624,18 @@
           <td data-label="ROI"><span class="roi-pill ${totalRoiCls}">${totalRoi}%</span></td>
         </tr>`;
 
-      tbody.innerHTML = rows + totalRow;
+      // Product rows → [sentinel/spinner if more remain] → totals row (always last).
+      tbody.innerHTML = rows + (hasMore ? ecoSentinelHTML : "") + totalRow;
+
+      if (hasMore) {
+        const sentinel = document.getElementById("ecoSentinel");
+        // Viewport-rooted observer (the page scrolls vertically, not the table).
+        // rootMargin pre-triggers a bit early so the spinner shows before the gap.
+        _pg.observer = new IntersectionObserver((entries) => {
+          if (entries.some(e => e.isIntersecting)) ecoLoadMore();
+        }, { rootMargin: "300px 0px" });
+        _pg.observer.observe(sentinel);
+      }
     }
 
     // ── Export to CSV ───────────────────────────
@@ -1745,6 +1841,54 @@
       }
     }
 
+  </script>
+
+  <script>
+  // Hover-zoom preview for product thumbnails. A single position:fixed element
+  // follows the hovered thumb, escaping the table's overflow clipping. Delegated
+  // so it keeps working after the table re-renders.
+  (function () {
+    var preview = document.createElement('div');
+    preview.className = 'prod-zoom-preview';
+    var pImg = document.createElement('img');
+    preview.appendChild(pImg);
+    document.body.appendChild(preview);
+
+    var GAP = 14;        // gap between thumb and preview
+    var SIZE = 240;      // must match .prod-zoom-preview width/height in CSS
+
+    function place(thumb) {
+      var r = thumb.getBoundingClientRect();
+      var vw = window.innerWidth, vh = window.innerHeight;
+      // Prefer to the right of the thumb; flip left if it would overflow.
+      var left = r.right + GAP;
+      if (left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+      if (left < 8) left = 8;
+      // Vertically center on the thumb, clamped to viewport.
+      var top = r.top + r.height / 2 - SIZE / 2;
+      top = Math.max(8, Math.min(top, vh - SIZE - 8));
+      preview.style.left = left + 'px';
+      preview.style.top = top + 'px';
+    }
+
+    function show(thumb) {
+      var src = thumb.getAttribute('data-zoom-src');
+      if (!src) return;
+      if (pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+      place(thumb);
+      preview.classList.add('is-visible');
+    }
+    function hide() { preview.classList.remove('is-visible'); }
+
+    document.addEventListener('mouseover', function (e) {
+      var t = e.target.closest && e.target.closest('.prod-thumb[data-zoom-src]');
+      if (t) show(t);
+    });
+    document.addEventListener('mouseout', function (e) {
+      var t = e.target.closest && e.target.closest('.prod-thumb[data-zoom-src]');
+      if (t && !t.contains(e.relatedTarget)) hide();
+    });
+  })();
   </script>
 </body>
 </html>

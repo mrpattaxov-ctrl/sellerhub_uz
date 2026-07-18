@@ -1,11 +1,9 @@
 """Product/group/sync-related routes extracted from app.py as a Flask Blueprint."""
 from __future__ import annotations
 
-import io
-import zipfile
 from datetime import date, datetime, timedelta, time as dt_time
 
-from flask import Blueprint, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update, false as sql_false
 
@@ -18,7 +16,6 @@ from core.sales_reads import (
     read_sales_aggregated,
 )
 from core.time_helpers import _today_app_tz
-from core.http_client import http_post_multipart
 from core.auth_helpers import (
     _json_response,
     _jwt_expires_in_seconds,
@@ -28,12 +25,6 @@ from core.auth_helpers import (
     admin_required,
     _user_shop_ids,
 )
-
-try:
-    import openpyxl
-    from openpyxl.styles import Font, Alignment, Border, Side
-except ImportError:
-    openpyxl = None
 
 products_bp = Blueprint("products_bp", __name__)
 
@@ -77,12 +68,22 @@ def print_labels():
         size_key = "30x20"
     lbl = LABEL_SIZES[size_key]
 
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+    if not allowed_shop_ids:
+        return "No items", 400
+
     with SessionLocal() as db:
         # Fetch unique variants first
         unique_ids = list(set(ids))
         if not unique_ids:
              return "No items", 400
-        objs = db.execute(select(Variant).where(Variant.id.in_(unique_ids))).scalars().all()
+        objs = db.execute(
+            select(Variant)
+            .join(ProductGroup, Variant.group_id == ProductGroup.id)
+            .where(Variant.id.in_(unique_ids))
+            .where(ProductGroup.shop_id.in_(allowed_shop_ids))
+        ).scalars().all()
         obj_map = {o.id: o for o in objs}
 
         # Rebuild list with duplicates based on input 'ids' order to support quantity
@@ -558,39 +559,6 @@ def _persist_uzum_costs(shop_ids, cost_by_pid: dict) -> None:
         pass
 
 
-def _sku_payout_rates(db, shop_uzum_id: str, days: int = 120) -> dict[str, dict]:
-    """Per-SKU commission rate + per-unit logistics from real finance history.
-
-    Uzum doesn't expose commission/logistics in the marketing SKU payload, so we
-    derive each SKU's deductions from our own finance/orders (which DO store them
-    per sale). «К выводу» = new_price × (1 − commission_rate) − logistics_per_unit.
-    Keyed by sku_title (= Variant.sku code), which the marketing payload also
-    returns. SKUs with no recent sales simply won't have a rate (UI shows '—')."""
-    today = _today_app_tz()
-    start_ts, _ = day_bounds_tashkent(today - timedelta(days=days))
-    _, end_ts = day_bounds_tashkent(today)
-    rates: dict[str, dict] = {}
-    try:
-        rows = read_sales_aggregated(
-            str(shop_uzum_id), start_ts, end_ts, group_by="sku", session=db
-        )
-    except Exception:
-        return rates
-    for r in rows:
-        title = r.get("sku_title")
-        rev = float(r.get("revenue_sum") or 0)
-        qty = int(r.get("qty_sum") or 0)
-        comm = float(r.get("commission_sum") or 0)
-        logi = float(r.get("logistics_sum") or 0)
-        if not title or rev <= 0 or qty <= 0:
-            continue
-        rates[str(title)] = {
-            "commission_rate": max(0.0, min(0.9, comm / rev)),
-            "logistics_per_unit": max(0.0, round(logi / qty)),
-        }
-    return rates
-
-
 @products_bp.get("/sales")
 @login_required
 def sales_page():
@@ -716,8 +684,13 @@ def api_sale_suitable(sale_id: int):
                 .order_by(func.lower(Variant.sku))
             ).all()
             for g, v in grows:
+                try:
+                    _vsid = int(str(v.uzum_sku_id).strip())
+                except (TypeError, ValueError):
+                    _vsid = None
                 variants_by_pid.setdefault(str(g.uzum_product_id), []).append({
                     "sku": v.sku or "",
+                    "sku_id": _vsid,   # lets «Автозаполнить» match remembered SKUs
                     "color": v.color or "",
                     "barcode": v.barcode or "",
                     "image_url": (v.image_url or g.image_url) or "",
@@ -772,7 +745,7 @@ def api_sale_suitable(sale_id: int):
             })
 
         # Already-enrolled products (right panel) with their per-SKU sale prices.
-        payout_rates = _sku_payout_rates(db, raw_shop)
+        # No payout rates here — «К выводу» comes from Uzum's calculate-to-withdraw.
         added_products = []
         for p in involved:
             pid = str(p.get("productId"))
@@ -793,10 +766,6 @@ def api_sale_suitable(sale_id: int):
                     "sale_price": sp,
                     "discount_pct": disc,
                 }
-                rt = payout_rates.get(sk.get("skuTitle") or "")
-                if rt:
-                    row["commission_rate"] = rt["commission_rate"]
-                    row["logistics_per_unit"] = rt["logistics_per_unit"]
                 skus_out.append(row)
             added_products.append({
                 "product_id": p.get("productId"),
@@ -949,6 +918,18 @@ def api_sale_add(sale_id: int):
     invalidate_shop_sales_cache(raw_shop)
     invalidate_product_sku_limits(raw_shop)
 
+    # Remember each SKU's sale price (Redis, per-user) so «Автозаполнить» can
+    # refill the same prices when this seller sets up a later campaign. Only the
+    # prices Uzum actually accepted are stored. Best-effort — never fails here.
+    try:
+        from core.sale_memory import remember_sale_prices
+        remember_sale_prices(uid, {
+            sk["skuId"]: sk["newSalePrice"]
+            for prod in uzum_products for sk in prod["skuList"]
+        })
+    except Exception:
+        import traceback; traceback.print_exc()
+
     # Reflect the new sale price in our DB immediately, instead of waiting for
     # the next products sync (~15 min). The products sync would otherwise be
     # the only thing that updates Variant.price_sum, which is why a freshly
@@ -1012,6 +993,76 @@ def api_sale_remove(sale_id: int):
     invalidate_product_sku_limits(raw_shop, product_id)
 
     return _json_response({"ok": True})
+
+
+@products_bp.get("/api/sales/salemem")
+@login_required
+def api_sale_memory():
+    """The seller's remembered per-SKU sale prices, as ``{sku_id: price}``.
+
+    Feeds «Автозаполнить»: the picker matches these SKU ids against the sale's
+    suitable products and refills each one with the price used last time. Not
+    shop-scoped — Uzum skuIds are globally unique, and the map is the user's own
+    (a static path, so it never collides with the ``/<int:sale_id>/…`` routes)."""
+    uid = int(current_user.get_id())
+    from core.sale_memory import get_remembered_prices
+    return _json_response({"prices": get_remembered_prices(uid)})
+
+
+@products_bp.post("/api/sales/<int:sale_id>/remove-all")
+@login_required
+def api_sale_remove_all(sale_id: int):
+    """Remove EVERY enrolled product from a sale in one call.
+
+    Request: {"shop_id": str}. Fetches the sale's enrolled products and removes
+    each via the same product-level Uzum delete as ``/remove``. Partial failures
+    don't abort the run — they're collected and reported so the seller sees what
+    (if anything) is still in the sale."""
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_shop = str(payload.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+
+    from core.uzum_marketing import (
+        list_sale_products, remove_product_from_sale, invalidate_shop_sales_cache,
+        invalidate_product_sku_limits, UzumMarketingError,
+    )
+
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+        if not shop:
+            return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    try:
+        involved = list_sale_products(raw_shop, sale_id)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+    pids: list[int] = []
+    for p in involved:
+        try:
+            pids.append(int(p.get("productId")))
+        except (TypeError, ValueError):
+            continue
+
+    if not pids:
+        return _json_response({"ok": True, "removed": 0, "failed": []})
+
+    removed = 0
+    failed = []
+    for pid in pids:
+        try:
+            remove_product_from_sale(raw_shop, sale_id, pid)
+            removed += 1
+        except Exception as e:
+            failed.append({"product_id": pid, "error": str(e)})
+
+    # Enrolled set changed (fully, on success) → drop the shop's stale caches.
+    invalidate_shop_sales_cache(raw_shop)
+    invalidate_product_sku_limits(raw_shop)
+
+    return _json_response({"ok": not failed, "removed": removed, "failed": failed})
 
 
 @products_bp.get("/api/product/<int:product_id>/eligible-sales")
@@ -1126,19 +1177,59 @@ def api_sale_product_sku_limits(sale_id: int, product_id: int):
         return _json_response({"error": str(e)}, 502)
     except Exception as e:
         return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
-    # Attach per-SKU payout rates (commission + logistics) from finance history
-    # so the UI can show «К выводу» live as the price changes.
-    try:
-        with SessionLocal() as db:
-            rates = _sku_payout_rates(db, raw_shop)
-        for sk in out:
-            rt = rates.get(str(sk.get("sku_title") or ""))
-            if rt:
-                sk["commission_rate"] = rt["commission_rate"]
-                sk["logistics_per_unit"] = rt["logistics_per_unit"]
-    except Exception:
-        pass
+    # «К выводу» is NOT attached here any more. The UI asks Uzum for it directly
+    # (POST …/calculate-to-withdraw) as the price changes — see
+    # api_sale_calculate_to_withdraw. The old path derived it from a 120-day
+    # commission average, which was blank for never-sold SKUs and drifted from
+    # Uzum's real rate even when it had data.
     return _json_response({"skus": out})
+
+
+@products_bp.post("/api/sales/<int:sale_id>/calculate-to-withdraw")
+@login_required
+def api_sale_calculate_to_withdraw(sale_id: int):
+    """«К выводу» for the prices the user is typing — straight from Uzum.
+
+    Body: {"shop_id": "5983",
+           "items": [{"product_id": 347156, "sku_id": 1336731, "new_price": 15830}, ...]}
+    → {"payouts": {"<sku_id>": <to_withdraw>, ...}}
+
+    One round-trip for the whole table (Uzum takes the SKUs in a batch), so a
+    price edit costs ONE request, not one per SKU. The client debounces.
+
+    SKUs Uzum doesn't answer for are simply absent from `payouts`; the UI shows
+    '—' for those rather than a fabricated number.
+    """
+    data = request.get_json(silent=True) or {}
+    raw_shop = str(data.get("shop_id") or "").strip()
+    uid = int(current_user.get_id())
+    with SessionLocal() as db:
+        shop = _owned_shop_by_uzum_id(db, uid, raw_shop)
+    if not shop:
+        return _json_response({"error": "Магазин не найден или недоступен."}, 403)
+
+    items: list[dict] = []
+    for it in (data.get("items") or []):
+        try:
+            pid = int(it.get("product_id"))
+            sid = int(it.get("sku_id"))
+            price = int(it.get("new_price"))
+        except (TypeError, ValueError):
+            continue                      # a bad sku_id would 500 the whole batch
+        if pid <= 0 or sid <= 0 or price < 0:
+            continue
+        items.append({"productId": pid, "skuId": sid, "newSalePrice": price})
+    if not items:
+        return _json_response({"payouts": {}})   # empty list → Uzum 400; don't send it
+
+    try:
+        from core.uzum_marketing import calculate_to_withdraw, UzumMarketingError
+        payouts = calculate_to_withdraw(raw_shop, sale_id, items)
+    except UzumMarketingError as e:
+        return _json_response({"error": str(e)}, 502)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+    return _json_response({"payouts": {str(k): v for k, v in payouts.items()}})
 
 
 @products_bp.get("/api/sales/enrolled-products")
@@ -1907,6 +1998,9 @@ def uzum_sync_finance():
             if not shop_obj:
                 return _json_response({"error": "\u041c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e \u0442\u043e\u0432\u0430\u0440\u043e\u0432."}, 404)
 
+            if shop_obj.id not in _user_shop_ids(int(current_user.get_id())):
+                return _json_response({"error": "Access denied to this shop"}, 403)
+
             today = _today_app_tz()
             start_ts, _ = day_bounds_tashkent(today - timedelta(days=30))
             _, end_ts = day_bounds_tashkent(today)
@@ -2302,9 +2396,14 @@ def group_daily_stats(group_id: int):
 @products_bp.get("/api/groups/<int:group_id>/variants")
 @login_required
 def get_group_variants_api(group_id: int):
+    uid = int(current_user.get_id())
+    allowed_shop_ids = _user_shop_ids(uid)
+
     with SessionLocal() as db:
         group = db.get(ProductGroup, group_id)
-        group_img = group.image_url if group else None
+        if not group or group.shop_id not in allowed_shop_ids:
+            return _json_response({"error": "Group not found"}, 404)
+        group_img = group.image_url
         variants = db.execute(
             select(Variant).where(Variant.group_id == group_id).order_by(func.lower(Variant.sku))
         ).scalars().all()
@@ -2326,493 +2425,3 @@ def get_group_variants_api(group_id: int):
             "variants": items
         })
 
-# ----------------------------
-# Invoice / Restock Logic
-# ----------------------------
-_RESTOCK_PERIOD_DAYS = (7, 10, 15, 30, 60, 90)
-_RESTOCK_CHUNK_DEFAULT = 35
-_RESTOCK_CHUNK_MIN = 1
-_RESTOCK_CHUNK_MAX = 100
-
-
-def _resolve_restock_limit(raw):
-    """Clamp the per-invoice SKU limit to [1, 100], default 35."""
-    try:
-        n = int(raw)
-    except (TypeError, ValueError):
-        return _RESTOCK_CHUNK_DEFAULT
-    return max(_RESTOCK_CHUNK_MIN, min(_RESTOCK_CHUNK_MAX, n))
-
-
-def _chunk_by_shop(items, chunk_size, shop_key):
-    """Split ``items`` into invoice chunks of at most ``chunk_size`` that never
-    span two shops. ``items`` must already be sorted so each shop's rows are
-    contiguous. A shop with more rows than ``chunk_size`` simply produces
-    several chunks. Returns ``[[]]`` when there is nothing to chunk so the
-    template can render its empty state.
-    """
-    chunks = []
-    cur_shop = object()  # sentinel that never equals a real shop key
-    for it in items:
-        sk = shop_key(it)
-        if not chunks or sk != cur_shop or len(chunks[-1]) >= chunk_size:
-            chunks.append([])
-            cur_shop = sk
-        chunks[-1].append(it)
-    return chunks or [[]]
-
-
-def _resolve_restock_window():
-    """Resolve the restock sales window from request args.
-
-    Mirrors group_sales_range: an explicit ``date_from``/``date_to`` pair wins,
-    otherwise a ``days`` chip (one of 7/10/15/30/60/90, default 30). Returns
-    ``(start_ts, end_ts, days_label, date_from_str, date_to_str)`` where the
-    timestamps are Tashkent day bounds ready for read_sales_aggregated.
-    """
-    days_param = request.args.get("days")
-    date_from_str = (request.args.get("date_from") or "").strip()
-    date_to_str = (request.args.get("date_to") or "").strip()
-    today = _today_app_tz()
-
-    if date_from_str and date_to_str:
-        try:
-            d_from = date.fromisoformat(date_from_str)
-            d_to = date.fromisoformat(date_to_str)
-            days_label = (d_to - d_from).days + 1
-        except ValueError:
-            d_from, d_to, days_label = today - timedelta(days=30), today, 30
-            date_from_str = date_to_str = ""
-    else:
-        try:
-            days_label = int(days_param) if days_param else 30
-        except (ValueError, TypeError):
-            days_label = 30
-        if days_label not in _RESTOCK_PERIOD_DAYS:
-            days_label = 30
-        d_to = today
-        d_from = today - timedelta(days=days_label)
-
-    start_ts, _ = day_bounds_tashkent(d_from)
-    _, end_ts = day_bounds_tashkent(d_to)
-    return start_ts, end_ts, days_label, date_from_str, date_to_str
-
-
-def _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts):
-    """Build per-shop live sales lookups from finance_orders for the window.
-
-    Returns ``{shop_pk: (by_sku_id, by_title)}``. Same matching keys as
-    group_sales_range so the restock page reads sales straight from finance
-    rather than the stale Variant.sales_30d_finance snapshot.
-    """
-    sales_maps: dict[int, tuple[dict, dict]] = {}
-    for shop_pk, uzum_id in shop_uzum_by_pk.items():
-        try:
-            agg_rows = read_sales_aggregated(
-                uzum_id, start_ts, end_ts, group_by="sku", session=db,
-            )
-        except Exception as e:
-            print(f"[Restock] finance read failed for shop={uzum_id}: {e!r}")
-            agg_rows = []
-        by_sku_id: dict[str, int] = {}
-        by_title: dict[str, int] = {}
-        for row in agg_rows:
-            qty = int(row.get("qty_sum") or 0)
-            title = (row.get("sku_title") or "").strip()
-            if title:
-                by_title[title] = qty
-                by_title[title.upper()] = qty
-            sid = row.get("sku_id")
-            if sid:
-                sid_s = str(sid)
-                by_sku_id[sid_s] = qty
-                by_sku_id[sid_s.upper()] = qty
-        sales_maps[shop_pk] = (by_sku_id, by_title)
-    return sales_maps
-
-
-def _restock_match(v, by_sku_id, by_title):
-    """Look a variant up in (by_sku_id, by_title) maps using the same lenient
-    matching everywhere on the restock page: sku → uzum_sku_id → title/barcode.
-    Returns 0 when nothing matches.
-    """
-    vsku = v.sku or ""
-    val = by_sku_id.get(vsku) or by_sku_id.get(vsku.upper()) or 0
-    if val == 0 and v.uzum_sku_id and str(v.uzum_sku_id) in by_sku_id:
-        val = by_sku_id[str(v.uzum_sku_id)]
-    if val == 0:
-        for key in [vsku, vsku.upper(), v.barcode, (v.barcode or "").upper()]:
-            if key and key in by_title:
-                val = by_title[key]
-                break
-    return val
-
-
-def _restock_period_sales(v, by_sku_id, by_title):
-    """Per-variant sales for the window (sku_id → uzum_sku_id → title/barcode)."""
-    return _restock_match(v, by_sku_id, by_title)
-
-
-def _restock_cost_maps(db, shop_uzum_by_pk, end_ts):
-    """Per-shop average unit-cost lookups from *all-time* finance_orders.
-
-    Returns ``{shop_pk: (by_sku_id, by_title)}`` where each value is the
-    average себестоимость per unit (purchase_price_sum // qty_sum) across all
-    finance data up to ``end_ts``. Used as a fallback when a variant's stored
-    ``purchase_price`` is 0 — Uzum's product API often omits the cost, but the
-    finance/orders feed reports it on every sold unit. Mirrors the unit-cost
-    derivation on the economics page.
-    """
-    cost_floor = date(2020, 1, 1)
-    start_ts, _ = day_bounds_tashkent(cost_floor)
-    cost_maps: dict[int, tuple[dict, dict]] = {}
-    for shop_pk, uzum_id in shop_uzum_by_pk.items():
-        try:
-            rows = read_sales_aggregated(
-                uzum_id, start_ts, end_ts, group_by="sku", session=db,
-            )
-        except Exception as e:
-            print(f"[Restock] cost read failed for shop={uzum_id}: {e!r}")
-            rows = []
-        by_sku_id: dict[str, int] = {}
-        by_title: dict[str, int] = {}
-        for row in rows:
-            qty = int(row.get("qty_sum") or 0)
-            pp = int(row.get("purchase_price_sum") or 0)
-            if qty <= 0 or pp <= 0:
-                continue
-            uc = pp // qty
-            title = (row.get("sku_title") or "").strip()
-            if title:
-                by_title[title] = uc
-                by_title[title.upper()] = uc
-            sid = row.get("sku_id")
-            if sid:
-                sid_s = str(sid)
-                by_sku_id[sid_s] = uc
-                by_sku_id[sid_s.upper()] = uc
-        cost_maps[shop_pk] = (by_sku_id, by_title)
-    return cost_maps
-
-
-@products_bp.get("/invoice/restock")
-@login_required
-def invoice_restock_page():
-    shop_filter = (request.args.get("shop_id") or "").strip()
-    uid = int(current_user.get_id())
-    allowed_shop_ids = _user_shop_ids(uid)
-
-    start_ts, end_ts, days_label, date_from_str, date_to_str = _resolve_restock_window()
-
-    with SessionLocal() as db:
-        if _current_user_is_admin():
-            shops = db.execute(select(Shop)).scalars().all()
-        else:
-            shops = db.execute(select(Shop).where(Shop.id.in_(allowed_shop_ids))).scalars().all()
-
-        # Shops in scope for the table (filter chip narrows to one).
-        scope_shop_ids = list(allowed_shop_ids)
-        if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-            scope_shop_ids = [int(shop_filter)]
-
-        # Live per-shop sales for the chosen window, straight from finance_orders.
-        shop_uzum_by_pk = {}
-        shop_name_by_pk = {}
-        if scope_shop_ids:
-            for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
-                shop_uzum_by_pk[s.id] = s.uzum_id
-                shop_name_by_pk[s.id] = s.name
-        sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
-        # All-time per-unit cost fallback for variants with no stored purchase_price.
-        _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
-        cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
-
-        stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-        if scope_shop_ids:
-            stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
-        else:
-            stmt = stmt.where(False)
-
-        rows = db.execute(stmt).all()
-
-        items = []
-        for v, g in rows:
-            by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
-            sales = _restock_period_sales(v, by_sku_id, by_title)
-            u_qty = v.uzum_quantity or 0
-            wh_qty = v.warehouse_quantity or 0
-
-            # Logic: needed = sales in window. If u_qty < needed, restock = needed - u_qty
-            if u_qty < sales:
-                needed = sales - u_qty
-                if wh_qty > 0:
-                    restock = min(needed, wh_qty)
-                    price = v.purchase_price or 0
-                    if price <= 0:
-                        c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
-                        price = _restock_match(v, c_by_sku_id, c_by_title) or 0
-                    items.append({
-                        "id": v.id,
-                        "name": g.name,
-                        "sku": v.sku,
-                        "barcode": v.barcode,
-                        "shop_id": g.shop_id,
-                        "shop_name": shop_name_by_pk.get(g.shop_id, ""),
-                        "sales_30d": sales,
-                        "uzum_qty": u_qty,
-                        "wh_qty": wh_qty,
-                        "restock_qty": restock,
-                        "price": price,
-                        "total_price": restock * price,
-                        "image_url": normalize_uzum_image_url(v.image_url or g.image_url)
-                    })
-
-        # Group invoices by shop: sort by shop name, then SKU within each shop.
-        items.sort(key=lambda x: (
-            str(x.get("shop_name") or "").strip().lower(),
-            x.get("shop_id") or 0,
-            str(x.get("sku") or "").strip().lower(),
-        ))
-
-        # Chunk into max `chunk_size` items per file/invoice (user-configurable
-        # 1–100), never mixing two shops in one invoice.
-        chunk_size = _resolve_restock_limit(request.args.get("limit"))
-        chunks = _chunk_by_shop(items, chunk_size, lambda x: x.get("shop_id"))
-
-    return render_template(
-        "invoice_restock.html",
-        chunks=chunks,
-        shops=shops,
-        current_shop=shop_filter,
-        days_label=days_label,
-        date_from=date_from_str,
-        date_to=date_to_str,
-        period_days=_RESTOCK_PERIOD_DAYS,
-        chunk_limit=chunk_size,
-        chunk_limit_min=_RESTOCK_CHUNK_MIN,
-        chunk_limit_max=_RESTOCK_CHUNK_MAX,
-    )
-
-@products_bp.route("/invoice/restock/download", methods=["GET", "POST"])
-@login_required
-def invoice_restock_download():
-    if not openpyxl:
-        return _json_response({"error": "openpyxl library not installed. Please run: pip install openpyxl"}, 500)
-
-    try:
-        data_rows = []
-        chunk_limit_raw = None
-
-        if request.method == "POST":
-            # Use data provided by the client (edited quantities)
-            payload = request.get_json(force=True, silent=True) or {}
-            items = payload.get("items") or []
-            chunk_limit_raw = payload.get("limit")
-
-            # Group by shop, then SKU, so files never mix shops and variants stay together.
-            items.sort(key=lambda x: (
-                x.get("shop_id") or 0,
-                str(x.get("sku") or "").strip().lower(),
-            ))
-
-            for item in items:
-                bc = str(item.get("barcode") or "").strip()
-                try:
-                    price = float(item.get("price") or 0)
-                    qty = int(item.get("qty") or 0)
-                except (ValueError, TypeError):
-                    continue
-                if qty > 0:
-                    data_rows.append([bc, price, qty, item.get("shop_id")])
-        else:
-            # GET request: Auto-calculate based on live finance for the window.
-            shop_filter = (request.args.get("shop_id") or "").strip()
-            uid = int(current_user.get_id())
-            allowed_shop_ids = _user_shop_ids(uid)
-            start_ts, end_ts, _dl, _df, _dt = _resolve_restock_window()
-            with SessionLocal() as db:
-                scope_shop_ids = list(allowed_shop_ids)
-                if shop_filter and shop_filter.isdigit() and int(shop_filter) in allowed_shop_ids:
-                    scope_shop_ids = [int(shop_filter)]
-
-                shop_uzum_by_pk = {}
-                if scope_shop_ids:
-                    for s in db.execute(select(Shop).where(Shop.id.in_(scope_shop_ids))).scalars().all():
-                        shop_uzum_by_pk[s.id] = s.uzum_id
-                sales_maps = _restock_sales_maps(db, shop_uzum_by_pk, start_ts, end_ts)
-                _, cost_end_ts = day_bounds_tashkent(_today_app_tz())
-                cost_maps = _restock_cost_maps(db, shop_uzum_by_pk, cost_end_ts)
-
-                stmt = select(Variant, ProductGroup).join(ProductGroup, Variant.group_id == ProductGroup.id)
-                if scope_shop_ids:
-                    stmt = stmt.where(ProductGroup.shop_id.in_(scope_shop_ids))
-                else:
-                    stmt = stmt.where(False)
-                stmt = stmt.order_by(ProductGroup.shop_id, Variant.sku)
-                rows = db.execute(stmt).all()
-
-                for v, g in rows:
-                    by_sku_id, by_title = sales_maps.get(g.shop_id, ({}, {}))
-                    sales = _restock_period_sales(v, by_sku_id, by_title)
-                    u_qty = v.uzum_quantity or 0
-                    wh_qty = v.warehouse_quantity or 0
-
-                    if u_qty < sales:
-                        needed = sales - u_qty
-                        if wh_qty > 0:
-                            restock = min(needed, wh_qty)
-                            price = v.purchase_price or 0
-                            if price <= 0:
-                                c_by_sku_id, c_by_title = cost_maps.get(g.shop_id, ({}, {}))
-                                price = _restock_match(v, c_by_sku_id, c_by_title) or 0
-                            data_rows.append([v.barcode or "", price, restock, g.shop_id])
-
-        # Chunk into max `chunk_size` items per file (user-configurable 1–100),
-        # never mixing two shops in one file. Each row carries its shop id as a
-        # trailing element used only for grouping — stripped before writing.
-        chunk_size = _resolve_restock_limit(
-            chunk_limit_raw if chunk_limit_raw is not None else request.args.get("limit")
-        )
-        _tagged = _chunk_by_shop(
-            data_rows, chunk_size, lambda r: r[3] if len(r) > 3 else None
-        )
-        chunks = [[r[:3] for r in c] for c in _tagged]
-
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-        def create_wb(rows_subset):
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "\u0422\u043e\u0432\u0430\u0440\u044b \u043d\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0443"
-            ws.append(["\u0428\u0442\u0440\u0438\u0445\u043a\u043e\u0434 \u0442\u043e\u0432\u0430\u0440\u0430*", "\u0421\u0435\u0431\u0435\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c (\u0441\u0443\u043c)*", "\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e (\u0448\u0442)*"])
-            for cell in ws[1]: cell.font = Font(bold=True)
-            for r in rows_subset:
-                ws.append(r)
-            out = io.BytesIO()
-            wb.save(out)
-            out.seek(0)
-            return out
-
-        if len(chunks) == 1:
-            out = create_wb(chunks[0])
-            filename = f"invoice_restock_{timestamp}.xlsx"
-            mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            try:
-                return send_file(out, download_name=filename, as_attachment=True, mimetype=mimetype)
-            except TypeError:
-                # Fallback for older Flask versions
-                return send_file(out, attachment_filename=filename, as_attachment=True, mimetype=mimetype)
-        else:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-                for i, chunk in enumerate(chunks):
-                    xlsx_io = create_wb(chunk)
-                    zf.writestr(f"invoice_restock_{timestamp}_part{i+1}.xlsx", xlsx_io.getvalue())
-
-            zip_buffer.seek(0)
-            filename = f"invoice_restock_{timestamp}_multi.zip"
-            mimetype = "application/zip"
-            try:
-                return send_file(zip_buffer, download_name=filename, as_attachment=True, mimetype=mimetype)
-            except TypeError:
-                return send_file(zip_buffer, attachment_filename=filename, as_attachment=True, mimetype=mimetype)
-
-    except Exception as e:
-        return _json_response({"error": f"Server Error: {str(e)}"}, 500)
-
-
-@products_bp.route("/invoice/restock/upload-uzum", methods=["POST"])
-@login_required
-def invoice_restock_upload_uzum():
-    if not openpyxl:
-        return _json_response({"error": "openpyxl library not installed. Please run: pip install openpyxl"}, 500)
-
-    payload = request.get_json(force=True, silent=True) or {}
-    items = payload.get("items") or []
-    shop_db_id = payload.get("shop_id")
-
-    if not shop_db_id:
-        return _json_response({"error": "Shop ID is required"}, 400)
-
-    with SessionLocal() as db:
-        shop = db.get(Shop, int(shop_db_id))
-        if not shop:
-            return _json_response({"error": "Shop not found in DB"}, 404)
-        uzum_shop_id = shop.uzum_id
-
-    data_rows = []
-    zero_price_barcodes = []
-    items.sort(key=lambda x: str(x.get("sku") or "").strip().lower())
-
-    for item in items:
-        bc = str(item.get("barcode") or "").strip()
-        try:
-            price = float(item.get("price") or 0)
-            qty = int(item.get("qty") or 0)
-        except (ValueError, TypeError):
-            continue
-        if qty > 0:
-            # Uzum rejects the whole file if any cost is 0 — catch it here too.
-            if price <= 0:
-                zero_price_barcodes.append(bc or "—")
-                continue
-            data_rows.append([bc, price, qty])
-
-    if zero_price_barcodes:
-        return _json_response({
-            "error": "Укажите себестоимость (больше 0) для штрихкодов: "
-                     + ", ".join(zero_price_barcodes)
-        }, 400)
-
-    if not data_rows:
-        return _json_response({"error": "No valid items to upload"}, 400)
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "\u0422\u043e\u0432\u0430\u0440\u044b \u043d\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0443"
-    ws.append(["\u0428\u0442\u0440\u0438\u0445\u043a\u043e\u0434 \u0442\u043e\u0432\u0430\u0440\u0430*", "\u0421\u0435\u0431\u0435\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c (\u0441\u0443\u043c)*", "\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e (\u0448\u0442)*"])
-    for cell in ws[1]: cell.font = Font(bold=True)
-    for r in data_rows:
-        ws.append(r)
-
-    out = io.BytesIO()
-    wb.save(out)
-    file_bytes = out.getvalue()
-
-    url = f"https://api-seller.uzum.uz/api/seller/shop/{uzum_shop_id}/v2/invoice/create-from-file"
-
-    # Use current user's key if set, otherwise fall back to admin token.
-    api_key = _get_fresh_api_key() or _get_admin_token()
-    if not api_key:
-        return _json_response({
-            "error": "Uzum \u0442\u043e\u043a\u0435\u043d \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442. \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0435 Chrome-\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u0438\u0435 \u00abUzum Token Sync\u00bb "
-                     "\u0438\u043b\u0438 \u0432\u0441\u0442\u0430\u0432\u044c\u0442\u0435 \u0442\u043e\u043a\u0435\u043d \u0432\u0440\u0443\u0447\u043d\u0443\u044e \u0432 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445."
-        }, 401)
-
-    # Warn if already expired before even trying
-    exp = _jwt_expires_in_seconds(api_key)
-    if exp is not None and exp <= 0:
-        return _json_response({
-            "error": "Uzum \u0442\u043e\u043a\u0435\u043d \u0438\u0441\u0442\u0451\u043a. \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u043f\u0440\u043e\u0434\u0430\u0432\u0446\u0430 Uzum \u2014 "
-                     "\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u0438\u0435 \u043e\u0431\u043d\u043e\u0432\u0438\u0442 \u0442\u043e\u043a\u0435\u043d \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438."
-        }, 401)
-
-    headers = {"Authorization": f"Bearer {api_key}" if not api_key.startswith("Bearer ") else api_key}
-
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    file_name = f"invoice_restock_{timestamp}.xlsx"
-
-    try:
-        res = http_post_multipart(url, file_name, file_bytes, headers)
-        return _json_response({"ok": True, "uzum_response": res, "rows_sent": len(data_rows)})
-    except Exception as e:
-        error_msg = str(e)
-        if "401" in error_msg:
-            return _json_response({"error": "\u0422\u043e\u043a\u0435\u043d Uzum \u0438\u0441\u0442\u0451\u043a \u0438\u043b\u0438 \u043d\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u0435\u043d. "
-                                   "\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u043f\u0440\u043e\u0434\u0430\u0432\u0446\u0430 Uzum \u2014 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u0438\u0435 \u00abUzum Token Sync\u00bb "
-                                   "\u043e\u0431\u043d\u043e\u0432\u0438\u0442 \u0435\u0433\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438. \u0415\u0441\u043b\u0438 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u0438\u0435 \u043d\u0435 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043e, "
-                                   "\u0441\u043a\u043e\u043f\u0438\u0440\u0443\u0439\u0442\u0435 \u0441\u0432\u0435\u0436\u0438\u0439 Authorization-\u0442\u043e\u043a\u0435\u043d \u0447\u0435\u0440\u0435\u0437 F12 \u2192 Network \u0438 "
-                                   "\u0432\u0441\u0442\u0430\u0432\u044c\u0442\u0435 \u0435\u0433\u043e \u0432 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445."}, 401)
-        if "403" in error_msg:
-            return _json_response({"error": "403 Forbidden: Token is valid but doesn't have permission for this Shop ID."}, 403)
-        return _json_response({"error": f"Failed to upload: {error_msg}"}, 500)

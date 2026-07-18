@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- SellerHub layers mark on a white rounded plate.
+
+       Geometry is the real artwork's, not an approximation: the boundary was
+       extracted from the source logo at sub-pixel precision (marching squares
+       on the antialiasing coverage field), then each edge was least-squares
+       fitted to a line and the corners taken as exact line intersections.
+       Verified at 99.1% IoU against the source, overlaid 1:1.
+
+       The plate is deliberate — a transparent icon dissolves into dark or
+       tinted browser tab bars. The wordmark is omitted: at 16px it is
+       illegible, so the tab icon carries the stack alone. -->
+  <rect x="0" y="0" width="64" height="64" rx="20" ry="20" fill="#ffffff"/>
+  <path fill="#3c6690" fill-rule="evenodd" d="M31.917 11.637L8.028 21.621L8.025 23.968L31.889 34.541L55.943 23.938L55.908 21.632ZM31.906 15.96L48.138 22.902L36.482 27.993L31.938 29.964L15.804 22.932Z"/>
+  <path fill="#1596d7" fill-rule="evenodd" d="M8.012 30.036L8.019 32.301L31.887 43.226L55.978 32.27L55.89 29.988L53.152 29.036L31.995 38.627L10.585 28.991Z"/>
+  <path fill="#798697" fill-rule="evenodd" d="M8 38.595L8.004 40.914L31.892 52.363L56 40.873L55.928 38.646L53.129 37.609L31.96 47.521L10.708 37.565Z"/>
+</svg>

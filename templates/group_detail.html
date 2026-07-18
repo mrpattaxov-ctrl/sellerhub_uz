@@ -453,6 +453,9 @@
   }
   .gd-money.is-zero { color:var(--gd-faint); }
   .gd-money-sub { font-size:11.5px; color:var(--gd-faint); font-weight:400; margin-left:3px; }
+  /* «Платное хранение» — это складской расход, поэтому сумму показываем красной. */
+  .gd-money--cost { color:var(--gd-red); }
+  .gd-money--cost .gd-money-sub { color:var(--gd-red); opacity:.6; }
   .gd-thead {
     background:var(--gd-surface-2); border-bottom:.5px solid var(--gd-line);
     font-size:11.5px; font-weight:500; color:var(--gd-muted);
@@ -488,7 +491,7 @@
 
   .gd-checkbox {
     width:15px; height:15px; cursor:pointer;
-    accent-color:var(--gd-accent);
+    accent-color:var(--gd-bar);   /* royal blue — our design color for the SKU picker */
   }
 
   .gd-row-thumb {
@@ -817,6 +820,50 @@
     .gd-meta { flex-direction: column; align-items: flex-start; gap: 3px; font-size: 12.5px; }
     .gd-meta-sep { display: none; }
   }
+
+  /* Floating SKU-selection bar — pops up when checkboxes are ticked and prints
+     QR labels for the selected variants. Mirrors the postavki create-flow bar. */
+  .gd-selbar {
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+    z-index:60; display:flex; align-items:center; gap:16px;
+    max-width:calc(100vw - 32px);
+    background:#13092e; color:#fff; border-radius:14px; padding:12px 14px 12px 20px;
+    box-shadow:0 16px 40px rgba(15,10,40,.34);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.15), opacity .18s ease, visibility 0s;
+  }
+  .gd-selbar.is-idle {
+    transform:translateX(-50%) translateY(calc(100% + 40px)); opacity:0;
+    visibility:hidden; pointer-events:none;
+    transition:transform .22s cubic-bezier(.4,0,.9,.4), opacity .14s ease, visibility 0s linear .22s;
+  }
+  @media (prefers-reduced-motion:reduce){ .gd-selbar, .gd-selbar.is-idle { transition:none; } }
+  .gd-selbar-count { font-weight:700; font-size:13px; white-space:nowrap; }
+  .gd-selbar-count i { color:#A9AEC4; font-style:normal; }
+  .gd-selbar-clear {
+    background:none; border:0; color:#fff; text-decoration:underline; cursor:pointer;
+    font:inherit; font-size:13px; font-weight:700; padding:0 0 0 16px;
+    border-left:1px solid rgba(255,255,255,.18); white-space:nowrap;
+  }
+  .gd-selbar-clear:hover { color:#cfd3e6; }
+  .gd-selbar-size {
+    appearance:none; -webkit-appearance:none; cursor:pointer; font:inherit;
+    font-size:13px; font-weight:700; color:#fff;
+    background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+    border-radius:9px; padding:8px 12px;
+  }
+  .gd-selbar-size option { color:#13092e; }
+  .gd-selbar-print {
+    margin-left:4px; flex:none; border:0; border-radius:10px; padding:11px 22px;
+    background:var(--gd-bar); color:#fff; font:inherit; font-size:14px; font-weight:800;
+    cursor:pointer; display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+    transition:filter .12s;
+  }
+  .gd-selbar-print:hover { filter:brightness(1.08); }
+  @media (max-width:560px){
+    .gd-selbar { left:16px; right:16px; transform:none; flex-wrap:wrap; gap:10px 14px; padding:14px 16px; }
+    .gd-selbar.is-idle { transform:translateY(calc(100% + 40px)); }
+    .gd-selbar-print { margin-left:auto; }
+  }
 </style>
 
 <div class="gd-scope" id="gdScope">
@@ -828,7 +875,7 @@
 
   <!-- Breadcrumb -->
   <div class="gd-breadcrumb">
-    <a href="/groups" class="gd-back-btn">
+    <a href="/groups" class="gd-back-btn" id="gdBackBtn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>{{ "Orqaga" if lang == "uz" else "Назад" }}</span>
     </a>
@@ -1183,7 +1230,7 @@
         </div>
 
         <div class="gd-cell gd-cell--right" data-col="storage">
-          <span class="gd-money {% if stor == 0 %}is-zero{% endif %}">
+          <span class="gd-money {% if stor > 0 %}gd-money--cost{% else %}is-zero{% endif %}">
             {% if stor > 0 %}{{ '{:,}'.format(stor).replace(',', ' ') }}<span class="gd-money-sub">{{ "so'm" if lang == "uz" else "сум" }}</span>{% else %}—{% endif %}
           </span>
         </div>
@@ -1299,6 +1346,23 @@
         <button class="gd-settings-btn gd-settings-btn--primary" id="settingsApply" type="button">{{ "Qo'llash" if lang == "uz" else "Применить" }}</button>
       </div>
     </div>
+  </div>
+
+  <!-- Floating SKU-selection bar → print QR labels for the checked variants -->
+  <div id="gdSelBar" class="gd-selbar is-idle" aria-hidden="true">
+    <span class="gd-selbar-count"><i>{{ "Tanlangan" if lang == "uz" else "Выбрано" }}:</i> <span id="gdSelCount">0</span> SKU</span>
+    <button type="button" class="gd-selbar-clear" id="gdSelClear">{{ "Bekor qilish" if lang == "uz" else "Сбросить" }}</button>
+    <select class="gd-selbar-size" id="gdSelSize" title="{{ 'Yorliq o‘lchami, mm' if lang == 'uz' else 'Размер этикетки, мм' }}" aria-label="{{ 'Yorliq o‘lchami' if lang == 'uz' else 'Размер этикетки' }}">
+      <option value="30x20">30×20</option>
+      <option value="43x25">43×25</option>
+      <option value="40x30">40×30</option>
+      <option value="60x60">60×60</option>
+      <option value="70x37">70×37</option>
+    </select>
+    <button type="button" class="gd-selbar-print" id="gdSelPrint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      {{ "QR chop etish" if lang == "uz" else "Печать QR" }}
+    </button>
   </div>
 </div>
 
@@ -1878,7 +1942,67 @@ document.querySelectorAll('.gd-thead .gd-th[data-sortable="1"]').forEach(th => {
 // ── Check-all ───────────────────────────────────────────
 document.getElementById('checkAll').addEventListener('change', e => {
   document.querySelectorAll('.gd-row-check').forEach(c => { c.checked = e.target.checked; });
+  gdUpdateSelBar();
 });
+
+// ── SKU selection → floating «Печать QR» bar ─────────────
+const gdSelBar   = document.getElementById('gdSelBar');
+const gdSelCount = document.getElementById('gdSelCount');
+const gdSelSize  = document.getElementById('gdSelSize');
+
+// Label size shares the QR-print page / postavki preference (localStorage 'pkxQrSize').
+try {
+  const saved = localStorage.getItem('pkxQrSize');
+  gdSelSize.value = (saved && [...gdSelSize.options].some(o => o.value === saved)) ? saved : '43x25';
+} catch (_) { gdSelSize.value = '43x25'; }
+gdSelSize.addEventListener('change', () => { try { localStorage.setItem('pkxQrSize', gdSelSize.value); } catch (_) {} });
+
+function gdSelectedVids() {
+  return [...document.querySelectorAll('.gd-row-check')]
+    .filter(c => c.checked)
+    .map(c => { const r = c.closest('.gd-row'); return r && r.dataset.vid; })
+    .filter(Boolean);
+}
+function gdUpdateSelBar() {
+  const boxes = document.querySelectorAll('.gd-row-check');
+  const n = [...boxes].filter(c => c.checked).length;
+  gdSelCount.textContent = n;
+  gdSelBar.classList.toggle('is-idle', n === 0);
+  gdSelBar.setAttribute('aria-hidden', n === 0 ? 'true' : 'false');
+  const chk = document.getElementById('checkAll');
+  if (chk) chk.checked = n > 0 && n === boxes.length;
+}
+// Per-row checkbox changes (delegated — rows survive re-sort / re-filter).
+document.querySelector('.gd-table-wrap').addEventListener('change', e => {
+  if (e.target.classList && e.target.classList.contains('gd-row-check')) gdUpdateSelBar();
+});
+document.getElementById('gdSelClear').addEventListener('click', () => {
+  document.querySelectorAll('.gd-row-check').forEach(c => { c.checked = false; });
+  gdUpdateSelBar();
+});
+document.getElementById('gdSelPrint').addEventListener('click', () => {
+  const vids = gdSelectedVids();
+  if (vids.length) gdPrintQrLabels(vids, gdSelSize.value);
+});
+
+// Reuse the QR-print mechanism from the print-queue page: load /print/labels in a
+// hidden iframe — it renders the labels for the given variant ids and auto-fires
+// window.print(), then posts 'print-labels-done' so we can tear the frame down.
+function gdPrintQrLabels(ids, size) {
+  const old = document.getElementById('gdPrintFrame'); if (old) old.remove();
+  const iframe = document.createElement('iframe');
+  iframe.id = 'gdPrintFrame';
+  iframe.setAttribute('aria-hidden', 'true');
+  Object.assign(iframe.style, { position:'fixed', right:'0', bottom:'0', width:'0', height:'0', border:'0', opacity:'0', pointerEvents:'none' });
+  const cleanup = () => { window.removeEventListener('message', onMsg); clearTimeout(fb); if (iframe.parentNode) iframe.parentNode.removeChild(iframe); };
+  const onMsg = (ev) => { if (ev.origin !== window.location.origin) return; if (!ev.data || ev.data.type !== 'print-labels-done') return; cleanup(); };
+  const fb = setTimeout(cleanup, 30000);
+  window.addEventListener('message', onMsg);
+  iframe.src = '/print/labels?ids=' + ids.join(',') + '&size=' + encodeURIComponent(size);
+  document.body.appendChild(iframe);
+}
+
+gdUpdateSelBar();   // initial state (nothing checked → bar stays hidden)
 
 // ── Period seg ──────────────────────────────────────────
 document.querySelectorAll('#periodSeg .gd-seg-btn').forEach(btn => {
@@ -1978,8 +2102,25 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 });
 
 document.getElementById('createOrderBtn').addEventListener('click', () => {
-  // Future: link to a real restock order. For now: anchor to invoice page.
-  window.location.href = '/invoice/restock?group_id={{ group.id }}';
+  // Поставки owns restock now — it plans the order and creates the real
+  // накладная in Uzum. It is shop-scoped, so group_id has nowhere to land.
+  window.location.href = '/postavki';
+});
+
+// «‹ Назад» should act like the browser Back button: if we arrived here from the
+// catalog (/groups), go back through history so its scroll position and filters
+// are restored from bfcache — instead of loading a fresh /groups at the top.
+// Falls back to the anchor's href (/groups) when we didn't come from the catalog
+// (direct link, new tab, deep navigation) or history is empty.
+document.getElementById('gdBackBtn').addEventListener('click', (e) => {
+  try {
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    const fromCatalog = ref && ref.origin === location.origin && ref.pathname === '/groups';
+    if (fromCatalog && history.length > 1) {
+      e.preventDefault();
+      history.back();
+    }
+  } catch (_) { /* fall through to href="/groups" */ }
 });
 
 // ── Column visibility + order (settings panel) ────────

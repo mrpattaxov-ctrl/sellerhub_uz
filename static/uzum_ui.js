@@ -173,13 +173,12 @@
       products: "Товары",
       economics: "Юнит Экономика",
       expenses: "Складские расходы",
+      zakupka: "План закупки",
       sales: "Акции",
       calculator: "Калькулятор",
-      pos: "POS Терминал",
+      pos: "Склад",
       fbs: "FBS/DBS",
       supplies: "Поставки",
-      invoice: "Создать Накладную",
-      warehouseImport: "Импорт / Экспорт",
       printQueue: "Печать QR",
       myShops: "Мои магазины",
       collapse: "Свернуть",
@@ -191,13 +190,12 @@
       products: "Mahsulotlar",
       economics: "Birlik Iqtisodiyoti",
       expenses: "Ombor xarajatlari",
+      zakupka: "Xarid rejasi",
       sales: "Aksiyalar",
       calculator: "Kalkulyator",
-      pos: "POS Terminal",
+      pos: "Ombor",
       fbs: "FBS/DBS",
       supplies: "Yetkazib berish",
-      invoice: "Hujjat yaratish",
-      warehouseImport: "Import / Export",
       printQueue: "QR Chop etish",
       myShops: "Mening do'konlarim",
       collapse: "Yig'ish",
@@ -336,6 +334,23 @@
       .uzum-sidebar.closed .uzum-nav-item { justify-content: center; padding: 10px 0; border-radius: 0; }
       .uzum-sidebar.closed .uzum-nav-item .nav-label { opacity: 0; width: 0; overflow: hidden; }
 
+      /* An <a> without href gets the text cursor, so put the hand back. */
+      [data-href] { cursor: pointer; }
+
+      /* The shell's own tooltip. Lives on <body> rather than in an ::after so
+         it can't be clipped by the sidebar's overflow, and so one node serves
+         both the sidebar and the top bar. */
+      .sh-tip {
+        position: fixed; z-index: 1080; pointer-events: none;
+        padding: 6px 10px; border-radius: 6px;
+        background: #101828; color: #fff;
+        font-size: 12px; font-weight: 500; line-height: 1.3; white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(16,24,40,.18);
+        opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s;
+      }
+      .sh-tip.show { opacity: 1; transform: translateY(0); }
+      [data-bs-theme="dark"] .sh-tip { background: #F0EDF5; color: #14161F; }
+
       .uzum-sidebar.closed .uzum-section-label,
       .uzum-sidebar.closed .uzum-dd-container,
       .uzum-sidebar.closed .uzum-segment,
@@ -446,7 +461,7 @@
         </svg>
         <span id="uzumBrandLabel" onclick="window.location.assign('/groups')" style="cursor:pointer;">SellerHub</span>
       </div>
-      <button class="uzum-toggle-btn" id="uzumSidebarToggle" title="${SL.collapse}">
+      <button class="uzum-toggle-btn" id="uzumSidebarToggle" aria-label="${SL.collapse}" data-sh-tip="${SL.collapse}" data-sh-tip-pos="bottom">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
       </button>
     `;
@@ -472,8 +487,7 @@
       { label: SL.pos, href: "/pos", icon: svgIcon('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>') },
       { label: SL.fbs, href: "/fbs", icon: svgIcon('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>') },
       { label: SL.supplies, href: "/postavki", icon: svgIcon('<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>') },
-      { label: SL.invoice, href: "/invoice/restock", icon: svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>') },
-      { label: SL.warehouseImport, href: "/warehouse/import", icon: svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="15" x2="16" y2="15"/><polyline points="11 12 8 15 11 18"/><polyline points="13 12 16 15 13 18"/>') },
+      { label: SL.zakupka, href: "/zakupka", icon: svgIcon('<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>') },
       { label: SL.printQueue, href: "/print/queue", icon: svgIcon('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>') },
       { label: SL.myShops, href: "/fetch", icon: svgIcon('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>') },
       { label: subscriptionLabel, href: subscriptionHref, icon: svgIcon('<path d="M20 12V7a2 2 0 0 0-2-2h-1V3H7v2H6a2 2 0 0 0-2 2v5"/><path d="M2 12h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/><path d="M12 12v9"/>') },
@@ -490,8 +504,14 @@
         a.classList.add("active");
       }
       a.innerHTML = `${l.icon}<span class="nav-label">${l.label}</span>`;
+      // data-href, not href: an <a href> makes the browser print the target URL
+      // in a status bar at the corner of the window on every hover. shSilence()
+      // (below) restores real link behaviour — new tab on ctrl/cmd/middle-click,
+      // Enter on focus — without the URL preview. Falls back to a plain link if
+      // this script never runs.
       a.href = l.href;
-      a.title = l.label;
+      a.setAttribute("data-sh-tip", l.label);
+      a.setAttribute("data-sh-tip-pos", "right");
       nav.appendChild(a);
     });
 
@@ -554,6 +574,109 @@
       e.preventDefault(); e.stopPropagation(); toggleSidebar();
     });
     if (localStorage.getItem("uzum_sidebar_closed") === "true") toggleSidebar();
+
+    // ── 6b. Hover noise on the shell chrome ──────────────────────────────
+    // Two browser-native artifacts trail the cursor around the nav: the OS
+    // tooltip drawn from `title`, and the status-bar URL preview the browser
+    // paints in the corner of the window for any <a href>. Neither is
+    // dismissible and neither tells the seller anything they don't already
+    // know, so the shell suppresses both — and paints its own tooltip only
+    // where the label isn't already on screen.
+    const shTip = document.createElement("div");
+    shTip.className = "sh-tip";
+    document.body.appendChild(shTip);
+
+    let shTipTimer = null;
+    const shHideTip = () => { clearTimeout(shTipTimer); shTip.classList.remove("show"); };
+    const shShowTip = (el) => {
+      const label = el.getAttribute("data-sh-tip");
+      if (!label) return;
+      // An open sidebar already prints its labels beside the icons — a tooltip
+      // there is the exact duplication we're removing. Only the collapsed rail,
+      // which is icons alone, has anything to say.
+      if (el.classList.contains("uzum-nav-item") && !sidebar.classList.contains("closed")) return;
+      clearTimeout(shTipTimer);
+      shTipTimer = setTimeout(() => {
+        shTip.textContent = label;
+        shTip.classList.add("show");
+        const r = el.getBoundingClientRect();
+        const t = shTip.getBoundingClientRect();
+        let x, y;
+        if (el.getAttribute("data-sh-tip-pos") === "right") {
+          x = r.right + 10;
+          y = r.top + (r.height - t.height) / 2;
+        } else {
+          x = r.left + (r.width - t.width) / 2;
+          y = r.bottom + 8;
+        }
+        const pad = 6;
+        x = Math.min(Math.max(pad, x), window.innerWidth - t.width - pad);
+        y = Math.min(Math.max(pad, y), window.innerHeight - t.height - pad);
+        shTip.style.left = `${Math.round(x)}px`;
+        shTip.style.top = `${Math.round(y)}px`;
+      }, 320);
+    };
+    document.addEventListener("mouseover", (e) => {
+      const el = e.target.closest?.("[data-sh-tip]");
+      if (el) shShowTip(el);
+    });
+    document.addEventListener("mouseout", (e) => {
+      if (e.target.closest?.("[data-sh-tip]")) shHideTip();
+    });
+    ["click", "wheel", "scroll"].forEach((ev) => document.addEventListener(ev, shHideTip, true));
+
+    // Drop the href so the browser has no URL to preview, and carry the real
+    // link behaviour ourselves: ctrl/cmd/shift/middle-click still opens a new
+    // tab, Enter still follows a focused item. If this script never runs the
+    // href stays put and the nav degrades to an ordinary set of links.
+    const shSilence = (el) => {
+      const url = el.getAttribute("href");
+      if (!url || url.startsWith("#")) return;
+      el.removeAttribute("href");
+      el.setAttribute("data-href", url);
+      el.setAttribute("role", "link");
+      if (!el.hasAttribute("tabindex")) el.tabIndex = 0;
+    };
+    const shGo = (url, newTab) => {
+      if (newTab) window.open(url, "_blank", "noopener");
+      else window.location.assign(url);
+    };
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest?.("[data-href]");
+      if (!el) return;
+      e.preventDefault();
+      shGo(el.getAttribute("data-href"), e.ctrlKey || e.metaKey || e.shiftKey);
+    });
+    document.addEventListener("auxclick", (e) => {
+      if (e.button !== 1) return;
+      const el = e.target.closest?.("[data-href]");
+      if (!el) return;
+      e.preventDefault();
+      shGo(el.getAttribute("data-href"), true);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const el = document.activeElement?.closest?.("[data-href]");
+      if (!el) return;
+      e.preventDefault();
+      shGo(el.getAttribute("data-href"), e.ctrlKey || e.metaKey);
+    });
+
+    sidebar.querySelectorAll(".uzum-nav-item[href]").forEach(shSilence);
+
+    // The top bar is server-rendered, so it's silenced here rather than at
+    // build time. Its icon-only buttons keep a tooltip — they have no label to
+    // duplicate — while the ones that already show their text just lose the
+    // `title` outright.
+    document.querySelectorAll(".pp-topbar a[href], .pp-tb-dd a[href]").forEach(shSilence);
+    document.querySelectorAll(".pp-topbar [title], .pp-tb-dd [title]").forEach((el) => {
+      const label = el.getAttribute("title");
+      el.removeAttribute("title");
+      if (!el.textContent.trim()) {
+        el.setAttribute("data-sh-tip", label);
+        el.setAttribute("data-sh-tip-pos", "bottom");
+      }
+    });
 
     // ── Mobile off-canvas drawer ──
     const _mq = window.matchMedia("(max-width: 768px)");

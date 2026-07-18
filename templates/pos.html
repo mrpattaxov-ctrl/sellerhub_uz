@@ -1,146 +1,1466 @@
 {% extends "base.html" %}
+{% set lang = session.get('lang', 'uz') %}
+{% set is_uz = (lang == 'uz') %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="/static/pos.css?v=2">
+<style>
+/* ═══ Склад: приёмка и продажа — «Складские расходы»/«План закупки» bilan bir tilda (ps- prefiksi) ═══ */
+[data-bs-theme="light"] .ps-page, .ps-page {
+  --ps-surface:#FFFFFF;
+  --ps-border:#ECECF0;
+  --ps-border-strong:#E0DFE6;
+  --ps-text:#1A1A22;
+  --ps-text-2:#5A5762;
+  --ps-text-muted:#8E8B97;
+  --ps-active-bg:#EFEEF2;
+  --ps-mono-pill-bg:#F4F4F7;
+  --ps-mono-pill-text:#3A3744;
+  --ps-hover:#F8F8FA;
+  --ps-head-bg:#F9F9FB;
+  --ps-shadow-pop:0 12px 36px rgba(20,16,40,.12), 0 2px 6px rgba(20,16,40,.06);
+  --ps-shadow-bar:0 -2px 24px rgba(20,16,40,.10);
+  /* Sahifaning YURAGI: ikki yo'nalish. Qabul — o'sish, sotuv — kamayish. */
+  --ps-in-bg:#E7F6EE;  --ps-in-fg:#2E9E63;  --ps-in-solid:#2E9E63;
+  --ps-out-bg:#FCEAEA; --ps-out-fg:#C93B3B; --ps-out-solid:#C93B3B;
+  --ps-focus-ring:rgba(26,26,34,.06);
+  --ps-brand:#4169E1; --ps-brand-soft:#EAEFFB;
+}
+[data-bs-theme="dark"] .ps-page {
+  --ps-surface:#18181F;
+  --ps-border:#25252F;
+  --ps-border-strong:#2E2E3A;
+  --ps-text:#F0EDF5;
+  --ps-text-2:#B6B4C2;
+  --ps-text-muted:#8A8896;
+  --ps-active-bg:#22222D;
+  --ps-mono-pill-bg:#101018;
+  --ps-mono-pill-text:#D7D4DF;
+  --ps-hover:#1C1C26;
+  --ps-head-bg:#1B1B23;
+  --ps-shadow-pop:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  --ps-shadow-bar:0 -2px 28px rgba(0,0,0,.5);
+  --ps-in-bg:rgba(52,211,153,.14);  --ps-in-fg:#6EE7B7;  --ps-in-solid:#2E9E63;
+  --ps-out-bg:rgba(252,165,165,.16); --ps-out-fg:#FCA5A5; --ps-out-solid:#C93B3B;
+  --ps-focus-ring:rgba(255,255,255,.10);
+  --ps-brand:#7C9BF0; --ps-brand-soft:rgba(99,102,241,.16);
+}
+
+.ps-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--ps-text); padding-bottom:96px; }
+
+.ps-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+.ps-title-row { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:18px; }
+
+/* ── Ombor ko'rsatkichlari — Claude Design «Stat Card Variations» 1c (tinted
+   blocks), «Складские расходы» sahifаsi bilan bir xил. Uch rangли triada:
+   ko'k (soni) · oltin (SKU) · yashил (qoldiq). Manrope, raqамдан keyин birlиk.
+   Tokenized light+dark. */
+.ps-stats { display:flex; align-items:stretch; gap:14px; flex-wrap:wrap; }
+.ps-stat { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:196px;
+  padding:15px 24px; border-radius:18px;
+  background:var(--ps-stat-bg); border:1px solid var(--ps-stat-bd); }
+.ps-stat-txt { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.ps-stat-lbl { font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:11px; font-weight:700; line-height:1; text-transform:uppercase; letter-spacing:1.4px;
+  color:var(--ps-stat-lbl); white-space:nowrap; }
+.ps-stat-val { display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap;
+  font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size:36px; font-weight:800; line-height:1; letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums; color:var(--ps-stat-fg); }
+.ps-stat-unit { font-size:15px; font-weight:700; letter-spacing:.2px;
+  color:var(--ps-stat-fg); /* fallback */
+  color:color-mix(in srgb, var(--ps-stat-fg) 78%, #fff); }
+/* Uch rangли triada — och (light). Товары→ko'k · SKU→oltin · Qoldiq→yashил. */
+.ps-stat--blue  { --ps-stat-bg:#EEF0FF; --ps-stat-bd:rgba(59,91,254,.12); --ps-stat-fg:#3B5BFE; --ps-stat-lbl:#191A1E; }
+.ps-stat--gold  { --ps-stat-bg:#FBF3DA; --ps-stat-bd:rgba(181,133,28,.18); --ps-stat-fg:#B5851C; --ps-stat-lbl:#191A1E; }
+.ps-stat--green { --ps-stat-bg:#E7F6EC; --ps-stat-bd:rgba(30,158,87,.20);  --ps-stat-fg:#1E9E57; --ps-stat-lbl:#191A1E; }
+[data-bs-theme="dark"] .ps-stat--blue  { --ps-stat-bg:rgba(59,91,254,.14); --ps-stat-bd:rgba(99,130,255,.22); --ps-stat-fg:#7C9BF0; --ps-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .ps-stat--gold  { --ps-stat-bg:rgba(212,160,55,.15); --ps-stat-bd:rgba(224,190,110,.24); --ps-stat-fg:#E3C15A; --ps-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .ps-stat--green { --ps-stat-bg:rgba(30,158,87,.16);  --ps-stat-bd:rgba(110,231,183,.24); --ps-stat-fg:#5FD09A; --ps-stat-lbl:#F0EDF5; }
+
+/* ── Filtrlar ── */
+.ps-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.ps-search { flex:1 1 300px; max-width:380px; height:44px; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:14px; transition:border-color .15s, box-shadow .15s; }
+.ps-search:focus-within { border-color:var(--ps-text-2); box-shadow:0 0 0 4px var(--ps-focus-ring); }
+.ps-search svg { color:var(--ps-text-muted); width:16px; height:16px; flex:none; }
+.ps-search input { border:0; outline:0; background:transparent; width:100%; font-size:14px; color:var(--ps-text); font-family:inherit; }
+.ps-search input::placeholder { color:var(--ps-text-muted); }
+
+.ps-picker { position:relative; }
+.ps-picker-btn { height:44px; display:flex; align-items:center; gap:9px; padding:0 14px; background:var(--ps-surface);
+  border:1px solid var(--ps-border); border-radius:14px; font-size:14px; font-weight:600; color:var(--ps-text);
+  cursor:pointer; font-family:inherit; }
+.ps-picker-btn:hover { border-color:var(--ps-border-strong); }
+.ps-picker-menu { position:absolute; top:calc(100% + 6px); left:0; min-width:210px; z-index:40; padding:6px;
+  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:14px; box-shadow:var(--ps-shadow-pop); display:none; }
+.ps-picker.is-open .ps-picker-menu { display:block; }
+.ps-picker-item { padding:10px 12px; border-radius:10px; font-size:14px; font-weight:600; color:var(--ps-text); cursor:pointer; }
+.ps-picker-item:hover { background:var(--ps-hover); }
+.ps-picker-item.is-active { background:var(--ps-active-bg); }
+
+.ps-spacer { flex:1 1 auto; }
+
+.ps-ghost-btn { height:44px; display:flex; align-items:center; gap:8px; padding:0 14px; background:var(--ps-surface);
+  border:1px solid var(--ps-border); border-radius:14px; font-size:14px; font-weight:600; color:var(--ps-text);
+  cursor:pointer; font-family:inherit; white-space:nowrap; }
+.ps-ghost-btn:hover { border-color:var(--ps-border-strong); }
+.ps-ghost-btn:disabled { opacity:.55; cursor:default; }
+.ps-ghost-btn svg { width:16px; height:16px; color:var(--ps-text-muted); flex:none; }
+
+/* ── Jadval ── (План закупки'daги retsept: hech qayerda overflow yo'q → sarlavha
+   sahifaga yopishadi. Burchaklar chekka kataklarга radius berib hosil qilinadi.) */
+.ps-card { background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:16px; }
+.ps-tablewrap { }
+.ps-table { width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.ps-table thead th { position:sticky; top:64px; z-index:5; background:var(--ps-head-bg); text-align:left;
+  padding:14px 11px; font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ps-text); border-bottom:1px solid var(--ps-border-strong); white-space:nowrap;
+  box-shadow:0 1px 0 var(--ps-border-strong); }
+.ps-table th.ps-num, .ps-table td.ps-num { text-align:right; }
+.ps-table td { padding:12px 11px; border-bottom:1px solid var(--ps-border); vertical-align:middle; }
+.ps-table tbody tr:last-child td { border-bottom:0; }
+.ps-table tbody tr:last-child td:first-child { border-bottom-left-radius:16px; }
+.ps-table tbody tr:last-child td:last-child  { border-bottom-right-radius:16px; }
+
+.ps-table th.c-img { width:56px; }
+.ps-table th.c-wh  { width:104px; }
+.ps-table th.c-qty { width:132px; }
+.ps-table th.c-res { width:124px; }
+
+.ps-grow { cursor:pointer; transition:background .12s; }
+.ps-grow:hover { background:var(--ps-hover); }
+.ps-grow.has-pending { background:var(--ps-hover); }
+.ps-vrow { background:var(--ps-head-bg); }
+.ps-vrow td { padding-top:9px; padding-bottom:9px; }
+
+.ps-thumb { width:46px; height:46px; border-radius:10px; overflow:hidden; background:var(--ps-active-bg);
+  display:flex; align-items:center; justify-content:center; flex:none; border:1px solid var(--ps-border); }
+.ps-thumb img { width:100%; height:100%; object-fit:cover; }
+.ps-thumb-empty { color:var(--ps-text-muted); font-size:13px; }
+/* Summary-row image fills the row height and stays square (as tall as the line).
+   The variant thumb (inside the name cell) keeps its small fixed size. */
+.ps-grow > td.c-img { height:1px; padding-top:8px; padding-bottom:8px; }
+.ps-grow > td.c-img .ps-thumb { width:auto; height:100%; min-height:46px; aspect-ratio:1/1; margin:0 auto; }
+/* Hover-zoom image preview (position:fixed so it escapes table overflow) */
+.ps-thumb[data-zoom-src] { cursor:zoom-in; }
+.ps-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--ps-surface); border:1px solid var(--ps-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.ps-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.ps-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .ps-zoom-preview { display:none; } }
+
+.ps-lead { display:flex; align-items:center; gap:10px; min-width:0; }
+.ps-chev { flex:none; width:16px; height:16px; color:var(--ps-text-muted); transition:transform .16s ease; }
+.ps-grow.is-open .ps-chev { transform:rotate(90deg); }
+.ps-info { min-width:0; flex:1 1 auto; }
+.ps-name { font-size:14px; font-weight:600; color:var(--ps-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ps-tags { display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap; }
+.ps-pill { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; white-space:nowrap;
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--ps-mono-pill-bg); color:var(--ps-mono-pill-text); }
+.ps-vcount { font-size:11px; font-weight:600; color:var(--ps-text-muted); }
+
+.ps-n { font-size:14px; font-weight:400; color:var(--ps-text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ps-n-soft { color:var(--ps-text-muted); }
+
+/* ═══ IMZO: «bo'ladi» ustuni ═══════════════════════════════════════════════
+   Miqdorni yozganда qator DARHOL natijani ko'rsatади: 12 → 17 (yashil, qabul)
+   yoki 12 → 7 (qizil, sotuv). Ya'ni tugmani bosishдан OLDIN nima bo'lishини
+   ko'rasiz. Aynan shu «sotuv o'rniga qabul» xatosини oldini oladi. */
+.ps-qty-input { width:100%; height:38px; padding:0 10px; text-align:right; font-size:14px; font-weight:600;
+  font-variant-numeric:tabular-nums; font-family:inherit; color:var(--ps-text);
+  background:var(--ps-surface); border:1px solid var(--ps-border-strong); border-radius:10px; outline:0;
+  transition:border-color .12s, box-shadow .12s, background .12s; -moz-appearance:textfield; }
+.ps-qty-input::-webkit-outer-spin-button, .ps-qty-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.ps-qty-input::placeholder { color:var(--ps-text-muted); font-weight:400; }
+.ps-qty-input:focus { border-color:var(--ps-text-2); box-shadow:0 0 0 4px var(--ps-focus-ring); }
+.ps-page[data-mode="stock_in"] .ps-qty-input.has-val { border-color:var(--ps-in-solid); background:var(--ps-in-bg); color:var(--ps-in-fg); }
+.ps-page[data-mode="sale"]     .ps-qty-input.has-val { border-color:var(--ps-out-solid); background:var(--ps-out-bg); color:var(--ps-out-fg); }
+
+.ps-res { display:inline-flex; align-items:center; gap:6px; font-size:14px; font-variant-numeric:tabular-nums;
+  white-space:nowrap; color:var(--ps-text-muted); font-weight:400; }
+.ps-res-arrow { opacity:.55; }
+.ps-res b { font-weight:600; }
+.ps-res.is-in b  { color:var(--ps-in-fg); }
+.ps-res.is-out b { color:var(--ps-out-fg); }
+/* Sotuv omborда bordan ko'p — qoldiq 0'да to'xtaydi (server ham shunday qiladi).
+   Yashirmaymiz: raqamni ko'rsatib, ogohlantiramiz. */
+.ps-res.is-clamp { color:var(--ps-out-fg); }
+.ps-res.is-clamp b { color:var(--ps-out-fg); }
+.ps-warn-dot { width:5px; height:5px; border-radius:99px; background:var(--ps-out-solid); flex:none; }
+
+.ps-delta { display:inline-block; min-width:44px; padding:4px 9px; border-radius:8px; font-size:13px; font-weight:600;
+  font-variant-numeric:tabular-nums; text-align:right; }
+.ps-delta.is-in  { background:var(--ps-in-bg);  color:var(--ps-in-fg); }
+.ps-delta.is-out { background:var(--ps-out-bg); color:var(--ps-out-fg); }
+
+.ps-msg { padding:64px 24px; text-align:center; color:var(--ps-text-muted); font-size:14px; font-weight:600; }
+.ps-msg-big { font-size:16px; font-weight:700; color:var(--ps-text); margin-bottom:6px; }
+
+/* ── Amal paneli: rejim + tasdiq. Faqat kutilayotgan miqdor bo'lganда chiqadi ── */
+.ps-bar { position:fixed; left:0; right:0; bottom:0; z-index:60; display:flex; justify-content:center;
+  padding:14px 16px calc(14px + env(safe-area-inset-bottom)); pointer-events:none;
+  transform:translateY(120%); transition:transform .22s cubic-bezier(.2,.7,.3,1); }
+.ps-bar.is-up { transform:translateY(0); }
+.ps-bar-inner { pointer-events:auto; display:flex; align-items:center; gap:15px; flex-wrap:wrap;
+  padding:13px 13px 13px 16px; background:var(--ps-surface); border:1px solid var(--ps-border-strong);
+  border-radius:20px; box-shadow:var(--ps-shadow-bar); max-width:100%; }
+
+/* Rejim: QABUL — BIRINCHI va sukut bo'yicha. Sotuv — ikkinchi, kamaytiruvchi
+   amal bo'lgani uchun uni ATAYIN qizил qilamiz: adashиб bosиб bo'lmaydi. */
+.ps-modes { display:flex; align-items:center; gap:4px; padding:4px; background:var(--ps-head-bg);
+  border:1px solid var(--ps-border); border-radius:12px; flex:none; }
+.ps-mode { border:0; background:none; border-radius:9px; padding:8px 13px; font-size:13px; font-weight:700;
+  color:var(--ps-text-muted); cursor:pointer; font-family:inherit; white-space:nowrap; display:flex; align-items:center; gap:6px;
+  transition:background .12s, color .12s; }
+.ps-mode svg { width:14px; height:14px; }
+.ps-mode:hover { color:var(--ps-text); }
+.ps-mode[data-mode="stock_in"].is-active { background:var(--ps-in-solid); color:#fff; }
+.ps-mode[data-mode="sale"].is-active     { background:var(--ps-out-solid); color:#fff; }
+
+.ps-bar-sum { font-size:13px; color:var(--ps-text-muted); font-weight:600; white-space:nowrap; }
+.ps-bar-sum b { color:var(--ps-text); font-weight:700; font-variant-numeric:tabular-nums; }
+
+.ps-reset { border:0; background:none; padding:8px 10px; border-radius:10px; font-size:13px; font-weight:600;
+  color:var(--ps-text-muted); cursor:pointer; font-family:inherit; white-space:nowrap; }
+.ps-reset:hover { background:var(--ps-hover); color:var(--ps-text); }
+
+.ps-commit { border:0; border-radius:14px; padding:0 26px; height:50px; font-size:15px; font-weight:700; color:#fff;
+  cursor:pointer; font-family:inherit; white-space:nowrap; transition:filter .12s, box-shadow .12s; }
+.ps-commit:hover { filter:brightness(1.06); }
+.ps-commit:disabled { opacity:.6; cursor:default; }
+.ps-page[data-mode="stock_in"] .ps-commit { background:var(--ps-in-solid); box-shadow:0 6px 16px rgba(46,158,99,.28); }
+.ps-page[data-mode="sale"]     .ps-commit { background:var(--ps-out-solid); box-shadow:0 6px 16px rgba(201,59,59,.28); }
+.ps-commit:disabled { box-shadow:none; }
+
+/* «Ko'rish» — qo'shilganlar oynasини ochадi. Bosh amal (yashil) bilan aralashиб
+   ketмаслиги uchun ULAR orasида ajratгич chiziq va biroз bo'shlиq. */
+.ps-preview-btn { border:1px solid var(--ps-border-strong); background:var(--ps-surface); border-radius:12px;
+  height:44px; padding:0 15px; display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600;
+  color:var(--ps-text-2); cursor:pointer; font-family:inherit; white-space:nowrap;
+  transition:background .12s, border-color .12s, color .12s; }
+.ps-preview-btn:hover { background:var(--ps-hover); border-color:var(--ps-text-muted); color:var(--ps-text); }
+.ps-preview-btn svg { width:16px; height:16px; color:var(--ps-text-muted); flex:none; }
+.ps-preview-btn:hover svg { color:var(--ps-text-2); }
+.ps-bar-div { width:1px; height:30px; background:var(--ps-border-strong); flex:none; margin:0 4px; border-radius:1px; }
+
+/* ── Tarix: o'ng tomondan chiqadigan panel ── */
+.ps-scrim { position:fixed; inset:0; z-index:1086; background:rgba(16,14,26,.42); opacity:0; visibility:hidden;
+  transition:opacity .2s, visibility .2s; }
+.ps-scrim.is-open { opacity:1; visibility:visible; }
+.ps-drawer { position:fixed; top:0; right:0; bottom:0; z-index:1088; width:min(420px, 100vw);
+  display:flex; flex-direction:column; background:var(--ps-surface); border-left:1px solid var(--ps-border);
+  transform:translateX(100%); transition:transform .24s cubic-bezier(.2,.7,.3,1); }
+.ps-drawer.is-open { transform:translateX(0); }
+.ps-drawer-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex:none;
+  padding:18px 18px 14px; border-bottom:1px solid var(--ps-border); }
+.ps-drawer-head h2 { margin:0; font-size:17px; font-weight:700; letter-spacing:-.01em; }
+.ps-drawer-head p { margin:3px 0 0; font-size:12px; color:var(--ps-text-muted); }
+.ps-x { border:0; background:none; width:34px; height:34px; border-radius:10px; flex:none; cursor:pointer;
+  color:var(--ps-text-muted); display:flex; align-items:center; justify-content:center; }
+.ps-x:hover { background:var(--ps-hover); color:var(--ps-text); }
+.ps-drawer-body { flex:1 1 auto; overflow-y:auto; padding:12px 14px 24px; }
+
+.ps-ev { border:1px solid var(--ps-border); border-radius:14px; padding:12px 13px; margin-bottom:10px; }
+.ps-ev.is-reverted { opacity:.55; }
+.ps-ev-head { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+.ps-ev-tag { font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; white-space:nowrap; }
+.ps-ev-tag.is-in  { background:var(--ps-in-bg);  color:var(--ps-in-fg); }
+.ps-ev-tag.is-out { background:var(--ps-out-bg); color:var(--ps-out-fg); }
+.ps-ev-qty { font-size:13px; font-weight:600; color:var(--ps-text); font-variant-numeric:tabular-nums; }
+.ps-ev-time { margin-left:auto; font-size:11px; color:var(--ps-text-muted); font-variant-numeric:tabular-nums; }
+.ps-ev-line { display:flex; align-items:baseline; gap:8px; padding:4px 0; font-size:12px; }
+.ps-ev-line-name { color:var(--ps-text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; }
+.ps-ev-line-sku { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--ps-text-muted); font-size:11px; flex:none; }
+.ps-ev-line-qty { font-variant-numeric:tabular-nums; color:var(--ps-text-muted); flex:none; }
+.ps-ev-foot { display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--ps-border); }
+.ps-undo { border:1px solid var(--ps-border-strong); background:var(--ps-surface); border-radius:10px; padding:7px 12px;
+  font-size:12px; font-weight:700; color:var(--ps-text); cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; }
+.ps-undo:hover { background:var(--ps-hover); }
+.ps-undo svg { width:13px; height:13px; }
+.ps-reverted { font-size:11px; font-weight:700; color:var(--ps-text-muted); }
+
+/* ── Modal: Uzum накладнойи ── */
+/* Sidebar (.uzum-sidebar) z-index:1050, uning tooltip qatlami 1080 — modalлар
+   ALARDAN yuqori bo'lsин, aks holда fon xiralаshса ham menyu yoriq qolади. */
+.ps-modal { position:fixed; inset:0; z-index:1090; display:none; align-items:center; justify-content:center; padding:20px;
+  background:rgba(16,14,26,.42); }
+.ps-modal.is-open { display:flex; }
+.ps-modal-box { width:min(420px,100%); background:var(--ps-surface); border:1px solid var(--ps-border);
+  border-radius:18px; box-shadow:var(--ps-shadow-pop); padding:20px; }
+.ps-modal-box h2 { margin:0 0 4px; font-size:17px; font-weight:700; }
+.ps-modal-box p { margin:0 0 16px; font-size:12px; color:var(--ps-text-muted); }
+.ps-field { margin-bottom:12px; }
+.ps-field label { display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:var(--ps-text-2); }
+.ps-field select, .ps-field input { width:100%; height:42px; padding:0 12px; font-size:14px; font-family:inherit;
+  color:var(--ps-text); background:var(--ps-surface); border:1px solid var(--ps-border-strong); border-radius:11px; outline:0; }
+.ps-field select:focus, .ps-field input:focus { border-color:var(--ps-text-2); box-shadow:0 0 0 4px var(--ps-focus-ring); }
+.ps-modal-foot { display:flex; gap:8px; margin-top:16px; }
+.ps-modal-foot .ps-commit { flex:1 1 auto; background:var(--ps-text); }
+
+/* Savat qoralamаси dialogи — «Aksiyalar»/«Поставки» wizardдагi «Черновик восстановлен»
+   kartаси bilan bir shaklда, ps- palitrasида. Markazlashган: ikоnка, sarlavha, xulosа. */
+.ps-draft-box { text-align:center; }
+.ps-draft-ic { width:52px; height:52px; margin:2px auto 14px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; background:var(--ps-active-bg); color:var(--ps-text-2); }
+.ps-draft-ic svg { width:26px; height:26px; }
+.ps-draft-box h2 { margin:0 0 6px; font-size:18px; }
+.ps-draft-box p { margin:0 0 14px; font-size:13px; line-height:1.5; color:var(--ps-text-2); }
+.ps-draft-sum { display:inline-flex; gap:6px; margin:0 auto 4px; padding:7px 14px; border-radius:11px;
+  background:var(--ps-active-bg); font-size:13px; color:var(--ps-text-2); font-variant-numeric:tabular-nums; }
+.ps-draft-sum b { color:var(--ps-text); font-weight:800; }
+.ps-draft-box .ps-modal-foot { margin-top:20px; gap:10px; }
+/* Ikkиламчи «Boshidan boshlash» — kontur tugmа (ghost). Kenglиги matnга qarab. */
+.ps-draft-drop { height:48px; padding:0 18px; font-weight:600; flex:none; }
+/* Birlамчи «Davom etish» — TO'LA tugmа. Fon = --ps-text (qоронg'i), matn =
+   --ps-surface: ikки temada ham TESKARI, ya'ni har doim kontrast bo'ladi
+   (ilгари matn rangi qo'yилмагани uchun qоронg'ида qоронg'и chiqиб ko'rinмаган). */
+.ps-draft-keep { flex:1 1 auto; height:48px; border:0; border-radius:12px; background:var(--ps-text);
+  color:var(--ps-surface); font-size:14.5px; font-weight:700; letter-spacing:.01em; cursor:pointer;
+  font-family:inherit; box-shadow:0 6px 16px rgba(20,16,40,.16); transition:filter .12s, box-shadow .12s; }
+.ps-draft-keep:hover { filter:brightness(1.12); }
+.ps-draft-keep:focus-visible { outline:2px solid var(--ps-brand); outline-offset:2px; }
+/* «Savatni tozalash?» tasdiqи — buzuvchi amal, shuning uchun ikonка va tasdiq
+   tugmаси QIЗИЛ (--ps-out). Sukut fokusi «Bekor»да. */
+.ps-draft-ic.is-danger { background:var(--ps-out-bg); color:var(--ps-out-solid); }
+.ps-danger-btn { flex:1 1 auto; height:48px; border:0; border-radius:12px; background:var(--ps-out-solid); color:#fff;
+  font-size:14.5px; font-weight:700; letter-spacing:.01em; cursor:pointer; font-family:inherit;
+  box-shadow:0 6px 16px rgba(201,59,59,.24); transition:filter .12s; }
+.ps-danger-btn:hover { filter:brightness(1.06); }
+.ps-danger-btn:focus-visible { outline:2px solid var(--ps-out-solid); outline-offset:2px; }
+
+/* ── «Qo'shilgan mahsulotlar» ko'rinishi — «Товары для поставки» uslubида.
+   Rejим bo'yicha AJRALADI: qabulда yashил, sotuvда qizил urg'u. ── */
+.ps-pv-box { width:min(600px,100%); padding:0; overflow:hidden; display:flex; flex-direction:column;
+  max-height:min(80vh,760px); }
+.ps-pv-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:22px 24px 16px; flex:none; }
+.ps-pv-eyebrow { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; padding:4px 10px; border-radius:8px; margin:0 0 9px; }
+.ps-pv-eyebrow i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.ps-page[data-mode="stock_in"] .ps-pv-eyebrow { background:var(--ps-in-bg); color:var(--ps-in-fg); }
+.ps-page[data-mode="sale"]     .ps-pv-eyebrow { background:var(--ps-out-bg); color:var(--ps-out-fg); }
+.ps-pv-head h2 { margin:0; font-size:20px; font-weight:800; letter-spacing:-.01em; line-height:1.15; }
+.ps-pv-x { border-radius:50%; border:1px solid var(--ps-border); width:36px; height:36px; margin-top:2px; }
+.ps-pv-list { overflow-y:auto; padding:2px 16px; flex:1 1 auto; }
+.ps-pv-row { display:flex; align-items:center; gap:14px; padding:14px 8px; }
+.ps-pv-row:not(:last-child) { border-bottom:1px solid var(--ps-border); }
+.ps-pv-thumb { width:56px; height:56px; flex:none; border-radius:14px; overflow:hidden; background:var(--ps-head-bg);
+  border:1px solid var(--ps-border); display:flex; align-items:center; justify-content:center; }
+.ps-pv-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.ps-pv-thumb span { color:var(--ps-text-muted); font-size:18px; }
+.ps-pv-info { flex:1 1 auto; min-width:0; }
+.ps-pv-name { font-size:14.5px; font-weight:600; color:var(--ps-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ps-pv-sub { margin-top:3px; font-size:12px; color:var(--ps-text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ps-pv-res { flex:none; }
+.ps-pv-qtywrap { flex:none; display:inline-flex; align-items:center; gap:7px; }
+.ps-pv-qty { width:66px; height:42px; text-align:center; font-size:14px; font-weight:700; border:1px solid var(--ps-border-strong);
+  border-radius:11px; background:var(--ps-surface); color:var(--ps-text); outline:0; font-family:inherit; -moz-appearance:textfield; }
+.ps-pv-qty::-webkit-outer-spin-button, .ps-pv-qty::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.ps-pv-qty:focus { border-color:var(--ps-text-2); box-shadow:0 0 0 4px var(--ps-focus-ring); }
+.ps-page[data-mode="stock_in"] .ps-pv-qty { border-color:var(--ps-in-solid); background:var(--ps-in-bg); color:var(--ps-in-fg); }
+.ps-page[data-mode="sale"]     .ps-pv-qty { border-color:var(--ps-out-solid); background:var(--ps-out-bg); color:var(--ps-out-fg); }
+.ps-pv-unit { font-size:12px; color:var(--ps-text-muted); font-weight:600; }
+.ps-pv-del { flex:none; width:40px; height:40px; border:0; background:none; border-radius:11px; color:var(--ps-text-muted);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s, color .12s; }
+.ps-pv-del:hover { background:var(--ps-out-bg); color:var(--ps-out-fg); }
+.ps-pv-del svg { width:18px; height:18px; }
+.ps-pv-foot { display:flex; align-items:center; gap:10px; padding:16px 24px 20px; border-top:1px solid var(--ps-border); flex:none; }
+.ps-pv-total { font-size:13px; color:var(--ps-text-muted); font-weight:600; margin-right:auto; white-space:nowrap; }
+.ps-pv-total b { color:var(--ps-text); font-weight:800; font-variant-numeric:tabular-nums; }
+.ps-pv-back { height:48px; padding:0 20px; border:1px solid var(--ps-border-strong); background:var(--ps-surface);
+  border-radius:12px; font-size:14px; font-weight:600; color:var(--ps-text-2); cursor:pointer; font-family:inherit; white-space:nowrap; }
+.ps-pv-back:hover { background:var(--ps-hover); color:var(--ps-text); }
+.ps-pv-foot .ps-commit { height:48px; }
+
+/* ── Toast ── */
+.ps-toasts { position:fixed; top:78px; right:18px; z-index:1100; display:flex; flex-direction:column; gap:8px; }
+.ps-toast { padding:11px 15px; border-radius:12px; font-size:13px; font-weight:600; color:#fff;
+  box-shadow:var(--ps-shadow-pop); animation:ps-pop .22s cubic-bezier(.2,.7,.3,1); max-width:320px; }
+.ps-toast.is-ok  { background:var(--ps-in-solid); }
+.ps-toast.is-err { background:var(--ps-out-solid); }
+@keyframes ps-pop { from { opacity:0; transform:translateY(-8px); } }
+
+@media (prefers-reduced-motion:reduce) {
+  .ps-bar, .ps-drawer, .ps-scrim, .ps-chev { transition:none; }
+  .ps-toast { animation:none; }
+}
+
+@media (max-width:900px) {
+  .ps-h1 { font-size:23px; }
+  .ps-search { flex:1 1 100%; max-width:none; }
+  .ps-spacer { display:none; }
+  /* Sarlavha bilan bir qatorга sig'maydi — panel to'lиq enда, sarlavha ostiда. */
+  .ps-title-row { align-items:flex-start; }
+  .ps-stats { width:100%; }
+  .ps-stat { flex:1 1 auto; }
+}
+@media (max-width:560px) {
+  /* Tor ekranда: kartалар ustma-ust, to'lиq enда. */
+  .ps-stats { flex-direction:column; }
+  .ps-stat { width:100%; padding:16px 20px; }
+  .ps-stat-val { font-size:30px; }
+}
+/* 769–820px: joy tor, «Bo'ladi» ustuni ketadi — uning ma'nosi maydon rangida ham bor. */
+@media (min-width:769px) and (max-width:820px) { .ps-table .c-res { display:none; } }
+
+/* ≤768px: ustunlarni siqиб bo'lmaydi — nom va SKU raqam ustunlari ustiga chiqиб
+   ketadi. Shuning uchun «План закупки»даги retsept: jadval O'Z ICHIDA yon tomonga
+   scroll bo'ladi, ustunlar to'lиq qoladi. Sticky sarlavha bu yerда tabiiy ravishда
+   yo'qoladi — nested vertikal scroll pastдаги amal panelи bilan urishиб ketardi. */
+@media (max-width:768px) {
+  .ps-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:16px; }
+  .ps-table { min-width:680px; }
+  .ps-table thead th { position:static; }
+  .ps-table .c-res { display:table-cell; }
+}
+@media (max-width:560px) {
+  .ps-page { padding-bottom:180px; }
+  .ps-bar-inner { width:100%; gap:10px; padding:10px; }
+  .ps-modes { flex:1 1 100%; }
+  .ps-mode { flex:1 1 0; justify-content:center; }
+  .ps-bar-sum { flex:1 1 auto; }
+  .ps-bar-div { display:none; }
+  .ps-preview-btn { flex:1 1 auto; justify-content:center; }
+  .ps-commit { flex:1 1 100%; justify-content:center; display:flex; align-items:center; }
+  .ps-pv-res { display:none; }
+  .ps-pv-name { white-space:normal; }
+  .ps-pv-foot { flex-wrap:wrap; }
+  .ps-pv-total { flex:1 1 100%; margin:0 0 4px; }
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="pos-shell">
-  <section class="pos-panel">
-    <div class="pos-card pos-results-wrap">
-      <div class="pos-toolbar">
-        <label class="pos-search-bar flex-fill mb-0" for="posSearch">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-          <input id="posSearch" type="text" placeholder="{{ t.pos_search_placeholder }}" autocomplete="off" autofocus>
-        </label>
-        <button class="pos-toolbar-btn" type="button" data-bs-toggle="modal" data-bs-target="#invoiceModal">{{ t.pos_invoices_btn }}</button>
+<div class="ps-page" id="psPage" data-mode="stock_in">
+  <div class="ps-title-row">
+    <h1 class="ps-h1">{{ 'Ombor: qabul va sotuv' if is_uz else 'Склад: приёмка и продажа' }}</h1>
+
+    <div class="ps-stats" id="psStats" aria-live="polite">
+      <div class="ps-stat ps-stat--blue">
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="ps-stat-val"><span id="psStProducts">—</span><span class="ps-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
+        </span>
       </div>
-
-      <div id="posResults" class="pos-product-grid"></div>
-    </div>
-  </section>
-
-  <aside class="pos-panel">
-    <div class="pos-card pos-cart">
-      <div class="pos-cart-header">
-        <div class="pos-mode-toggle" role="radiogroup" aria-label="{{ t.pos_mode_label }}">
-          <input type="radio" id="modeSale" name="posMode" value="sale" checked>
-          <label for="modeSale">{{ t.pos_mode_sale_label }}</label>
-          <input type="radio" id="modeStockIn" name="posMode" value="stock_in">
-          <label for="modeStockIn">{{ t.pos_mode_stock_in }}</label>
-        </div>
-
-        <div class="pos-cart-title">
-          <h5>{{ t.pos_cart }}</h5>
-          <span id="cartCount" class="pos-count-badge">0</span>
-        </div>
+      <div class="ps-stat ps-stat--gold">
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">SKU</span>
+          <span class="ps-stat-val"><span id="psStSkus">—</span></span>
+        </span>
       </div>
-
-      <div id="cartContainer" class="pos-cart-list"></div>
-
-      <div class="pos-action-footer">
-        <div class="pos-action-summary">
-          <span>{{ t.pos_total_items }}</span>
-          <strong id="totalQty">0</strong>
-        </div>
-        <button id="btnCheckout" class="pos-primary-btn" type="button" disabled>{{ t.pos_confirm_btn }}</button>
-      </div>
-    </div>
-
-    <div class="pos-card pos-history-panel">
-      <div class="pos-cart-title">
-        <h5>{{ t.pos_history_title }}</h5>
-      </div>
-      <div id="posHistory" class="pos-history-list"></div>
-    </div>
-  </aside>
-</div>
-
-<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content pos-modal">
-      <div class="modal-header">
-        <h5 class="modal-title">{{ t.pos_invoice_modal_title }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t.nav_close }}"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label" for="invoiceShopSelect">{{ t.common_shop }}</label>
-          <select id="invoiceShopSelect" class="form-select"></select>
-        </div>
-        <div class="mb-0">
-          <label class="form-label" for="invoiceIdInput">{{ t.pos_invoice_id_label }}</label>
-          <input id="invoiceIdInput" class="form-control" placeholder="{{ t.pos_invoice_id_placeholder }}">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="btnFetchInvoice" type="button" class="btn btn-dark w-100">{{ t.pos_load_btn }}</button>
+      <div class="ps-stat ps-stat--green">
+        <span class="ps-stat-txt">
+          <span class="ps-stat-lbl">{{ 'Omborda' if is_uz else 'На складе' }}</span>
+          <span class="ps-stat-val"><span id="psStStock">—</span><span class="ps-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
+        </span>
       </div>
     </div>
   </div>
+
+  <div class="ps-filter-row">
+    <label class="ps-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="psSearch" type="search" autocomplete="off" spellcheck="false" autofocus
+             placeholder="{{ 'Nomi, SKU yoki shtrix-kod…' if is_uz else 'Название, SKU или штрихкод…' }}">
+    </label>
+
+    {% if shops | length > 1 %}
+    <div class="ps-picker" id="psShopPicker">
+      <button class="ps-picker-btn" type="button" id="psShopBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span id="psShopLabel">{{ 'Barcha do‘konlar' if is_uz else 'Все магазины' }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="ps-picker-menu">
+        <div class="ps-picker-item is-active" data-shop="all">{{ 'Barcha do‘konlar' if is_uz else 'Все магазины' }}</div>
+        {% for s in shops %}
+        <div class="ps-picker-item" data-shop="{{ s.uzum_id }}">{{ s.name or s.uzum_id }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="ps-spacer"></div>
+
+    <input type="file" id="psImportFile" accept=".xlsx" hidden>
+    <button class="ps-ghost-btn" type="button" id="psExportBtn"
+            title="{{ 'Qoldiqlarni Excel’ga chiqarish' if is_uz else 'Выгрузить остатки в Excel' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      {{ 'Eksport' if is_uz else 'Экспорт' }}
+    </button>
+    <button class="ps-ghost-btn" type="button" id="psImportBtn"
+            title="{{ 'Qoldiqlarni Excel’dan yuklash' if is_uz else 'Загрузить остатки из Excel' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      {{ 'Import' if is_uz else 'Импорт' }}
+    </button>
+
+    <button class="ps-ghost-btn" type="button" id="psInvoiceBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      {{ 'Hujjatdan' if is_uz else 'Из накладной' }}
+    </button>
+    <button class="ps-ghost-btn" type="button" id="psHistoryBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+      {{ 'Tarix' if is_uz else 'История' }}
+    </button>
+  </div>
+
+  <div class="ps-card">
+    <div class="ps-tablewrap">
+      <table class="ps-table">
+        <thead>
+          <tr>
+            <th class="c-img"></th>
+            <th class="c-name">{{ 'Mahsulot' if is_uz else 'Товар' }}</th>
+            <th class="ps-num c-wh">{{ 'Omborda' if is_uz else 'На складе' }}</th>
+            <th class="ps-num c-qty">{{ 'Miqdor' if is_uz else 'Количество' }}</th>
+            <th class="ps-num c-res">{{ 'Bo‘ladi' if is_uz else 'Станет' }}</th>
+          </tr>
+        </thead>
+        <tbody id="psBody">
+          <tr><td colspan="5"><div class="ps-msg">{{ 'Yuklanmoqda…' if is_uz else 'Загрузка…' }}</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+<div class="ps-bar" id="psBar">
+  <div class="ps-bar-inner">
+    <div class="ps-modes" role="group" aria-label="{{ 'Amal turi' if is_uz else 'Тип операции' }}">
+      <button class="ps-mode is-active" type="button" data-mode="stock_in" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        {{ 'Qabul' if is_uz else 'Приёмка' }}
+      </button>
+      <button class="ps-mode" type="button" data-mode="sale" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+        {{ 'Sotuv' if is_uz else 'Продажа' }}
+      </button>
+    </div>
+    <div class="ps-bar-sum" id="psBarSum"></div>
+    <button class="ps-reset" type="button" id="psReset">{{ 'Tozalash' if is_uz else 'Сбросить' }}</button>
+    <button class="ps-preview-btn" type="button" id="psPreviewBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      {{ 'Ko‘rish' if is_uz else 'Посмотреть' }}
+    </button>
+    <span class="ps-bar-div" aria-hidden="true"></span>
+    <button class="ps-commit" type="button" id="psCommit"></button>
+  </div>
+</div>
+
+<div class="ps-scrim" id="psScrim"></div>
+<aside class="ps-drawer" id="psDrawer" aria-hidden="true">
+  <div class="ps-drawer-head">
+    <div>
+      <h2>{{ 'Tarix' if is_uz else 'История' }}</h2>
+      <p>{{ 'Oxirgi 20 amal — istalganini qaytarish mumkin' if is_uz else 'Последние 20 операций — любую можно отменить' }}</p>
+    </div>
+    <button class="ps-x" type="button" id="psDrawerClose" aria-label="{{ 'Yopish' if is_uz else 'Закрыть' }}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="ps-drawer-body" id="psHistory"></div>
+</aside>
+
+<div class="ps-modal" id="psInvoiceModal">
+  <div class="ps-modal-box">
+    <h2>{{ 'Uzum hujjati' if is_uz else 'Накладная Uzum' }}</h2>
+    <p>{{ 'Hujjatdagi miqdorlar «Qabul» maydonlariga qo‘yiladi.' if is_uz else 'Количества из накладной подставятся в поля приёмки.' }}</p>
+    <div class="ps-field">
+      <label for="psInvShop">{{ 'Do‘kon' if is_uz else 'Магазин' }}</label>
+      <select id="psInvShop">
+        {% for s in shops %}
+        <option value="{{ s.uzum_id }}">{{ s.name or s.uzum_id }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="ps-field">
+      <label for="psInvId">{{ 'Hujjat ID' if is_uz else 'ID накладной' }}</label>
+      <input id="psInvId" inputmode="numeric" autocomplete="off" placeholder="{{ 'Masalan, 123456' if is_uz else 'Например, 123456' }}">
+    </div>
+    <div class="ps-modal-foot">
+      <button class="ps-reset" type="button" id="psInvCancel">{{ 'Bekor' if is_uz else 'Отмена' }}</button>
+      <button class="ps-commit" type="button" id="psInvLoad">{{ 'Yuklash' if is_uz else 'Загрузить' }}</button>
+    </div>
+  </div>
+</div>
+
+<div class="ps-modal ps-pv-modal" id="psPreviewModal">
+  <div class="ps-modal-box ps-pv-box" role="dialog" aria-modal="true" aria-labelledby="psPvTitle">
+    <div class="ps-pv-head">
+      <div>
+        <span class="ps-pv-eyebrow" id="psPvEyebrow"><i></i><span id="psPvMode"></span></span>
+        <h2 id="psPvTitle">{{ 'Qo‘shilgan mahsulotlar' if is_uz else 'Добавленные товары' }}</h2>
+      </div>
+      <button class="ps-x ps-pv-x" type="button" id="psPvClose" aria-label="{{ 'Yopish' if is_uz else 'Закрыть' }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="ps-pv-list" id="psPvList"></div>
+    <div class="ps-pv-foot">
+      <div class="ps-pv-total" id="psPvTotal"></div>
+      <button class="ps-pv-back" type="button" id="psPvBack">{{ 'Orqaga' if is_uz else 'Назад' }}</button>
+      <button class="ps-commit" type="button" id="psPvCommit"></button>
+    </div>
+  </div>
+</div>
+
+<div class="ps-toasts" id="psToasts"></div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/pos_shared.js"></script>
 <script>
-const _PT = {
-  emptyCartTitle: {{ t.pos_empty_cart | tojson }},
-  emptyCartText: {{ t.pos_empty_cart_text | tojson }},
-  actionPendingText: {{ t.pos_processing | tojson }},
-  sellBtn: {{ t.pos_sell_btn | tojson }},
-  stockInBtn: {{ t.pos_stock_in_btn | tojson }},
-  transactionError: {{ t.pos_transaction_error | tojson }},
-  saleDone: {{ t.pos_sale_done | tojson }},
-  receiptDone: {{ t.pos_receipt_done | tojson }},
-  historyEmpty: {{ t.pos_history_empty | tojson }},
-  historyUndoBtn: {{ t.pos_history_undo_btn | tojson }},
-  historyRevertedBadge: {{ t.pos_history_reverted_badge | tojson }},
-  historyConfirmUndo: {{ t.pos_history_confirm_undo | tojson }},
-  historyUndoSuccess: {{ t.pos_history_undo_success | tojson }},
-  historyUndoFailed: {{ t.pos_history_undo_failed | tojson }},
-  actionSale: {{ t.pos_action_sale | tojson }},
-  actionStockIn: {{ t.pos_action_stock_in | tojson }},
-  historyUnits: {{ t.pos_history_units | tojson }},
-  historySkuLabel: {{ t.pos_history_sku_label | tojson }},
-};
-new PosEngine({
-  showStock: true,
-  showModeToggle: true,
-  actionBtnId: "btnCheckout",
-  emptyCartTitle: _PT.emptyCartTitle,
-  emptyCartText: _PT.emptyCartText,
-  actionPendingText: _PT.actionPendingText,
-  actionShortcut: "ctrl+enter",
-  historyContainerId: "posHistory",
-  historyEmptyText: _PT.historyEmpty,
-  historyUndoBtnText: _PT.historyUndoBtn,
-  historyRevertedBadgeText: _PT.historyRevertedBadge,
-  historyConfirmUndoText: _PT.historyConfirmUndo,
-  historyUndoSuccessText: _PT.historyUndoSuccess,
-  historyUndoFailedText: _PT.historyUndoFailed,
-  historyUnitsText: _PT.historyUnits,
-  historySkuLabelText: _PT.historySkuLabel,
-  historyLabels: { sale: _PT.actionSale, stock_in: _PT.actionStockIn },
-  updateActionBtn: function (button, items, totalQty, mode) {
-    button.className = "pos-primary-btn " + (mode === "sale" ? "pos-primary-btn--danger" : "pos-primary-btn--success");
-    button.textContent = mode === "sale"
-      ? _PT.sellBtn + " (" + totalQty + ")"
-      : _PT.stockInBtn + " (" + totalQty + ")";
-  },
-  onAction: async function (items, mode) {
-    const response = await fetch("/api/pos/transaction", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: mode, items: items })
-    });
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || _PT.transactionError);
-    }
-    return {
-      message: mode === "sale" ? _PT.saleDone : _PT.receiptDone
-    };
+(function(){
+  const UZ = {{ 'true' if is_uz else 'false' }};
+  const T = UZ ? {
+    loading:'Yuklanmoqda…', empty:'Mahsulot yo‘q', notFound:'Hech narsa topilmadi',
+    emptySub:'Uzum bilan sinxronlashtiring — mahsulotlar shu yerda chiqadi.',
+    notFoundSub:'Boshqa nom, SKU yoki shtrix-kodni sinab ko‘ring.',
+    products:'tovar', skus:'SKU', units:'dona', inStock:'omborda',
+    accept:'Qabul qilish', sell:'Sotish', selected:'tanlandi', opIn:'Qabul', opOut:'Sotuv', remove:'O‘chirish',
+    saving:'Bajarilmoqda…', doneIn:'Qabul qilindi', doneOut:'Sotildi', failed:'Amal bajarilmadi',
+    loadFailed:'Ma’lumot yuklanmadi',
+    histEmpty:'Hozircha amallar yo‘q', histEmptySub:'Qabul yoki sotuvdan keyin ular shu yerda chiqadi.',
+    undo:'Qaytarish', reverted:'Qaytarilgan', confirmUndo:'Ushbu amalni qaytarilsinmi?',
+    undoOk:'Amal qaytarildi', undoFail:'Qaytarib bo‘lmadi',
+    invNeed:'Do‘kon va hujjat ID kerak', invLoading:'Yuklanmoqda…', invLoad:'Yuklash',
+    invNone:'Hujjatdan mos mahsulot topilmadi',
+    invOk:n=>`Hujjat yuklandi: ${n} ta mahsulot`, invFail:'Hujjat yuklanmadi',
+    clamp:'Omborda yetarli emas — qoldiq 0 da to‘xtaydi',
+    scanned:'Topildi',
+    importOk:'Qoldiqlar yuklandi', importFail:'Faylni yuklab bo‘lmadi',
+    draftTitle:'Savatni davom ettirasizmi?',
+    draftMsg:'Oldingi safar amalни yakunlamadingiz — qo‘shган mahsulotlaringiz saqlanган.',
+    draftKeep:'Davom etish', draftDrop:'Boshidan boshlash',
+    clearTitle:'Savatni tozalash?', clearMsg:'Qo‘shilgan barcha mahsulotlar savatdan olib tashlanadi.',
+    clearCancel:'Bekor', clearYes:'Tozalash',
+  } : {
+    loading:'Загрузка…', empty:'Нет товаров', notFound:'Ничего не найдено',
+    emptySub:'Синхронизируйтесь с Uzum — товары появятся здесь.',
+    notFoundSub:'Попробуйте другое название, SKU или штрихкод.',
+    products:'товар(ов)', skus:'SKU', units:'шт', inStock:'на складе',
+    accept:'Принять', sell:'Продать', selected:'выбрано', opIn:'Приёмка', opOut:'Продажа', remove:'Удалить',
+    saving:'Выполняем…', doneIn:'Принято на склад', doneOut:'Продажа проведена', failed:'Не удалось выполнить',
+    loadFailed:'Не удалось загрузить данные',
+    histEmpty:'Операций пока нет', histEmptySub:'Приёмки и продажи появятся здесь.',
+    undo:'Отменить', reverted:'Отменено', confirmUndo:'Отменить эту операцию?',
+    undoOk:'Операция отменена', undoFail:'Не удалось отменить',
+    invNeed:'Нужны магазин и ID накладной', invLoading:'Загружаем…', invLoad:'Загрузить',
+    invNone:'Товары из накладной не найдены',
+    invOk:n=>`Накладная загружена: ${n} товар(ов)`, invFail:'Не удалось загрузить накладную',
+    clamp:'На складе меньше — остаток остановится на 0',
+    scanned:'Найдено',
+    importOk:'Остатки загружены', importFail:'Не удалось загрузить файл',
+    draftTitle:'Продолжить корзину?',
+    draftMsg:'В прошлый раз вы не завершили операцию — добавленные товары сохранены.',
+    draftKeep:'Продолжить', draftDrop:'Начать заново',
+    clearTitle:'Очистить корзину?', clearMsg:'Все добавленные товары будут убраны из корзины.',
+    clearCancel:'Отмена', clearYes:'Очистить',
+  };
+
+  const SHOPS = {{ shops | tojson }};
+
+  // ── Do'kon tanlovi SAHIFALAR ARO umumiy ───────────────────────────────
+  // «Мои товары» (groups), «Акции» (sales) va «Поставки» tanlangan do'konni
+  // `sh_shop` cookie'sida saqlaydi (qiymat = Shop.uzum_id yoki 'all', 1 yil).
+  // POS ham SHU cookie'ni o'qiydi/yozadi — bir joyda do'kon almashtirilsa,
+  // hamma sahifada o'sha do'kon qoladi. Bu sahifada «Все магазины» BOR, shuning
+  // uchun 'all' sentinel'ini groups'дан farqli o'laroq to'liq qabul qilamiz.
+  function readShopCookie(){
+    const m = document.cookie.match(/(?:^|;\s*)sh_shop=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
   }
-});
+  function saveShopCookie(v){
+    if (!v) return;
+    document.cookie = 'sh_shop=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax';
+  }
+  const _saved = readShopCookie();
+  const _initShop = (_saved === 'all' || SHOPS.some(s => s.uzum_id === _saved)) ? _saved : 'all';
+
+  // qty: variant.id -> kutilayotgan miqdor (musbat son). Yo'nalishни REJIM beradi,
+  // shuning uchun bu yerда ishora yo'q: bitta raqam, ikki xil o'qish.
+  const S = { shop:_initShop, search:'', mode:'stock_in', groups:[], multi:false, totals:null, open:{}, qty:{}, busy:false, gen:0 };
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = n => Number(n || 0).toLocaleString('ru-RU').replace(/ /g, ' ');
+  const page = $('#psPage');
+
+  function thumb(src){
+    return src
+      ? `<div class="ps-thumb" data-zoom-src="${esc(src)}"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()"></div>`
+      : `<div class="ps-thumb"><div class="ps-thumb-empty">—</div></div>`;
+  }
+
+  function toast(msg, kind){
+    const el = document.createElement('div');
+    el.className = 'ps-toast ' + (kind === 'err' ? 'is-err' : 'is-ok');
+    el.setAttribute('role', 'status');
+    el.textContent = msg;
+    $('#psToasts').appendChild(el);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  // ── IMZO: «bo'ladi». Rejim + miqdor → natija. Sotuvда ombor yetmasa,
+  // server qoldiqni 0'да to'xtatadi — buni OLDINDAN aytamiz.
+  function resultOf(stock, qty){
+    if (!qty) return null;
+    const after = S.mode === 'stock_in' ? stock + qty : stock - qty;
+    return { after: Math.max(0, after), clamped: after < 0 };
+  }
+
+  function resCell(stock, qty){
+    const r = resultOf(stock, qty);
+    if (!r) return `<span class="ps-n ps-n-soft">—</span>`;
+    const cls = r.clamped ? 'is-clamp' : (S.mode === 'stock_in' ? 'is-in' : 'is-out');
+    const warn = r.clamped ? `<i class="ps-warn-dot" title="${T.clamp}"></i>` : '';
+    return `<span class="ps-res ${cls}" ${r.clamped ? `title="${T.clamp}"` : ''}>${warn}${num(stock)}<span class="ps-res-arrow">→</span><b>${num(r.after)}</b></span>`;
+  }
+
+  function groupQty(g){
+    return (g.variants || []).reduce((s, v) => s + (S.qty[v.id] || 0), 0);
+  }
+
+  function groupRow(g){
+    const open = !!S.open[g.key];
+    const pending = groupQty(g);
+    const cls = 'ps-grow' + (open ? ' is-open' : '') + (pending ? ' has-pending' : '');
+    const delta = pending
+      ? `<span class="ps-delta ${S.mode === 'stock_in' ? 'is-in' : 'is-out'}">${S.mode === 'stock_in' ? '+' : '−'}${num(pending)}</span>`
+      : `<span class="ps-n ps-n-soft">—</span>`;
+    return `<tr class="${cls}" data-k="${esc(g.key)}">
+      <td class="c-img" style="padding-right:0">${thumb(g.image)}</td>
+      <td class="c-name">
+        <div class="ps-lead">
+          <span class="ps-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <div class="ps-info">
+            <div class="ps-name" title="${esc(g.name)}">${esc(g.name)}</div>
+            <div class="ps-tags">
+              ${g.short_sku ? `<span class="ps-pill">${esc(g.short_sku)}</span>` : ''}
+              <span class="ps-vcount">${g.vcount} SKU</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td class="ps-num c-wh"><span class="ps-n">${num(g.stock)}</span></td>
+      <td class="ps-num c-qty">${delta}</td>
+      <td class="ps-num c-res">${resCell(g.stock, pending)}</td>
+    </tr>`;
+  }
+
+  function varRow(g, v){
+    const qty = S.qty[v.id] || 0;
+    return `<tr class="ps-vrow" data-v="${v.id}">
+      <td class="c-img"></td>
+      <td class="c-name">
+        <div class="ps-lead" style="padding-left:26px">
+          ${thumb(v.image)}
+          <div class="ps-info">
+            <div class="ps-name" style="font-weight:500" title="${esc(v.name)}">${esc(v.name)}</div>
+            <div class="ps-tags"><span class="ps-pill">${esc(v.sku)}</span></div>
+          </div>
+        </div>
+      </td>
+      <td class="ps-num c-wh"><span class="ps-n ps-n-soft">${num(v.stock)}</span></td>
+      <td class="ps-num c-qty">
+        <input class="ps-qty-input${qty ? ' has-val' : ''}" type="number" min="0" step="1" inputmode="numeric"
+               data-qty="${v.id}" value="${qty || ''}" placeholder="0" aria-label="${esc(v.sku)}">
+      </td>
+      <td class="ps-num c-res">${resCell(v.stock, qty)}</td>
+    </tr>`;
+  }
+
+  function matches(g, q){
+    if ((g.name || '').toLowerCase().includes(q)) return true;
+    if ((g.short_sku || '').toLowerCase().includes(q)) return true;
+    return (g.variants || []).some(v =>
+      (v.sku || '').toLowerCase().includes(q) || (v.barcode || '').toLowerCase().includes(q));
+  }
+
+  function filtered(){
+    const q = S.search.trim().toLowerCase();
+    if (!q) return S.groups;
+    return S.groups.filter(g => matches(g, q));
+  }
+
+  function renderBody(){
+    const body = $('#psBody');
+    const gs = filtered();
+    if (!gs.length) {
+      const searching = !!S.search.trim();
+      body.innerHTML = `<tr><td colspan="5"><div class="ps-msg">
+        <div class="ps-msg-big">${searching ? T.notFound : T.empty}</div>
+        ${searching ? T.notFoundSub : T.emptySub}</div></td></tr>`;
+      return;
+    }
+    // Qidiruvда guruhlar OCHIQ chiqadi: qidirгan odam aynan SKU'ni qidiryapti.
+    const forceOpen = S.search.trim().length >= 2;
+    body.innerHTML = gs.map(g => {
+      const rows = [groupRow(g)];
+      if (S.open[g.key] || forceOpen) (g.variants || []).forEach(v => rows.push(varRow(g, v)));
+      return rows.join('');
+    }).join('');
+  }
+
+  function renderStats(){
+    const t = S.totals;
+    const set = (id, v) => { const el = $('#' + id); if (el) el.textContent = (t ? num(v) : '—'); };
+    set('psStProducts', t && t.products);
+    set('psStSkus', t && t.skus);
+    set('psStStock', t && t.stock);
+  }
+
+  function renderBar(){
+    const ids = Object.keys(S.qty).filter(id => S.qty[id] > 0);
+    const units = ids.reduce((s, id) => s + S.qty[id], 0);
+    const bar = $('#psBar');
+    const commit = $('#psCommit');
+    bar.classList.toggle('is-up', ids.length > 0);
+    if (!ids.length) { commit.disabled = true; return; }
+    commit.disabled = S.busy;
+    $('#psBarSum').innerHTML = `<b>${num(ids.length)}</b> SKU · <b>${num(units)}</b> ${T.units}`;
+    commit.textContent = S.busy
+      ? T.saving
+      : `${S.mode === 'stock_in' ? T.accept : T.sell} ${num(units)} ${T.units}`;
+  }
+
+  function render(){ renderBody(); renderBar(); }
+
+  // ── «Ko'rish»: qo'shилган mahsulotlар oynаси. «Товары для поставки» uslubида,
+  // rejим bo'yicha ajралади. Bu yerда miqdorни o'zгартириш / o'chириш mumkin —
+  // o'zгаришлар S.qty'га yozилади, oyна yopilганда jadval bir marта yangилаnади.
+  let pvDirty = false;
+  function pvLookup(id){
+    for (const g of S.groups) {
+      for (const v of (g.variants || [])) if (v.id === id) return { g, v };
+    }
+    return null;
+  }
+  function pvRowHTML(v){
+    const qty = S.qty[v.id] || 0;
+    const img = v.image
+      ? `<img src="${esc(v.image)}" alt="" loading="lazy" onerror="this.remove()">`
+      : '<span>—</span>';
+    const sub = 'SKU ' + esc(v.sku) + (v.barcode ? ' · ШК ' + esc(v.barcode) : '');
+    return `<div class="ps-pv-row" data-v="${v.id}">
+      <div class="ps-pv-thumb">${img}</div>
+      <div class="ps-pv-info">
+        <div class="ps-pv-name" title="${esc(v.name)}">${esc(v.name)}</div>
+        <div class="ps-pv-sub">${sub}</div>
+      </div>
+      <div class="ps-pv-res">${resCell(v.stock, qty)}</div>
+      <div class="ps-pv-qtywrap">
+        <input class="ps-pv-qty" type="number" min="0" step="1" inputmode="numeric"
+               data-pv="${v.id}" value="${qty || ''}" placeholder="0" aria-label="${esc(v.sku)}">
+        <span class="ps-pv-unit">${T.units}</span>
+      </div>
+      <button class="ps-pv-del" type="button" data-pvdel="${v.id}" aria-label="${T.remove}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>`;
+  }
+  function pvTotals(){
+    let skus = 0, units = 0;
+    Object.keys(S.qty).forEach(id => { if (S.qty[id] > 0) { skus++; units += S.qty[id]; } });
+    const isIn = S.mode === 'stock_in';
+    $('#psPvTotal').innerHTML = `<b>${num(skus)}</b> ${T.skus} · <b>${num(units)}</b> ${T.units}`;
+    const c = $('#psPvCommit');
+    c.textContent = `${isIn ? T.accept : T.sell} ${num(units)} ${T.units}`;
+    c.disabled = units === 0 || S.busy;
+    return units;
+  }
+  function renderPreview(){
+    const rows = [];
+    S.groups.forEach(g => (g.variants || []).forEach(v => {
+      if ((S.qty[v.id] || 0) > 0) rows.push(pvRowHTML(v));
+    }));
+    if (!rows.length) { openPreview(false); return; }
+    $('#psPvList').innerHTML = rows.join('');
+    $('#psPvMode').textContent = S.mode === 'stock_in' ? T.opIn : T.opOut;
+    pvTotals();
+  }
+  function openPreview(on){
+    const m = $('#psPreviewModal');
+    if (on) {
+      if (!Object.keys(S.qty).some(id => S.qty[id] > 0)) return;
+      renderPreview();
+      m.classList.add('is-open');
+    } else {
+      m.classList.remove('is-open');
+      if (pvDirty) { pvDirty = false; render(); saveDraft(); }
+    }
+  }
+
+  function setQty(id, value){
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n <= 0) delete S.qty[id];
+    else S.qty[id] = n;
+  }
+
+  // ── Yuklash
+  // draftToOffer — sahifага KIRГANДА (boot / do'kон almashtiriш) taklif qilинадиган
+  // saqlanган savat (yoki null). Ички qayta yuklашларда (import, bekor qiliш) null.
+  async function load(draftToOffer){
+    const gen = ++S.gen;
+    $('#psBody').innerHTML = `<tr><td colspan="5"><div class="ps-msg">${T.loading}</div></td></tr>`;
+    try {
+      const r = await fetch(`/api/pos/products?shop=${encodeURIComponent(S.shop)}`, { credentials:'same-origin' });
+      const j = await r.json();
+      if (gen !== S.gen) return;
+      if (!r.ok) throw new Error(j.error || T.loadFailed);
+      S.groups = j.groups || [];
+      S.multi = !!j.multi;
+      S.totals = j.totals || null;
+      S.open = {}; S.qty = {};
+      renderStats(); render();
+      // Sahifага KIRГANДА (birinchi yuklash yoki do'kon almashtirilганда) — saqlanган
+      // savatни taklif qilamiz. Ички qayta yuklashларда (import, bekor qilish) yo'q.
+      if (draftToOffer) offerDraftFlow(draftToOffer);
+    } catch (e) {
+      if (gen !== S.gen) return;
+      S.groups = []; S.totals = null;
+      renderStats();
+      $('#psBody').innerHTML = `<tr><td colspan="5"><div class="ps-msg">${esc(e.message || T.loadFailed)}</div></td></tr>`;
+      renderBar();
+    }
+  }
+
+  // ── Savat qoralamаси (draft) ─────────────────────────────────────────
+  // «Aksiyalar» va «Поставки» wizardидаги kabi: yakunlanмаган ish yo'qolmasин.
+  // Kutилаётган miqdorlar (S.qty) + amal turi (S.mode) har do'kон uchun alohида
+  // localStorage'да saqlanади, shuning uchun sahifадан chiqиб qaytганда davom
+  // etиш mumkin. Faqat submit qilinmaган ish saqlanади.
+  function draftKey(){ return 'posDraft_' + (S.shop || 'all'); }
+  // Sahifа boshiда S.qty BO'SH bo'lади — lekin bu «savat tozalanди» degani EMAS,
+  // qoralама hali TIKLANмади. setMode('stock_in') bootда saveDraft'ни chaqiради;
+  // agar bo'sh holатда o'chиришга ruxsat bersak, foydаluvchi «Продолжить» bosмасдан
+  // chiqса saqlanган qoralама yo'qolади. Shuning uchun qoralамani FAQAT shu sessiyaда
+  // rostан mahsulot bo'lган bo'lса (_hadItems) bo'shатish = o'chириш deb qaraymiz.
+  let _hadItems = false;
+  function saveDraftNow(){
+    try {
+      const key = draftKey();
+      const items = Object.keys(S.qty).filter(id => S.qty[id] > 0).map(id => ({ id: parseInt(id, 10), qty: S.qty[id] }));
+      if (items.length) { localStorage.setItem(key, JSON.stringify({ mode: S.mode, items })); _hadItems = true; }
+      else if (_hadItems) localStorage.removeItem(key);
+    } catch (_) {}
+  }
+  let _draftT = null;
+  function saveDraft(){ clearTimeout(_draftT); _draftT = setTimeout(() => { _draftT = null; saveDraftNow(); }, 250); }
+  function saveDraftFlush(){ clearTimeout(_draftT); _draftT = null; saveDraftNow(); }
+  function clearDraft(){ clearTimeout(_draftT); _draftT = null; try { localStorage.removeItem(draftKey()); } catch (_) {} }
+  function readDraft(){
+    try {
+      const raw = localStorage.getItem(draftKey()); if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !Array.isArray(d.items) || !d.items.length) return null;
+      return d;
+    } catch (_) { return null; }
+  }
+  // Kechиктирилган yozув disk'га tushсин — tab yopилишидан oldин.
+  window.addEventListener('pagehide', () => { if (_draftT) saveDraftFlush(); });
+
+  // Sahifага kirганда saqlanган savatни taklif qilamiz. Yuklаб bo'lган
+  // guruhларда endi mavjud bo'lган variant'лар qoladi (qoldiq o'zgарса ham
+  // kutилаётган miqдор ma'nosини saqlаб).
+  function offerDraftFlow(d){
+    if (!d || !Array.isArray(d.items)) return;
+    const present = {};
+    S.groups.forEach(g => (g.variants || []).forEach(v => { present[v.id] = g.key; }));
+    const items = d.items.filter(it => present[it.id] && it.qty > 0);
+    if (!items.length) { clearDraft(); return; }
+    draftDialog(items, () => {
+      if (d.mode === 'sale' || d.mode === 'stock_in') setMode(d.mode);
+      items.forEach(it => { S.qty[it.id] = it.qty; S.open[present[it.id]] = true; });
+      render();
+      saveDraftNow();
+    }, () => { clearDraft(); });
+  }
+
+  // Dialog — «Черновик восстановлен» kartаси shakли, ps- palitrasида. Birlамчи
+  // «Davom etish», ikkиламчи «Boshidan boshlash». Esc / fon = hech narsа
+  // qilmаймиз (qoralама saqlanиб qoladi, keyingi safар yana so'raймиз).
+  function draftDialog(items, onKeep, onDrop){
+    const units = items.reduce((s, it) => s + it.qty, 0);
+    const ov = document.createElement('div');
+    ov.className = 'ps-modal is-open';
+    ov.innerHTML =
+      '<div class="ps-modal-box ps-draft-box" role="dialog" aria-modal="true" aria-label="' + esc(T.draftTitle) + '">'
+      + '<div class="ps-draft-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>'
+      + '<h2>' + esc(T.draftTitle) + '</h2>'
+      + '<p>' + esc(T.draftMsg) + '</p>'
+      + '<div class="ps-draft-sum"><b>' + num(items.length) + '</b> ' + esc(T.skus) + ' · <b>' + num(units) + '</b> ' + esc(T.units) + '</div>'
+      + '<div class="ps-modal-foot">'
+      +   '<button type="button" class="ps-ghost-btn ps-draft-drop" data-act="drop">' + esc(T.draftDrop) + '</button>'
+      +   '<button type="button" class="ps-draft-keep" data-act="keep">' + esc(T.draftKeep) + '</button>'
+      + '</div></div>';
+    // ps- palitrasi .ps-page'га bog'ланган — dialogни o'sha yerга ilamiz, aks
+    // holда o'zгарувчилар echilmай karta shaffof chiqади.
+    page.appendChild(ov);
+    let done = false;
+    function close(act){
+      if (done) return; done = true;
+      ov.remove(); document.removeEventListener('keydown', onKey);
+      if (act === 'keep') onKeep(); else if (act === 'drop') onDrop();
+    }
+    function onKey(e){ if (e.key === 'Escape') { e.preventDefault(); close('dismiss'); } }
+    ov.addEventListener('click', e => { if (e.target === ov) close('dismiss'); });
+    ov.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => close(b.dataset.act)));
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => { try { ov.querySelector('[data-act="keep"]').focus(); } catch (_) {} }, 30);
+  }
+
+  // ── «Sбросить» tasdiqи: savat buzuvchи tarzда tozalanмасин. draftDialog bilan
+  // bir shaklда, ammо tasdiq QIЗИЛ (buzuvchi) va sukut fokusи «Bekor»да.
+  function confirmClear(){
+    const ids = Object.keys(S.qty).filter(id => S.qty[id] > 0);
+    if (!ids.length) return;                       // tozalash uchun hech narsа yo'q
+    const units = ids.reduce((s, id) => s + S.qty[id], 0);
+    const ov = document.createElement('div');
+    ov.className = 'ps-modal is-open';
+    ov.innerHTML =
+      '<div class="ps-modal-box ps-draft-box" role="dialog" aria-modal="true" aria-label="' + esc(T.clearTitle) + '">'
+      + '<div class="ps-draft-ic is-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></div>'
+      + '<h2>' + esc(T.clearTitle) + '</h2>'
+      + '<p>' + esc(T.clearMsg) + '</p>'
+      + '<div class="ps-draft-sum"><b>' + num(ids.length) + '</b> ' + esc(T.skus) + ' · <b>' + num(units) + '</b> ' + esc(T.units) + '</div>'
+      + '<div class="ps-modal-foot">'
+      +   '<button type="button" class="ps-ghost-btn ps-draft-drop" data-act="cancel">' + esc(T.clearCancel) + '</button>'
+      +   '<button type="button" class="ps-danger-btn" data-act="yes">' + esc(T.clearYes) + '</button>'
+      + '</div></div>';
+    page.appendChild(ov);
+    let done = false;
+    function close(act){
+      if (done) return; done = true;
+      ov.remove(); document.removeEventListener('keydown', onKey);
+      if (act === 'yes') { S.qty = {}; clearDraft(); render(); }
+    }
+    function onKey(e){ if (e.key === 'Escape') { e.preventDefault(); close('cancel'); } }
+    ov.addEventListener('click', e => { if (e.target === ov) close('cancel'); });
+    ov.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => close(b.dataset.act)));
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => { try { ov.querySelector('[data-act="cancel"]').focus(); } catch (_) {} }, 30);
+  }
+
+  // ── Tasdiq
+  async function commit(){
+    const items = Object.keys(S.qty)
+      .filter(id => S.qty[id] > 0)
+      .map(id => ({ id: parseInt(id, 10), qty: S.qty[id] }));
+    if (!items.length || S.busy) return;
+
+    const mode = S.mode;
+    S.busy = true; renderBar();
+    try {
+      const r = await fetch('/api/pos/transaction', {
+        method:'POST', credentials:'same-origin',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ mode, items }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || T.failed);
+
+      // Qoldiqni JOYIDA yangilaymiz — butun jadvalni qayta yuklamaymiz, aks holда
+      // ochиб qo'yгan guruh yopilиб, skaner ritmi buziladi.
+      const byId = {};
+      items.forEach(it => { byId[it.id] = it.qty; });
+      S.groups.forEach(g => {
+        let sum = 0;
+        (g.variants || []).forEach(v => {
+          const q = byId[v.id];
+          if (q) v.stock = mode === 'stock_in' ? v.stock + q : Math.max(0, v.stock - q);
+          sum += v.stock;
+        });
+        g.stock = sum;
+      });
+      if (S.totals) S.totals.stock = S.groups.reduce((s, g) => s + g.stock, 0);
+
+      S.qty = {};
+      clearDraft();                                // amal yakunlandi — savat qoralamаси keraksiz
+      S.busy = false;
+      renderStats(); render();
+      toast(mode === 'stock_in' ? T.doneIn : T.doneOut, 'ok');
+      loadHistory();
+    } catch (e) {
+      S.busy = false; renderBar();
+      toast(e.message || T.failed, 'err');
+    }
+  }
+
+  // ── Tarix
+  function timeOf(iso){
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(UZ ? 'uz-UZ' : 'ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function renderHistory(entries){
+    const box = $('#psHistory');
+    if (!entries.length) {
+      box.innerHTML = `<div class="ps-msg"><div class="ps-msg-big">${T.histEmpty}</div>${T.histEmptySub}</div>`;
+      return;
+    }
+    box.innerHTML = entries.map(e => {
+      const isIn = e.action === 'stock_in';
+      const reverted = !!e.reverted_at;
+      const lines = (e.items || []).map(it => `<div class="ps-ev-line">
+        <span class="ps-ev-line-name">${esc(it.name || '')}</span>
+        <span class="ps-ev-line-sku">${esc(it.sku || '')}</span>
+        <span class="ps-ev-line-qty">${num(it.qty_before)} → ${num(it.qty_after)}</span>
+      </div>`).join('');
+      const foot = reverted
+        ? `<div class="ps-ev-foot"><span class="ps-reverted">${T.reverted}</span></div>`
+        : `<div class="ps-ev-foot"><button class="ps-undo" type="button" data-undo="${e.id}">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-7.4L3 8"/></svg>
+             ${T.undo}</button></div>`;
+      return `<article class="ps-ev${reverted ? ' is-reverted' : ''}">
+        <header class="ps-ev-head">
+          <span class="ps-ev-tag ${isIn ? 'is-in' : 'is-out'}">${isIn ? (UZ?'Qabul':'Приёмка') : (UZ?'Sotuv':'Продажа')}</span>
+          <span class="ps-ev-qty">${isIn ? '+' : '−'}${num(e.total_qty)} ${T.units}</span>
+          <span class="ps-ev-time">${esc(timeOf(e.created_at))}</span>
+        </header>
+        ${lines}
+        ${foot}
+      </article>`;
+    }).join('');
+  }
+
+  async function loadHistory(){
+    try {
+      const r = await fetch('/api/pos/history', { credentials:'same-origin' });
+      const j = await r.json();
+      renderHistory(Array.isArray(j.items) ? j.items : []);
+    } catch (e) {
+      renderHistory([]);
+    }
+  }
+
+  async function undo(id){
+    if (!window.confirm(T.confirmUndo)) return;
+    try {
+      const r = await fetch(`/api/pos/undo/${id}`, { method:'POST', credentials:'same-origin' });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || T.undoFail);
+      toast(T.undoOk, 'ok');
+      await loadHistory();
+      await load();                                // qoldiqlar o'zgardi — qayta o'qiymiz
+    } catch (e) {
+      toast(e.message || T.undoFail, 'err');
+    }
+  }
+
+  function openDrawer(on){
+    $('#psDrawer').classList.toggle('is-open', on);
+    $('#psDrawer').setAttribute('aria-hidden', on ? 'false' : 'true');
+    $('#psScrim').classList.toggle('is-open', on);
+    if (on) loadHistory();
+  }
+
+  // ── Hujjat (накладная)
+  function openInvoice(on){
+    $('#psInvoiceModal').classList.toggle('is-open', on);
+    if (!on) return;
+    if (S.shop !== 'all') $('#psInvShop').value = S.shop;   // tanlangan do'kon — modalда ham o'sha
+    $('#psInvId').focus();
+  }
+
+  async function fetchInvoice(){
+    const shop = $('#psInvShop').value;
+    const invId = $('#psInvId').value.trim();
+    if (!shop || !invId) { toast(T.invNeed, 'err'); return; }
+
+    const btn = $('#psInvLoad');
+    btn.disabled = true; btn.textContent = T.invLoading;
+    try {
+      const r = await fetch('/api/pos/fetch-invoice', {
+        method:'POST', credentials:'same-origin',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ shop_id: shop, invoice_id: invId }),
+      });
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || T.invFail);
+
+      const items = j.items || [];
+      // Hujjat — QABUL hujjati. Rejimni o'zi to'g'rilaydi, aks holда miqdorlar
+      // sotuv sifatida o'qilиб qolar edi.
+      setMode('stock_in');
+      let hit = 0;
+      items.forEach(it => {
+        const g = S.groups.find(g => (g.variants || []).some(v => v.id === it.id));
+        if (!g) return;
+        S.qty[it.id] = (S.qty[it.id] || 0) + (parseInt(it.qty, 10) || 0);
+        S.open[g.key] = true;
+        hit += 1;
+      });
+      if (!hit) { toast(T.invNone, 'err'); return; }
+      openInvoice(false);
+      $('#psInvId').value = '';
+      render();
+      toast(T.invOk(hit), 'ok');
+    } catch (e) {
+      toast(e.message || T.invFail, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = T.invLoad;
+    }
+  }
+
+  function setMode(mode){
+    S.mode = mode;
+    page.setAttribute('data-mode', mode);
+    document.querySelectorAll('.ps-mode').forEach(b => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    render();
+    saveDraft();                                   // amal turi ham savat bilan saqlanади
+  }
+
+  // ── Skaner: aniq shtrix-kod / SKU → guruh ochiladi, maydon fokusда, +1.
+  // POS'ning butun ma'nosi shu: skanerни bosdingiz — qator tayyor.
+  function tryScan(raw){
+    const q = raw.trim().toLowerCase();
+    if (q.length < 4) return false;
+    let found = null;
+    for (const g of S.groups) {
+      for (const v of (g.variants || [])) {
+        if ((v.barcode || '').toLowerCase() === q || (v.sku || '').toLowerCase() === q) { found = { g, v }; break; }
+      }
+      if (found) break;
+    }
+    if (!found) return false;
+    S.open[found.g.key] = true;
+    S.qty[found.v.id] = (S.qty[found.v.id] || 0) + 1;
+    S.search = '';
+    $('#psSearch').value = '';
+    render();
+    saveDraft();
+    const input = document.querySelector(`[data-qty="${found.v.id}"]`);
+    if (input) {
+      input.focus(); input.select();
+      input.closest('tr').scrollIntoView({ block:'center', behavior:'smooth' });
+    }
+    toast(`${T.scanned}: ${found.v.sku}`, 'ok');
+    return true;
+  }
+
+  // ── Wiring
+  let _t = null;
+  $('#psSearch').addEventListener('input', e => {
+    S.search = e.target.value;
+    clearTimeout(_t); _t = setTimeout(renderBody, 140);
+  });
+  $('#psSearch').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!tryScan(e.target.value)) renderBody();
+  });
+
+  $('#psBody').addEventListener('click', e => {
+    const row = e.target.closest('.ps-grow');
+    if (!row) return;
+    S.open[row.dataset.k] = !S.open[row.dataset.k];
+    renderBody();
+  });
+
+  // Maydon yozилганда butun jadvalni qayta chizmaymiz — fokus yo'qolиб ketardi.
+  // Faqat SHU qator va uning guruhi yangilanadi.
+  $('#psBody').addEventListener('input', e => {
+    const input = e.target.closest('[data-qty]');
+    if (!input) return;
+    const id = parseInt(input.dataset.qty, 10);
+    setQty(id, input.value);
+    const qty = S.qty[id] || 0;
+    input.classList.toggle('has-val', qty > 0);
+
+    const g = S.groups.find(g => (g.variants || []).some(v => v.id === id));
+    const v = g && g.variants.find(v => v.id === id);
+    if (v) {
+      const cell = input.closest('tr').querySelector('.c-res');
+      if (cell) cell.innerHTML = resCell(v.stock, qty);
+      const head = document.querySelector(`.ps-grow[data-k="${g.key}"]`);
+      if (head) {
+        const pending = groupQty(g);
+        head.classList.toggle('has-pending', pending > 0);
+        head.querySelector('.c-qty').innerHTML = pending
+          ? `<span class="ps-delta ${S.mode === 'stock_in' ? 'is-in' : 'is-out'}">${S.mode === 'stock_in' ? '+' : '−'}${num(pending)}</span>`
+          : `<span class="ps-n ps-n-soft">—</span>`;
+        head.querySelector('.c-res').innerHTML = resCell(g.stock, pending);
+      }
+    }
+    renderBar();
+    saveDraft();
+  });
+
+  // Enter maydonда — keyingi maydonga. Skanerли ish oqimи uzilmaydi.
+  $('#psBody').addEventListener('keydown', e => {
+    const input = e.target.closest('[data-qty]');
+    if (!input || e.key !== 'Enter') return;
+    e.preventDefault();
+    const all = Array.from(document.querySelectorAll('[data-qty]'));
+    const next = all[all.indexOf(input) + 1];
+    if (next) { next.focus(); next.select(); }
+    else $('#psSearch').focus();
+  });
+
+  document.querySelectorAll('.ps-mode').forEach(b => {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+  });
+
+  $('#psCommit').addEventListener('click', commit);
+  $('#psReset').addEventListener('click', confirmClear);
+
+  // ── «Ko'rish» oynаси
+  $('#psPreviewBtn').addEventListener('click', () => openPreview(true));
+  $('#psPvClose').addEventListener('click', () => openPreview(false));
+  $('#psPvBack').addEventListener('click', () => openPreview(false));
+  $('#psPreviewModal').addEventListener('click', e => { if (e.target === $('#psPreviewModal')) openPreview(false); });
+  $('#psPvCommit').addEventListener('click', () => { pvDirty = false; openPreview(false); commit(); });
+  // Miqdorни o'zгартириш — S.qty'га yozамиз, qatordаги natijа + jamини joyида yangилаймиз.
+  $('#psPvList').addEventListener('input', e => {
+    const input = e.target.closest('[data-pv]');
+    if (!input) return;
+    const id = parseInt(input.dataset.pv, 10);
+    const n = parseInt(input.value, 10);
+    if (!Number.isFinite(n) || n <= 0) delete S.qty[id];
+    else S.qty[id] = n;
+    pvDirty = true;
+    const found = pvLookup(id);
+    const row = input.closest('.ps-pv-row');
+    if (found && row) {
+      const cell = row.querySelector('.ps-pv-res');
+      if (cell) cell.innerHTML = resCell(found.v.stock, S.qty[id] || 0);
+    }
+    pvTotals();
+    renderBar();
+  });
+  // O'chириш — darhол olиб tashlaймиз; ro'yxat bo'shаса, oyна yopilади.
+  $('#psPvList').addEventListener('click', e => {
+    const b = e.target.closest('[data-pvdel]');
+    if (!b) return;
+    delete S.qty[parseInt(b.dataset.pvdel, 10)];
+    pvDirty = true;
+    renderBar();
+    renderPreview();
+  });
+
+  $('#psHistoryBtn').addEventListener('click', () => openDrawer(true));
+  $('#psDrawerClose').addEventListener('click', () => openDrawer(false));
+  $('#psScrim').addEventListener('click', () => openDrawer(false));
+  $('#psHistory').addEventListener('click', e => {
+    const b = e.target.closest('[data-undo]');
+    if (b) undo(parseInt(b.dataset.undo, 10));
+  });
+
+  // ── Excel: qoldiqlarni chiqarish / yuklash. Import MUTLAQ qiymat qo'yadi
+  // (fayldagi son — yangi qoldiq), shuning uchun tugagach jadvalni serverдан
+  // qayta o'qiymiz: ekranда eskirgan raqam qolиб ketmasin.
+  $('#psExportBtn').addEventListener('click', () => { window.location.href = '/warehouse/export'; });
+  $('#psImportBtn').addEventListener('click', () => $('#psImportFile').click());
+  $('#psImportFile').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const btn = $('#psImportBtn');
+    btn.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/warehouse/import', { method:'POST', credentials:'same-origin', body: fd });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || T.importFail);
+      S.qty = {};                                  // fayl qoldiqni qayta belgiladi — kutilayotgan miqdor ma'nosini yo'qotdi
+      clearDraft();                                // saqlanган savat ham ma'nosини yo'qotди
+      await load();                                // (draftсиз — bu ички qayta yuklаш)
+      toast(j.message || T.importOk, 'ok');
+    } catch (err) {
+      toast(err.message || T.importFail, 'err');
+    } finally {
+      btn.disabled = false;
+      e.target.value = '';                         // shu faylni qayta tanlash mumkin bo'lsin
+    }
+  });
+
+  $('#psInvoiceBtn').addEventListener('click', () => openInvoice(true));
+  $('#psInvCancel').addEventListener('click', () => openInvoice(false));
+  $('#psInvLoad').addEventListener('click', fetchInvoice);
+  $('#psInvId').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fetchInvoice(); } });
+  $('#psInvoiceModal').addEventListener('click', e => { if (e.target === $('#psInvoiceModal')) openInvoice(false); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { openDrawer(false); openInvoice(false); openPreview(false); }
+    if (e.key === 'F2' || (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) {
+      e.preventDefault(); $('#psSearch').focus(); $('#psSearch').select();
+    }
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); commit(); }
+  });
+
+  const picker = $('#psShopPicker');
+  if (picker) {
+    $('#psShopBtn').addEventListener('click', () => picker.classList.toggle('is-open'));
+    document.addEventListener('click', e => { if (!picker.contains(e.target)) picker.classList.remove('is-open'); });
+    picker.querySelectorAll('.ps-picker-item').forEach(it => it.addEventListener('click', () => {
+      saveDraftFlush();                          // hozirги do'kон savatини diskка yozamiz
+      S.shop = it.dataset.shop;
+      saveShopCookie(S.shop);                    // groups/sales/postavki ham shu tanlovni oladi
+      picker.querySelectorAll('.ps-picker-item').forEach(x => x.classList.toggle('is-active', x === it));
+      $('#psShopLabel').textContent = it.textContent.trim();
+      picker.classList.remove('is-open');
+      load(readDraft());                         // yanги do'kоннинг saqlanган savati bo'lса — taklif
+    }));
+
+    // Cookie'даги tanlovни tugmaga qaytaramiz — sahifa boshqa sahifada tanlangan
+    // do'kon bilan ochiladi, ya'ni tanlov haqiqatan ham «esда qoladi».
+    const initItem = picker.querySelector(`.ps-picker-item[data-shop="${S.shop}"]`);
+    if (initItem) {
+      picker.querySelectorAll('.ps-picker-item').forEach(x => x.classList.toggle('is-active', x === initItem));
+      $('#psShopLabel').textContent = initItem.textContent.trim();
+    }
+  }
+
+  // Qoralамани setMode/save clobber qilишидан oldин o'qиб olamiz.
+  const _bootDraft = readDraft();
+  setMode('stock_in');
+  load(_bootDraft);
+  loadHistory();
+})();
+
+// Hover-zoom preview for product thumbnails. Delegated so it survives table
+// re-renders; position:fixed so it escapes the table's overflow clipping.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'ps-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+  var GAP = 14, SIZE = 260;   // SIZE must match .ps-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
+})();
 </script>
 {% endblock %}

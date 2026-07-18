@@ -20,6 +20,7 @@
   --we-store-default-bg:#EFEEF2; --we-store-default-fg:#3A3744;
   --we-luxuz-bg:#E5ECFB;  --we-luxuz-fg:#4169E1;
   --we-blummy-bg:#FCEAEA; --we-blummy-fg:#E84747;
+  --we-brand:#4169E1; --we-brand-soft:#EAEFFB;
 }
 [data-bs-theme="dark"] .we-page {
   --we-page-bg:#0E0E14;
@@ -39,17 +40,47 @@
   --we-store-default-bg:#22222D; --we-store-default-fg:#D7D4DF;
   --we-luxuz-bg:rgba(110,143,232,.18); --we-luxuz-fg:#A4B9F0;
   --we-blummy-bg:rgba(252,165,165,.16); --we-blummy-fg:#FCA5A5;
+  --we-brand:#7C9BF0; --we-brand-soft:rgba(99,102,241,.16);
 }
 
 .we-page { font-family:'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color:var(--we-text); }
 
-.we-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
-.we-h1 { margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; color:var(--we-text); }
-.we-meta { font-size:13px; color:var(--we-text-muted); margin:0; }
-.we-meta b { color:var(--we-text-2); font-weight:600; }
-.we-meta .we-exp-amt { color:var(--we-exp-fg); font-weight:700; }
+/* Header is two columns: left = title + filter stacked; right = stat panels.
+   align-items:stretch makes the panels span the left column's full height, so
+   their top sits at the heading's top and their bottom at the search bar. */
+.we-header { display:flex; align-items:center; justify-content:space-between; gap:20px 28px; flex-wrap:wrap; margin-bottom:20px; }
+.we-header-main { flex:1 1 420px; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.we-h1 { margin:0; font-size:28px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; color:var(--we-text); }
 
-.we-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+/* Ko'rsatkичlar — «Ombor» (POS) bilan bir xил: JetBrains Mono raqамлар, tepаda
+   uppercase eyebrow yorlиq, chapда brend-ko'k yupqа chизиq. Ilova usluби. */
+/* Stat cards — Claude Design «Stat Card Variations» variant 1c
+   (soft color wash, number in accent). System sans — SAME font as the POS
+   «Ombor» cards (Manrope webfont intentionally NOT loaded so both pages match).
+   Tokenized light+dark. */
+.we-stats { display:flex; align-items:stretch; gap:18px; flex-wrap:wrap; }
+.we-stat { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:196px;
+  padding:15px 24px; border-radius:18px;
+  background:var(--we-stat-bg); border:1px solid var(--we-stat-bd); }
+.we-stat-txt { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.we-stat-lbl { font-family:ui-sans-serif, system-ui, sans-serif;
+  font-size:11px; font-weight:700; line-height:1; text-transform:uppercase; letter-spacing:1.4px;
+  color:var(--we-stat-lbl); white-space:nowrap; }
+.we-stat-val { display:inline-flex; align-items:baseline; gap:6px; white-space:nowrap;
+  font-family:ui-sans-serif, system-ui, sans-serif;
+  font-size:36px; font-weight:800; line-height:1; letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums; color:var(--we-stat-fg); }
+.we-stat-unit { font-size:15px; font-weight:700; letter-spacing:.2px;
+  color:var(--we-stat-fg); /* fallback */
+  color:color-mix(in srgb, var(--we-stat-fg) 78%, #fff); }
+/* Товары (default) → blue wash. */
+.we-stat { --we-stat-bg:#EEF0FF; --we-stat-bd:rgba(59,91,254,.12); --we-stat-fg:#3B5BFE; --we-stat-lbl:#191A1E; }
+/* За хранение (expense) → red wash. */
+.we-stat--exp { --we-stat-bg:#FDECEB; --we-stat-bd:rgba(240,69,62,.14); --we-stat-fg:#F0453E; }
+[data-bs-theme="dark"] .we-stat { --we-stat-bg:rgba(59,91,254,.14); --we-stat-bd:rgba(99,130,255,.22); --we-stat-fg:#7C9BF0; --we-stat-lbl:#F0EDF5; }
+[data-bs-theme="dark"] .we-stat--exp { --we-stat-bg:rgba(240,69,62,.16); --we-stat-bd:rgba(252,165,165,.24); --we-stat-fg:#FCA5A5; }
+
+.we-filter-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .we-search { flex:1 1 320px; max-width:380px; height:44px; display:flex; align-items:center; gap:10px; padding:0 14px;
   background:var(--we-surface); border:1px solid var(--we-border); border-radius:14px; transition:border-color .15s, box-shadow .15s; }
 .we-search:focus-within { border-color:var(--we-text-2); box-shadow:0 0 0 4px rgba(26,26,34,.06); }
@@ -70,9 +101,20 @@
 .we-store-item:hover { background:var(--we-hover); }
 .we-store-item.selected { background:var(--we-active-bg); color:var(--we-text); font-weight:600; }
 
-.we-tablewrap { background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px; overflow:hidden; }
+/* Sarlavha qatori scroll'да YOPISHIB turishi uchun `overflow:hidden` OLIB TASHLANDI
+   (Ulug'bek 2026-07-14): overflow'i `visible` bo'lmagan ota-element `position:sticky`ни
+   O'Z ICHIGA qamab qo'yadi — shu bois sarlavha hech qachon yopishmagan. Bu yerда
+   overflow faqat 16px burchakларни kesish uchun edi; endi burchakларни chekka
+   kataklarning o'zига radius berиб hosil qilamiz. */
+.we-tablewrap { background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px; }
+.we-table thead th:first-child { border-top-left-radius:16px; }
+.we-table thead th:last-child  { border-top-right-radius:16px; }
+.we-table tbody tr:last-child td:first-child { border-bottom-left-radius:16px; }
+.we-table tbody tr:last-child td:last-child  { border-bottom-right-radius:16px; }
 table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
-.we-table thead th { position:sticky; top:0; z-index:5; background:var(--we-head-bg); color:var(--we-text-muted);
+/* 64px — ilovaning sticky top-bar balandligi (styles.css): sarlavha AYNAN uning
+   ostiga yopishadi. z-index 5 < top-bar'нинг 30'си, ya'ni ustiga chiqmaydi. */
+.we-table thead th { position:sticky; top:64px; z-index:5; background:var(--we-head-bg); color:var(--we-text-muted);
   font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; text-align:left;
   padding:12px 18px; border-bottom:1px solid var(--we-border); white-space:nowrap; }
 .we-table th.we-num, .we-table td.we-num { text-align:right; }
@@ -84,6 +126,20 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 .we-thumb { width:48px; height:48px; border-radius:10px; overflow:hidden; background:var(--we-active-bg); flex-shrink:0; }
 .we-thumb img { width:100%; height:100%; object-fit:cover; }
 .we-thumb-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--we-text-muted); }
+/* Summary-row image fills the row height and stays square (as tall as the line).
+   height:1px on the cell seeds a definite height that resolves to the row height,
+   so the thumb's height:100% fills it; aspect-ratio keeps it square. */
+.we-group-row > td:first-child { height:1px; padding-top:8px; padding-bottom:8px; }
+.we-group-row .we-thumb { width:auto; height:100%; min-height:48px; aspect-ratio:1/1; margin:0 auto; }
+/* Hover-zoom image preview (position:fixed so it escapes table overflow) */
+.we-thumb[data-zoom-src], .we-var-thumb[data-zoom-src] { cursor:zoom-in; }
+.we-zoom-preview { position:fixed; top:0; left:0; width:260px; height:260px; padding:6px;
+  background:var(--we-surface); border:1px solid var(--we-border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.30); opacity:0; visibility:hidden; pointer-events:none;
+  transform:scale(.92); transform-origin:left center; transition:opacity .14s ease, transform .14s ease; z-index:9999; }
+.we-zoom-preview.is-visible { opacity:1; visibility:visible; transform:scale(1); }
+.we-zoom-preview img { width:100%; height:100%; object-fit:cover; border-radius:11px; display:block; }
+@media (hover:none){ .we-zoom-preview { display:none; } }
 .we-prod { display:flex; align-items:center; gap:12px; min-width:0; }
 .we-prod-info { display:flex; flex-direction:column; gap:5px; min-width:0; }
 .we-prod-name { font-size:14px; font-weight:600; color:var(--we-text); line-height:1.3;
@@ -141,9 +197,10 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 .we-add-sale.in-sale:hover { background:#0F9A6A; border-color:#0F9A6A; color:#fff; }
 [data-bs-theme="dark"] .we-add-sale.in-sale:hover { background:#34D399; border-color:#34D399; color:#0E0E14; }
 
-/* variant (revealed) rows */
+/* variant (revealed) rows — POS-style: small thumb + name indented together
+   inside the name cell (image column left empty), so variants nest to the right. */
 .we-var-row > td { background:var(--we-head-bg); border-bottom:1px solid var(--we-border); }
-.we-var-row td.we-var-pad { padding-left:30px; }
+.we-var-lead { display:flex; align-items:center; gap:12px; padding-left:26px; min-width:0; }
 .we-var-name { display:flex; align-items:center; gap:10px; min-width:0; }
 .we-var-tick { width:14px; height:14px; flex-shrink:0; color:var(--we-text-muted); }
 .we-var-sku { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; font-size:12px; font-weight:700; color:var(--we-text); word-break:break-all; }
@@ -151,14 +208,44 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 .we-var-thumb { width:34px; height:34px; border-radius:8px; overflow:hidden; background:var(--we-active-bg); flex-shrink:0; }
 .we-var-thumb img { width:100%; height:100%; object-fit:cover; }
 
+/* ~1024px (yon panel ochiq + HAMMA ustun ko'rinadi) — jadvalning tabiiy eni
+   wrapper'дан ~60px oshиб ketарди. Ilgari buni `overflow:hidden` YASHIRARDI, ya'ni
+   «Себестоимость» ustuni jimgina kesilиб qolарди. Endi overflow yo'q, shu bois
+   kataklar padding'ini qisqartirиб jadvalni HAQIQATDA sig'diramiz. */
+@media (min-width:641px) and (max-width:1100px) {
+  .we-table thead th, .we-table tbody td { padding-left:10px; padding-right:10px; }
+}
 @media (max-width:900px) {
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:none; }
+  .we-h1 { font-size:23px; }
+  .we-header { flex-direction:column; align-items:stretch; }
+  /* In column mode flex-basis is height — reset so the left block sizes to
+     content and the panels sit right below it instead of being pushed off. */
+  .we-header-main { flex:0 0 auto; }
+  .we-stats { width:100%; }
+  .we-stat { flex:1 1 0; min-width:0; padding:20px 22px; }
+}
+@media (max-width:560px) {
+  .we-stats { flex-direction:column; }
+  .we-stat { width:100%; padding:18px 20px; }
+  .we-stat-val { font-size:30px; }
 }
 /* phones: don't hide columns — let the table scroll sideways so every column is reachable */
 @media (max-width:640px) {
-  .we-tablewrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+  /* Telefon: jadval yon tomonga scroll bo'ladi — ya'ni wrapper scroll-konteyner,
+     shu bois sticky sarlavha SAHIFAга emas, WRAPPER'га nisbatan yopishadi. Buning
+     ishlashi uchun wrapper'га balandlik kerak: aks holda uning scrollport'i butun
+     jadval bo'yi bo'lиб, sarlavha sahifа bilan birga yuqoriга chiqиб ketади.
+     Shuning uchun telefonда jadval O'Z ICHIДА scroll bo'ladi (ikки yo'nalishда),
+     sarlavha esa uning tepasида qotиб turadi. */
+  .we-tablewrap {
+    overflow:auto; -webkit-overflow-scrolling:touch;
+    max-height:calc(100vh - 150px);
+  }
   .we-table { min-width:680px; }
   .we-table thead th.we-hide-sm, .we-table tbody td.we-hide-sm { display:table-cell; }
+  /* Wrapper ichида yopishadi → sahifа top-bar'и hisobga olinmaydi. */
+  .we-table thead th { top:0; }
 }
 </style>
 {% endblock %}
@@ -167,42 +254,51 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 
 {% block content %}
 <div class="we-page">
-  <div class="we-title-row">
-    <div>
+  <div class="we-header">
+    <div class="we-header-main">
       <h1 class="we-h1">{{ 'Ombor xarajatlari' if is_uz else 'Складские расходы' }}</h1>
-      <p class="we-meta">
-        <b>{{ total_count }}</b> {{ 'mahsulot' if is_uz else 'товаров' }}
-        ·
-        {{ "Saqlash uchun jami" if is_uz else "Всего за хранение" }}:
-        <span class="we-exp-amt we-money">{{ "{:,}".format(total_storage).replace(",", " ") }}</span><span class="we-cur">{{ "so'm" if is_uz else "сум" }}</span>
-      </p>
-    </div>
-  </div>
 
-  <div class="we-filter-row">
-    <label class="we-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="weSearch" type="text" value="{{ q }}" placeholder="{{ 'Nomi yoki SKU bo\'yicha qidirish…' if is_uz else 'Поиск по названию или SKU…' }}">
-    </label>
+      <div class="we-filter-row">
+        <label class="we-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="weSearch" type="text" value="{{ q }}" placeholder="{{ 'Nomi yoki SKU bo\'yicha qidirish…' if is_uz else 'Поиск по названию или SKU…' }}">
+        </label>
 
-    {% if shops | length > 1 %}
-    <div class="we-store-picker" id="weStorePicker">
-      <button type="button" class="we-store-trigger" id="weStoreTrigger">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span id="weStoreLabel">
-          {%- set _sel = shops | selectattr('id', 'equalto', current_shop_id|int) | first if current_shop_id and current_shop_id.isdigit() else none -%}
-          {{ (_sel.name or _sel.uzum_id) if _sel else ('Barcha do\'konlar' if is_uz else 'Все магазины') }}
-        </span>
-        <svg class="we-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="we-store-menu">
-        <div class="we-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">{{ 'Barcha do\'konlar' if is_uz else 'Все магазины' }}</div>
-        {% for s in shops %}
-        <div class="we-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
-        {% endfor %}
+        {% if shops | length > 1 %}
+        <div class="we-store-picker" id="weStorePicker">
+          <button type="button" class="we-store-trigger" id="weStoreTrigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span id="weStoreLabel">
+              {%- set _sel = shops | selectattr('id', 'equalto', current_shop_id|int) | first if current_shop_id and current_shop_id.isdigit() else none -%}
+              {{ (_sel.name or _sel.uzum_id) if _sel else ('Barcha do\'konlar' if is_uz else 'Все магазины') }}
+            </span>
+            <svg class="we-chev" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="we-store-menu">
+            <div class="we-store-item {{ 'selected' if not current_shop_id }}" data-shop-id="">{{ 'Barcha do\'konlar' if is_uz else 'Все магазины' }}</div>
+            {% for s in shops %}
+            <div class="we-store-item {{ 'selected' if current_shop_id == s.id|string }}" data-shop-id="{{ s.id }}">{{ s.name or s.uzum_id }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
-    {% endif %}
+
+    <div class="we-stats">
+      <div class="we-stat">
+        <span class="we-stat-txt">
+          <span class="we-stat-lbl">{{ 'Mahsulotlar' if is_uz else 'Товары' }}</span>
+          <span class="we-stat-val">{{ total_count }}<span class="we-stat-unit">{{ 'dona' if is_uz else 'шт' }}</span></span>
+        </span>
+      </div>
+      <div class="we-stat we-stat--exp">
+        <span class="we-stat-txt">
+          <span class="we-stat-lbl">{{ 'Saqlash' if is_uz else 'За хранение' }}</span>
+          <span class="we-stat-val">{{ "{:,}".format(total_storage).replace(",", " ") }}<span class="we-stat-unit">{{ 'so‘m' if is_uz else 'сум' }}</span></span>
+        </span>
+      </div>
+    </div>
   </div>
 
   <div class="we-tablewrap">
@@ -224,7 +320,7 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
         {% set shop_uz = (shop.uzum_id if shop else '') %}
         <tr class="we-group-row" data-group="{{ it.id }}">
           <td style="width:64px; padding-right:0;">
-            <div class="we-thumb">
+            <div class="we-thumb"{% if it.image_url %} data-zoom-src="{{ it.image_url | uzum540 }}"{% endif %}>
               {% if it.image_url %}
               <img src="{{ it.image_url | uzum540 }}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
               <div class="we-thumb-empty" style="display:none">—</div>
@@ -278,16 +374,17 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
         </tr>
         {% for v in it.variants %}
         <tr class="we-var-row" data-group="{{ it.id }}" style="display:none;">
-          <td style="width:64px; padding-right:0;">
-            <div class="we-var-thumb" style="margin-left:auto;">
-              {% if v.image_url %}<img src="{{ v.image_url | uzum540 }}" alt="" loading="lazy" onerror="this.style.display='none'">{% endif %}
-            </div>
-          </td>
-          <td class="we-var-pad">
-            <div class="we-var-name">
-              <svg class="we-var-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-              <span class="we-var-sku">{{ v.sku }}</span>
-              {% if v.color %}<span class="we-var-color">· {{ v.color }}</span>{% endif %}
+          <td style="width:64px; padding-right:0;"></td>
+          <td>
+            <div class="we-var-lead">
+              <div class="we-var-thumb"{% if v.image_url %} data-zoom-src="{{ v.image_url | uzum540 }}"{% endif %}>
+                {% if v.image_url %}<img src="{{ v.image_url | uzum540 }}" alt="" loading="lazy" onerror="this.style.display='none'">{% endif %}
+              </div>
+              <div class="we-var-name">
+                <svg class="we-var-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                <span class="we-var-sku">{{ v.sku }}</span>
+                {% if v.color %}<span class="we-var-color">· {{ v.color }}</span>{% endif %}
+              </div>
             </div>
           </td>
           <td class="we-num">
@@ -336,7 +433,7 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/sale_picker.js?v=20260615f"></script>
+<script src="/static/sale_picker.js?v=20260716a"></script>
 <script>
 (function(){
   // expand / collapse group rows
@@ -498,6 +595,44 @@ table.we-table { width:100%; border-collapse:separate; border-spacing:0; }
     pgList.appendChild(item(cur + 1, '›', cur >= total, false));
   })();
   {% endif %}
+})();
+
+// Hover-zoom preview for product thumbnails. Delegated (survives pagination
+// re-render); position:fixed so it escapes the table's overflow clipping.
+(function(){
+  var preview = document.createElement('div');
+  preview.className = 'we-zoom-preview';
+  var pImg = document.createElement('img');
+  preview.appendChild(pImg);
+  document.body.appendChild(preview);
+  var GAP = 14, SIZE = 260;   // SIZE must match .we-zoom-preview width/height
+  function place(thumb){
+    var r = thumb.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + GAP;
+    if(left + SIZE > vw - 8) left = r.left - GAP - SIZE;   // flip left if it would overflow
+    if(left < 8) left = 8;
+    var top = r.top + r.height/2 - SIZE/2;
+    top = Math.max(8, Math.min(top, vh - SIZE - 8));
+    preview.style.left = left + 'px';
+    preview.style.top = top + 'px';
+  }
+  function show(thumb){
+    var src = thumb.getAttribute('data-zoom-src');
+    if(!src) return;
+    if(pImg.getAttribute('src') !== src) pImg.setAttribute('src', src);
+    place(thumb);
+    preview.classList.add('is-visible');
+  }
+  function hide(){ preview.classList.remove('is-visible'); }
+  document.addEventListener('mouseover', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t) show(t);
+  });
+  document.addEventListener('mouseout', function(e){
+    var t = e.target.closest && e.target.closest('[data-zoom-src]');
+    if(t && !t.contains(e.relatedTarget)) hide();
+  });
 })();
 </script>
 {% endblock %}

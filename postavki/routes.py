@@ -13,13 +13,20 @@ from flask import Blueprint, Response, jsonify, render_template, request, sessio
 from flask_login import current_user, login_required
 from sqlalchemy import select
 
-from datetime import date
+from datetime import date, datetime
 
 from extensions import SessionLocal
-from models import Shop, Variant, PostavkaGrabPlan
+from models import Shop, Variant, PostavkaGrabPlan, PostavkaAutoConfig
 from core.auth_helpers import _user_shop_ids
-from postavki import client, akt_cache, slot_grabber, autoslot_client, restock_plan
+from core.time_helpers import APP_TZ
+from postavki import client, akt_cache, slot_grabber, autoslot_client, restock_plan, auto_plan
 from postavki.autoslot import store
+
+
+def _tashkent_day(ms: int) -> date:
+    """epoch ms → Toshkent KUNI. UTC'da hisoblasak kun chegarasi surilib,
+    ertalabki slot «kecha»ga tushib qolardi."""
+    return datetime.fromtimestamp(int(ms) / 1000, APP_TZ).date()
 
 postavki_bp = Blueprint("postavki_bp", __name__)
 
@@ -151,7 +158,7 @@ def postavki_restock_api():
 def postavki_restock_plan_api():
     """Yarim-avtomat rejim: guruhlangan SKU'lar + «qancha kerak» tavsiyasi.
 
-    Hisob `/invoice/restock` bilan bir xil: (oxirgi N kun sotuvi − Uzum qoldig'i),
+    Hisob: (oxirgi N kun sotuvi − Uzum qoldig'i),
     bizning ombor qoldig'i bilan cheklangan. Qatorlar Uzum sku-list'idan
     olinadi, ya'ni har biri поставка qatoriga aylana oladi.
     """
@@ -233,6 +240,234 @@ def postavki_prepare_api():
     except Exception as e:
         return jsonify({"error": str(e)}), 502
     return jsonify({"stock": stock, "slots": slots})
+
+
+# ── «Авто» rejim: sozlama + oldindan ko'rish + bir tugmada yaratish ──────
+
+
+def _auto_cfg_row(db, shop: str):
+    return db.execute(
+        select(PostavkaAutoConfig).where(
+            PostavkaAutoConfig.user_id == int(current_user.get_id()),
+            PostavkaAutoConfig.shop_uzum_id == str(shop),
+        )
+    ).scalar_one_or_none()
+
+
+def _auto_cfg_dict(row) -> dict:
+    return {
+        "maxUnits": row.max_units, "maxSkus": row.max_skus,
+        "minPerSku": row.min_per_sku, "slotFrom": row.slot_from_offset,
+        "slotTo": row.slot_to_offset, "salesDays": row.sales_days,
+    }
+
+
+@postavki_bp.get("/postavki/api/auto/config")
+@login_required
+def postavki_auto_config_get():
+    """Avto sozlamasi. `configured:false` — hali qo'yilmagan (avto ishlamaydi)."""
+    shop = str(request.args.get("shop") or "").strip()
+    if not shop or not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    with SessionLocal() as db:
+        row = _auto_cfg_row(db, shop)
+        cfg = _auto_cfg_dict(row) if row else dict(auto_plan.DEFAULTS)
+    d_from, d_to = auto_plan.slot_window(cfg)
+    return jsonify({"configured": bool(row), "config": cfg,
+                    "slotFromDate": d_from.isoformat(), "slotToDate": d_to.isoformat(),
+                    "uzumMaxSkus": auto_plan.UZUM_MAX_SKUS})
+
+
+@postavki_bp.post("/postavki/api/auto/config")
+@login_required
+def postavki_auto_config_save():
+    """To'rtta chegara — hammasi majburiy; chegaradan chiqsa qisiladi."""
+    data = request.get_json(silent=True) or {}
+    shop = str(data.get("shop") or "").strip()
+    if not shop or not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    cfg, err = auto_plan.clamp_config(data)
+    if err:
+        return jsonify({"error": err}), 400
+    with SessionLocal() as db:
+        row = _auto_cfg_row(db, shop)
+        if row is None:
+            row = PostavkaAutoConfig(user_id=int(current_user.get_id()), shop_uzum_id=shop)
+            db.add(row)
+        row.max_units = cfg["maxUnits"]
+        row.max_skus = cfg["maxSkus"]
+        row.min_per_sku = cfg["minPerSku"]
+        row.slot_from_offset = cfg["slotFrom"]
+        row.slot_to_offset = cfg["slotTo"]
+        row.sales_days = cfg["salesDays"]
+        db.commit()
+    d_from, d_to = auto_plan.slot_window(cfg)
+    return jsonify({"configured": True, "config": cfg,
+                    "slotFromDate": d_from.isoformat(), "slotToDate": d_to.isoformat()})
+
+
+@postavki_bp.get("/postavki/api/auto/preview")
+@login_required
+def postavki_auto_preview():
+    """«Nima jo'natiladi» — HECH NARSA yaratmaydi (dry-run).
+
+    Sotuv oynasi ixtiyoriy: `?days=` chipi yoki `?date_from=&date_to=` (kalendar,
+    ustun) — yarim-avtomatdagi bilan bir xil. Berilmasa — sozlamadagi salesDays.
+    """
+    shop = str(request.args.get("shop") or "").strip()
+    if not shop or not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    with SessionLocal() as db:
+        row = _auto_cfg_row(db, shop)
+        if row is None:
+            return jsonify({"error": "not_configured"}), 409
+        cfg = _auto_cfg_dict(row)
+
+    d_from = (request.args.get("date_from") or "").strip() or None
+    d_to = (request.args.get("date_to") or "").strip() or None
+    days_raw = request.args.get("days")
+    if days_raw is not None:
+        # Chipni yarim-avtomat bilan bir xil qisamiz ([7,10,15,30,60]).
+        cfg = {**cfg, "salesDays": restock_plan.resolve_days(days_raw)}
+
+    try:
+        draft = auto_plan.build_auto_draft(shop, cfg, date_from=d_from, date_to=d_to)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+    return jsonify({"config": cfg, **draft})
+
+
+def _create_one_auto(shop: str, lines: list[dict], cfg: dict, d_from: date, d_to: date) -> dict:
+    """Bitta накладной: ombor → slot → create → (slot yo'q bo'lsa) avto-slot.
+
+    Slotlar HAR накладной uchun QAYTA o'qiladi: birini band qilgach o'sha slot
+    band bo'ladi, ikkinchisiga boshqasi kerak.
+    """
+    stocks = client.resolve_stocks(shop, [l["skuId"] for l in lines])
+    if not stocks:
+        raise RuntimeError("Ombor topilmadi (sku/stocks bo'sh)")
+    stock = stocks[0]
+    pool = stock.get("poolSource") or "FULLFILMENT"
+    slots = client.get_time_slots(shop, lines, pool)
+    chosen = _earliest_slot_in_window(slots, d_from, d_to)
+
+    invoice = client.create_invoice(shop, lines, chosen, int(stock["id"]))
+    inv_id = (invoice or {}).get("id")
+    if not inv_id:
+        raise RuntimeError("Yaratilmadi (javob bo'sh)")
+
+    units = sum(int(l["quantityToStock"]) for l in lines)
+    queued, queue_err = False, ""
+    if chosen:
+        try:
+            akt_cache.warm_one_async(shop, inv_id, date_updated=invoice.get("dateUpdated"))
+        except Exception:
+            pass
+    else:
+        try:
+            with SessionLocal() as db:
+                store.enqueue(
+                    db, user_id=int(current_user.get_id()), shop_uzum_id=shop,
+                    invoice_id=int(inv_id),
+                    invoice_number=str(invoice.get("invoiceNumber") or ""),
+                    volume=units, dim_group=_dim_of(invoice),
+                    pool_source=stock.get("poolSource"), stock_id=stock.get("id"),
+                    max_date=d_to, min_date=d_from, current_slot_ms=None,
+                )
+                db.commit()
+            queued = True
+        except Exception as e:
+            queue_err = str(e)
+
+    return {
+        "invoiceId": inv_id,
+        "invoiceNumber": invoice.get("invoiceNumber"),
+        "slotMs": chosen,
+        "queued": queued,
+        "queueError": queue_err,
+        "totalUnits": units,
+        "skuCount": len(lines),
+    }
+
+
+@postavki_bp.post("/postavki/api/auto/create")
+@login_required
+def postavki_auto_create():
+    """Avto-поставка: bitta yoki HAMMA накладнойni yaratadi.
+
+    body: {shop, packs:[[{skuId,quantityToStock,purchasePrice}, ...], ...]}
+    Har pack = bitta накладной (UI ko'rsatgan aynan o'sha qatorlar — WYSIWYG).
+    Har biri user chegaralariga qarshi qayta TEKSHIRILADI.
+
+    Slot NISBIY oynadan ([bugun+from .. bugun+to]): bo'sh slot bo'lsa eng ertasi
+    band qilinadi, bo'lmasa накладной slotsiz ochilib avto-slot navbatiga tushadi.
+    """
+    data = request.get_json(silent=True) or {}
+    shop = str(data.get("shop") or "").strip()
+    if not shop or not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    with SessionLocal() as db:
+        row = _auto_cfg_row(db, shop)
+        if row is None:
+            return jsonify({"error": "not_configured"}), 409
+        cfg = _auto_cfg_dict(row)
+
+    packs = data.get("packs") or []
+    if not isinstance(packs, list) or not packs:
+        return jsonify({"error": "packs kerak"}), 400
+    if len(packs) > auto_plan.MAX_INVOICES:
+        return jsonify({"error": f"Слишком много накладных за раз (максимум {auto_plan.MAX_INVOICES})."}), 400
+
+    # Har pack chegaralarga MOSmi — mijozga ishonmaymiz.
+    parsed: list[list[dict]] = []
+    for pack in packs:
+        lines, err = _parse_sku_lines(pack)
+        if err:
+            return jsonify({"error": err}), 400
+        if len(lines) > min(cfg["maxSkus"], auto_plan.UZUM_MAX_SKUS):
+            return jsonify({"error": "Превышен лимит SKU в накладной."}), 400
+        if sum(int(l["quantityToStock"]) for l in lines) > cfg["maxUnits"]:
+            return jsonify({"error": "Превышен лимит единиц в накладной."}), 400
+        parsed.append(lines)
+
+    d_from, d_to = auto_plan.slot_window(cfg)
+
+    # Ketma-ket: har накладнойdan keyin slotlar o'zgaradi (biri band bo'ldi).
+    results, errors = [], []
+    for i, lines in enumerate(parsed):
+        try:
+            results.append({**_create_one_auto(shop, lines, cfg, d_from, d_to), "index": i})
+        except Exception as e:
+            # Oldingilari REAL yaratilgan — ularni yo'qotmaymiz, xatoni qaytaramiz.
+            errors.append({"index": i, "error": str(e)})
+            break
+
+    if not results:
+        return jsonify({"error": (errors[0]["error"] if errors else "Не удалось создать.")}), 502
+
+    return jsonify({
+        "created": results,
+        "errors": errors,
+        "slotFromDate": d_from.isoformat(),
+        "slotToDate": d_to.isoformat(),
+    }), 201
+
+
+def _earliest_slot_in_window(slots: list[dict], d_from: date, d_to: date) -> int | None:
+    """Oyna ICHIDAGI eng erta slot (epoch ms) yoki None.
+
+    Kun Toshkent bo'yicha solishtiriladi — `day_bounds_tashkent` bilan bir xil
+    (aks holda UTC'da kun chegarasi surilib, «ertaga»ni «bugun» deb olardik).
+    """
+    best = None
+    for s in slots or []:
+        ms = s.get("timeFrom") or s.get("from")
+        if not ms:
+            continue
+        day = _tashkent_day(int(ms))
+        if d_from <= day <= d_to and (best is None or int(ms) < best):
+            best = int(ms)
+    return best
 
 
 @postavki_bp.post("/postavki/api/create")

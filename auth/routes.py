@@ -128,6 +128,14 @@ def admin_login_page():
 def set_lang(lang: str):
     if lang in ("ru", "uz"):
         session["lang"] = lang
+        # Persist for logged-in users so it survives new sessions AND drives the
+        # Telegram sales reports (same users.language field the settings page edits).
+        if current_user.is_authenticated:
+            with SessionLocal() as db:
+                u = db.get(User, int(current_user.get_id()))
+                if u is not None:
+                    u.language = lang
+                    db.commit()
     return redirect(request.referrer or url_for("products_bp.economics_page"))
 
 #Secret key link for admin login (no username/password, just a secret in the URL). This is a convenience for the admin to log in from a mobile device without typing credentials. The secret is stored in the .env file and should be kept private.
@@ -223,6 +231,17 @@ def settings_notifications():
     hours = list(range(24))
 
     if request.method == "POST":
+        # Report/UI language — saved first and independently, so the choice
+        # sticks even if the notification-window fields below fail validation.
+        lang_choice = (request.form.get("language") or "").strip().lower()
+        if lang_choice in ("ru", "uz"):
+            with SessionLocal() as db:
+                u = db.get(User, user_id)
+                if u is not None:
+                    u.language = lang_choice
+                    db.commit()
+            session["lang"] = lang_choice
+
         try:
             submitted = _app._coerce_notification_settings_payload({
                 "hourly_enabled": request.form.get("hourly_enabled") == "on",

@@ -1,7 +1,7 @@
 /* SHDateRange — ilovadagi YAGONA sana-oraliq tanlagichi.
  *
  * Sabab: kalendar shu paytgacha har sahifada qayta-qayta yozilgan edi
- * (group_detail.html, economics.html, invoice_restock.html — uchtasida bir xil
+ * (group_detail.html, economics.html — ikkalasida bir xil
  * flatpickr sozlamasi nusxalangan). Bu fayl o'sha AYNI sozlamani (flatpickr,
  * mode:'range', ru locale, showMonths:2, ISO YYYY-MM-DD) bitta joyga yig'adi.
  * Yangi sahifalar shu yerdan foydalanadi; eskilarini ham keyin shu yerga

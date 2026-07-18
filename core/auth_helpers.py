@@ -60,11 +60,17 @@ def _get_admin_token() -> str:
 
 #Automatically refresh the Uzum API token if it's expired or missing, and save it to DB.
 def _uzum_auto_login() -> bool:
-    """Login to Uzum via OAuth2 password grant and save the fresh token. Returns True on success."""
+    """Login to Uzum via OAuth2 password grant and save the fresh token. Returns True on success.
+
+    Every outcome is reported to the admin Telegram bot via
+    ``core.error_monitor.notify_admin_token_status`` (alert on failure,
+    6h reminders while broken, recovery message when it works again)."""
+    from core.error_monitor import notify_admin_token_status
     try:
         with SessionLocal() as db:
             admin = db.execute(select(User).where(User.is_admin == True)).scalars().first()
             if not admin or not admin.uzum_phone or not admin.uzum_password_plain:
+                notify_admin_token_status(False, "У администратора не заполнены телефон/пароль Uzum — авто-логин невозможен")
                 return False
             identifier = admin.uzum_phone.strip()
             password = admin.uzum_password_plain.strip()
@@ -91,6 +97,7 @@ def _uzum_auto_login() -> bool:
         token = body.get("access_token") or ""
         if not token:
             print("[AutoLogin] OAuth succeeded but no access_token in response:", list(body.keys()))
+            notify_admin_token_status(False, "Uzum OAuth ответил без access_token")
             return False
 
         if not token.startswith("Bearer "):
@@ -104,13 +111,16 @@ def _uzum_auto_login() -> bool:
 
         expires_in = body.get("expires_in", "?")
         print(f"[AutoLogin] Token refreshed successfully at {datetime.utcnow().isoformat()} (expires_in={expires_in}s)")
+        notify_admin_token_status(True)
         return True
     except HTTPError as e:
         resp_body = e.read().decode(errors="ignore")
         print(f"[AutoLogin] HTTP {e.code}: {resp_body[:300]}")
+        notify_admin_token_status(False, f"Uzum OAuth HTTP {e.code} — вероятно, неверные логин/пароль или Uzum недоступен")
         return False
     except Exception as e:
         print(f"[AutoLogin] Error: {e}")
+        notify_admin_token_status(False, f"Сбой авто-логина: {e}")
         return False
 
 

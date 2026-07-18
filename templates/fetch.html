@@ -3,7 +3,10 @@
 <head>
   <script>(function(){var t=localStorage.getItem('sh-theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
   <meta charset="UTF-8">
-  <title>{{ t.fetch_title }}</title>
+  <title>SellerHub</title>
+  <link rel="icon" href="/static/favicon.ico?v=5" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=5">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=5">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
@@ -764,6 +767,8 @@
       syncSuffix: {{ t.fetch_sync_suffix | tojson }},
       syncOkPrefix: {{ t.fetch_sync_ok_prefix | tojson }},
       syncOkVariants: {{ t.fetch_sync_ok_variants | tojson }},
+      syncStarted: {{ t.fetch_sync_started | tojson }},
+      syncCooldown: {{ t.fetch_sync_cooldown | tojson }},
       deletePrefix: {{ t.fetch_delete_prefix | tojson }},
       deleteSuffix: {{ t.fetch_delete_suffix | tojson }},
       confirmDeleteTitle: {{ t.fetch_confirm_delete_title | tojson }},
@@ -834,7 +839,12 @@
       const res = await fetch(url, opts);
       let data;
       try { data = await res.json(); } catch { throw new Error(`${_FT.serverErrorPrefix} (${res.status})`); }
-      if (!res.ok) throw new Error(data.error || `${_FT.errorPrefix} ${res.status}`);
+      if (!res.ok) {
+        const err = new Error(data.error || `${_FT.errorPrefix} ${res.status}`);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
       return data;
     }
 
@@ -883,6 +893,7 @@
       document.querySelectorAll(".btn-sync").forEach((btn) => {
         btn.addEventListener("click", (e) => doSync(e.target.dataset.id));
       });
+      applyCooldowns();
       document.querySelectorAll(".btn-edit").forEach((btn) => {
         btn.addEventListener("click", (e) => editShop(e.target.dataset.id, e.target.dataset.name));
       });
@@ -891,23 +902,69 @@
       });
     }
 
+    // ── Per-shop sync cooldown ────────────────────────────────────────────
+    // The server (Redis) is the source of truth (429 on cooldown); this
+    // localStorage mirror just keeps the button disabled + counting down across
+    // reloads so the UI doesn't invite a click the server will only reject.
+    const RESYNC_COOLDOWN_SEC = 600; // 10 min — must match backend _RESYNC_COOLDOWN_SEC
+    const _cdKey = (id) => `resync_cd_${id}`;
+    function cooldownRemaining(id) {
+      const until = parseInt(localStorage.getItem(_cdKey(id)) || "0", 10);
+      const rem = Math.ceil((until - Date.now()) / 1000);
+      return rem > 0 ? rem : 0;
+    }
+    function _fmtCd(sec) {
+      const m = Math.floor(sec / 60), s = sec % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+    function _applyCooldownTo(btn) {
+      const id = btn.dataset.id;
+      if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+      if (btn._cdTimer) { clearInterval(btn._cdTimer); btn._cdTimer = null; }
+      const tick = () => {
+        const rem = cooldownRemaining(id);
+        if (rem <= 0) {
+          btn.disabled = false;
+          btn.textContent = btn.dataset.label;
+          if (btn._cdTimer) { clearInterval(btn._cdTimer); btn._cdTimer = null; }
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = `${btn.dataset.label} (${_fmtCd(rem)})`;
+      };
+      tick();
+      if (cooldownRemaining(id) > 0) btn._cdTimer = setInterval(tick, 1000);
+    }
+    function applyCooldowns() {
+      document.querySelectorAll(".btn-sync").forEach(_applyCooldownTo);
+    }
+    function startCooldown(id, sec) {
+      localStorage.setItem(_cdKey(id), String(Date.now() + (sec || RESYNC_COOLDOWN_SEC) * 1000));
+      applyCooldowns();
+    }
+
     async function doSync(shopId) {
+      if (cooldownRemaining(shopId) > 0) return; // guard double-click within window
       const status = document.getElementById("syncStatus");
       status.style.display = "block";
       status.className = "alert alert-info status-panel";
       status.textContent = `${_FT.syncPrefix} ${shopId} ${_FT.syncSuffix}`;
 
-      document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = true; });
-
       try {
-        const res = await api("/api/uzum/sync", "POST", { shop_id: shopId, size: 100, sync_all: true });
+        const res = await api(`/api/shops/${encodeURIComponent(shopId)}/resync`, "POST", {});
         status.className = "alert alert-success status-panel";
-        status.textContent = `${_FT.syncOkPrefix} ${res.total_products}${_FT.syncOkVariants} ${res.fetched}.`;
+        status.textContent = _FT.syncStarted;
+        startCooldown(shopId, res.cooldown_sec || RESYNC_COOLDOWN_SEC);
       } catch (e) {
-        status.className = "alert alert-danger status-panel";
-        status.textContent = _FT.errorPrefix + " " + e.message;
-      } finally {
-        document.querySelectorAll(".btn-sync").forEach((b) => { b.disabled = false; });
+        if (e.status === 429 || (e.data && e.data.error === "cooldown")) {
+          const wait = (e.data && e.data.retry_after) || RESYNC_COOLDOWN_SEC;
+          startCooldown(shopId, wait);
+          status.className = "alert alert-warning status-panel";
+          status.textContent = _FT.syncCooldown.replace("{t}", _fmtCd(wait));
+        } else {
+          status.className = "alert alert-danger status-panel";
+          status.textContent = _FT.errorPrefix + " " + e.message;
+        }
       }
     }
 
@@ -1480,6 +1537,6 @@
     loadShops();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/uzum_ui.js?v=20260613a"></script>
+  <script src="/static/uzum_ui.js?v=20260715c"></script>
 </body>
 </html>

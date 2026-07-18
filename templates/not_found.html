@@ -1,3 +1,8 @@
+{# Without this extends the blocks below bind to nothing: the 404 rendered as a
+   bare <style> + markup fragment, with no <html>, no <head>, no title and no
+   favicon. #}
+{% extends "base.html" %}
+
 {% block extra_css %}
 <style>
   .nf-wrap {

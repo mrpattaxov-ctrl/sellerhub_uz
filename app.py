@@ -23,7 +23,7 @@ from core.time_helpers import (
     _recommended_window_lengths,
 )
 from core.http_client import _get_http_session, http_post_multipart
-from core.uzum_openapi import fetch_products_page
+from core.uzum_openapi import fetch_products_page, UzumOpenAPIError
 from core.uzum_openapi import fetch_products_page as _openapi_fetch_products_page
 from core.uzum_openapi import FBS_ORDER_STATUSES as _FBS_ORDER_STATUSES
 from core.fbs_sync import (
@@ -48,6 +48,7 @@ from core.subscriptions import (
     _ensure_user_trial_started,
     _get_or_create_subscription_settings,
     _get_subscription_context_for_user,
+    _invalidate_user_ctx_cache,
     _subscription_status_for_user,
     write_session_subscription,
 )
@@ -62,7 +63,7 @@ from datetime import date, datetime, timedelta, timezone, time as dt_time
 from urllib.error import HTTPError
 
 import requests
-from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session
+from flask import Flask, jsonify, request, render_template, redirect, url_for, send_file, flash, session, send_from_directory
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from sqlalchemy import create_engine, select, func, desc, delete, update, text, insert, inspect, or_, and_
@@ -350,6 +351,18 @@ print(f"[ADMIN] Secret admin entry: /admin-{_ADMIN_SECRET}/login\n", flush=True)
 login_manager.init_app(app)
 login_manager.login_view = "auth_bp.login"
 
+@app.route("/favicon.ico")
+def favicon():
+    """Browsers request /favicon.ico from the site root on their own, whatever
+    the <link> tags say — without this route it 404s app-wide and the tab falls
+    back to the generic globe. Exempted from the password-change and
+    subscription guards below (same as `static`), so the icon still renders on
+    the pages those guards redirect to."""
+    return send_from_directory(
+        app.static_folder, "favicon.ico", mimetype="image/vnd.microsoft.icon"
+    )
+
+
 @app.before_request
 def _make_session_permanent():
     """Mark every session permanent so the auth cookie survives a full
@@ -363,7 +376,7 @@ def _force_password_change():
         return None
     if not getattr(current_user, "must_change_password", False):
         return None
-    if request.endpoint in ("auth_bp.change_password", "change_password", "auth_bp.logout", "logout", "static"):
+    if request.endpoint in ("auth_bp.change_password", "change_password", "auth_bp.logout", "logout", "static", "favicon"):
         return None
     return redirect(url_for("auth_bp.change_password"))
 
@@ -379,6 +392,7 @@ def _enforce_active_subscription():
         "auth_bp.subscription_page",
         "auth_bp.subscription_expired_page",
         "static",
+        "favicon",
     }
     if request.endpoint in allowed_endpoints:
         return None
@@ -450,7 +464,12 @@ from translations import get_translations
 
 @app.context_processor
 def _inject_lang():
-    lang = session.get("lang", "uz")
+    # Priority: explicit per-session override (topbar/settings) → the user's
+    # saved preference (users.language, also drives Telegram reports) → default.
+    lang = session.get("lang")
+    if not lang and current_user.is_authenticated:
+        lang = getattr(current_user, "language", None)
+    lang = lang if lang in ("ru", "uz") else "uz"
     return {"lang": lang, "t": get_translations(lang)}
 
 
@@ -723,6 +742,13 @@ import postavki.routes as _postavki_mod
 app.register_blueprint(_postavki_mod.postavki_bp)
 
 # ---------------------------------------------------------------------------
+# Register zakupka Blueprint (План закупки — yetkazib beruvchidan nima olish
+# kerak). Faqat O'QIYDI; hisob postavki.restock_plan ustida quriladi.
+# ---------------------------------------------------------------------------
+import zakupka.routes as _zakupka_mod
+app.register_blueprint(_zakupka_mod.zakupka_bp)
+
+# ---------------------------------------------------------------------------
 # Register admin «Авто-слот» panel (IZOLYATSIYALANGAN — admin_autoslot/ papka)
 # Faqat operator: global avto-slot navbatini ko'rish + prioritet boshqaruvi.
 # ---------------------------------------------------------------------------
@@ -880,11 +906,13 @@ def _start_tg_bot():
             user = _get_db_user(tg_id)
             if user:
                 # Already linked — show main menu
+                _lang = _lang_of(user)
                 bot.send_message(
                     msg.chat.id,
-                    f"👋 С возвращением, *{user.username}*!\nВыберите действие:",
+                    (f"👋 Xush kelibsiz, *{user.username}*!\nAmalni tanlang:" if _lang == "uz"
+                     else f"👋 С возвращением, *{user.username}*!\nВыберите действие:"),
                     parse_mode="Markdown",
-                    reply_markup=_main_menu(user.is_admin),
+                    reply_markup=_main_menu(user.is_admin, _lang),
                 )
             else:
                 # Not linked yet — ask to share phone
@@ -918,6 +946,7 @@ def _start_tg_bot():
                     db.commit()
                     user_id = user.id
                     is_admin = user.is_admin
+                    user_lang = user.language
                 else:
                     # Auto-create account for new user through telegram bot
                     from werkzeug.security import generate_password_hash as _gph
@@ -942,6 +971,7 @@ def _start_tg_bot():
                     db.refresh(user)
                     user_id = user.id
                     is_admin = False
+                    user_lang = user.language  # None → will be asked below
 
                 # Find and confirm any pending contact_link token for this phone
                 pending = db.execute(
@@ -957,38 +987,149 @@ def _start_tg_bot():
                     pending.tg_id = tg_id
                     db.commit()
 
-            bot.send_message(
-                msg.chat.id,
-                "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы.",
-                parse_mode="Markdown",
-                reply_markup=_main_menu(is_admin),
-            )
+            if user_lang:
+                # Language already chosen before — go straight to the menu.
+                bot.send_message(
+                    msg.chat.id,
+                    ("✅ *Kirish tasdiqlandi!* Kirish sahifasiga qayting — avtomatik ravishda tizimga kirasiz."
+                     if user_lang == "uz"
+                     else "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы."),
+                    parse_mode="Markdown",
+                    reply_markup=_main_menu(is_admin, user_lang),
+                )
+            else:
+                # Ask the user to pick a language (persisted in handle_lang_choice).
+                bot.send_message(
+                    msg.chat.id,
+                    "✅ *Номер привязан!*\n\n🌐 Выберите язык / Tilni tanlang:",
+                    parse_mode="Markdown",
+                    reply_markup=_lang_menu(),
+                )
 
         # ---- helpers used by shop commands ----
-        def _main_menu(is_admin=False):
-            """Persistent bottom keyboard."""
+        # Menu button labels per language. Handlers match against the value
+        # sets (_btn_all) so a tap works no matter which language rendered it.
+        _BTN = {
+            "shops":      {"ru": "🛍 Мои магазины",    "uz": "🛍 Do'konlarim"},
+            "addshop":    {"ru": "➕ Добавить магазин", "uz": "➕ Do'kon qo'shish"},
+            "settings":   {"ru": "⚙️ Настройки",       "uz": "⚙️ Sozlamalar"},
+            "help":       {"ru": "❓ Помощь",           "uz": "❓ Yordam"},
+            "changelang": {"ru": "🌐 Изменить язык",   "uz": "🌐 Tilni o'zgartirish"},
+            "back":       {"ru": "⬅️ Назад",           "uz": "⬅️ Orqaga"},
+        }
+
+        def _btn_core(text):
+            """Button label without its leading emoji/symbols, so a tap still
+            matches after an icon change. Reply keyboards are CLIENT-side state:
+            a user's phone keeps showing the OLD label (e.g. '🏪 Мои магазины')
+            and echoes that old text back until a fresh keyboard is pushed.
+            Matching on the core ('Мои магазины') tolerates any icon swap."""
+            s = (text or "").strip()
+            i = 0
+            while i < len(s) and not s[i].isalnum():
+                i += 1
+            return s[i:]
+
+        def _btn_all(key):
+            return {_btn_core(v) for v in _BTN[key].values()}
+
+        def _main_menu(is_admin=False, lang="ru"):
+            """Persistent bottom keyboard, localised to the user's language."""
+            lang = lang if lang in ("ru", "uz") else "ru"
             markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-            markup.row(telebot.types.KeyboardButton("🏪 Мои магазины"))
-            markup.row(telebot.types.KeyboardButton("➕ Добавить магазин"))
-            markup.row(telebot.types.KeyboardButton("❓ Помощь"))
+            markup.row(telebot.types.KeyboardButton(_BTN["shops"][lang]))
+            markup.row(telebot.types.KeyboardButton(_BTN["addshop"][lang]))
+            markup.row(
+                telebot.types.KeyboardButton(_BTN["settings"][lang]),
+                telebot.types.KeyboardButton(_BTN["help"][lang]),
+            )
             return markup
+
+        def _settings_menu(lang):
+            """Bottom (reply) keyboard opened by the ⚙️ Settings button. One row
+            per setting — add more _BTN entries + handlers here to extend it."""
+            m = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+            m.row(telebot.types.KeyboardButton(_BTN["changelang"][lang]))
+            m.row(telebot.types.KeyboardButton(_BTN["back"][lang]))
+            return m
+
+        # Language picker shown after contact-share. Flag first, then name.
+        # Keys are the exact button labels Telegram echoes back on tap.
+        _LANG_LABELS = {"🇷🇺 Русский": "ru", "🇺🇿 Oʻzbekcha": "uz"}
+
+        def _lang_menu():
+            """Bottom keyboard to pick the bot language."""
+            markup = telebot.types.ReplyKeyboardMarkup(
+                one_time_keyboard=True, resize_keyboard=True
+            )
+            for label in _LANG_LABELS:
+                markup.row(telebot.types.KeyboardButton(label))
+            return markup
+
+        @bot.message_handler(func=lambda m: (m.text or "") in _LANG_LABELS)
+        def handle_lang_choice(msg):
+            tg_id = str(msg.from_user.id)
+            lang = _LANG_LABELS[msg.text]
+            is_admin = False
+            already_had_lang = False
+            with SessionLocal() as db:
+                user = db.execute(
+                    select(User).where(User.telegram_id == tg_id)
+                ).scalar_one_or_none()
+                if user:
+                    already_had_lang = bool(user.language)  # set before → a settings change
+                    user.language = lang
+                    db.commit()
+                    is_admin = user.is_admin
+            if already_had_lang:
+                # Reached via ⚙️ Settings → change language (not registration).
+                text = "✅ Til o'zgartirildi." if lang == "uz" else "✅ Язык изменён."
+            else:
+                # First-time pick right after contact-share (registration).
+                text = ("✅ *Kirish tasdiqlandi!* Kirish sahifasiga qayting — avtomatik ravishda tizimga kirasiz."
+                        if lang == "uz"
+                        else "✅ *Вход подтверждён!* Возвращайтесь на страницу входа — вы будете автоматически авторизованы.")
+            bot.send_message(
+                msg.chat.id, text, parse_mode="Markdown",
+                reply_markup=_main_menu(is_admin, lang),
+            )
 
         def _get_db_user(tg_id: str):
             with SessionLocal() as db:
                 return db.execute(select(User).where(User.telegram_id == tg_id)).scalar_one_or_none()
+
+        def _lang_of(user) -> str:
+            """User's bot language; NULL/unknown → the notification default (uz)."""
+            lang = (getattr(user, "language", None) if user else None) or _NOTIF_DEFAULT_LANG
+            return lang if lang in ("ru", "uz") else "uz"
+
+        def _user_lang(tg_id) -> str:
+            return _lang_of(_get_db_user(str(tg_id)))
 
         # ---- /help ----
         @bot.message_handler(commands=["help"])
         def handle_help(msg):
             tg_id = str(msg.from_user.id)
             user = _get_db_user(tg_id)
-            bot.send_message(msg.chat.id,
-                "📋 *Доступные команды:*\n\n"
-                "🏪 *Мои магазины* — просмотр ваших магазинов\n"
-                "➕ *Добавить магазин* — добавить магазин _(только админ)_\n"
-                "/start — привязать номер телефона\n",
-                parse_mode="Markdown",
-                reply_markup=_main_menu(user.is_admin if user else False))
+            lang = _lang_of(user)
+            if lang == "uz":
+                text = (
+                    "📋 *Mavjud buyruqlar:*\n\n"
+                    "🛍 *Do'konlarim* — do'konlaringizni ko'rish\n"
+                    "➕ *Do'kon qo'shish* — OpenAPI token orqali do'kon ulash va sinxronlash\n"
+                    "⚙️ *Sozlamalar* — til va boshqa sozlamalar\n"
+                    "/start — telefon raqamini bog'lash\n"
+                )
+            else:
+                text = (
+                    "📋 *Доступные команды:*\n\n"
+                    "🛍 *Мои магазины* — просмотр ваших магазинов\n"
+                    "➕ *Добавить магазин* — подключить магазин по OpenAPI токену и синхронизировать\n"
+                    "⚙️ *Настройки* — язык и другие настройки\n"
+                    "/start — привязать номер телефона\n"
+                )
+            bot.send_message(msg.chat.id, text, parse_mode="Markdown",
+                reply_markup=_main_menu(user.is_admin if user else False, lang))
 
         # ---- /testsales — manually fire the hourly check for the requesting user only ----
         @bot.message_handler(commands=["testsales"])
@@ -1012,91 +1153,369 @@ def _start_tg_bot():
             _thr.Thread(target=_run, daemon=True).start()
 
         # ---- menu button text handlers ----
-        @bot.message_handler(func=lambda m: m.text == "🏪 Мои магазины")
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("shops"))
         def btn_my_shops(msg):
             msg.text = "/shops"
             handle_shops(msg)
 
-        # ---- multi-step add shop flow ----
-        def _addshop_ask_name(msg, user_id, is_admin, uzum_id):
-            name = (msg.text or "").strip()
-            if name in ("—", "-", ""):
-                name = ""
+        # ---- ⚙️ Settings — all bottom (reply) keyboards, no inline panels ----
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("settings"))
+        def btn_settings(msg):
+            lang = _user_lang(msg.from_user.id)
+            bot.send_message(
+                msg.chat.id,
+                "⚙️ Sozlamalar" if lang == "uz" else "⚙️ Настройки",
+                reply_markup=_settings_menu(lang),
+            )
+
+        # "🌐 Change language" → show the two-language bottom picker (_lang_menu).
+        # The pick itself is saved by handle_lang_choice above.
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("changelang"))
+        def btn_change_lang(msg):
+            lang = _user_lang(msg.from_user.id)
+            bot.send_message(
+                msg.chat.id,
+                "🌐 Tilni tanlang:" if lang == "uz" else "🌐 Выберите язык:",
+                reply_markup=_lang_menu(),
+            )
+
+        # "⬅️ Back" → return to the main menu.
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("back"))
+        def btn_back(msg):
+            user = _get_db_user(str(msg.from_user.id))
+            lang = _lang_of(user)
+            bot.send_message(
+                msg.chat.id,
+                "🏠 Asosiy menyu" if lang == "uz" else "🏠 Главное меню",
+                reply_markup=_main_menu(user.is_admin if user else False, lang),
+            )
+
+        # ---- add shop via OpenAPI token (mirrors the web /fetch flow:
+        #      paste token → discover shops → tick the ones to attach →
+        #      attach + fire the full finance/products/FBS seed) ----
+        #
+        # In-memory picker sessions, keyed by Telegram user id. Each holds the
+        # discovered shop list + the current tick selection. Wiped on confirm/
+        # cancel; a stale one just makes the callbacks answer "expired".
+        _addshop_sessions = {}
+
+        def _addshop_prompt_token(msg, user_id, is_admin):
+            """Ask for the OpenAPI token (offer to reuse a saved one)."""
+            lang = _user_lang(msg.from_user.id)
             with SessionLocal() as db:
-                existing = db.execute(select(Shop).where(Shop.uzum_id == uzum_id)).scalar_one_or_none()
-                if existing:
-                    if existing.owner_id and existing.owner_id != user_id:
-                        bot.send_message(msg.chat.id,
-                            f"❌ Магазин `{uzum_id}` уже привязан к другому аккаунту.",
-                            parse_mode="Markdown", reply_markup=_main_menu(is_admin))
-                        return
-                    if existing.owner_id == user_id:
-                        bot.send_message(msg.chat.id,
-                            f"ℹ️ Магазин *{existing.name or uzum_id}* уже добавлен.",
-                            parse_mode="Markdown", reply_markup=_main_menu(is_admin))
-                        return
-                    # Unassigned shop — claim it
-                    existing.owner_id = user_id
-                    if name:
-                        existing.name = name
-                    db.commit()
-                    bot.send_message(msg.chat.id,
-                        f"✅ Магазин *{existing.name or uzum_id}* привязан к вашему аккаунту!",
-                        parse_mode="Markdown", reply_markup=_main_menu(is_admin))
-                else:
-                    owner = None if is_admin else user_id
-                    shop = Shop(uzum_id=uzum_id, name=name or None, owner_id=owner)
-                    db.add(shop)
-                    db.commit()
-                    db.refresh(shop)
-                    new_shop_pk = shop.id
-                    assigned = "добавлен (не привязан к продавцу)" if is_admin else "добавлен и привязан к вашему аккаунту"
-                    bot.send_message(msg.chat.id,
-                        f"✅ Магазин *{name or uzum_id}* {assigned}!\n\n"
-                        f"💰 Запускаю загрузку продаж и истории финансов (с 2022 г.)...",
-                        parse_mode="Markdown", reply_markup=_main_menu(is_admin))
-                    def _seed_finance(uzum_id=uzum_id, shop_pk=new_shop_pk, chat_id=msg.chat.id, shop_name=name or uzum_id):
-                        try:
-                            res = _sync_finance_for_shop(uzum_id, shop_pk)
-                            bot.send_message(chat_id,
-                                f"✅ Продажи загружены для *{shop_name}*! SKU обновлено: {res['updated']}",
-                                parse_mode="Markdown")
-                        except Exception as _e:
-                            bot.send_message(chat_id,
-                                f"⚠️ Не удалось загрузить продажи для *{shop_name}*: {_e}",
-                                parse_mode="Markdown")
-                    import threading as _threading
-                    _threading.Thread(target=_seed_finance, daemon=True).start()
+                u = db.get(User, user_id)
+                has_saved = bool((u.uzum_openapi_token or "").strip()) if u else False
+            if lang == "uz":
+                text = ("🔑 *Uzum Seller OpenAPI* tokeningizni yuboring.\n\n"
+                        "Biz do'konlaringizni ko'rsatamiz — qaysilarini ulashni tanlaysiz.")
+                if has_saved:
+                    text += "\n\n_Saqlangan tokendan foydalanish uchun_ `—` _yuboring._"
+            else:
+                text = ("🔑 Отправьте ваш *Uzum Seller OpenAPI* токен.\n\n"
+                        "Мы покажем ваши магазины — вы выберете, какие подключить.")
+                if has_saved:
+                    text += "\n\n_Чтобы использовать сохранённый токен, отправьте_ `—`."
+            bot.send_message(msg.chat.id, text, parse_mode="Markdown")
+            bot.register_next_step_handler(msg, _addshop_receive_token,
+                user_id=user_id, is_admin=is_admin)
 
-        def _addshop_ask_id(msg, user_id, is_admin):
-            if msg.text and msg.text.startswith("/"):
-                return  # user cancelled with another command
-            uzum_id = (msg.text or "").strip()
-            if not uzum_id:
-                bot.send_message(msg.chat.id, "❌ ID не может быть пустым. Попробуйте снова:")
-                bot.register_next_step_handler(msg, _addshop_ask_id, user_id=user_id, is_admin=is_admin)
+        def _addshop_receive_token(msg, user_id, is_admin):
+            tg_id = str(msg.from_user.id)
+            lang = _user_lang(tg_id)
+            text = (msg.text or "").strip()
+            # Bail out if the user tapped a menu button or a command instead of
+            # pasting a token — don't swallow it as the "token".
+            if text.startswith("/") or any(_btn_core(text) in _btn_all(k) for k in _BTN):
+                bot.send_message(msg.chat.id,
+                    ("Bekor qilindi." if lang == "uz" else "Отменено."),
+                    reply_markup=_main_menu(is_admin, lang))
                 return
-            bot.send_message(msg.chat.id,
-                f"Введите *название* магазина `{uzum_id}` (или отправьте `—` чтобы пропустить):",
-                parse_mode="Markdown")
-            bot.register_next_step_handler(msg, _addshop_ask_name,
-                user_id=user_id, is_admin=is_admin, uzum_id=uzum_id)
+            token = "" if text in ("—", "-") else text
+            if not token:
+                with SessionLocal() as db:
+                    u = db.get(User, user_id)
+                    token = (u.uzum_openapi_token or "").strip() if u else ""
+            if not token:
+                bot.send_message(msg.chat.id,
+                    ("❌ Token bo'sh. Iltimos, OpenAPI tokenni yuboring:" if lang == "uz"
+                     else "❌ Токен пуст. Пожалуйста, отправьте OpenAPI токен:"))
+                bot.register_next_step_handler(msg, _addshop_receive_token,
+                    user_id=user_id, is_admin=is_admin)
+                return
 
-        @bot.message_handler(func=lambda m: m.text == "➕ Добавить магазин")
+            bot.send_message(msg.chat.id,
+                ("⏳ Do'konlaringiz aniqlanmoqda..." if lang == "uz"
+                 else "⏳ Определяю ваши магазины..."))
+
+            def _discover(user_id=user_id, is_admin=is_admin, token=token,
+                          chat_id=msg.chat.id, tg_id=tg_id, lang=lang):
+                from core.uzum_openapi import list_owned_shops
+                try:
+                    shops = list_owned_shops(token)
+                except Exception as exc:
+                    bot.send_message(chat_id,
+                        (f"❌ Uzum OpenAPI xatosi: {exc}" if lang == "uz"
+                         else f"❌ Ошибка Uzum OpenAPI: {exc}"))
+                    return
+                with SessionLocal() as db:
+                    u = db.get(User, user_id)
+                    # Persist the token on first successful probe (the finance
+                    # seed's products burst reads it back off the owner row).
+                    if u and u.uzum_openapi_token != token:
+                        u.uzum_openapi_token = token
+                        db.commit()
+                    uzum_ids = [str(s.get("uzum_id")) for s in shops if s.get("uzum_id")]
+                    existing = {}
+                    if uzum_ids:
+                        for row in db.execute(
+                            select(Shop).where(Shop.uzum_id.in_(uzum_ids))
+                        ).scalars():
+                            existing[row.uzum_id] = row
+                    items = []
+                    for s in shops:
+                        uid_str = str(s.get("uzum_id") or "").strip()
+                        if not uid_str:
+                            continue
+                        ex = existing.get(uid_str)
+                        items.append({
+                            "uzum_id": uid_str,
+                            "name": str(s.get("name") or "").strip(),
+                            "already": ex is not None and ex.owner_id == user_id,
+                            "other": (ex is not None and ex.owner_id is not None
+                                      and ex.owner_id != user_id),
+                        })
+                if not items:
+                    bot.send_message(chat_id,
+                        ("ℹ️ Bu token uchun do'kon topilmadi." if lang == "uz"
+                         else "ℹ️ Для этого токена магазины не найдены."))
+                    return
+                _addshop_sessions[tg_id] = {
+                    "shops": items, "selected": set(),
+                    "user_id": user_id, "is_admin": is_admin, "token": token,
+                }
+                header = ("🛍 Ulash uchun do'konlarni belgilang:" if lang == "uz"
+                          else "🛍 Отметьте магазины для подключения:")
+                bot.send_message(chat_id, header,
+                                 reply_markup=_addshop_markup(tg_id, lang))
+
+            threading.Thread(target=_discover, daemon=True).start()
+
+        def _addshop_markup(tg_id, lang):
+            """Inline picker: tick rows to select, then a Sync/Cancel action row.
+            Already-added / other-owner shops render as non-tickable status rows."""
+            sess = _addshop_sessions.get(tg_id)
+            markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+            if not sess:
+                return markup
+            for i, s in enumerate(sess["shops"]):
+                name = s["name"] or s["uzum_id"]
+                if s["already"]:
+                    tag = "✓ qo'shilgan" if lang == "uz" else "✓ добавлен"
+                    markup.add(telebot.types.InlineKeyboardButton(
+                        f"🛍 {name} · {tag}", callback_data="ash_noop"))
+                elif s["other"]:
+                    tag = "band" if lang == "uz" else "занят"
+                    markup.add(telebot.types.InlineKeyboardButton(
+                        f"🔒 {name} · {tag}", callback_data="ash_noop"))
+                else:
+                    box = "✅" if i in sess["selected"] else "⬜"
+                    markup.add(telebot.types.InlineKeyboardButton(
+                        f"{box} {name}", callback_data=f"ash_sel:{i}"))
+            n = len(sess["selected"])
+            if lang == "uz":
+                go = (f"➕ Tanlanganlarni sinxronlash ({n})" if n
+                      else "➕ Kamida bittasini belgilang")
+                cancel = "⬅️ Bekor qilish"
+            else:
+                go = (f"➕ Синхронизировать выбранные ({n})" if n
+                      else "➕ Отметьте хотя бы один")
+                cancel = "⬅️ Отмена"
+            markup.add(telebot.types.InlineKeyboardButton(go, callback_data="ash_go"))
+            markup.add(telebot.types.InlineKeyboardButton(cancel, callback_data="ash_cancel"))
+            return markup
+
+        @bot.callback_query_handler(func=lambda c: c.data == "ash_noop")
+        def _addshop_noop(call):
+            lang = _user_lang(call.from_user.id)
+            bot.answer_callback_query(call.id,
+                ("Bu do'kon allaqachon qo'shilgan yoki band." if lang == "uz"
+                 else "Этот магазин уже добавлен или занят."))
+
+        @bot.callback_query_handler(func=lambda c: c.data.startswith("ash_sel:"))
+        def _addshop_toggle(call):
+            tg_id = str(call.from_user.id)
+            lang = _user_lang(tg_id)
+            sess = _addshop_sessions.get(tg_id)
+            if not sess:
+                bot.answer_callback_query(call.id,
+                    ("Sessiya tugadi — qaytadan boshlang." if lang == "uz"
+                     else "Сессия истекла — начните заново."))
+                return
+            i = int(call.data.split(":", 1)[1])
+            if i in sess["selected"]:
+                sess["selected"].discard(i)
+            else:
+                sess["selected"].add(i)
+            bot.answer_callback_query(call.id)
+            try:
+                bot.edit_message_reply_markup(
+                    call.message.chat.id, call.message.message_id,
+                    reply_markup=_addshop_markup(tg_id, lang))
+            except Exception:
+                pass
+
+        @bot.callback_query_handler(func=lambda c: c.data == "ash_cancel")
+        def _addshop_cancel(call):
+            tg_id = str(call.from_user.id)
+            lang = _user_lang(tg_id)
+            _addshop_sessions.pop(tg_id, None)
+            bot.answer_callback_query(call.id)
+            try:
+                bot.edit_message_text(
+                    ("Bekor qilindi." if lang == "uz" else "Отменено."),
+                    call.message.chat.id, call.message.message_id)
+            except Exception:
+                pass
+
+        @bot.callback_query_handler(func=lambda c: c.data == "ash_go")
+        def _addshop_confirm(call):
+            tg_id = str(call.from_user.id)
+            lang = _user_lang(tg_id)
+            sess = _addshop_sessions.get(tg_id)
+            if not sess:
+                bot.answer_callback_query(call.id,
+                    ("Sessiya tugadi — qaytadan boshlang." if lang == "uz"
+                     else "Сессия истекла — начните заново."))
+                return
+            selected = [sess["shops"][i] for i in sorted(sess["selected"])]
+            if not selected:
+                bot.answer_callback_query(call.id,
+                    ("Kamida bitta do'konni belgilang." if lang == "uz"
+                     else "Отметьте хотя бы один магазин."), show_alert=True)
+                return
+            bot.answer_callback_query(call.id)
+            _addshop_sessions.pop(tg_id, None)
+            try:
+                bot.edit_message_text(
+                    ("⏳ Do'konlar qo'shilmoqda va sinxronlanmoqda..." if lang == "uz"
+                     else "⏳ Добавляю магазины и запускаю синхронизацию..."),
+                    call.message.chat.id, call.message.message_id)
+            except Exception:
+                pass
+
+            def _attach(sess=sess, selected=selected, chat_id=call.message.chat.id, lang=lang):
+                # Mirror admin.routes.attach_shops_via_openapi: limit gate,
+                # per-shop permission probe, upsert Shop, then the full seed.
+                from core.uzum_openapi import verify_shop_access
+                from core.subscriptions import (
+                    _can_user_add_shop, _get_or_create_subscription_settings,
+                )
+                from admin.routes import _fire_finance_seed
+                user_id = sess["user_id"]
+                is_admin = sess["is_admin"]
+                token = sess["token"]
+                added, skipped, seeds = [], [], []
+                with SessionLocal() as db:
+                    settings = _get_or_create_subscription_settings(db)
+                    if not is_admin:
+                        _, cur, lim = _can_user_add_shop(
+                            db, user_id=user_id, settings=settings)
+                        headroom = max(0, int(lim) - int(cur))
+                    else:
+                        headroom = 10**9
+                    for s in selected:
+                        uzum_id = s["uzum_id"]
+                        name = s["name"]
+                        label = name or uzum_id
+                        existing = db.execute(
+                            select(Shop).where(Shop.uzum_id == uzum_id)
+                        ).scalar_one_or_none()
+                        if existing is not None:
+                            if existing.owner_id == user_id:
+                                skipped.append((label, "already")); continue
+                            if existing.owner_id is not None and not is_admin:
+                                skipped.append((label, "other")); continue
+                        if headroom <= 0 and not is_admin:
+                            skipped.append((label, "limit")); continue
+                        if token:
+                            ok, why = verify_shop_access(token, uzum_id)
+                            if not ok and why == "forbidden":
+                                skipped.append((label, "no_permission")); continue
+                        if existing is not None:
+                            if existing.owner_id is None:
+                                existing.owner_id = user_id
+                            if name and not existing.name:
+                                existing.name = name
+                            db.flush()
+                            added.append(label); seeds.append((uzum_id, existing.id))
+                            headroom -= 1
+                            continue
+                        shop = Shop(
+                            uzum_id=uzum_id,
+                            name=name or f"Shop {uzum_id}",
+                            owner_id=user_id if not is_admin else None,
+                        )
+                        db.add(shop); db.flush()
+                        added.append(label); seeds.append((uzum_id, shop.id))
+                        headroom -= 1
+                    db.commit()
+
+                # Bust the subscription-context cache so the "N / limit
+                # магазинов" card reflects the new count (add would otherwise
+                # leave the Redis blob stale). Owner = the attaching user.
+                if added and not is_admin:
+                    try:
+                        _invalidate_user_ctx_cache(int(user_id))
+                    except Exception as _inv_err:
+                        print(f"[Bot/add] ctx-cache invalidate skipped for {user_id}: {_inv_err}")
+
+                # Fire the same background seed the web add-shop uses: sales +
+                # expenses backfill, products sync (+ SKU images), FBS seed,
+                # then a post-backfill summary to the owner.
+                for uzum_id, shop_pk in seeds:
+                    _fire_finance_seed(uzum_id, shop_pk)
+
+                _reason = {
+                    "already": ("qo'shilgan" if lang == "uz" else "уже добавлен"),
+                    "other":   ("band" if lang == "uz" else "занят другим"),
+                    "limit":   ("limit tugadi" if lang == "uz" else "лимит исчерпан"),
+                    "no_permission": ("token ruxsat bermaydi" if lang == "uz"
+                                      else "нет доступа по токену"),
+                }
+                lines = []
+                if added:
+                    head = ("✅ Qo'shildi va sinxronlash boshlandi:" if lang == "uz"
+                            else "✅ Добавлены, синхронизация запущена:")
+                    lines.append(head)
+                    lines += [f"  • {a}" for a in added]
+                    lines.append("")
+                    lines.append(
+                        "💰 Savdo, xarajatlar va tovarlar orqada yuklanmoqda "
+                        "(bir necha daqiqa). Tayyor bo'lgach xabar keladi."
+                        if lang == "uz" else
+                        "💰 Продажи, расходы и товары загружаются в фоне "
+                        "(несколько минут). По завершении придёт отчёт.")
+                if skipped:
+                    lines.append("")
+                    lines.append("⚠️ O'tkazib yuborildi:" if lang == "uz"
+                                 else "⚠️ Пропущены:")
+                    lines += [f"  • {lbl} — {_reason.get(r, r)}" for lbl, r in skipped]
+                is_admin_menu = sess["is_admin"]
+                bot.send_message(chat_id, "\n".join(lines) or "—",
+                                 reply_markup=_main_menu(is_admin_menu, lang))
+
+            threading.Thread(target=_attach, daemon=True).start()
+
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("addshop"))
         def btn_add_shop(msg):
             tg_id = str(msg.from_user.id)
             user = _get_db_user(tg_id)
             if not user:
                 bot.send_message(msg.chat.id, "⚠️ Аккаунт не привязан. Нажмите /start.")
                 return
-            bot.send_message(msg.chat.id,
-                "Введите *ID магазина* (Uzum Shop ID):\n\n"
-                "_(Найти его можно в личном кабинете продавца Uzum → URL страницы магазина)_",
-                parse_mode="Markdown")
-            bot.register_next_step_handler(msg, _addshop_ask_id,
-                user_id=user.id, is_admin=user.is_admin)
+            _addshop_prompt_token(msg, user_id=user.id, is_admin=user.is_admin)
 
-        @bot.message_handler(func=lambda m: m.text == "❓ Помощь")
+        @bot.message_handler(func=lambda m: _btn_core(m.text) in _btn_all("help"))
         def btn_help(msg):
             handle_help(msg)
 
@@ -1122,20 +1541,20 @@ def _start_tg_bot():
 
                 markup = telebot.types.InlineKeyboardMarkup(row_width=1)
                 for s in shops:
-                    total = db.execute(
-                        select(func.sum(Variant.sales_30d_finance))
-                        .join(ProductGroup, Variant.group_id == ProductGroup.id)
-                        .where(ProductGroup.shop_id == s.id)
-                    ).scalar() or 0
-                    label = f"🏪 {s.name or s.uzum_id}  •  {total} шт/30д"
+                    label = f"🛍 {s.name or s.uzum_id}"
                     markup.add(telebot.types.InlineKeyboardButton(label, callback_data=f"shop_menu:{s.id}"))
 
                 # Send persistent menu first, then inline shop list
-                bot.send_message(msg.chat.id, "🏪 *Ваши магазины:*", parse_mode="Markdown",
-                                 reply_markup=_main_menu(user.is_admin))
-                bot.send_message(msg.chat.id, "Выберите магазин:", reply_markup=markup)
+                _lang = _lang_of(user)
+                bot.send_message(msg.chat.id,
+                                 "🛍 *Do'konlaringiz:*" if _lang == "uz" else "🛍 *Ваши магазины:*",
+                                 parse_mode="Markdown",
+                                 reply_markup=_main_menu(user.is_admin, _lang))
+                bot.send_message(msg.chat.id,
+                                 "Do'konni tanlang:" if _lang == "uz" else "Выберите магазин:",
+                                 reply_markup=markup)
 
-        # ---- /addshop command (shortcut) ----
+        # ---- /addshop command (shortcut) — same OpenAPI-token flow ----
         @bot.message_handler(commands=["addshop"])
         def handle_addshop(msg):
             tg_id = str(msg.from_user.id)
@@ -1143,24 +1562,7 @@ def _start_tg_bot():
             if not user:
                 bot.send_message(msg.chat.id, "⚠️ Аккаунт не привязан. Нажмите /start.")
                 return
-
-            parts = msg.text.split(maxsplit=2)
-            if len(parts) < 2:
-                # No ID given — start interactive flow
-                bot.send_message(msg.chat.id,
-                    "Введите *ID магазина* (Uzum Shop ID):", parse_mode="Markdown")
-                bot.register_next_step_handler(msg, _addshop_ask_id,
-                    user_id=user.id, is_admin=user.is_admin)
-                return
-
-            # ID provided inline — go straight to name step
-            uzum_id = parts[1].strip()
-            name = parts[2].strip() if len(parts) > 2 else ""
-
-            # Reuse name handler with a fake message carrying the name
-            class _FakeMsg:
-                text = name
-            _addshop_ask_name(_FakeMsg(), user_id=user.id, is_admin=user.is_admin, uzum_id=uzum_id)
+            _addshop_prompt_token(msg, user_id=user.id, is_admin=user.is_admin)
 
         # ---- shop menu callback ----
         @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_menu:"))
@@ -1177,20 +1579,13 @@ def _start_tg_bot():
                     bot.answer_callback_query(call.id, "❌ Нет доступа.")
                     return
 
-                markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-                markup.add(
-                    telebot.types.InlineKeyboardButton("📊 Топ продаж", callback_data=f"shop_sales:{shop_id}"),
-                    telebot.types.InlineKeyboardButton("📦 Остатки", callback_data=f"shop_stock:{shop_id}"),
-                )
-                markup.add(
-                    telebot.types.InlineKeyboardButton("🔄 Синх. товары", callback_data=f"shop_sync_products:{shop_id}"),
-                    telebot.types.InlineKeyboardButton("💰 Синх. продажи", callback_data=f"shop_sync_finance:{shop_id}"),
-                )
-                markup.add(telebot.types.InlineKeyboardButton("🔄🔄 Синх. всё", callback_data=f"shop_sync_all:{shop_id}"))
+                markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+                markup.add(telebot.types.InlineKeyboardButton("🔄 Ресинхронизация", callback_data=f"shop_resync:{shop_id}"))
+                markup.add(telebot.types.InlineKeyboardButton("Удалить магазин", callback_data=f"shop_delete:{shop_id}"))
                 markup.add(telebot.types.InlineKeyboardButton("⬅️ К списку магазинов", callback_data="back_shops"))
                 bot.answer_callback_query(call.id)
                 bot.edit_message_text(
-                    f"🏪 *{shop.name or shop.uzum_id}*\nID: `{shop.uzum_id}`\n\nВыберите действие:",
+                    f"🛍 *{shop.name or shop.uzum_id}*\nID: `{shop.uzum_id}`\n\nВыберите действие:",
                     call.message.chat.id, call.message.message_id,
                     parse_mode="Markdown", reply_markup=markup)
 
@@ -1211,60 +1606,12 @@ def _start_tg_bot():
 
                 markup = telebot.types.InlineKeyboardMarkup(row_width=1)
                 for s in shops:
-                    total = db.execute(
-                        select(func.sum(Variant.sales_30d_finance))
-                        .join(ProductGroup, Variant.group_id == ProductGroup.id)
-                        .where(ProductGroup.shop_id == s.id)
-                    ).scalar() or 0
-                    label = f"🏪 {s.name or s.uzum_id}  •  {total} шт/30д"
+                    label = f"🛍 {s.name or s.uzum_id}"
                     markup.add(telebot.types.InlineKeyboardButton(label, callback_data=f"shop_menu:{s.id}"))
 
                 bot.answer_callback_query(call.id)
-                bot.edit_message_text("🏪 *Ваши магазины:*", call.message.chat.id, call.message.message_id,
+                bot.edit_message_text("🛍 *Ваши магазины:*", call.message.chat.id, call.message.message_id,
                                       parse_mode="Markdown", reply_markup=markup)
-
-        # ---- shop_sales callback ----
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_sales:"))
-        def handle_shop_sales(call):
-            shop_id = int(call.data.split(":", 1)[1])
-            tg_id = str(call.from_user.id)
-            with SessionLocal() as db:
-                user = db.execute(select(User).where(User.telegram_id == tg_id)).scalar_one_or_none()
-                shop = db.get(Shop, shop_id)
-                if not user or not shop:
-                    bot.answer_callback_query(call.id, "Не найдено.")
-                    return
-                if not user.is_admin and shop.owner_id != user.id:
-                    bot.answer_callback_query(call.id, "❌ Нет доступа.")
-                    return
-
-                rows = db.execute(
-                    select(Variant, ProductGroup)
-                    .join(ProductGroup, Variant.group_id == ProductGroup.id)
-                    .where(ProductGroup.shop_id == shop_id)
-                    .where(Variant.sales_30d_finance > 0)
-                    .order_by(Variant.sales_30d_finance.desc())
-                    .limit(15)
-                ).all()
-
-                if not rows:
-                    bot.answer_callback_query(call.id, "Нет данных о продажах.")
-                    return
-
-                lines = [f"📊 *Топ продаж — {shop.name or shop.uzum_id}* (30 дней)\n"]
-                for i, (v, g) in enumerate(rows, 1):
-                    label = v.sku or "—"
-                    if v.color:
-                        label += f" / {v.color}"
-                    if v.size:
-                        label += f" / {v.size}"
-                    lines.append(f"{i}\\. {label}: *{v.sales_30d_finance}* шт.")
-
-                markup = telebot.types.InlineKeyboardMarkup()
-                markup.add(telebot.types.InlineKeyboardButton("⬅️ Назад", callback_data=f"shop_menu:{shop_id}"))
-                bot.answer_callback_query(call.id)
-                bot.send_message(call.message.chat.id, "\n".join(lines),
-                                 parse_mode="MarkdownV2", reply_markup=markup)
 
         # ---- shared sync helper ----
         def _bot_check_shop_access(call, shop_id):
@@ -1291,66 +1638,9 @@ def _start_tg_bot():
                     bot.send_message(chat_id, f"❌ Ошибка: {e}")
             _threading.Thread(target=_run, daemon=True).start()
 
-        # ---- stock overview callback ----
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_stock:"))
-        def handle_shop_stock(call):
-            shop_id = int(call.data.split(":", 1)[1])
-            user, shop = _bot_check_shop_access(call, shop_id)
-            if not shop:
-                return
-            bot.answer_callback_query(call.id, "⏳ Генерирую отчёт...")
-            with SessionLocal() as db:
-                db_rows = db.execute(
-                    select(Variant, ProductGroup)
-                    .join(ProductGroup, Variant.group_id == ProductGroup.id)
-                    .where(ProductGroup.shop_id == shop_id)
-                    .where(
-                        (ProductGroup.is_archived == False) |
-                        (ProductGroup.is_archived == None)
-                    )
-                    .order_by(Variant.uzum_quantity.asc())
-                ).all()
-
-                if not db_rows:
-                    bot.send_message(call.message.chat.id, "📦 Нет данных об остатках.")
-                    return
-
-                rows_data = [
-                    {
-                        "group_name": g.name,
-                        "sku":        v.sku or "—",
-                        "color":      v.color,
-                        "size":       v.size,
-                        "uzum_qty":   v.uzum_quantity or 0,
-                        "wh_qty":     v.warehouse_quantity or 0,
-                        "sales_30d":  v.sales_30d_finance or 0,
-                    }
-                    for v, g in db_rows
-                ]
-
-            markup = telebot.types.InlineKeyboardMarkup()
-            markup.add(telebot.types.InlineKeyboardButton("⬅️ Назад", callback_data=f"shop_menu:{shop_id}"))
-
-            shop_name = shop.name or shop.uzum_id
-            try:
-                img_bytes = _render_stock_image(rows_data, shop_name)
-                bot.send_photo(call.message.chat.id, __import__("io").BytesIO(img_bytes),
-                               reply_markup=markup)
-            except Exception as _e:
-                print(f"[Bot/stock] image render failed: {_e}")
-                # text fallback
-                lines = [f"📦 *Остатки — {shop_name}*\n"]
-                for r in rows_data:
-                    label = r["sku"]
-                    if r.get("color"): label += f" / {r['color']}"
-                    if r.get("size"):  label += f" / {r['size']}"
-                    lines.append(f"• {label}: Uzum {r['uzum_qty']} | Склад {r['wh_qty']}")
-                bot.send_message(call.message.chat.id, "\n".join(lines),
-                                 parse_mode="Markdown", reply_markup=markup)
-
-        # ---- sync products callback ----
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_sync_products:"))
-        def handle_sync_products(call):
+        # ---- resync shop (products + sales in one action) ----
+        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_resync:"))
+        def handle_shop_resync(call):
             shop_id = int(call.data.split(":", 1)[1])
             user, shop = _bot_check_shop_access(call, shop_id)
             if not shop:
@@ -1361,42 +1651,96 @@ def _start_tg_bot():
             if not openapi_token:
                 bot.answer_callback_query(call.id, "OpenAPI токен не настроен.", show_alert=True)
                 bot.send_message(call.message.chat.id,
-                    f"❌ Подключите OpenAPI токен в профиле, чтобы синхронизировать *{shop_name}*.",
+                    f"❌ Подключите OpenAPI токен в профиле, чтобы ресинхронизировать *{shop_name}*.",
                     parse_mode="Markdown")
                 return
-            bot.answer_callback_query(call.id, "🔄 Синхронизация товаров запущена...")
+            bot.answer_callback_query(call.id, "🔄 Ресинхронизация запущена...")
             bot.send_message(call.message.chat.id,
-                f"🔄 Загрузка товаров для *{shop_name}*...", parse_mode="Markdown")
+                f"🔄 Ресинхронизация *{shop_name}* — товары и продажи...", parse_mode="Markdown")
             def _task():
-                res = _sync_products_via_openapi(uzum_id, openapi_token)
-                return (f"✅ *{shop_name}* — товары обновлены!\n"
-                        f"Страниц: {res.get('pages_synced', 0)}, получено: {res.get('fetched', 0)} SKU")
+                res_p = _sync_products_via_openapi(uzum_id, openapi_token)
+                res_f = _sync_finance_for_shop(uzum_id, shop_id)
+                return (f"✅ *{shop_name}* — ресинхронизация завершена!\n"
+                        f"Товары: {res_p.get('fetched', 0)} SKU · "
+                        f"Продажи (30д): обновлено {res_f.get('updated', 0)} SKU")
             _bot_run_sync(call.message.chat.id, shop_name, _task)
 
-        # ---- sync finance callback ----
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_sync_finance:"))
-        def handle_sync_finance(call):
+        # ---- delete shop · step 1: ask for confirmation ----
+        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_delete:"))
+        def handle_shop_delete(call):
             shop_id = int(call.data.split(":", 1)[1])
             user, shop = _bot_check_shop_access(call, shop_id)
             if not shop:
                 return
-            uzum_id = shop.uzum_id
             shop_name = shop.name or shop.uzum_id
-            bot.answer_callback_query(call.id, "💰 Синхронизация продаж запущена...")
-            bot.send_message(call.message.chat.id,
-                f"💰 Загрузка продаж (30д) для *{shop_name}*...", parse_mode="Markdown")
-            def _task():
-                res = _sync_finance_for_shop(uzum_id, shop_id)
-                return f"✅ *{shop_name}* — продажи обновлены! SKU обновлено: {res['updated']}"
-            _bot_run_sync(call.message.chat.id, shop_name, _task)
+            markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                telebot.types.InlineKeyboardButton("Да, удалить", callback_data=f"shop_delete_yes:{shop_id}"),
+                telebot.types.InlineKeyboardButton("↩️ Отмена", callback_data=f"shop_menu:{shop_id}"),
+            )
+            bot.answer_callback_query(call.id)
+            bot.edit_message_text(
+                f"⚠️ Удалить магазин *{shop_name}*?\n\n"
+                "Будут безвозвратно удалены его товары, остатки и вся история продаж. "
+                "Отменить это действие нельзя.",
+                call.message.chat.id, call.message.message_id,
+                parse_mode="Markdown", reply_markup=markup)
 
-        # ---- sync all callback (retired — admin browser sync removed) ----
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_sync_all:"))
-        def handle_sync_all(call):
-            bot.answer_callback_query(call.id, "Эта функция отключена.", show_alert=True)
-            bot.send_message(call.message.chat.id,
-                "ℹ️ Массовая синхронизация всех магазинов отключена. "
-                "Синхронизируйте каждый магазин отдельно — для этого требуется ваш OpenAPI токен.")
+        # ---- delete shop · step 2: execute (FK-safe order) ----
+        @bot.callback_query_handler(func=lambda call: call.data.startswith("shop_delete_yes:"))
+        def handle_shop_delete_yes(call):
+            shop_id = int(call.data.split(":", 1)[1])
+            user, shop = _bot_check_shop_access(call, shop_id)
+            if not shop:
+                return
+            shop_name = shop.name or shop.uzum_id
+            uzum_id = shop.uzum_id
+            owner_id = shop.owner_id
+            acting_uid = user.id if user else None
+            bot.answer_callback_query(call.id, "Удаляю…")
+            try:
+                from models import PosActionLog
+                with SessionLocal() as db:
+                    # 1) rows with a RESTRICT FK to shops.id must go first.
+                    #    variants cascade from product_groups (ondelete=CASCADE),
+                    #    but we clear them explicitly as a safety net.
+                    group_ids = [
+                        gid for (gid,) in db.execute(
+                            select(ProductGroup.id).where(ProductGroup.shop_id == shop_id)
+                        ).all()
+                    ]
+                    if group_ids:
+                        db.execute(delete(Variant).where(Variant.group_id.in_(group_ids)))
+                    db.execute(delete(ProductGroup).where(ProductGroup.shop_id == shop_id))
+                    db.execute(delete(PosActionLog).where(PosActionLog.shop_id == shop_id))
+                    # 2) analytics data keyed by uzum_id (no FK, but clear the stale rows).
+                    db.execute(delete(FinanceOrder).where(FinanceOrder.shop_id == uzum_id))
+                    db.execute(delete(FinanceHourlySnapshot).where(FinanceHourlySnapshot.shop_id == uzum_id))
+                    db.execute(delete(FbsOrder).where(FbsOrder.shop_id == uzum_id))
+                    # 3) finally the shop row itself.
+                    db.execute(delete(Shop).where(Shop.id == shop_id))
+                    db.commit()
+            except Exception as e:
+                print(f"[Bot/delete] shop {shop_id} delete failed: {e}")
+                bot.send_message(call.message.chat.id,
+                    f"❌ Не удалось удалить *{shop_name}*: {e}", parse_mode="Markdown")
+                return
+            # Bust the subscription-context cache so the "N / limit магазинов"
+            # card reflects the new shop count (it is a Redis blob that shop
+            # add/delete would otherwise leave stale). Owner + actor cover both
+            # an owned shop and an admin deleting an unowned one.
+            for _uid in {owner_id, acting_uid}:
+                if _uid is not None:
+                    try:
+                        _invalidate_user_ctx_cache(int(_uid))
+                    except Exception as _inv_err:
+                        print(f"[Bot/delete] ctx-cache invalidate skipped for {_uid}: {_inv_err}")
+            try:
+                bot.edit_message_text(
+                    f"✅ Магазин *{shop_name}* удалён.\n\nНажмите «🛍 Мои магазины», чтобы обновить список.",
+                    call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
 
         @bot.callback_query_handler(func=lambda call: call.data.startswith("approve:") or call.data.startswith("deny:"))
         def handle_approval_callback(call):
@@ -1461,6 +1805,102 @@ def _fmt_sum(v: int) -> str:
     """Format large integer as e.g. '1 234 500'."""
     return f"{v:,}".replace(",", " ")
 
+# Fallback bot language for users who registered before the language picker
+# (users.language IS NULL). Matches the web app's default (session lang "uz").
+_NOTIF_DEFAULT_LANG = "uz"
+
+
+# ── Photo-caption summary (aligned monospace hour/day table under the image) ──
+# A text recap so people who don't open the image still see the numbers.
+# Constraints that shaped it: alignment needs a <pre> code block (monospace);
+# Telegram strips <b>/<i> inside <pre> and Cyrillic has no Unicode-bold, so the
+# table is plain — alignment alone carries it. Numbers are right-aligned (place
+# values line up) with the час/день columns `gap` spaces apart (4 = tuned).
+_RU_MONTHS_GEN = ["", "января", "февраля", "марта", "апреля", "мая", "июня",
+                  "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+_UZ_MONTHS = ["", "yanvar", "fevral", "mart", "aprel", "may", "iyun",
+              "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"]
+
+
+def _fmt_caption_date(d: date, uz: bool) -> str:
+    """'17 июля' (ru) / '17 iyul' (uz) — day + month name, no year."""
+    months = _UZ_MONTHS if uz else _RU_MONTHS_GEN
+    return f"{d.day} {months[d.month]}"
+
+
+def _sum_breakdown_money(m: dict) -> dict:
+    """Sum {qty, revenue, payout, profit} from a sales_reads SKU breakdown map,
+    using the exact per-unit economics the image pipeline uses, so a caption
+    built from the same hour/day maps matches the rendered image."""
+    qty = rev = pay = pro = 0.0
+    for _sku, e in (m or {}).items():
+        dq = int(e.get("amount") or 0)
+        if dq <= 0:
+            continue
+        sell  = e.get("sell_price") or 0
+        cost  = e.get("purchase_price") or 0
+        sprof = e.get("seller_profit") or 0
+        comm  = e.get("commission") or 0
+        logi  = e.get("logistics_fee") or 0
+        revenue_unit = sell / dq
+        cost_unit    = cost / dq
+        payout_unit  = (sprof / dq) if sprof else (revenue_unit - comm / dq - logi / dq)
+        profit_unit  = payout_unit - cost_unit
+        qty += dq
+        rev += dq * revenue_unit
+        pay += dq * payout_unit
+        pro += dq * profit_unit
+    return {"qty": int(qty), "revenue": int(rev), "payout": int(pay), "profit": int(pro)}
+
+
+def _build_sales_caption(window_label: str, day_date: date,
+                         hour: dict, day: dict, *, lang: str = "ru", gap: int = 4) -> str:
+    """HTML photo caption: title + an aligned monospace hour/day table.
+
+    window_label e.g. '20:00–21:00'; hour/day are {qty,revenue,payout,profit}
+    grand totals. Right-aligned numbers, `gap` spaces between the two columns.
+    """
+    import html as _html
+    uz = str(lang or "ru").lower().startswith("uz")
+
+    def _hv(n) -> str:                          # hour value, explicit +/−
+        n = int(n)
+        return ("+" if n >= 0 else "−") + _fmt_sum(abs(n))
+
+    h_margin = round(hour["profit"] / hour["revenue"] * 100, 1) if hour["revenue"] > 0 else 0.0
+    d_margin = round(day["profit"] / day["revenue"] * 100, 1) if day["revenue"] > 0 else 0.0
+
+    T = {
+        "title":   "Sotuvlar" if uz else "Продажи",
+        "goods":   "Tovarlar" if uz else "Товары",
+        "revenue": "Aylanma"  if uz else "Выручка",
+        "payout":  "To'lov"   if uz else "К выплате",
+        "profit":  "Foyda"    if uz else "Прибыль",
+        "margin":  "Marja"    if uz else "Маржа",
+        "h_hdr":   "soat"     if uz else "час",
+        "d_hdr":   "kun"      if uz else "день",
+    }
+    rows = [
+        (T["goods"],   _hv(hour["qty"]),     _fmt_sum(int(day["qty"]))),
+        (T["revenue"], _hv(hour["revenue"]), _fmt_sum(int(day["revenue"]))),
+        (T["payout"],  _hv(hour["payout"]),  _fmt_sum(int(day["payout"]))),
+        (T["profit"],  _hv(hour["profit"]),  _fmt_sum(int(day["profit"]))),
+        (T["margin"],  f"{h_margin}%",       f"{d_margin}%"),
+    ]
+    w1 = max(len(r[0]) for r in rows)
+    w2 = max([len(T["h_hdr"])] + [len(r[1]) for r in rows])
+    w3 = max([len(T["d_hdr"])] + [len(r[2]) for r in rows])
+    sep = " " * gap
+    lines = [f"{'':<{w1}} {T['h_hdr']:>{w2}}{sep}{T['d_hdr']:>{w3}}"]
+    for lab, hv, dv in rows:
+        lines.append(f"{lab:<{w1}} {hv:>{w2}}{sep}{dv:>{w3}}")
+    table = "\n".join(lines)
+
+    date_str = _fmt_caption_date(day_date, uz)
+    title = f"🧾 <b>{_html.escape(T['title'])} · {_html.escape(window_label)} · {_html.escape(date_str)}</b>"
+    return f"{title}\n<pre>{_html.escape(table)}</pre>"
+
+
 #drawing the picture for the Telegram notification
 def _render_sales_image(
     by_shop: dict,
@@ -1469,450 +1909,346 @@ def _render_sales_image(
     period_qty_label: str = "За час",
     day_qty_label: str = "С 00:00",
     show_period_qty_column: bool = True,
+    lang: str = "ru",
 ) -> bytes:
-    """Render sales report as a light-theme PNG.
+    """Render the hourly sales report as a light-theme PNG (Harbor · Black style).
 
     Each item in by_shop[shop_name] must have:
-      group, base_sku, hour_qty, day_qty, revenue (int sums), payout (int sums), profit (int sums), margin (float %)
+      group, base_sku, hour_qty, day_qty, revenue (int), payout (int), profit (int), margin (float %)
     by_shop['__totals__'][shop_name] = {total_hour, total_day, total_revenue, total_payout, total_profit, avg_margin}
+    by_shop['__expenses__'] = {items:[{name,amount}], total, refunds_income}
+
+    Design: flat slate-navy/black table headers (top) + black grand-total bar (bottom)
+    on a light background; per-store separation preserved. Numbers are large and set in a
+    clean sans (no dotted zeros); summary rows are bold. Colour is reserved for meaning —
+    green for the hourly +N sold count and for profit/margin ≥ 0, red for losses.
     """
     from PIL import Image, ImageDraw, ImageFont
     import io as _io
 
+    # Supersample at 2x so Telegram's photo compression keeps detail.
+    SCALE = 2
+
     def _font(size, bold=False):
         candidates = (
-            ["arialbd.ttf", "Arial Bold.ttf",
-             "DejaVuSans-Bold.ttf",
-             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"] if bold else
-            ["arial.ttf", "Arial.ttf",
-             "DejaVuSans.ttf",
-             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+            ["DejaVuSans-Bold.ttf",
+             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+             "arialbd.ttf", "Arial Bold.ttf"] if bold else
+            ["DejaVuSans.ttf",
+             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+             "arial.ttf", "Arial.ttf"]
         )
         for name in candidates:
             try:
-                return ImageFont.truetype(name, size)
+                return ImageFont.truetype(name, int(size * SCALE))
             except Exception:
                 pass
         return ImageFont.load_default()
 
-    # Supersample the whole canvas at 2x so Telegram's photo-compression has
-    # more detail to preserve. Fonts/layout/offsets all multiply through SCALE.
-    SCALE = 2
+    # ── Fonts (proportional sans → clean, solid zeros; digits are equal-width) ──
+    f_title  = _font(23, bold=True)
+    f_sub    = _font(11.5)
+    f_colhdr = _font(11, bold=True)
+    f_label  = _font(17, bold=True)     # store name
+    f_desc   = _font(12.5)
+    f_num    = _font(15)                # item-row numbers, regular weight
+    f_num_b  = _font(15.5, bold=True)   # summary-row numbers, bold
+    f_tlabel = _font(15.5, bold=True)   # ИТОГО / ВСЕГО word
+    f_sku    = _font(12)
+    f_exp_h  = _font(13, bold=True)
+    f_footer = _font(10)
 
-    font_title  = _font(18 * SCALE, bold=True)
-    font_sub    = _font(11 * SCALE)
-    font_header = _font(11 * SCALE, bold=True)
-    font_body   = _font(14 * SCALE)
-    # Smaller font used only in the Описание column so a full 90-char
-    # Uzum title can render on a single line without wrapping.
-    font_body_desc = _font(10 * SCALE)
-    font_small  = _font(10 * SCALE)
-    font_bold   = _font(14 * SCALE, bold=True)
-    font_shop   = _font(13 * SCALE, bold=True)
-    font_exp_h  = _font(12 * SCALE, bold=True)
+    # ── Palette — Harbor · Black ──────────────────────────────────────────
+    BG        = (244, 246, 249)
+    SURFACE   = (255, 255, 255)
+    INK       = (38, 43, 56)
+    MUTED     = (128, 136, 152)
+    RULE      = (231, 234, 240)
+    CHROME    = (30, 32, 37)      # black bars: title, store header, grand total
+    CHROME_FG = (244, 246, 249)
+    SUB_FG    = (168, 173, 182)
+    COLHDR_BG = (236, 239, 244)
+    COLHDR_FG = (118, 127, 144)
+    TOTAL_BG  = (234, 238, 244)   # per-store ИТОГО band
+    TOTAL_FG  = (52, 61, 80)
+    ROW_TINT  = (250, 251, 253)
+    POS       = (20, 165, 83)     # bright green
+    NEG       = (224, 55, 52)     # bright red
+    EXP_HDR_BG = (236, 239, 244)
+    FOOTER_FG = (150, 158, 170)
 
-    # ── Modern palette ───────────────────────────────────────────────────
-    BG          = (240, 242, 245)
-    CARD        = (255, 255, 255)
-    TITLE_BG1   = (55,  71, 133)   # gradient left
-    TITLE_BG2   = (88, 120, 220)   # gradient right
-    TITLE_FG    = (255, 255, 255)
-    SUBTITLE_FG = (190, 200, 230)
-    HEADER_BG   = (246, 247, 251)
-    HEADER_FG   = (100, 110, 130)
-    SHOP_BG     = (55,  71, 133)
-    SHOP_FG     = (255, 255, 255)
-    ROW_ODD     = (255, 255, 255)
-    ROW_EVEN    = (249, 250, 253)
-    BODY_FG     = (40,  44,  52)
-    MUTED       = (140, 148, 165)
-    DIVIDER     = (230, 232, 238)
-    GREEN       = (16, 163,  90)
-    BLUE        = (56, 114, 247)
-    REVENUE_COL = (56, 114, 247)
-    PAYOUT_COL  = (94, 104, 184)
-    PROFIT_COL  = (16, 163,  90)
-    MARGIN_COL  = (136,  84, 208)
-    TOTAL_BG    = (238, 242, 255)
-    TOTAL_ACCENT= (55,  71, 133)
-    EXP_HEADER  = (245, 240, 252)
-    EXP_RED     = (230,  67,  80)
-    EXP_TOTAL   = (55,  71, 133)
-    FOOTER_FG   = (180, 185, 195)
-    SHADOW      = (215, 218, 225)
+    # ── Localised labels (bot language "ru" | "uz") ───────────────────────
+    _UZ = str(lang or "ru").lower().startswith("uz")
+    L = {
+        "title":      "Sotuvlar — statistika" if _UZ else "Продажи — статистика",
+        "desc":       "Nomi"                   if _UZ else "Описание",
+        "revenue":    "Aylanma, so'm"          if _UZ else "Выручка, сум",
+        "payout":     "To'lov"                 if _UZ else "К выводу",
+        "profit":     "Foyda, so'm"            if _UZ else "Прибыль, сум",
+        "margin":     "Marja, %"               if _UZ else "Маржа, %",
+        "total_shop": "JAMI"                   if _UZ else "ИТОГО",
+        "total_all":  "UMUMIY"                 if _UZ else "ВСЕГО",
+        "exp_header": "Ombor xarajatlari"      if _UZ else "Складские расходы",
+        "exp_total":  "Jami ombor xarajatlari" if _UZ else "Итого складские расходы",
+        "refund":     "Pul qaytarish"          if _UZ else "Возврат Денег",
+        "cur":        "so'm"                   if _UZ else "сум",
+    }
+    if _UZ:
+        _QTY_UZ = {"За час": "Soatlik", "За период": "Davr",
+                   "За день": "Kunlik", "С 00:00": "00:00 dan"}
+        period_qty_label = _QTY_UZ.get(period_qty_label, period_qty_label)
+        day_qty_label = _QTY_UZ.get(day_qty_label, day_qty_label)
 
-    # ── Columns ──────────────────────────────────────────────────────────
-    col_specs = [
-        ("Описание", 440, "left"),
-        ("SKU", 118, "left"),
+    # ── Columns: (label, width(px, pre-scale), align, kind) ────────────────
+    cols = [
+        (L["desc"], 440, "left",   "desc"),
+        ("SKU",     116, "left",   "sku"),
     ]
     if show_period_qty_column:
-        col_specs.append((period_qty_label, 62, "center"))
-    col_specs.extend([
-        (day_qty_label, 72, "center"),
-        ("Выручка, сум", 118, "right"),
-        ("К выводу", 114, "right"),
-        ("Прибыль, сум", 118, "right"),
-        ("Маржа, %", 76, "center"),
+        cols.append((period_qty_label, 62, "center", "hour"))
+    cols.extend([
+        (day_qty_label, 72, "center", "day"),
+        (L["revenue"], 118, "right",  "rev"),
+        (L["payout"],  114, "right",  "pay"),
+        (L["profit"],  118, "right",  "pro"),
+        (L["margin"],   78, "center", "mar"),
     ])
-    COL_LABELS = [label for label, _, _ in col_specs]
-    COL_WIDTHS = [width * SCALE for _, width, _ in col_specs]
-    COL_ALIGNS = [align for _, _, align in col_specs]
+    CL = [c[0] for c in cols]
+    CW = [c[1] * SCALE for c in cols]
+    CA = [c[2] for c in cols]
+    CK = [c[3] for c in cols]
 
-    MARGIN  = 16 * SCALE   # outer margin
-    PAD_X   = 14 * SCALE
-    PAD_Y   = 10 * SCALE
-    ROW_H   = 34 * SCALE
-    HDR_H   = 30 * SCALE   # column header row
-    SHOP_H  = 36 * SCALE
-    TITLE_H = 62 * SCALE
-    SUMM_H  = 36 * SCALE
-    FOOTER_H = 30 * SCALE
-    CARD_R  = 14 * SCALE
-    SVCLINE_H = 28 * SCALE
-    SVC_HEADER_H = 32 * SCALE
+    # ── Geometry ──────────────────────────────────────────────────────────
+    PAD_X = 14 * SCALE
+    MARGIN = 16 * SCALE
+    GAP = 14 * SCALE
+    ROW_H = 38 * SCALE
+    HDR_H = 32 * SCALE
+    BAR_H = 44 * SCALE
+    TITLE_H = 76 * SCALE
+    TOTAL_H = 42 * SCALE
+    FOOTER_H = 36 * SCALE
+    RAD = 12 * SCALE
+    DESC_GAP = 22 * SCALE            # gap between the «…» and the SKU column
+    SVCLINE_H = 32 * SCALE
+    SVC_HEADER_H = 36 * SCALE
 
-    card_w  = sum(COL_WIDTHS) + 2 * PAD_X
-    total_w = card_w + 2 * MARGIN
+    CARD_W = sum(CW) + 2 * PAD_X
+    TOTAL_W = CARD_W + 2 * MARGIN
+    DESC_W = CW[0] - 2 * PAD_X
 
-    sections = [(s, v) for s, v in by_shop.items() if s not in ("__totals__", "__expenses__")]
-    total_rows = sum(len(r) for _, r in sections)
-
-    # ── Description wrap (Uzum titles run up to 90 chars) ────────────
-    # Word-wrap the name into the Описание column; break overlong tokens
-    # by character so a single long word can't overflow the cell.
-    def _text_w(t: str, f) -> float:
+    def _tw(t, f):
         try:    return f.getlength(t)
         except: return len(t) * 7
 
-    def _wrap_to_width(text: str, f, max_w: int) -> list[str]:
+    def _ellipsize(text, f, maxw):
         if not text:
-            return [""]
-        out: list[str] = []
-        cur = ""
-        for token in text.split(" "):
-            if _text_w(token, f) > max_w:
-                if cur:
-                    out.append(cur); cur = ""
-                buf = ""
-                for ch in token:
-                    if _text_w(buf + ch, f) <= max_w:
-                        buf += ch
-                    else:
-                        out.append(buf); buf = ch
-                cur = buf
-                continue
-            candidate = (cur + " " + token) if cur else token
-            if _text_w(candidate, f) <= max_w:
-                cur = candidate
-            else:
-                if cur: out.append(cur)
-                cur = token
-        if cur: out.append(cur)
-        return out or [""]
+            return ""
+        if _tw(text, f) <= maxw:
+            return text
+        ell = "…"
+        s = text
+        while s and _tw(s + ell, f) > maxw:
+            s = s[:-1]
+        return (s.rstrip() + ell) if s else ell
 
-    desc_usable_w = COL_WIDTHS[0] - 2 * PAD_X
-    LINE_H_NAME   = 14 * SCALE
-    MAX_NAME_CHARS = 90
-    row_name_lines: list[list[list[str]]] = []
-    row_heights: list[list[int]] = []
-    for _sname, _rows in sections:
-        _lines_shop: list[list[str]] = []
-        _heights_shop: list[int] = []
-        for _it in _rows:
-            _nm = (_it.get("group") or "—")
-            if len(_nm) > MAX_NAME_CHARS:
-                _nm = _nm[:MAX_NAME_CHARS - 1] + "…"
-            _wrapped = _wrap_to_width(_nm, font_body_desc, desc_usable_w)
-            _lines_shop.append(_wrapped)
-            _heights_shop.append(max(ROW_H, len(_wrapped) * LINE_H_NAME + PAD_Y))
-        row_name_lines.append(_lines_shop)
-        row_heights.append(_heights_shop)
-    total_rows_h = sum(sum(hs) for hs in row_heights)
+    # ── Sections + pre-computed single-line descriptions ──────────────────
+    sections = [(s, v) for s, v in by_shop.items() if s not in ("__totals__", "__expenses__")]
+    desc_max = DESC_W - DESC_GAP
+    sec_desc = []
+    for _sname, rows in sections:
+        sec_desc.append([_ellipsize((it.get("group") or "—"), f_desc, desc_max) for it in rows])
 
+    # Warehouse expenses + refund income (rendered below the shops).
     expenses = by_shop.get("__expenses__", {})
     wh_exp_lines = []
     if expenses and expenses.get("items"):
         for ei in expenses["items"]:
             wh_exp_lines.append((ei["name"], ei["amount"]))
         if len(wh_exp_lines) > 1:
-            wh_exp_lines.append(("Итого складские расходы", expenses.get("total", 0)))
-    WH_BLOCK_H = (SVC_HEADER_H + len(wh_exp_lines) * SVCLINE_H + PAD_Y + 6 * SCALE) if wh_exp_lines else 0
-
-    # Phase 3: "Возврат Денег" income bottom line (expenses_ledger op_type='Возврат').
-    # Rendered as a standalone single-line card below the expenses block when > 0.
-    # `refunds_income` is carried in the `__expenses__` payload but MUST NOT be
-    # in `total` (that's outflow only) — see `read_daily_expense_breakdown`.
+            wh_exp_lines.append((L["exp_total"], expenses.get("total", 0)))
     refunds_income = int(expenses.get("refunds_income", 0) or 0) if expenses else 0
-    REFUND_BLOCK_H = (SVCLINE_H + PAD_Y + 6 * SCALE) if refunds_income > 0 else 0
 
-    # Grand total across all shops (show only if >1 shop)
+    # Grand total across all shops (only if >1 shop).
     all_totals = by_shop.get("__totals__", {})
     g_hour = g_day = g_profit = g_revenue = g_payout = 0
     for st in all_totals.values():
-        g_hour   += st.get("total_hour", 0)
-        g_day    += st.get("total_day", 0)
-        g_profit += st.get("total_profit", 0)
+        g_hour    += st.get("total_hour", 0)
+        g_day     += st.get("total_day", 0)
+        g_profit  += st.get("total_profit", 0)
         g_revenue += st.get("total_revenue", 0)
-        g_payout += st.get("total_payout", 0)
+        g_payout  += st.get("total_payout", 0)
     g_avg_margin = round(g_profit / g_revenue * 100, 1) if g_revenue > 0 else 0.0
     show_grand = len(sections) > 1
-    GRAND_H = (SUMM_H + PAD_Y * 2) if show_grand else 0
 
-    total_h = (MARGIN + TITLE_H
-               + len(sections) * (SHOP_H + HDR_H + SUMM_H + PAD_Y * 2)
-               + total_rows_h
-               + GRAND_H
-               + WH_BLOCK_H
-               + REFUND_BLOCK_H
-               + FOOTER_H + MARGIN * 2)
+    # ── Height calc ───────────────────────────────────────────────────────
+    total_h = TITLE_H + 12 * SCALE
+    for _sname, rows in sections:
+        total_h += BAR_H + HDR_H + len(rows) * ROW_H + TOTAL_H + GAP
+    if show_grand:
+        total_h += TOTAL_H + GAP
+    if wh_exp_lines:
+        total_h += SVC_HEADER_H + len(wh_exp_lines) * SVCLINE_H + 8 * SCALE + GAP
+    if refunds_income > 0:
+        total_h += SVCLINE_H + 8 * SCALE + GAP
+    total_h += FOOTER_H + MARGIN
 
-    img  = Image.new("RGB", (total_w, total_h), BG)
-    draw = ImageDraw.Draw(img)
+    img = Image.new("RGB", (int(TOTAL_W), int(total_h)), BG)
+    d = ImageDraw.Draw(img)
 
-    def tw(t, f):
-        try:    return f.getlength(t)
-        except: return len(t) * 7
+    def cell(x, y, w, h, text, font, color, align):
+        if align == "center": tx = x + (w - _tw(text, font)) / 2
+        elif align == "right": tx = x + w - _tw(text, font) - PAD_X
+        else: tx = x + PAD_X
+        ty = y + (h - font.size * 0.72) / 2 - font.size * 0.06
+        d.text((tx, ty), text, font=font, fill=color)
 
-    def draw_cell(x, y, w, h, text, font, color, align="left", bg=None):
-        if bg:
-            draw.rectangle([x, y, x + w - 1, y + h - 1], fill=bg)
-        if align == "center":
-            tx = x + (w - tw(text, font)) / 2
-        elif align == "right":
-            tx = x + w - tw(text, font) - PAD_X
-        else:
-            tx = x + PAD_X
-        ty = y + (h - 13 * SCALE) / 2
-        draw.text((tx, ty), text, font=font, fill=color)
+    x0 = MARGIN
 
-    def draw_rounded_card(x, y, w, h, r=CARD_R, fill=CARD):
-        # Shadow (offsets scale with SCALE so the drop shadow stays proportional).
-        draw.rounded_rectangle([x + 2 * SCALE, y + 2 * SCALE, x + w + 1 * SCALE, y + h + 1 * SCALE], radius=r, fill=SHADOW)
-        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=r, fill=fill)
+    # ── Title bar ──
+    d.rectangle([0, 0, TOTAL_W, TITLE_H], fill=CHROME)
+    d.text((MARGIN + PAD_X, TITLE_H * 0.28 - f_title.size * 0.5 + 6 * SCALE),
+           L["title"], font=f_title, fill=CHROME_FG)
+    d.text((MARGIN + PAD_X, TITLE_H * 0.66), hour_label, font=f_sub, fill=SUB_FG)
+    cy = TITLE_H + 12 * SCALE
 
-    def draw_gradient_rect(x, y, w, h, c1, c2, r=0):
-        """Horizontal gradient from c1 to c2."""
-        for i in range(w):
-            ratio = i / max(w - 1, 1)
-            c = tuple(int(c1[j] + (c2[j] - c1[j]) * ratio) for j in range(3))
-            draw.line([(x + i, y), (x + i, y + h - 1)], fill=c)
-        if r > 0:
-            # Mask corners with BG
-            mask = Image.new("L", (w, h), 255)
-            mask_d = ImageDraw.Draw(mask)
-            mask_d.rounded_rectangle([0, 0, w - 1, h - 1], radius=r, fill=255)
-            # Invert: draw BG where mask is 0
-            for corner in [(0,0,r,r), (w-r,0,w,r), (0,h-r,r,h), (w-r,h-r,w,h)]:
-                for px in range(corner[0], corner[2]):
-                    for py in range(corner[1], corner[3]):
-                        if mask.getpixel((px, py)) == 255:
-                            pass  # keep
-                        # skip complex masking for performance
-
-    cx_base = MARGIN  # left edge of card content
-
-    # ── Title bar (gradient) ─────────────────────────────────────────────
-    ty = MARGIN
-    draw_gradient_rect(0, 0, total_w, TITLE_H + MARGIN, TITLE_BG1, TITLE_BG2)
-    draw.text((MARGIN + PAD_X, ty + 12 * SCALE), "Продажи — статистика", font=font_title, fill=TITLE_FG)
-    draw.text((MARGIN + PAD_X, ty + 36 * SCALE), hour_label, font=font_sub, fill=SUBTITLE_FG)
-
-    cy = TITLE_H + MARGIN + PAD_Y
+    def draw_colheaders(cy):
+        d.rectangle([x0, cy, x0 + CARD_W, cy + HDR_H], fill=COLHDR_BG)
+        cx = x0
+        for i in range(len(CK)):
+            cell(cx, cy, CW[i], HDR_H, CL[i], f_colhdr, COLHDR_FG, CA[i])
+            cx += CW[i]
+        return cy + HDR_H
 
     for si, (shop_name, rows) in enumerate(sections):
-        totals = by_shop.get("__totals__", {}).get(shop_name, {})
+        totals = all_totals.get(shop_name, {})
+        blk_h = BAR_H + HDR_H + len(rows) * ROW_H + TOTAL_H
 
-        # Card background for the whole shop section
-        card_h = SHOP_H + HDR_H + sum(row_heights[si]) + SUMM_H + 2
-        draw_rounded_card(cx_base, cy, card_w, card_h)
+        # Surface
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + blk_h], radius=RAD, fill=SURFACE)
+        # Store header bar (black, rounded top)
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + BAR_H], radius=RAD, fill=CHROME)
+        d.rectangle([x0, cy + BAR_H // 2, x0 + CARD_W, cy + BAR_H], fill=CHROME)
+        d.text((x0 + PAD_X + 2 * SCALE, cy + (BAR_H - f_label.size * 0.72) / 2 - 1 * SCALE),
+               str(shop_name).upper(), font=f_label, fill=CHROME_FG)
+        cy += BAR_H
 
-        # Shop header bar (dark accent)
-        draw.rounded_rectangle(
-            [cx_base, cy, cx_base + card_w - 1, cy + SHOP_H - 1],
-            radius=CARD_R, fill=SHOP_BG)
-        # Flatten bottom corners
-        draw.rectangle([cx_base, cy + SHOP_H // 2, cx_base + card_w - 1, cy + SHOP_H - 1], fill=SHOP_BG)
-        draw.text((cx_base + PAD_X + 4 * SCALE, cy + 10 * SCALE), shop_name, font=font_shop, fill=SHOP_FG)
-        cy += SHOP_H
+        cy = draw_colheaders(cy)
 
-        # Column headers
-        cx = cx_base
-        for i, (lbl, w) in enumerate(zip(COL_LABELS, COL_WIDTHS)):
-            draw_cell(cx, cy, w, HDR_H, lbl, font_header, HEADER_FG,
-                      align=COL_ALIGNS[i], bg=HEADER_BG)
-            cx += w
-        draw.line([(cx_base, cy + HDR_H - 1), (cx_base + card_w, cy + HDR_H - 1)], fill=DIVIDER)
-        cy += HDR_H
-
-        # Data rows
         for ri, it in enumerate(rows):
-            row_bg = ROW_ODD if ri % 2 == 0 else ROW_EVEN
-            row_h  = row_heights[si][ri]
-            wrapped_name = row_name_lines[si][ri]
-            sku  = (it.get("base_sku") or "—")
-            if len(sku) > 18: sku = sku[:16] + "…"
-            # Leave column 0 blank here — multi-line name is drawn afterward
-            # over the cell background so vertical centering works correctly.
-            cells = [
-                "",
-                sku,
-            ]
-            colors = [BODY_FG, MUTED]
-            if show_period_qty_column:
-                cells.append(f"+{it['hour_qty']}")
-                colors.append(GREEN)
-            cells.extend([
-                str(it["day_qty"]),
-                _fmt_sum(int(it.get("revenue", 0))),
-                _fmt_sum(int(it.get("payout", 0))),
-                _fmt_sum(int(it.get("profit", 0))),
-                f"{it.get('margin', 0):.1f}%",
-            ])
-            colors.extend([BLUE, REVENUE_COL, PAYOUT_COL, PROFIT_COL, MARGIN_COL])
-            cx = cx_base
-            for i, (cell, w) in enumerate(zip(cells, COL_WIDTHS)):
-                draw_cell(cx, cy, w, row_h, cell, font_body, colors[i],
-                          align=COL_ALIGNS[i], bg=row_bg)
-                cx += w
-            # Multi-line description, vertically centered within the row.
-            total_text_h = len(wrapped_name) * LINE_H_NAME
-            ty0 = cy + (row_h - total_text_h) / 2
-            for li, ln in enumerate(wrapped_name):
-                draw.text((cx_base + PAD_X, ty0 + li * LINE_H_NAME),
-                          ln, font=font_body_desc, fill=BODY_FG)
-            draw.line([(cx_base + PAD_X, cy + row_h - 1),
-                       (cx_base + card_w - PAD_X, cy + row_h - 1)], fill=DIVIDER)
-            cy += row_h
+            if ri % 2 == 1:
+                d.rectangle([x0, cy, x0 + CARD_W, cy + ROW_H], fill=ROW_TINT)
+            sku = (it.get("base_sku") or "—")
+            if len(sku) > 18:
+                sku = sku[:16] + "…"
+            profit = int(it.get("profit", 0))
+            margin = float(it.get("margin", 0) or 0)
+            values = {
+                "sku":  (sku, MUTED, f_sku),
+                "hour": (f"+{it.get('hour_qty', 0)}", POS, f_num),
+                "day":  (str(it.get("day_qty", 0)), INK, f_num),
+                "rev":  (_fmt_sum(int(it.get("revenue", 0))), INK, f_num),
+                "pay":  (_fmt_sum(int(it.get("payout", 0))), INK, f_num),
+                "pro":  (_fmt_sum(profit), POS if profit > 0 else (NEG if profit < 0 else INK), f_num),
+                "mar":  (f"{margin:.1f}%", POS if margin > 0 else (NEG if margin < 0 else INK), f_num),
+            }
+            cx = x0
+            for i, k in enumerate(CK):
+                if k == "desc":
+                    cell(cx, cy, CW[i], ROW_H, sec_desc[si][ri], f_desc, INK, "left")
+                else:
+                    txt, col, fnt = values[k]
+                    cell(cx, cy, CW[i], ROW_H, txt, fnt, col, CA[i])
+                cx += CW[i]
+            d.line([(x0 + PAD_X, cy + ROW_H - 1), (x0 + CARD_W - PAD_X, cy + ROW_H - 1)], fill=RULE, width=SCALE)
+            cy += ROW_H
 
-        # ── ИТОГО row ──────────────────────────────────────────────────
-        if totals:
-            draw.rectangle([cx_base, cy, cx_base + card_w - 1, cy + SUMM_H - 1], fill=TOTAL_BG)
-            # Round bottom corners
-            draw.rounded_rectangle(
-                [cx_base, cy, cx_base + card_w - 1, cy + SUMM_H - 1],
-                radius=CARD_R, fill=TOTAL_BG)
-            draw.rectangle([cx_base, cy, cx_base + card_w - 1, cy + SUMM_H // 2], fill=TOTAL_BG)
-
-            summ = [
-                "ИТОГО", "",
-            ]
-            summ_colors = [TOTAL_ACCENT, MUTED]
-            if show_period_qty_column:
-                summ.append(f"+{totals.get('total_hour', 0)}")
-                summ_colors.append(GREEN)
-            summ.extend([
-                str(totals.get('total_day', 0)),
-                _fmt_sum(int(totals.get('total_revenue', 0))),
-                _fmt_sum(int(totals.get('total_payout', 0))),
-                _fmt_sum(int(totals.get('total_profit', 0))),
-                f"{totals.get('avg_margin', 0):.1f}%",
-            ])
-            summ_colors.extend([BLUE, REVENUE_COL, PAYOUT_COL, PROFIT_COL, MARGIN_COL])
-            cx = cx_base
-            for i, (cell, w) in enumerate(zip(summ, COL_WIDTHS)):
-                draw_cell(cx, cy, w, SUMM_H, cell, font_bold, summ_colors[i],
-                          align=COL_ALIGNS[i])
-                cx += w
-        cy += SUMM_H + PAD_Y * 2
-
-    # ── Grand Total card (all shops combined) ──────────────────────────
-    if show_grand:
-        # Background = TOTAL_BG (same as per-shop ИТОГО), border = SHOP_BG (dark blue)
-        draw_rounded_card(cx_base, cy, card_w, SUMM_H)
-        draw.rounded_rectangle(
-            [cx_base, cy, cx_base + card_w - 1, cy + SUMM_H - 1],
-            radius=CARD_R, fill=TOTAL_BG, outline=SHOP_BG, width=2 * SCALE)
-        grand_cells = [
-            "ВСЕГО", "",
-        ]
-        grand_colors = [TOTAL_ACCENT, MUTED]
-        if show_period_qty_column:
-            grand_cells.append(f"+{g_hour}")
-            grand_colors.append(GREEN)
-        grand_cells.extend([
-            str(g_day),
-            _fmt_sum(int(g_revenue)),
-            _fmt_sum(int(g_payout)),
-            _fmt_sum(int(g_profit)),
-            f"{g_avg_margin:.1f}%",
-        ])
-        grand_colors.extend([BLUE, REVENUE_COL, PAYOUT_COL, PROFIT_COL, MARGIN_COL])
-        cx = cx_base
-        for i, (cell, w) in enumerate(zip(grand_cells, COL_WIDTHS)):
-            draw_cell(cx, cy, w, SUMM_H, cell, font_bold, grand_colors[i],
-                      align=COL_ALIGNS[i])
-            cx += w
-        cy += SUMM_H + PAD_Y * 2
-
-    # ── Warehouse Expenses card ──────────────────────────────────────────
-    if wh_exp_lines:
-        exp_card_h = SVC_HEADER_H + len(wh_exp_lines) * SVCLINE_H + 4
-        draw_rounded_card(cx_base, cy, card_w, exp_card_h)
-
-        # Header
-        draw.rounded_rectangle(
-            [cx_base, cy, cx_base + card_w - 1, cy + SVC_HEADER_H - 1],
-            radius=CARD_R, fill=EXP_HEADER)
-        draw.rectangle([cx_base, cy + SVC_HEADER_H // 2, cx_base + card_w - 1, cy + SVC_HEADER_H - 1], fill=EXP_HEADER)
-        draw.text((cx_base + PAD_X + 4 * SCALE, cy + 8 * SCALE), "Складские расходы", font=font_exp_h, fill=EXP_TOTAL)
-        cy += SVC_HEADER_H
-
-        for ei, (label, val) in enumerate(wh_exp_lines):
-            row_bg = ROW_ODD if ei % 2 == 0 else ROW_EVEN
-            is_total = (label == "Итого складские расходы")
-            is_last  = (ei == len(wh_exp_lines) - 1)
-
-            if is_last:
-                # Round bottom corners for last row
-                draw.rounded_rectangle(
-                    [cx_base, cy, cx_base + card_w - 1, cy + SVCLINE_H + 3],
-                    radius=CARD_R, fill=TOTAL_BG if is_total else row_bg)
-                draw.rectangle([cx_base, cy, cx_base + card_w - 1, cy + SVCLINE_H // 2], fill=TOTAL_BG if is_total else row_bg)
+        # ── Per-store ИТОГО (bold, rounded bottom) ──
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + TOTAL_H], radius=RAD, fill=TOTAL_BG)
+        d.rectangle([x0, cy, x0 + CARD_W, cy + TOTAL_H // 2], fill=TOTAL_BG)
+        t_profit = int(totals.get("total_profit", 0))
+        t_margin = float(totals.get("avg_margin", 0) or 0)
+        tvals = {
+            "sku":  ("", TOTAL_FG),
+            "hour": (f"+{totals.get('total_hour', 0)}", POS),
+            "day":  (str(totals.get("total_day", 0)), TOTAL_FG),
+            "rev":  (_fmt_sum(int(totals.get("total_revenue", 0))), TOTAL_FG),
+            "pay":  (_fmt_sum(int(totals.get("total_payout", 0))), TOTAL_FG),
+            "pro":  (_fmt_sum(t_profit), POS if t_profit > 0 else (NEG if t_profit < 0 else TOTAL_FG)),
+            "mar":  (f"{t_margin:.1f}%", POS if t_margin > 0 else (NEG if t_margin < 0 else TOTAL_FG)),
+        }
+        cx = x0
+        for i, k in enumerate(CK):
+            if k == "desc":
+                cell(cx, cy, CW[i], TOTAL_H, L["total_shop"], f_tlabel, TOTAL_FG, "left")
             else:
-                draw.rectangle([cx_base, cy, cx_base + card_w - 1, cy + SVCLINE_H - 1], fill=row_bg)
+                txt, col = tvals[k]
+                cell(cx, cy, CW[i], TOTAL_H, txt, f_num_b, col, CA[i])
+            cx += CW[i]
+        cy += TOTAL_H + GAP
 
-            fnt = font_bold if is_total else font_body
-            clr = EXP_TOTAL if is_total else EXP_RED
-            draw.text((cx_base + PAD_X + 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2), label, font=fnt, fill=BODY_FG)
-            val_str = _fmt_sum(val) + " сум"
-            vw = tw(val_str, fnt)
-            draw.text((cx_base + card_w - PAD_X - vw - 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
-                      val_str, font=fnt, fill=clr)
-            if not is_last:
-                draw.line([(cx_base + PAD_X, cy + SVCLINE_H - 1),
-                           (cx_base + card_w - PAD_X, cy + SVCLINE_H - 1)], fill=DIVIDER)
+    # ── Grand total ВСЕГО (black bar) ──
+    if show_grand:
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + TOTAL_H], radius=RAD, fill=CHROME)
+        gvals = {
+            "sku":  ("", CHROME_FG),
+            "hour": (f"+{g_hour}", POS),
+            "day":  (str(g_day), CHROME_FG),
+            "rev":  (_fmt_sum(int(g_revenue)), CHROME_FG),
+            "pay":  (_fmt_sum(int(g_payout)), CHROME_FG),
+            "pro":  (_fmt_sum(int(g_profit)), CHROME_FG),
+            "mar":  (f"{g_avg_margin:.1f}%", CHROME_FG),
+        }
+        cx = x0
+        for i, k in enumerate(CK):
+            if k == "desc":
+                cell(cx, cy, CW[i], TOTAL_H, L["total_all"], f_tlabel, CHROME_FG, "left")
+            else:
+                txt, col = gvals[k]
+                cell(cx, cy, CW[i], TOTAL_H, txt, f_num_b, col, CA[i])
+            cx += CW[i]
+        cy += TOTAL_H + GAP
+
+    # ── Warehouse expenses card ──
+    if wh_exp_lines:
+        exp_card_h = SVC_HEADER_H + len(wh_exp_lines) * SVCLINE_H + 8 * SCALE
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + exp_card_h], radius=RAD, fill=SURFACE)
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + SVC_HEADER_H], radius=RAD, fill=EXP_HDR_BG)
+        d.rectangle([x0, cy + SVC_HEADER_H // 2, x0 + CARD_W, cy + SVC_HEADER_H], fill=EXP_HDR_BG)
+        d.text((x0 + PAD_X + 4 * SCALE, cy + (SVC_HEADER_H - f_exp_h.size * 0.72) / 2),
+               L["exp_header"], font=f_exp_h, fill=INK)
+        cy += SVC_HEADER_H
+        for ei, (label, val) in enumerate(wh_exp_lines):
+            is_total = (label == L["exp_total"])
+            fnt = f_num_b if is_total else f_num
+            lbl_fnt = f_tlabel if is_total else f_desc
+            d.text((x0 + PAD_X + 8 * SCALE, cy + (SVCLINE_H - lbl_fnt.size * 0.72) / 2),
+                   label, font=lbl_fnt, fill=INK)
+            val_str = _fmt_sum(int(val)) + " " + L["cur"]
+            vw = _tw(val_str, fnt)
+            d.text((x0 + CARD_W - PAD_X - vw - 8 * SCALE, cy + (SVCLINE_H - fnt.size * 0.72) / 2),
+                   val_str, font=fnt, fill=INK if is_total else NEG)
+            if ei != len(wh_exp_lines) - 1:
+                d.line([(x0 + PAD_X, cy + SVCLINE_H - 1), (x0 + CARD_W - PAD_X, cy + SVCLINE_H - 1)], fill=RULE, width=SCALE)
             cy += SVCLINE_H
-        cy += PAD_Y + 6 * SCALE
+        cy += 8 * SCALE + GAP
 
-    # ── "Возврат Денег" income bottom line (Phase 3) ─────────────────────
-    # Shown as its own single-line card when refunds_income > 0 so it reads
-    # as income, not as another expense row. Amount rendered in the same
-    # green used for profit (GREEN), opposite to EXP_RED used above.
+    # ── Refund income line ──
     if refunds_income > 0:
-        refund_card_h = SVCLINE_H + 4
-        draw_rounded_card(cx_base, cy, card_w, refund_card_h)
-        # Single rounded row — no header for brevity.
-        draw.rounded_rectangle(
-            [cx_base, cy, cx_base + card_w - 1, cy + SVCLINE_H + 3],
-            radius=CARD_R, fill=TOTAL_BG)
-        label = "Возврат Денег"
-        draw.text(
-            (cx_base + PAD_X + 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
-            label, font=font_bold, fill=BODY_FG,
-        )
-        val_str = "+" + _fmt_sum(refunds_income) + " сум"
-        vw = tw(val_str, font_bold)
-        draw.text(
-            (cx_base + card_w - PAD_X - vw - 8 * SCALE, cy + (SVCLINE_H - 12 * SCALE) / 2),
-            val_str, font=font_bold, fill=GREEN,
-        )
-        cy += SVCLINE_H + PAD_Y + 6 * SCALE
+        rc_h = SVCLINE_H + 8 * SCALE
+        d.rounded_rectangle([x0, cy, x0 + CARD_W, cy + rc_h], radius=RAD, fill=TOTAL_BG)
+        d.text((x0 + PAD_X + 8 * SCALE, cy + (rc_h - f_num_b.size * 0.72) / 2),
+               L["refund"], font=f_num_b, fill=INK)
+        val_str = "+" + _fmt_sum(refunds_income) + " " + L["cur"]
+        vw = _tw(val_str, f_num_b)
+        d.text((x0 + CARD_W - PAD_X - vw - 8 * SCALE, cy + (rc_h - f_num_b.size * 0.72) / 2),
+               val_str, font=f_num_b, fill=POS)
+        cy += rc_h + GAP
 
-    # ── Footer ───────────────────────────────────────────────────────────
+    # ── Footer ──
     footer_text = "SellerHub  ·  Uzum Analytics"
-    ftw = tw(footer_text, font_small)
-    draw.text(((total_w - ftw) / 2, cy + 6 * SCALE), footer_text, font=font_small, fill=FOOTER_FG)
+    fw = _tw(footer_text, f_footer)
+    d.text(((TOTAL_W - fw) / 2, cy + 4 * SCALE), footer_text, font=f_footer, fill=FOOTER_FG)
 
     buf = _io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -1985,7 +2321,8 @@ def _get_user_notification_settings(user_id: int, *, db=None) -> dict:
 
 
 #Send a photo to a Telegram user via the bot.
-def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False):
+def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False,
+                   caption: str | None = None, parse_mode: str | None = "HTML"):
     try:
         import telebot as _tb
         import io as _io
@@ -2015,7 +2352,11 @@ def _send_tg_photo(tg_id: str, image_bytes: bytes, pin: bool = False):
         except Exception as _resize_err:
             print(f"[HourlySales] resize-before-send skipped: {_resize_err}")
 
-        message = bot.send_photo(tg_id, _io.BytesIO(image_bytes))
+        message = bot.send_photo(
+            tg_id, _io.BytesIO(image_bytes),
+            caption=caption,
+            parse_mode=(parse_mode if caption else None),
+        )
         if pin and message and getattr(message, "message_id", None):
             try:
                 bot.pin_chat_message(tg_id, message.message_id, disable_notification=True)
@@ -2418,6 +2759,10 @@ def _do_hourly_sales_check(
     total_hour_sold = 0
     uid_data: dict = {}   # uid -> shop_label -> group_id -> data for items sold since midnight
     uid_totals: dict = {} # uid -> shop_label -> full-shop day/hour totals
+    uid_caption: dict = {} # uid -> {"H": {...}, "D": {...}} grand money for the photo caption
+    # The caption (hour/day text recap) rides only on interval notifications,
+    # not the daily summary (where the two windows are identical).
+    caption_enabled = warehouse_expense_snapshot_day is None
 
     with SessionLocal() as db:
         # ── 1-2. Read per-shop day + hour SKU breakdowns from sales_lines ──
@@ -2453,6 +2798,21 @@ def _do_hourly_sales_check(
             shop_hour_map = hour_maps.get(shop.uzum_id, {})
             shop_label = shop.name or shop.uzum_id
 
+            # Grand-total money for the photo caption — summed from the SAME
+            # hour/day breakdown maps that feed the image, so the caption's
+            # numbers always agree with the rendered picture.
+            if caption_enabled:
+                _cap_h = _sum_breakdown_money(shop_hour_map)
+                _cap_d = _sum_breakdown_money(shop_data)
+                for _uid in shop_recipient_ids.get(shop.id, set()):
+                    _cap = uid_caption.setdefault(_uid, {
+                        "H": {"qty": 0, "revenue": 0, "payout": 0, "profit": 0},
+                        "D": {"qty": 0, "revenue": 0, "payout": 0, "profit": 0},
+                    })
+                    for _k in ("qty", "revenue", "payout", "profit"):
+                        _cap["H"][_k] += _cap_h[_k]
+                        _cap["D"][_k] += _cap_d[_k]
+
             # Load variants for SKU matching
             variants = db.execute(
                 select(Variant, ProductGroup)
@@ -2484,10 +2844,15 @@ def _do_hourly_sales_check(
                 # from Uzum) so the notification doesn't pick up whatever
                 # language the seller typed into ProductGroup.name locally.
                 vg = sku_to_vg.get(sku_id) or sku_to_vg.get(sku_id.upper() if sku_id else "")
+                group_ru_title = None
                 if vg:
                     v, g = vg
                     group_id = g.id
                     sku_label = v.sku or sku_id
+                    # RU product title from the products-sync (accept_language=ru,
+                    # stored on ProductGroup.name). Uzbek title stays product_title
+                    # (finance_orders). The per-user language picks between them below.
+                    group_ru_title = g.name
                     if sell_price == 0:
                         sell_price = v.sell_price_uzum or v.price_sum or 0
                     if purchase_price == 0:
@@ -2496,7 +2861,8 @@ def _do_hourly_sales_check(
                     group_id = sku_id
                     sku_label = sku_id
 
-                group_name = product_title or sku_id
+                group_name = product_title or sku_id                 # UZ (or seller title)
+                group_name_ru = group_ru_title or group_name          # RU, fallback to UZ/SKU
 
                 if d_qty <= 0:
                     continue
@@ -2553,7 +2919,7 @@ def _do_hourly_sales_check(
                     grp = uid_data.setdefault(uid, {}) \
                                   .setdefault(shop_label, {}) \
                                   .setdefault(group_id, {
-                                      "name": group_name, "skus": set(),
+                                      "name": group_name, "name_ru": group_name_ru, "skus": set(),
                                       "h_qty": 0, "d_qty": 0,
                                       "profit": 0.0, "revenue": 0.0, "payout": 0.0,
                                       "seller_profit_tot": 0.0, "cost_tot": 0.0,
@@ -2638,7 +3004,7 @@ def _do_hourly_sales_check(
         print(f"[HourlySales] TIMING: expenses skipped for interval notification = {_t2 - _t2_start:.2f}s")
 
     # ── Build per-user notification payloads ────────────────────────
-    user_payloads: list[tuple[str, dict, str, str, str, bool, bool]] = []  # (telegram_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin)
+    user_payloads: list[tuple[str, dict, str, str, str, bool, bool, str, str | None]] = []  # (telegram_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin, lang, caption)
 
     with SessionLocal() as db:
         for uid, shops_d in uid_data.items():
@@ -2648,6 +3014,13 @@ def _do_hourly_sales_check(
             resolved_tg_id = target_tg_id if target_user_id is not None and uid == target_user_id and target_tg_id else (user.telegram_id if user else None)
             if not user or not resolved_tg_id:
                 continue
+
+            # Telegram bot language picked at registration (users.language).
+            # Null = user registered before the picker → fall back to the app's
+            # canonical default. Drives both the labels AND which product title
+            # (RU = ProductGroup.name, UZ = finance_orders.product_title) is shown.
+            user_lang = (user.language or _NOTIF_DEFAULT_LANG)
+            _use_ru = str(user_lang).lower().startswith("ru")
 
             by_shop:    dict = {}
             totals_map: dict = {}
@@ -2665,7 +3038,7 @@ def _do_hourly_sales_check(
                     profit = gd["profit"]
                     margin = round(profit / rev * 100, 1) if rev > 0 else 0.0
                     items.append({
-                        "group":    gd["name"],
+                        "group":    (gd.get("name_ru") or gd["name"]) if _use_ru else gd["name"],
                         "base_sku": _base_sku(list(gd["skus"])),
                         "hour_qty": gd["h_qty"],
                         "day_qty":  gd["d_qty"],
@@ -2702,13 +3075,23 @@ def _do_hourly_sales_check(
 
             by_shop["__totals__"] = totals_map
             by_shop["__expenses__"] = uid_expenses.get(uid, {})
-            user_payloads.append((resolved_tg_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin))
+
+            # Photo caption: aligned hour/day money table under the image.
+            _cap = uid_caption.get(uid)
+            caption = (
+                _build_sales_caption(
+                    f"{hour_start.strftime('%H:%M')}–{snap_hour.strftime('%H:%M')}",
+                    today, _cap["H"], _cap["D"], lang=user_lang,
+                )
+                if (caption_enabled and _cap) else None
+            )
+            user_payloads.append((resolved_tg_id, by_shop, hour_label, period_qty_label, day_qty_label, show_period_qty_column, pin, user_lang, caption))
 
     # ── Parallel render + send for ALL users ──────────────────────
     # At 10 000 users: 20 workers × ~1.6s each = ~13 min (fits in 1 hour)
     _sent = _failed = 0
 
-    def _render_and_send(tg_id, by_shop_data, h_label, period_label, day_label, show_period_col, should_pin):
+    def _render_and_send(tg_id, by_shop_data, h_label, period_label, day_label, show_period_col, should_pin, lang, caption):
         try:
             img_bytes = _render_sales_image(
                 by_shop_data,
@@ -2716,8 +3099,9 @@ def _do_hourly_sales_check(
                 period_qty_label=period_label,
                 day_qty_label=day_label,
                 show_period_qty_column=show_period_col,
+                lang=lang,
             )
-            _send_tg_photo(tg_id, img_bytes, pin=should_pin)
+            _send_tg_photo(tg_id, img_bytes, pin=should_pin, caption=caption)
             return True
         except Exception as e:
             print(f"[HourlySales] render/send failed for {tg_id}: {e}")
@@ -2726,8 +3110,8 @@ def _do_hourly_sales_check(
     notify_workers = min(100, max(1, len(user_payloads)))
     with ThreadPoolExecutor(max_workers=notify_workers) as pool:
         futures = {
-            pool.submit(_render_and_send, tg_id, bs, hl, period_label, day_label, show_period_col, should_pin): tg_id
-            for tg_id, bs, hl, period_label, day_label, show_period_col, should_pin in user_payloads
+            pool.submit(_render_and_send, tg_id, bs, hl, period_label, day_label, show_period_col, should_pin, lang, caption): tg_id
+            for tg_id, bs, hl, period_label, day_label, show_period_col, should_pin, lang, caption in user_payloads
         }
         for future in as_completed(futures):
             if future.result():
@@ -3394,6 +3778,11 @@ def _products_sync_loop():
 
         except Exception as e:
             print(f"[ProductsSync] shop={s} ERROR: {e!r}")
+            try:
+                from core.error_monitor import report_background_error
+                report_background_error("ProductsSync", s, repr(e))
+            except Exception:
+                pass
         # Backfill blank cost prices from the cabinet /sku-list (cooldown-gated).
         try:
             if _t.monotonic() - last_cost_refresh.get(str(s), 0.0) >= cost_cooldown:
@@ -4131,6 +4520,13 @@ def _run_per_owner_parallel(shops, work_fn, *, max_owners, label):
                 work_fn(s)
             except Exception as e:
                 print(f"[{label}] shop={s} ERROR: {e!r}")
+                # Covers FinanceHourly / FinanceNightly per-shop fetch failures
+                # (incl. a dead per-user OpenAPI token → RuntimeError HTTP 403).
+                try:
+                    from core.error_monitor import report_background_error
+                    report_background_error(label, s, repr(e))
+                except Exception:
+                    pass
 
     workers = min(max(1, max_owners), max(1, len(by_owner)))
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix=label) as pool:
@@ -5043,6 +5439,14 @@ def _fbs_sync_tick():
             )
         except Exception as e:
             print(f"[FBS Worker] token={token[:8]}.. shops=[{ids_str}] ERROR: {e!r}")
+            # One report per token group — the owner is the same for all its
+            # shops, so attribute via the first shop and list the rest.
+            try:
+                from core.error_monitor import report_background_error
+                first = shops_in_group[0].uzum_id if shops_in_group else None
+                report_background_error("FBS/DBS-sync", first, f"магазины [{ids_str}]: {e!r}")
+            except Exception:
+                pass
 
         # Warm the akt cache for this token's active (CREATED) invoices so the
         # seller's bulk "Akt отправки (PDF)" print reads from the DB — instant
@@ -5531,10 +5935,18 @@ def _read_products_sync_counts_from_db(shop_uzum_id: str) -> dict:
 
 #openapi pruducts sync and saving to to the db function
 
+# Per-page retry for the product listing. The HTTP layer already retries
+# 429/5xx inside a single request; this covers the case it cannot see — the
+# connection dying mid-response (IncompleteRead / SSLEOFError), which surfaces
+# as HTTP 0 and previously truncated the whole sync.
+PAGE_FETCH_ATTEMPTS = 3
+PAGE_FETCH_BACKOFF_SEC = 2
+
+
 def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                                      size: int = 100, max_pages: int = 500,
                                      ) -> dict:
-    
+
     if not openapi_token:
         raise RuntimeError("Uzum OpenAPI token is empty.")
 
@@ -5569,19 +5981,41 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
     total_products_amount = None
     product_counter = 0
     total_variants = 0
+    received_count = 0
+    fetch_failed = False
     active_group_ids: set[int] = set()
 
 #start of fetching and saving the products_group and variants to the db
     with SessionLocal() as db:
         while True:
-            try:
-                raw = fetch_products_page(
-                    openapi_token, shop_uzum_id,
-                    page=page, size=size,
-                    accept_language="ru",
-                )
-            except Exception as e:
-                print(f"[OpenAPISync] page {page} (ru) error: {e}")
+            # A dropped connection mid-pagination used to end the whole sync
+            # (and, before the completeness guard below, mass-archive the pages
+            # we never reached). Retry the page itself — the request was fine,
+            # the pipe just broke. Auth failures are not retried: a rejected
+            # token stays rejected and retrying only burns rate-limit budget.
+            raw = None
+            for attempt in range(1, PAGE_FETCH_ATTEMPTS + 1):
+                try:
+                    raw = fetch_products_page(
+                        openapi_token, shop_uzum_id,
+                        page=page, size=size,
+                        accept_language="ru",
+                    )
+                    break
+                except Exception as e:
+                    is_retryable = not isinstance(e, UzumOpenAPIError) or e.retryable
+                    if is_retryable and attempt < PAGE_FETCH_ATTEMPTS:
+                        delay = PAGE_FETCH_BACKOFF_SEC * attempt
+                        print(f"[OpenAPISync] page {page} (ru) attempt "
+                              f"{attempt}/{PAGE_FETCH_ATTEMPTS} failed: {e} "
+                              f"— retrying in {delay}s")
+                        time.sleep(delay)
+                        continue
+                    print(f"[OpenAPISync] page {page} (ru) error: {e}")
+                    fetch_failed = True
+                    break
+
+            if raw is None:
                 break
 
             products = raw.get("productList") or []
@@ -5591,6 +6025,8 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
 
             if not products:
                 break
+
+            received_count += len(products)
 
             for p in products:
                 prod_id = str(p.get("productId") or "").strip()
@@ -5890,9 +6326,27 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
             page += 1
 
     # ── Archive reconciliation ───────────────────────────────────────────────
-    print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
+    # Reconciliation archives every product it did NOT see this run, so it is
+    # only safe on a complete listing. A mid-pagination failure (network drop,
+    # 429) leaves a partial active_group_ids and would archive the untouched
+    # tail. Require: no fetch error, and every product Uzum said it has was
+    # actually received.
+    complete_listing = (
+        not fetch_failed
+        and total_products_amount is not None
+        and received_count >= total_products_amount
+    )
+
     with SessionLocal() as db:
-        if active_group_ids:
+        if not complete_listing:
+            print(f"[OpenAPISync] WARNING — incomplete listing for shop_pk={current_shop_pk} "
+                  f"(received={received_count}, totalProductsAmount={total_products_amount}, "
+                  f"fetch_failed={fetch_failed}); skipping archive reconciliation")
+        elif not active_group_ids:
+            print(f"[OpenAPISync] WARNING — no active products found for shop_pk={current_shop_pk}, "
+                  f"skipping archive reconciliation")
+        else:
+            print(f"[OpenAPISync] Reconciling is_archived for shop_pk={current_shop_pk} ...")
             active_list = list(active_group_ids)
             db.execute(
                 update(ProductGroup)
@@ -5905,9 +6359,6 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
                 .where(~ProductGroup.id.in_(active_list))
                 .values(is_archived=True)
             )
-        else:
-            print(f"[OpenAPISync] WARNING — no active products found for shop_pk={current_shop_pk}, "
-                  f"skipping archive reconciliation")
         db.commit()
 
     print(f"[OpenAPISync] Done for shop {shop_uzum_id}: "
@@ -5924,6 +6375,7 @@ def _sync_products_via_openapi_impl(shop_uzum_id: str, openapi_token: str,
         "fetched": total_variants,
         "active_groups": len(active_group_ids),
         "total_products": product_counter,
+        "complete_listing": complete_listing,
         "source": "openapi",
     }
 
@@ -5980,6 +6432,12 @@ def handle_500(e):
     traceback.print_exc()
     return _json_response({"error": "Internal server error", "detail": str(e)}, 500)
 
+# App-wide user error capture (error_events table) + instant admin Telegram
+# alerts. Registers an after_request hook for handled 4xx/5xx JSON errors and
+# an errorhandler(Exception) for unhandled tracebacks. See core/error_monitor.
+from core.error_monitor import init_error_monitor as _init_error_monitor
+_init_error_monitor(app)
+
 import background.startup as _background_mod
 _background_mod.init_background_startup(__import__("sys").modules[__name__])
 _background_mod.start_background_threads()
@@ -5988,6 +6446,5 @@ _background_mod.start_background_threads()
 if __name__ == "__main__":
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
-    print(f" * Warehouse Data Page: http://{host}:{port}/warehouse/data")
     app.run(host=host, port=port, debug=True, use_reloader=False)
 

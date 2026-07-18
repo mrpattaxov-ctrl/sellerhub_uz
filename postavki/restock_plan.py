@@ -1,6 +1,7 @@
 """Yarim-avtomat поставка rejasi — «qancha kerak» hisobi + guruhlash.
 
-`/invoice/restock` sahifasidagi hisob mantig'i shu yerda qayta ishlatiladi:
+Hisob mantig'i (avval `/invoice/restock` sahifasida edi — u sahifa olib
+tashlandi, mantiq shu yerda yashaydi):
 
     sotildi (oxirgi N kun, finance_orders) − Uzum ombordagi qoldiq  → kerak
     min(kerak, bizning ombordagi qoldiq)                            → tavsiya

@@ -1047,3 +1047,75 @@ class FbsOrderLabel(Base):
 # removed — the stock page is live-only now (one /v3 drain per open, browser
 # filters in memory). The orphan ``fbs_sku_stock_cache`` table may still
 # exist in older databases; it is unused and safe to drop manually.
+
+
+class ErrorEvent(Base):
+    """One user-facing error, deduplicated by ``fingerprint``.
+
+    Written by ``core.error_monitor`` from two capture points: the global
+    Flask ``after_request`` hook (any 4xx/5xx response the app's own
+    try/except handlers produced) and the unhandled-``Exception`` handler
+    (which also stores the traceback). A repeat of the same error by the
+    same user within the dedup window bumps ``count`` / ``last_seen_at``
+    instead of inserting a new row, so a retry-spam loop can't flood the
+    table or the admin's Telegram.
+    """
+
+    __tablename__ = "error_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # md5 of (user_id, method, path, status, message) — dedup key for the
+    # rolling window and the Telegram-alert rate limiter.
+    fingerprint: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow,
+        server_default=sql_text("CURRENT_TIMESTAMP"), index=True,
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow,
+        server_default=sql_text("CURRENT_TIMESTAMP"),
+    )
+    count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=sql_text("1"),
+    )
+    # Who hit the error. Nullable — errors can happen pre-login. username is
+    # snapshotted so the row stays readable even if the user is deleted.
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Where: URL path + HTTP method + resolved Flask endpoint, and the page
+    # the browser was on (Referer) — for API calls path alone doesn't tell
+    # the admin which screen the user was using.
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    method: Mapped[str] = mapped_column(String(10), nullable=False, default="GET")
+    endpoint: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    referer: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Full Python traceback — only for unhandled exceptions (500s).
+    traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sql_text("false"),
+    )
+
+
+class AdminAlertChat(Base):
+    """Telegram chat connected to the admin error-alert bot.
+
+    A chat gets a row only after entering the admin password in the bot
+    (``core.admin_bot``). Every captured error is pushed to all active
+    rows. ``is_active=False`` (via /stop in the bot) mutes a chat without
+    forgetting it — /start re-activates with no password re-entry.
+    """
+
+    __tablename__ = "admin_alert_chats"
+
+    chat_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tg_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    connected_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow,
+        server_default=sql_text("CURRENT_TIMESTAMP"),
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=sql_text("true"),
+    )

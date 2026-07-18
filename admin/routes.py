@@ -13,6 +13,8 @@ from werkzeug.security import generate_password_hash
 
 from extensions import SessionLocal
 from models import (
+    AdminAlertChat,
+    ErrorEvent,
     ExpensesLedger,
     FinanceHourlySnapshot,
     FinanceOrder,
@@ -89,6 +91,14 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
             fn(*args)
         except Exception as e:
             print(f"[AdminShop] {label} failed for {args[0] if args else '?'}: {e}")
+            # Add-shop backfill failure (sales/expenses/products) — this is
+            # where a saved-but-unusable OpenAPI token first shows up.
+            try:
+                from core.error_monitor import report_background_error
+                report_background_error(f"Добавление магазина: {label}",
+                                        args[0] if args else None, repr(e))
+            except Exception:
+                pass
 
     def _run_products_burst(uzum_id=uzum_id, shop_pk=shop_pk):
         owner_token = ""
@@ -154,11 +164,21 @@ def _fire_finance_seed(uzum_id: str, shop_pk: int):
             print(f"[AdminShop] FBS seed import failed for shop {uzum_id}: {e}")
             return
         total = 0
+        seed_errors: list[str] = []
         for status in FBS_ALL_SYNC_STATUSES:
             try:
                 total += _refresh_shops_status(owner_token, [uzum_id], status)
             except Exception as e:
                 print(f"[AdminShop] FBS seed status={status} failed for shop {uzum_id}: {e}")
+                seed_errors.append(f"{status}: {e!r}")
+        if seed_errors:
+            # One report per seed run, not one per failed status.
+            try:
+                from core.error_monitor import report_background_error
+                report_background_error("Добавление магазина: FBS seed", uzum_id,
+                                        "; ".join(seed_errors)[:500])
+            except Exception:
+                pass
         print(f"[AdminShop] FBS seed done shop={uzum_id}: {total} order(s) synced")
 
     def _orchestrate(uzum_id=uzum_id, shop_pk=shop_pk):
@@ -304,6 +324,19 @@ def _shop_limit_error_response(db, owner_id: int | None, *, existing_owner_id: i
 # ----------------------------
 
 
+def _safe_invalidate_ctx(*user_ids) -> None:
+    """Bust each affected user's subscription-context cache after a shop-count
+    change (add / delete / reassign). The card's "N / limit магазинов" number
+    is a Redis blob (``sub_ctx:{uid}``) that these routes would otherwise leave
+    stale until its TTL. Guarded so a Redis hiccup can't fail a request whose DB
+    commit already succeeded — the card self-heals on TTL anyway. None ids
+    (e.g. unowned shops) are skipped."""
+    for _uid in {u for u in user_ids if u is not None}:
+        try:
+            _invalidate_user_ctx_cache(int(_uid))
+        except Exception as _e:  # best-effort: never break the request
+            print(f"[shops] ctx-cache invalidate skipped for {_uid}: {_e}")
+
 
 #function to get shops from db
 @admin_bp.get("/api/shops")
@@ -360,6 +393,7 @@ def add_shop():
             elif not is_admin and existing.owner_id is None:
                 existing.owner_id = uid
             db.commit()
+            _safe_invalidate_ctx(resolved_owner)
             _fire_finance_seed(uzum_id, existing.id)
             return _json_response({"ok": True, "id": existing.id})
 
@@ -370,6 +404,7 @@ def add_shop():
         db.add(s)
         db.commit()
         db.refresh(s)
+        _safe_invalidate_ctx(resolved_owner)
         _fire_finance_seed(uzum_id, s.id)
         return _json_response({"ok": True, "id": s.id})
 
@@ -551,6 +586,7 @@ def attach_shops_via_openapi():
 
         # Updated shop count for the UI pill (regular users only)
         if not is_admin:
+            _safe_invalidate_ctx(uid)
             _, current_count, limit = _can_user_add_shop(
                 db, user_id=uid, settings=settings,
             )
@@ -559,6 +595,32 @@ def attach_shops_via_openapi():
 
     for uzum_id, shop_pk in seeds:
         _fire_finance_seed(uzum_id, shop_pk)
+
+    # A skipped shop is a user-facing failure the frontend shows as a popup,
+    # but the HTTP response is 200 — the error monitor's after_request hook
+    # can't see it. Record each non-benign skip explicitly so the admin gets
+    # the same DB row + instant Telegram alert as for real 4xx/5xx errors.
+    _skip_reason_text = {
+        "no_permission": "Токен OpenAPI не имеет доступа к этому магазину",
+        "owned_by_other": "Магазин уже привязан к другому аккаунту",
+        "limit_reached": "Достигнут лимит магазинов",
+    }
+    from flask import request as _rq
+    from core.error_monitor import record_error
+    for item in skipped:
+        reason_text = _skip_reason_text.get(item.get("reason"))
+        if not reason_text:
+            continue  # "already_added" is informational, not a failure
+        record_error(
+            user_id=uid,
+            username=getattr(current_user, "username", None),
+            path=_rq.path,
+            method=_rq.method,
+            endpoint=_rq.endpoint,
+            referer=_rq.headers.get("Referer"),
+            status_code=400,
+            error_message=f"Добавление магазина {item.get('uzum_id')}: {reason_text}",
+        )
 
     return _json_response({
         "added": added,
@@ -588,8 +650,10 @@ def assign_shop(shop_id: int):
         )
         if limit_error is not None:
             return limit_error
+        prev_owner_id = shop.owner_id
         shop.owner_id = target_owner_id
         db.commit()
+    _safe_invalidate_ctx(prev_owner_id, target_owner_id)
     return _json_response({"ok": True})
 
 
@@ -619,6 +683,9 @@ def delete_shop(shop_id: int):
                 # Permission: must own the shop (or be admin)
                 if not _current_user_is_admin() and shop.owner_id != uid:
                     return _json_response({"error": "Access denied"}, 403)
+                # Capture the owner before the row is deleted so we can bust
+                # their subscription-context cache after the commit succeeds.
+                deleted_owner_id = shop.owner_id
 
                 # New-pipeline tables key on the Uzum shop id (int), not the
                 # local PK. Resolve it before the Shop row is deleted.
@@ -658,6 +725,7 @@ def delete_shop(shop_id: int):
 
                 db.delete(shop)
                 db.commit()
+            _safe_invalidate_ctx(deleted_owner_id, uid)
             return _json_response({"ok": True})
         except OperationalError as exc:
             is_deadlock = "deadlock" in str(getattr(exc, "orig", exc)).lower()
@@ -744,6 +812,144 @@ def admin_list_users():
              "shops": shop_map.get(u.id, [])}
             for u in users
         ]})
+
+# ----------------------------
+# Admin: Error monitoring
+# ----------------------------
+@admin_bp.get("/admin/errors")
+@login_required
+def admin_errors_page():
+    """Error-monitoring dashboard: who hit errors, where, and their contacts.
+
+    Fed by ``core.error_monitor`` (error_events table). The «подключённые
+    чаты» card reflects ``admin_alert_chats`` — chats that entered the admin
+    password in the alert bot and receive each error instantly.
+    """
+    if not _current_user_is_admin():
+        return redirect(url_for("products_bp.economics_page"))
+
+    now = datetime.utcnow()
+    day_ago = now - timedelta(hours=24)
+    week_ago = now - timedelta(days=7)
+
+    with SessionLocal() as db:
+        users = db.execute(select(User).order_by(User.id)).scalars().all()
+
+        def _agg(since):
+            rows = db.execute(
+                select(
+                    ErrorEvent.user_id,
+                    func.count(ErrorEvent.id),
+                    func.coalesce(func.sum(ErrorEvent.count), 0),
+                )
+                .where(ErrorEvent.last_seen_at > since)
+                .group_by(ErrorEvent.user_id)
+            ).all()
+            return {uid: (int(n), int(hits)) for uid, n, hits in rows}
+
+        agg_24h = _agg(day_ago)
+        agg_7d = _agg(week_ago)
+
+        unresolved_by_user = {
+            uid: int(n)
+            for uid, n in db.execute(
+                select(ErrorEvent.user_id, func.count(ErrorEvent.id))
+                .where(ErrorEvent.resolved == False)  # noqa: E712
+                .group_by(ErrorEvent.user_id)
+            ).all()
+        }
+
+        # Latest error per user (for the users table) — newest 1000 rows are
+        # plenty; older history stays reachable through the errors feed.
+        latest_by_user: dict[int | None, ErrorEvent] = {}
+        recent_errors = db.execute(
+            select(ErrorEvent).order_by(desc(ErrorEvent.last_seen_at)).limit(1000)
+        ).scalars().all()
+        for ev in recent_errors:
+            if ev.user_id not in latest_by_user:
+                latest_by_user[ev.user_id] = ev
+
+        error_rows = recent_errors[:200]
+
+        chats = db.execute(select(AdminAlertChat)).scalars().all()
+
+        user_map = {u.id: u for u in users}
+        user_rows = []
+        for u in users:
+            n24 = agg_24h.get(u.id, (0, 0))
+            n7 = agg_7d.get(u.id, (0, 0))
+            last = latest_by_user.get(u.id)
+            user_rows.append({
+                "id": u.id,
+                "username": u.username,
+                "is_admin": bool(u.is_admin),
+                "phone": (u.phone or "").strip(),
+                "telegram_id": (u.telegram_id or "").strip(),
+                "language": (u.language or "").strip(),
+                "errors_24h": n24[0],
+                "hits_24h": n24[1],
+                "errors_7d": n7[0],
+                "unresolved": unresolved_by_user.get(u.id, 0),
+                "last_error": last,
+            })
+        # Users with the freshest errors first, error-free users after.
+        user_rows.sort(
+            key=lambda r: (
+                r["last_error"].last_seen_at if r["last_error"] else datetime.min,
+                r["id"],
+            ),
+            reverse=True,
+        )
+
+        overview = {
+            "errors_24h": sum(r["errors_24h"] for r in user_rows),
+            "hits_24h": sum(r["hits_24h"] for r in user_rows),
+            "affected_24h": sum(1 for r in user_rows if r["errors_24h"]),
+            "unresolved": db.execute(
+                select(func.count(ErrorEvent.id)).where(ErrorEvent.resolved == False)  # noqa: E712
+            ).scalar_one(),
+            "chats_active": sum(1 for c in chats if c.is_active),
+        }
+
+        return render_template(
+            "admin_errors.html",
+            tz=timedelta(hours=5),  # UTC -> Tashkent for display
+            overview=overview,
+            user_rows=user_rows,
+            error_rows=error_rows,
+            user_map=user_map,
+            alert_chats=chats,
+            bot_configured=bool((__import__("os").environ.get("ADMIN_TELEGRAM_TOKEN") or "").strip()),
+        )
+
+
+@admin_bp.post("/api/admin/errors/<int:event_id>/resolve")
+@login_required
+def admin_resolve_error(event_id: int):
+    if not _current_user_is_admin():
+        return _json_response({"error": "Admin only"}, 403)
+    with SessionLocal() as db:
+        ev = db.get(ErrorEvent, event_id)
+        if ev is None:
+            return _json_response({"error": "Not found"}, 404)
+        ev.resolved = not bool(ev.resolved)
+        db.commit()
+        return _json_response({"ok": True, "resolved": bool(ev.resolved)})
+
+
+@admin_bp.post("/api/admin/errors/resolve-all")
+@login_required
+def admin_resolve_all_errors():
+    if not _current_user_is_admin():
+        return _json_response({"error": "Admin only"}, 403)
+    from sqlalchemy import update
+    with SessionLocal() as db:
+        res = db.execute(
+            update(ErrorEvent).where(ErrorEvent.resolved == False).values(resolved=True)  # noqa: E712
+        )
+        db.commit()
+        return _json_response({"ok": True, "updated": int(res.rowcount or 0)})
+
 
 #admin page for subscription management (codes, settings, user overrides)
 @admin_bp.route("/admin/subscriptions", methods=["GET", "POST"])

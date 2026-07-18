@@ -75,3 +75,46 @@
 [data-bs-theme="dark"] .shdr:hover { border-color: #3a3a46; }
 [data-bs-theme="dark"] .shdr.is-active { border-color: #6E8FE8; box-shadow: 0 0 0 3px rgba(110, 143, 232, .18); color: #F0EDF5; }
 [data-bs-theme="dark"] .shdr.is-active > svg { color: #6E8FE8; }
+[data-bs-theme="dark"] .shdr > svg { color: #8A8896; }
+[data-bs-theme="dark"] .shdr-input::placeholder { color: #8A8896; }
+[data-bs-theme="dark"] .shdr-clear:hover { color: #FCA5A5; background: rgba(252,165,165,.14); }
+
+/* ── flatpickr popover — DARK (Свой период kalendari qorong'ida oq qolib ketardi) ── */
+[data-bs-theme="dark"] .flatpickr-calendar {
+  background: #18181F !important;
+  border-color: #25252F !important;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, .62) !important;
+  color: #F0EDF5;
+}
+[data-bs-theme="dark"] .flatpickr-months .flatpickr-month,
+[data-bs-theme="dark"] .flatpickr-current-month input.cur-year,
+[data-bs-theme="dark"] .flatpickr-current-month .cur-month { color: #F0EDF5 !important; fill: #F0EDF5 !important; }
+[data-bs-theme="dark"] .flatpickr-months .flatpickr-prev-month svg,
+[data-bs-theme="dark"] .flatpickr-months .flatpickr-next-month svg { fill: #B6B4C2 !important; }
+[data-bs-theme="dark"] .flatpickr-months .flatpickr-prev-month:hover svg,
+[data-bs-theme="dark"] .flatpickr-months .flatpickr-next-month:hover svg { fill: #F0EDF5 !important; }
+[data-bs-theme="dark"] span.flatpickr-weekday { color: #8A8896 !important; }
+[data-bs-theme="dark"] .flatpickr-day { color: #F0EDF5; }
+[data-bs-theme="dark"] .flatpickr-day:hover,
+[data-bs-theme="dark"] .flatpickr-day:focus { background: #2A2A36 !important; border-color: #2A2A36 !important; }
+[data-bs-theme="dark"] .flatpickr-day.today { border-color: #5FD09A !important; }
+[data-bs-theme="dark"] .flatpickr-day.selected,
+[data-bs-theme="dark"] .flatpickr-day.startRange,
+[data-bs-theme="dark"] .flatpickr-day.endRange {
+  background: #6E8FE8 !important; border-color: #6E8FE8 !important; color: #17171F !important;
+}
+[data-bs-theme="dark"] .flatpickr-day.inRange {
+  background: #262633 !important; border-color: #262633 !important; color: #F0EDF5 !important;
+  box-shadow: -5px 0 0 #262633, 5px 0 0 #262633 !important;
+}
+[data-bs-theme="dark"] .flatpickr-day.flatpickr-disabled,
+[data-bs-theme="dark"] .flatpickr-day.prevMonthDay,
+[data-bs-theme="dark"] .flatpickr-day.nextMonthDay { color: #4A4A55 !important; }
+/* Popover uchburchagi (arrow) fon rangiga mos bo'lsin */
+[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:before { border-bottom-color: #25252F; }
+[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:after { border-bottom-color: #18181F; }
+[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:before { border-top-color: #25252F; }
+[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:after { border-top-color: #18181F; }
+[data-bs-theme="dark"] .numInputWrapper span.arrowUp:after { border-bottom-color: #8A8896; }
+[data-bs-theme="dark"] .numInputWrapper span.arrowDown:after { border-top-color: #8A8896; }
+[data-bs-theme="dark"] .numInputWrapper span:hover { background: rgba(255, 255, 255, .06); }

@@ -52,6 +52,12 @@ def start_background_threads():
     threading.Thread(target=_app._start_tg_bot, daemon=True).start()
     print("[Background] Started: Telegram bot")
 
+    # Admin error-alert bot (ADMIN_TELEGRAM_TOKEN) — password-gated chat that
+    # receives every captured user error from core/error_monitor.
+    from core.admin_bot import run_admin_bot
+    threading.Thread(target=run_admin_bot, daemon=True, name="admin-alert-bot").start()
+    print("[Background] Started: admin alert bot")
+
 
     #backgroung finance loops starter
     if os.environ.get("NEW_SALES_REPORTS_LOOPS", "1").strip().lower() not in ("0", "false", "no"):

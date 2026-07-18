@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  /* minmax(0,1fr): grid items default to min-width:auto, so the wide errors
+     table would stretch EVERY card past the viewport on phones; forcing the
+     track to 0-min lets tables scroll inside .table-responsive instead. */
+  .admin-err-shell { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr); }
+  .admin-err-shell > * { min-width: 0; }
+  .admin-err-card {
+    border: 1px solid #eaecf0;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(16, 24, 40, 0.06);
+    padding: 24px;
+  }
+  .admin-err-hero {
+    padding: 28px;
+    background: linear-gradient(135deg, #fff5f2 0%, #fbfaff 60%, #ffffff 100%);
+  }
+  .admin-err-kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 0.84rem; font-weight: 700;
+    background: #fee4e2; color: #b42318;
+  }
+  .admin-err-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .admin-err-head h1, .admin-err-head h2 {
+    margin: 0 0 6px; color: #101828; font-weight: 800; letter-spacing: -0.03em;
+  }
+  .admin-err-head p { margin: 0; color: #667085; }
+  .admin-err-overview {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .admin-err-box {
+    border-radius: 20px; background: #fff;
+    border: 1px solid #e4e7ec; padding: 18px;
+  }
+  .admin-err-box small {
+    display: block; margin-bottom: 8px; color: #667085;
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+    font-size: 0.72rem;
+  }
+  .admin-err-box strong { color: #101828; font-size: 1.4rem; }
+  .admin-err-box p { margin: 8px 0 0; color: #667085; font-size: 0.88rem; }
+  .admin-err-box--alert strong { color: #b42318; }
+  .admin-err-box--ok strong { color: #027a48; }
+  /* base.html forces .table-responsive { overflow: visible !important } —
+     double-class + !important wins so wide tables scroll on phones. */
+  .table-responsive.admin-err-table {
+    border-radius: 18px; border: 1px solid #eaecf0;
+    overflow-x: auto !important; overflow-y: visible !important;
+    margin-bottom: 0;
+  }
+  .admin-err-state {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+  }
+  .admin-err-state--open { background: #fef3f2; color: #b42318; }
+  .admin-err-state--resolved { background: #ecfdf3; color: #027a48; }
+  .admin-err-state--muted { background: #f2f4f7; color: #344054; }
+  .admin-err-code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 2px 7px; word-break: break-all;
+  }
+  .admin-err-msg {
+    max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    color: #475467; font-size: 0.9rem;
+  }
+  .admin-err-contact { display: grid; gap: 3px; font-size: 0.88rem; }
+  .admin-err-contact a { text-decoration: none; }
+  .admin-err-muted { color: #98a2b3; }
+  .admin-err-chatlist { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .admin-err-note {
+    margin-top: 14px; padding: 14px 16px; border-radius: 16px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    color: #475467; font-size: 0.9rem;
+  }
+  .admin-err-row-resolved td { opacity: 0.5; }
+  @media (max-width: 767.98px) {
+    .admin-err-card { padding: 18px; border-radius: 18px; }
+    .admin-err-hero { padding: 20px; }
+    .admin-err-msg { max-width: 100%; }
+  }
+</style>
+
+<div class="admin-err-shell">
+
+  <section class="admin-err-card admin-err-hero">
+    <div class="admin-err-head">
+      <div>
+        <div class="admin-err-kicker">⚠ {{ t.err_kicker }}</div>
+        <h1 style="font-size: clamp(1.7rem, 3vw, 2.4rem); margin-top: 14px;">{{ t.err_title }}</h1>
+        <p>{{ t.err_desc }}</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/admin/users" class="btn btn-outline-secondary">{{ t.nav_users }}</a>
+        <a href="/admin/subscriptions" class="btn btn-outline-secondary">{{ t.nav_subscriptions }}</a>
+      </div>
+    </div>
+
+    <div class="admin-err-overview">
+      <div class="admin-err-box {{ 'admin-err-box--alert' if overview.errors_24h else 'admin-err-box--ok' }}">
+        <small>{{ t.err_stat_24h }}</small>
+        <strong>{{ overview.errors_24h }}</strong>
+        <p>{{ t.err_stat_24h_desc }}{{ overview.hits_24h }}</p>
+      </div>
+      <div class="admin-err-box">
+        <small>{{ t.err_stat_affected }}</small>
+        <strong>{{ overview.affected_24h }}</strong>
+        <p>{{ t.err_stat_affected_desc }}</p>
+      </div>
+      <div class="admin-err-box {{ 'admin-err-box--alert' if overview.unresolved }}">
+        <small>{{ t.err_stat_unresolved }}</small>
+        <strong>{{ overview.unresolved }}</strong>
+        <p>{{ t.err_stat_unresolved_desc }}</p>
+      </div>
+      <div class="admin-err-box {{ 'admin-err-box--ok' if overview.chats_active }}">
+        <small>{{ t.err_stat_chats }}</small>
+        <strong>{{ overview.chats_active }}</strong>
+        <p>{{ t.err_stat_chats_desc }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-err-card">
+    <div class="admin-err-head">
+      <div>
+        <h2 style="font-size: 1.25rem;">✈️ {{ t.err_bot_title }}</h2>
+        <p>{{ t.err_bot_desc }}</p>
+      </div>
+    </div>
+    {% if not bot_configured %}
+      <div class="admin-err-state admin-err-state--open">{{ t.err_bot_not_configured }}</div>
+    {% elif not alert_chats %}
+      <div class="admin-err-state admin-err-state--muted">{{ t.err_bot_no_chats }}</div>
+    {% else %}
+      <div class="admin-err-chatlist">
+        {% for c in alert_chats %}
+          <span class="admin-err-state {{ 'admin-err-state--resolved' if c.is_active else 'admin-err-state--muted' }}">
+            {{ '🔔' if c.is_active else '🔕' }}
+            {{ ('@' ~ c.tg_username) if c.tg_username else (c.first_name or c.chat_id) }}
+          </span>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="admin-err-note">{{ t.err_bot_how }}</div>
+  </section>
+
+  <section class="admin-err-card">
+    <div class="admin-err-head">
+      <div>
+        <h2 style="font-size: 1.25rem;">{{ t.err_users_title }}</h2>
+        <p>{{ t.err_users_desc }}</p>
+      </div>
+    </div>
+    <div class="table-responsive admin-err-table">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>{{ t.err_col_user }}</th>
+            <th>{{ t.err_col_contacts }}</th>
+            <th class="text-center">{{ t.err_col_24h }}</th>
+            <th class="text-center">{{ t.err_col_7d }}</th>
+            <th class="text-center">{{ t.err_col_unresolved }}</th>
+            <th>{{ t.err_col_last }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in user_rows %}
+          <tr>
+            <td>
+              <strong>{{ r.username }}</strong>
+              {% if r.is_admin %}<span class="badge bg-danger ms-1">admin</span>{% endif %}
+              <div class="admin-err-muted" style="font-size:.78rem;">ID {{ r.id }}</div>
+            </td>
+            <td>
+              <div class="admin-err-contact">
+                {% if r.phone %}<span>📱 <a href="tel:{{ r.phone }}">{{ r.phone }}</a></span>{% endif %}
+                {% if r.telegram_id %}<span>✈️ <a href="tg://user?id={{ r.telegram_id }}">Telegram</a> <span class="admin-err-muted">id {{ r.telegram_id }}</span></span>{% endif %}
+                {% if not r.phone and not r.telegram_id %}<span class="admin-err-muted">{{ t.err_no_contacts }}</span>{% endif %}
+              </div>
+            </td>
+            <td class="text-center">
+              {% if r.errors_24h %}<span class="admin-err-state admin-err-state--open">{{ r.errors_24h }}</span>
+              {% else %}<span class="admin-err-muted">0</span>{% endif %}
+            </td>
+            <td class="text-center">
+              {% if r.errors_7d %}{{ r.errors_7d }}{% else %}<span class="admin-err-muted">0</span>{% endif %}
+            </td>
+            <td class="text-center">
+              {% if r.unresolved %}<span class="admin-err-state admin-err-state--open">{{ r.unresolved }}</span>
+              {% else %}<span class="admin-err-state admin-err-state--resolved">0</span>{% endif %}
+            </td>
+            <td>
+              {% if r.last_error %}
+                <div class="admin-err-muted" style="font-size:.8rem;">{{ (r.last_error.last_seen_at + tz).strftime('%d.%m %H:%M') }} · {{ r.last_error.status_code }}</div>
+                <div class="admin-err-msg">{{ r.last_error.error_message or r.last_error.path }}</div>
+              {% else %}
+                <span class="admin-err-muted">{{ t.err_no_errors }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="admin-err-card">
+    <div class="admin-err-head">
+      <div>
+        <h2 style="font-size: 1.25rem;">{{ t.err_feed_title }}</h2>
+        <p>{{ t.err_feed_desc }}</p>
+      </div>
+      {% if overview.unresolved %}
+      <button class="btn btn-outline-danger" onclick="resolveAllErrors(this)">{{ t.err_resolve_all }}</button>
+      {% endif %}
+    </div>
+    {% if error_rows %}
+    <div class="table-responsive admin-err-table">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>{{ t.err_col_time }}</th>
+            <th>{{ t.err_col_user }}</th>
+            <th>{{ t.err_col_where }}</th>
+            <th>{{ t.err_col_message }}</th>
+            <th class="text-center">{{ t.err_col_repeats }}</th>
+            <th>{{ t.err_col_status }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in error_rows %}
+          {% set u = user_map.get(ev.user_id) if ev.user_id else none %}
+          <tr id="err-row-{{ ev.id }}" class="{{ 'admin-err-row-resolved' if ev.resolved }}">
+            <td style="white-space:nowrap;">
+              <div>{{ (ev.last_seen_at + tz).strftime('%d.%m %H:%M') }}</div>
+              <span class="admin-err-state {{ 'admin-err-state--open' if ev.status_code >= 500 else 'admin-err-state--muted' }}">{{ ev.status_code }}</span>
+            </td>
+            <td>
+              <strong>{{ (u.username if u else ev.username) or t.err_anon }}</strong>
+              {% if u and u.phone %}<div class="admin-err-muted" style="font-size:.8rem;">📱 {{ u.phone }}</div>{% endif %}
+              {% if u and u.telegram_id %}<div style="font-size:.8rem;">✈️ <a href="tg://user?id={{ u.telegram_id }}">Telegram</a></div>{% endif %}
+            </td>
+            <td>
+              <span class="admin-err-code">{{ ev.method }} {{ ev.path }}</span>
+              {% if ev.referer %}
+                {% set ref_path = '/' ~ ev.referer.split('://')[-1].split('/', 1)[-1] if '://' in ev.referer else ev.referer %}
+                {% if ref_path != ev.path %}
+                <div class="admin-err-muted" style="font-size:.78rem; margin-top:3px;">{{ t.err_from_page }} {{ ref_path }}</div>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td><div class="admin-err-msg" title="{{ ev.error_message }}">{{ ev.error_message }}</div></td>
+            <td class="text-center">{% if ev.count > 1 %}×{{ ev.count }}{% else %}<span class="admin-err-muted">1</span>{% endif %}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-sm {{ 'btn-outline-secondary' if ev.resolved else 'btn-outline-success' }}"
+                      onclick="toggleResolved({{ ev.id }}, this)">
+                {{ t.err_reopen_btn if ev.resolved else t.err_resolve_btn }}
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="admin-err-note">🟢 {{ t.err_empty_feed }}</div>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+async function toggleResolved(id, btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/admin/errors/${id}/resolve`, {method: 'POST'});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.status);
+    const row = document.getElementById(`err-row-${id}`);
+    row.classList.toggle('admin-err-row-resolved', data.resolved);
+    btn.textContent = data.resolved ? {{ t.err_reopen_btn | tojson }} : {{ t.err_resolve_btn | tojson }};
+    btn.className = 'btn btn-sm ' + (data.resolved ? 'btn-outline-secondary' : 'btn-outline-success');
+  } catch (e) {
+    alert('{{ t.common_error }}: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function resolveAllErrors(btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/errors/resolve-all', {method: 'POST'});
+    if (!r.ok) throw new Error(r.status);
+    location.reload();
+  } catch (e) {
+    alert('{{ t.common_error }}: ' + e.message);
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

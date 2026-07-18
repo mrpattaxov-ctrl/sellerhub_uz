@@ -7,20 +7,85 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- Sana-oralig'i tanlagichi — ilovadagi boshqa kalendarlar bilan AYNI (flatpickr, range) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<link rel="stylesheet" href="/static/daterange.css?v=1">
+<link rel="stylesheet" href="/static/daterange.css?v=2">
 <style>
+  /* ═══ Dark-mode token layer (Ulug'bek 2026-07-17) ═══════════════════════
+     Sahifaning .pkx-* klasslari OQ yuzalarni qattiq (hardcode) yozib qo'ygan
+     edi — shu bois dark rejimda qora fon ustida oq kartalar qolib ketardi.
+     Endi hamma NEYTRAL rang shu tokenlardan keladi: light qiymatlar AYNAN
+     oldingidek (var bir xil hexga resolve bo'ladi, ya'ni light piksel-bir xil),
+     dark esa [data-bs-theme=dark]'da almashadi. Palitra ilovaning boshqa dark
+     sahifalari (zakupka/economics) bilan bir xil (surface #18181F, matn #F0EDF5). */
+  /* MUHIM: tokenlar :root'da (nafaqat .pkx-app'da) — modallar/zoom/selbar <body>ga
+     ulanadi (‹.pkx-app›dan TASHQARIDA), agar tokenlar faqat .pkx-app'da bo'lsa
+     var() u yerda resolve bo'lmasdan SHAFFOF qolib ketardi (Черновик modali sahifa
+     bilan aralashib ko'rinmasdi). :root barcha joyda amal qiladi. */
+  :root{
+    --pkx-surface:#fff; --pkx-raised:#f8fafc; --pkx-soft:#f3f4f6; --pkx-soft-hover:#eceef2;
+    --pkx-tile:#eef0f4; --pkx-track:#e9ecf2;
+    --pkx-border:#ECECF0; --pkx-border-2:#e6e6ec; --pkx-tile-border:#e9ecf2;
+    --pkx-divider:#eef0f4; --pkx-row-sep:#f3f4f6;
+    --pkx-text:#1C2030; --pkx-text-2:#5A5F72; --pkx-text-3:#9499AE; --pkx-text-4:#B8BCC9; --pkx-icon:#9B98A5;
+    --pkx-accent:#4169E1; --pkx-accent-strong:#3558CC; --pkx-accent-soft:#EEF2FE; --pkx-skuc-bg:#EAF0FE;
+    --pkx-ok:#1A7F4B; --pkx-ok-soft-bg:#D8F1E1; --pkx-ok-soft-fg:#16794C; --pkx-ok-solid:#2BAE6A; --pkx-progress:#1e293b;
+    --pkx-danger:#E5484D; --pkx-danger-soft-bg:#FCE9EA; --pkx-danger-soft-fg:#D33A3F; --pkx-danger-border:#F2C9CB;
+    --pkx-warn-soft-fg:#96751F; --pkx-warn-soft-bg:#FBEFD6;
+    --pkx-dirty-bg:#fffbeb; --pkx-dirty-bg-hover:#fff7e0; --pkx-stepchip-bg:#EEF1F8;
+    --pkx-trek-bg:rgba(243,244,248,.82);
+    /* «Tanlangan» (kalendar kuni · slot chipi) va kalendardagi «yopiq» kunlar */
+    --pkx-sel-bg:#1e293b; --pkx-sel-fg:#fff; --pkx-cal-off:#ccd2dc;
+    /* Asosiy (primary) tugma — light'da navy; dark'da OQ bo'ladi (pastdagi override) */
+    --pkx-primary-bg:#1e293b; --pkx-primary-fg:#fff;
+  }
+  [data-bs-theme="dark"]{
+    --pkx-surface:#18181F; --pkx-raised:#1E1E27; --pkx-soft:#22222D; --pkx-soft-hover:#2A2A36;
+    --pkx-tile:#22222D; --pkx-track:#2E2E3A;
+    --pkx-border:#25252F; --pkx-border-2:#2E2E3A; --pkx-tile-border:#25252F;
+    --pkx-divider:#25252F; --pkx-row-sep:#212129;
+    --pkx-text:#F0EDF5; --pkx-text-2:#B6B4C2; --pkx-text-3:#8A8896; --pkx-text-4:#6D6C79; --pkx-icon:#8A8896;
+    --pkx-accent:#7C9BF0; --pkx-accent-strong:#A4B9F0; --pkx-accent-soft:rgba(99,120,232,.18); --pkx-skuc-bg:rgba(99,120,232,.18);
+    --pkx-ok:#5FD09A; --pkx-ok-soft-bg:rgba(30,158,87,.18); --pkx-ok-soft-fg:#6EE7B7; --pkx-ok-solid:#34C77B; --pkx-progress:#B6B4C2;
+    --pkx-danger:#FCA5A5; --pkx-danger-soft-bg:rgba(252,165,165,.16); --pkx-danger-soft-fg:#FCA5A5; --pkx-danger-border:rgba(252,165,165,.32);
+    --pkx-warn-soft-fg:#FCD34D; --pkx-warn-soft-bg:rgba(251,191,36,.16);
+    --pkx-dirty-bg:rgba(245,158,11,.10); --pkx-dirty-bg-hover:rgba(245,158,11,.15); --pkx-stepchip-bg:#22222D;
+    --pkx-trek-bg:rgba(40,40,52,.72);
+    /* Tanlangan = OQ (dark'da navy ko'rinmasdi); yopiq kun = xira; primary = OQ */
+    --pkx-sel-bg:#F0EDF5; --pkx-sel-fg:#17171F; --pkx-cal-off:#4A4A55;
+    --pkx-primary-bg:#F0EDF5; --pkx-primary-fg:#17171F;
+  }
+  /* Dark-only tuzatishlar: qora fonda soyalar ko'rinmaydi — kartaning chekkasini
+     chegara bilan belgilaymiz; qorong'ida ko'rinmay qoladigan hover/aktiv holatlar. */
+  [data-bs-theme="dark"] .pkx-card{ border:1px solid var(--pkx-border); box-shadow:0 1px 2px rgba(0,0,0,.5); }
+  /* Modal: fon kuchli qorayadi (sahifa orqada qoladi) + karta chekkasi ko'rinsin. */
+  [data-bs-theme="dark"] .pkx-modal-bg{ background:rgba(0,0,0,.72); }
+  [data-bs-theme="dark"] .pkx-modal-bg > div{ border:1px solid var(--pkx-border); }
+  [data-bs-theme="dark"] .pkx-dd-menu,
+  [data-bs-theme="dark"] .pkx-cfm-card{ box-shadow:0 24px 64px rgba(0,0,0,.7); }
+  [data-bs-theme="dark"] .pkx-thead{ box-shadow:inset 0 -1px 0 var(--pkx-divider); }
+  [data-bs-theme="dark"] .pkx-prow:hover:not(.is-dirty){ box-shadow:inset 3px 0 0 var(--pkx-accent); }
+  [data-bs-theme="dark"] .pkx-step:hover,
+  [data-bs-theme="dark"] .pkx-step:active{ color:var(--pkx-text); }
+  [data-bs-theme="dark"] button[data-on="back"] svg{ stroke:var(--pkx-text-2); }
+  [data-bs-theme="dark"] ::-webkit-scrollbar-thumb{ background:#33333F; }
+  /* Primary CTA qorong'ida navy edi → qora fon bilan qo'shilib ketardi. OQ qilamiz
+     (Ulug'bek'ning talabi: «make it white») — pastki panel «Дальше/Готово/Создать». */
+  [data-bs-theme="dark"] .pkx-btn-primary{ background:var(--pkx-primary-bg); color:var(--pkx-primary-fg); }
+  [data-bs-theme="dark"] .pkx-btn-primary:hover{ background:#DFDCE6; }
+  /* Pastki yopishqoq panel navy — qora fondan ajralib tursin (chegara + soya). */
+  [data-bs-theme="dark"] .pkx-bbar{ border:1px solid rgba(255,255,255,.08); box-shadow:0 16px 40px rgba(0,0,0,.6); }
+
   /* ===== Поставки — slate design (handoff pixel-perfect) ===== */
   /* Fon base'dan keladi (FBS/DBS bilan bir xil: och #EFEEF5 / qorong'i #0E0E14);
      ustiga FBS sahifasidagi kabi yuqori burchaklarda aurora nur qo'yamiz. */
   /* Aurora nur-gradientlari olib tashlandi (Ulug'bek 2026-07-13) — sarlavha
      qatori sahifa foni bilan TOZA qo'shilib ketsin (binafsha/ko'k dog' yo'q). */
-  .pkx-app { font-family:'Manrope', system-ui, sans-serif; color:#1C2030; font-size:14px; -webkit-font-smoothing:antialiased;
+  .pkx-app { font-family:'Manrope', system-ui, sans-serif; color:var(--pkx-text); font-size:14px; -webkit-font-smoothing:antialiased;
     background:transparent;
     /* Yon padding base'ning container-fluid px-3'idan keladi (FBS bilan bir xil en). */
     padding:0 0 24px; }
   .pkx-wrap { max-width:none; margin:0; }
   .pkx-app *{ box-sizing:border-box; }
-  .pkx-card { background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(22,22,40,.05); }
+  .pkx-card { background:var(--pkx-surface); border-radius:18px; box-shadow:0 1px 3px rgba(22,22,40,.05); }
   /* FBS «Floating Glass» header bilan bir xil yarim-shaffof panel. */
   .pkx-glass { background:rgba(255,255,255,.74);
     -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
@@ -37,15 +102,15 @@
      ajralib turadi. */
   .pkx-seg { position:relative; display:inline-flex; align-items:center; gap:4px;
     height:44px; padding:4px;
-    background:#fff;
-    border:1px solid #ECECF0; border-radius:14px;
+    background:var(--pkx-surface);
+    border:1px solid var(--pkx-border); border-radius:14px;
     box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
   .pkx-seg-btn { position:relative; z-index:1; display:inline-flex; align-items:center;
     height:36px; background:none; border:none;
     border-radius:11px; padding:0 18px; font-size:14px; font-weight:700;
-    cursor:pointer; color:#5A5F72; font-family:inherit;
+    cursor:pointer; color:var(--pkx-text-2); font-family:inherit;
     transition:color .2s ease; }
-  .pkx-seg-btn:hover:not(.is-active) { color:#101828; }
+  .pkx-seg-btn:hover:not(.is-active) { color:var(--pkx-text); }
   .pkx-seg-btn.is-active { color:#fff; }
   /* Universal sirpanuvchi gradient plita — FBS .fbsx-thumb bilan bir xil.
      JS (placeGlide) left/top/width/height o'rnatadi; transition sirpatadi. */
@@ -59,15 +124,15 @@
      yumaloq trek, chip'lar shaffof, aktivini ostidagi .pkx-glide ko'rsatadi. */
   .pkx-trek { position:relative; display:inline-flex; align-items:center; gap:5px;
     flex-wrap:wrap; width:max-content; max-width:100%; padding:6px;
-    border:1px solid #ECECF2; border-radius:16px;
-    background:rgba(243,244,248,.82);
+    border:1px solid var(--pkx-border); border-radius:16px;
+    background:var(--pkx-trek-bg);
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
   .pkx-chip { position:relative; z-index:1; display:inline-flex; align-items:center;
     gap:.35rem; padding:.62rem 1.05rem; border-radius:11px;
     font-size:.9rem; font-weight:700; font-family:inherit;
-    background:transparent; border:0; color:#5A5762; cursor:pointer;
+    background:transparent; border:0; color:var(--pkx-text-2); cursor:pointer;
     transition:color .15s ease; }
-  .pkx-chip:hover:not(.is-active) { color:#1A1A22; }
+  .pkx-chip:hover:not(.is-active) { color:var(--pkx-text); }
   .pkx-chip.is-active { color:#fff; }
   /* Fallback: glide yo'q bo'lsa (JS ulgurmadi) aktiv chip o'zi bo'yaladi. */
   .pkx-trek:not(:has(.pkx-glide)) .pkx-chip.is-active {
@@ -81,12 +146,12 @@
      14px radius. Bosilganда (avto-slot ro'yxati ochiq) — navy plita, ya'ni
      tab segmentidagi aktiv holat tili saqlanadi. */
   .pkx-autoslot { display:inline-flex; align-items:center; gap:9px; height:44px; padding:0 16px;
-    background:#f3f4f6; border:none; border-radius:14px; cursor:pointer;
-    font-family:inherit; font-size:14px; font-weight:700; color:#5A5F72; white-space:nowrap;
+    background:var(--pkx-soft); border:none; border-radius:14px; cursor:pointer;
+    font-family:inherit; font-size:14px; font-weight:700; color:var(--pkx-text-2); white-space:nowrap;
     transition:color .15s ease, background .15s ease; }
-  .pkx-autoslot svg { flex:none; color:#9B98A5; transition:color .15s ease; }
-  .pkx-autoslot:hover:not(.is-active) { background:#eceef2; color:#101828; }
-  .pkx-autoslot:hover:not(.is-active) svg { color:#5A5F72; }
+  .pkx-autoslot svg { flex:none; color:var(--pkx-icon); transition:color .15s ease; }
+  .pkx-autoslot:hover:not(.is-active) { background:var(--pkx-soft-hover); color:var(--pkx-text); }
+  .pkx-autoslot:hover:not(.is-active) svg { color:var(--pkx-text-2); }
   .pkx-autoslot.is-active { background:linear-gradient(135deg,#1E2435,#2b3450);
     color:#fff; box-shadow:0 7px 18px -5px rgba(24,28,48,.45); }
   .pkx-autoslot.is-active svg { color:#fff; }
@@ -103,60 +168,60 @@
   .pkx-head-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
   .pkx-head .pkx-h1 { font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
   /* FBO belgisi — sarlavha yonidagi mayda kapsula (FBS «FBS / DBS» kabi). */
-  .pkx-tag { background:rgba(65,105,225,.1); color:#4169E1; font-weight:800; font-size:11px;
+  .pkx-tag { background:rgba(65,105,225,.1); color:var(--pkx-accent); font-weight:800; font-size:11px;
     letter-spacing:.05em; padding:5px 12px; border-radius:999px; text-transform:uppercase; white-space:nowrap; }
   /* Do'kon pickeri — `.fbs-cap` bilan bir xil oq pill: ikonka + nom + shevron. */
   .pkx-shopsel { display:flex; align-items:center; gap:10px; height:44px; padding:0 14px;
-    background:#fff; border:1px solid #ECECF0; border-radius:14px; cursor:pointer; position:relative;
+    background:var(--pkx-surface); border:1px solid var(--pkx-border); border-radius:14px; cursor:pointer; position:relative;
     box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
-  .pkx-shopsel-ic { display:inline-flex; flex:none; color:#9B98A5; }
-  .pkx-shopsel-val { font-weight:500; font-size:14px; color:#1A1A22;
+  .pkx-shopsel-ic { display:inline-flex; flex:none; color:var(--pkx-icon); }
+  .pkx-shopsel-val { font-weight:500; font-size:14px; color:var(--pkx-text);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .pkx-shopsel-cv { flex:none; color:#9B98A5; }
+  .pkx-shopsel-cv { flex:none; color:var(--pkx-icon); }
   /* Status filtri (Все поставки / Создана / Принята / Отменена) — segment
      o'rniga DROPDOWN. «Yumshoq» ko'rinish (Ulug'bek 2026-07-14): och-kulrang
      plita, chegara/soya yo'q — `.pkx-softdd` (TUR filtri) bilan bir xil uslub,
      ammo boshqa 44px kontrollar bilan tekislanishi uchun balandlik saqlangan. */
   .pkx-dd { display:flex; align-items:center; justify-content:space-between; gap:10px;
     height:44px; min-width:190px; padding:0 14px;
-    background:#f3f4f6; border:none; border-radius:14px; cursor:pointer; position:relative; }
-  .pkx-dd:hover { background:#eceef2; }
-  .pkx-dd-val { font-weight:700; font-size:14px; color:#5A5F72;
+    background:var(--pkx-soft); border:none; border-radius:14px; cursor:pointer; position:relative; }
+  .pkx-dd:hover { background:var(--pkx-soft-hover); }
+  .pkx-dd-val { font-weight:700; font-size:14px; color:var(--pkx-text-2);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .pkx-dd-cv { flex:none; color:#9B98A5; }
+  .pkx-dd-cv { flex:none; color:var(--pkx-icon); }
   /* Ochiluvchi menyu — do'kon menyusi bilan bir xil (pkxShopMenu). */
   .pkx-dd-menu { position:absolute; top:100%; left:0; right:0; margin-top:6px; z-index:50;
-    background:#fff; border:1px solid #e6e6ec; border-radius:12px;
+    background:var(--pkx-surface); border:1px solid var(--pkx-border-2); border-radius:12px;
     box-shadow:0 12px 30px rgba(22,22,40,.15); padding:6px;
     max-height:300px; overflow:auto; }
   .pkx-dd-opt { padding:9px 12px; border-radius:8px; font-weight:600; font-size:14px;
-    color:#1A1A22; cursor:pointer; white-space:nowrap; }
-  .pkx-dd-opt:hover { background:#f6f7f9; }
-  .pkx-dd-opt.is-sel { background:#f3f4f6; font-weight:700; }
+    color:var(--pkx-text); cursor:pointer; white-space:nowrap; }
+  .pkx-dd-opt:hover { background:var(--pkx-raised); }
+  .pkx-dd-opt.is-sel { background:var(--pkx-soft); font-weight:700; }
   /* «Yumshoq» dropdown — Возвраты tab'idagi TUR va STATUS filtrlari uchun
      BIR XIL trigger (Ulug'bek 2026-07-13): och-kulrang plita, shevron o'ngda. */
-  .pkx-softdd { display:flex; align-items:center; gap:10px; background:#f3f4f6; border:none;
+  .pkx-softdd { display:flex; align-items:center; gap:10px; background:var(--pkx-soft); border:none;
     border-radius:11px; padding:10px 14px; font-family:inherit; font-size:14px;
-    font-weight:700; color:#5A5F72; cursor:pointer; white-space:nowrap; }
-  .pkx-softdd:hover { background:#eceef2; }
+    font-weight:700; color:var(--pkx-text-2); cursor:pointer; white-space:nowrap; }
+  .pkx-softdd:hover { background:var(--pkx-soft-hover); }
   /* Qora «Создать поставку» tugmasi — picker bilan bir bo'yda. */
   .pkx-head .pkx-head-btn { display:flex; align-items:center; gap:8px; height:44px; padding:0 18px;
     border-radius:14px; white-space:nowrap; }
   .pkx-h2 { margin:0; font-size:17px; font-weight:800; }
-  .pkx-th { color:#9A9FB0; font-weight:800; font-size:11px; letter-spacing:.05em; }
+  .pkx-th { color:var(--pkx-text-3); font-weight:800; font-size:11px; letter-spacing:.05em; }
   /* Postavka jadvallari sarlavhalari — qora (Ulug'bek 2026-07-14):
      tuzish rejimlari (avto/yarim-avtomat/qo'lda) + ro'yxat (FBO) va
      qaytarishlar (Возвраты). `.pkx-lhead` — ro'yxat/qaytarish sarlavha qatori. */
   .pkx-autohead .pkx-th,
   #pkxSemiHead .pkx-th,
   #pkxRstHead .pkx-th,
-  .pkx-lhead .pkx-th { color:#1C2030; }
+  .pkx-lhead .pkx-th { color:var(--pkx-text); }
   /* Jadval sarlavhasi — pastga aylantirilganда YOPISHIB turadi.
      Yuqoridagi `.pp-topbar` sticky va 64px balandlikda, shuning uchun `top:64px`
      (z-index esa undan past: 5 < 30 → topbar ustidan o'tmaydi).
      MUHIM: sticky ishlashi uchun ota-elementларда `overflow:hidden` BO'LMASLIGI
      kerak — shu bois yaratish kartalaridan u olib tashlangan. */
-  .pkx-thead { position:sticky; top:64px; z-index:5; background:#f8fafc; }
+  .pkx-thead { position:sticky; top:64px; z-index:5; background:var(--pkx-raised); }
   /* Gorizontal aylantirishда sarlavha qatorlarga hamohang siljiydi (JS: translateX).
      Sarlavhani rows bilan BITTA scroll-konteynerga qo'ysak sticky ishlamay
      qolardi (scroll-konteyner sticky'ни «yutadi»), shuning uchun ular ajratilgan. */
@@ -182,22 +247,22 @@
      banner) — jadval boshlanguncha ~430px ketardi. Endi RO'YXAT ko'rinishi bilan
      bir xil: kartasiz `.pkx-head` qatori (orqaga · sarlavha · qadam · rejim
      segmenti · do'kon pickeri), jadval ustida esa bitta asboblar qatori. */
-  .pkx-iconbtn { width:44px; height:44px; flex:none; border-radius:14px; background:#fff;
-    border:1px solid #ECECF0; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; color:#334155;
+  .pkx-iconbtn { width:44px; height:44px; flex:none; border-radius:14px; background:var(--pkx-surface);
+    border:1px solid var(--pkx-border); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; color:var(--pkx-text-2);
     box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05); }
-  .pkx-iconbtn:hover { background:#f6f7f9; }
+  .pkx-iconbtn:hover { background:var(--pkx-raised); }
   /* Qadam ko'rsatkichi — «FBO» belgisi (.pkx-tag) o'lchamidagi neytral kapsula.
      Ikki qadamli qalin progress-chizig'ining o'rnini bosadi: bir xil ma'lumot,
      ~90px kam joy. */
-  .pkx-stepchip { background:#EEF1F8; color:#5A6588; font-weight:800; font-size:11px;
+  .pkx-stepchip { background:var(--pkx-stepchip-bg); color:var(--pkx-text-2); font-weight:800; font-size:11px;
     letter-spacing:.05em; padding:5px 12px; border-radius:999px; white-space:nowrap;
     text-transform:uppercase; }
   /* Rejim segmenti — ro'yxatdagi FBO/Возвраты tablari bilan AYNAN bir komponent
      (.pkx-seg + sirpanuvchi .pkx-glide). Tavsif matnlari tooltip'ga ko'chdi. */
-  .pkx-seg-btn:disabled { color:#B8BCC9; cursor:not-allowed; }
-  .pkx-seg-btn:disabled:hover { color:#B8BCC9; }
-  .pkx-seg-soon { margin-left:7px; background:#EEF1F8; color:#9499AE; border-radius:999px;
+  .pkx-seg-btn:disabled { color:var(--pkx-text-4); cursor:not-allowed; }
+  .pkx-seg-btn:disabled:hover { color:var(--pkx-text-4); }
+  .pkx-seg-soon { margin-left:7px; background:var(--pkx-stepchip-bg); color:var(--pkx-text-3); border-radius:999px;
     padding:2px 7px; font-size:10px; font-weight:800; letter-spacing:.04em; }
   /* Jadval ustidagi asboblar qatori: qidiruv + davr chiplari + kalendar — BITTA
      qator. Karta sarlavhasi (h2) va tushuntirish matni olib tashlandi. */
@@ -212,11 +277,11 @@
      tugunlari alohida flex-elementga aylanadi va tor ekranда ustunlarga bo'linib
      ketadi. */
   .pkx-note { display:flex; align-items:flex-start; gap:8px; padding:0 22px 12px;
-    font-size:12.5px; font-weight:600; line-height:1.45; color:#9499AE; }
+    font-size:12.5px; font-weight:600; line-height:1.45; color:var(--pkx-text-3); }
   .pkx-note svg { flex:none; margin-top:1px; }
   .pkx-note span { min-width:0; }
-  .pkx-note b { color:#1C2030; font-weight:800; }
-  .pkx-note-warn, .pkx-note-warn b { color:#96751F; }
+  .pkx-note b { color:var(--pkx-text); font-weight:800; }
+  .pkx-note-warn, .pkx-note-warn b { color:var(--pkx-warn-soft-fg); }
   /* Pastki yopishqoq panel. Ilgari bu qator inline uslublar bilan qat'iy `flex`
      edi va TELEFONДA sinmasdi — «Дальше» tugmasi ekrandan chiqib, BUTUN sahifani
      yonlamasiga cho'zib yuborardi (375px'да scrollWidth 452). Endi: keng ekranда
@@ -264,64 +329,64 @@
     .pkx-bbar-link { padding-left:0; border-left:0; }
     .pkx-bbar-next { flex:1 1 auto; margin-left:0; padding:12px; }
   }
-  .pkx-muted { color:#9499AE; font-weight:600; }
-  .pkx-row-hover:hover { background:#f8fafc; }
+  .pkx-muted { color:var(--pkx-text-3); font-weight:600; }
+  .pkx-row-hover:hover { background:var(--pkx-raised); }
   .pkx-btn { border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; }
   .pkx-btn-primary { background:#1e293b; color:#fff; } .pkx-btn-primary:hover{ background:#334155; }
-  .pkx-btn-soft { background:#f3f4f6; color:#334155; } .pkx-btn-soft:hover{ background:#e5e7eb; }
-  .pkx-mini { background:#fff; border:1px solid #e2e6ee; color:#334155; border-radius:9px; padding:7px 14px; font-size:13px; font-weight:700; cursor:pointer; }
+  .pkx-btn-soft { background:var(--pkx-soft); color:var(--pkx-text-2); } .pkx-btn-soft:hover{ background:var(--pkx-soft-hover); }
+  .pkx-mini { background:var(--pkx-surface); border:1px solid var(--pkx-border-2); color:var(--pkx-text-2); border-radius:9px; padding:7px 14px; font-size:13px; font-weight:700; cursor:pointer; }
   .pkx-mini:hover { border-color:#1e293b; }
-  .pkx-mini.danger { border-color:#F2C9CB; color:#E5484D; } .pkx-mini.danger:hover{ background:#FCEBEC; }
-  .pkx-inp { border:1px solid #e6e6ec; border-radius:10px; padding:9px 13px; font-size:14px; font-weight:700; outline:none; color:#1C2030; font-family:inherit; }
+  .pkx-mini.danger { border-color:var(--pkx-danger-border); color:var(--pkx-danger); } .pkx-mini.danger:hover{ background:var(--pkx-danger-soft-bg); }
+  .pkx-inp { border:1px solid var(--pkx-border-2); border-radius:10px; padding:9px 13px; font-size:14px; font-weight:700; outline:none; color:var(--pkx-text); font-family:inherit; }
   .pkx-inp:focus { border-color:#1e293b; }
   /* «К отправке» stepper — maydon + ↑↓ tugmalar bitta kapsulada (FBS «Ombor»
      stk-stepper bilan bir xil his, postavki palitrasida). */
-  .pkx-stepper { display:inline-flex; align-items:stretch; width:120px; overflow:hidden; border:1px solid #e6e6ec; border-radius:10px; background:#fff; transition:border-color .15s, box-shadow .15s; }
+  .pkx-stepper { display:inline-flex; align-items:stretch; width:120px; overflow:hidden; border:1px solid var(--pkx-border-2); border-radius:10px; background:var(--pkx-surface); transition:border-color .15s, box-shadow .15s; }
   .pkx-stepper:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,.10); }
-  .pkx-stepper .pkx-qty { flex:1 1 auto; min-width:0; width:100%; border:0; background:transparent; outline:none; padding:9px 11px; font-size:14px; font-weight:700; color:#1C2030; font-family:inherit; -moz-appearance:textfield; }
+  .pkx-stepper .pkx-qty { flex:1 1 auto; min-width:0; width:100%; border:0; background:transparent; outline:none; padding:9px 11px; font-size:14px; font-weight:700; color:var(--pkx-text); font-family:inherit; -moz-appearance:textfield; }
   .pkx-stepper .pkx-qty::-webkit-outer-spin-button, .pkx-stepper .pkx-qty::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-  .pkx-step-col { display:flex; flex-direction:column; flex:none; width:24px; border-left:1px solid #eef0f5; }
-  .pkx-step { flex:1 1 0; display:flex; align-items:center; justify-content:center; padding:0; border:0; background:#fafbfd; color:#98a2b3; cursor:pointer; transition:background .12s ease, color .12s ease; }
+  .pkx-step-col { display:flex; flex-direction:column; flex:none; width:24px; border-left:1px solid var(--pkx-border-2); }
+  .pkx-step { flex:1 1 0; display:flex; align-items:center; justify-content:center; padding:0; border:0; background:var(--pkx-raised); color:var(--pkx-text-4); cursor:pointer; transition:background .12s ease, color .12s ease; }
   .pkx-step:hover { background:rgba(30,41,59,.08); color:#1e293b; }
   .pkx-step:active { background:rgba(30,41,59,.16); color:#0f172a; }
-  .pkx-step + .pkx-step { border-top:1px solid #eef0f5; }
+  .pkx-step + .pkx-step { border-top:1px solid var(--pkx-border-2); }
   .pkx-step svg { width:11px; height:11px; display:block; }
-  .pkx-search { display:flex; align-items:center; gap:9px; background:#f3f4f6; border-radius:11px; padding:10px 14px; }
-  .pkx-search input { border:none; background:none; outline:none; font-size:14px; font-weight:600; width:100%; color:#1C2030; font-family:inherit; }
-  .pkx-imgtile { border-radius:12px; background:#eef0f4; display:flex; align-items:center; justify-content:center; flex:none; color:#B8BCC9; overflow:hidden; border:1px solid rgba(22,22,40,.06); box-shadow:0 1px 3px rgba(22,22,40,.08); }
+  .pkx-search { display:flex; align-items:center; gap:9px; background:var(--pkx-soft); border-radius:11px; padding:10px 14px; }
+  .pkx-search input { border:none; background:none; outline:none; font-size:14px; font-weight:600; width:100%; color:var(--pkx-text); font-family:inherit; }
+  .pkx-imgtile { border-radius:12px; background:var(--pkx-tile); display:flex; align-items:center; justify-content:center; flex:none; color:var(--pkx-text-4); overflow:hidden; border:1px solid rgba(22,22,40,.06); box-shadow:0 1px 3px rgba(22,22,40,.08); }
   .pkx-imgtile img { width:100%; height:100%; object-fit:cover; cursor:zoom-in; transition:transform .14s ease; }
   .pkx-imgtile:hover img { transform:scale(1.10); }
   /* Товар qatori hover'i — FBS «Ombor» kabi: och fon + chap chetda navy akcent chiziq */
   .pkx-prow { transition:background .12s ease, box-shadow .12s ease; }
-  .pkx-prow:hover { background:#F7F8FB; box-shadow:inset 3px 0 0 #1e293b; }
+  .pkx-prow:hover { background:var(--pkx-raised); box-shadow:inset 3px 0 0 #1e293b; }
   /* Miqdor kiritilgan qator — sariq «dirty» belgisi (FBS «Ombor» bilan bir xil):
      amber fon + chapda 3px to'q-sariq chiziq, stepper ramkasi ham amber. */
-  .pkx-prow.is-dirty { background:#fffbeb; box-shadow:inset 3px 0 0 #f59e0b; }
-  .pkx-prow.is-dirty:hover { background:#fff7e0; box-shadow:inset 3px 0 0 #f59e0b; }
+  .pkx-prow.is-dirty { background:var(--pkx-dirty-bg); box-shadow:inset 3px 0 0 #f59e0b; }
+  .pkx-prow.is-dirty:hover { background:var(--pkx-dirty-bg-hover); box-shadow:inset 3px 0 0 #f59e0b; }
   .pkx-prow.is-dirty .pkx-stepper { border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.14); }
   /* Suzuvchi hover-zoom preview — <body>ga ulanadi (qator overflow'i qirqmasin), FBS «Ombor» bilan bir xil */
-  .pkx-zoom { position:fixed; z-index:4000; pointer-events:none; width:320px; height:320px; border-radius:16px; overflow:hidden; background:#fff; border:1px solid #e8eaf0; padding:6px; box-shadow:0 18px 50px rgba(22,22,40,.30); opacity:0; transform:scale(.90); transform-origin:center left; transition:opacity .15s ease, transform .15s ease; }
+  .pkx-zoom { position:fixed; z-index:4000; pointer-events:none; width:320px; height:320px; border-radius:16px; overflow:hidden; background:var(--pkx-surface); border:1px solid var(--pkx-border-2); padding:6px; box-shadow:0 18px 50px rgba(22,22,40,.30); opacity:0; transform:scale(.90); transform-origin:center left; transition:opacity .15s ease, transform .15s ease; }
   .pkx-zoom.is-on { opacity:1; transform:scale(1); }
-  .pkx-zoom img { width:100%; height:100%; object-fit:contain; display:block; border-radius:11px; background:#F8FAFC; }
-  .pkx-msg { padding:48px 20px; text-align:center; color:#9499AE; font-weight:600; }
+  .pkx-zoom img { width:100%; height:100%; object-fit:contain; display:block; border-radius:11px; background:var(--pkx-raised); }
+  .pkx-msg { padding:48px 20px; text-align:center; color:var(--pkx-text-3); font-weight:600; }
   .pkx-link { color:#1e293b; font-weight:700; font-size:13px; cursor:pointer; }
   .pkx-modal-bg { position:fixed; inset:0; z-index:1300; background:rgba(20,20,35,.45); display:flex; align-items:center; justify-content:center; padding:24px; }
   .pkx-scroll { overflow-x:auto; }
   /* tasdiqlash / ogohlantirish dialog (brauzerning native confirm/alert o'rniga) */
-  .pkx-cfm-card { position:relative; width:min(400px,100%); background:#fff; border-radius:20px; padding:28px 26px 22px; box-shadow:0 24px 70px rgba(15,15,30,.32); text-align:center; animation:pkxCfmPop .18s cubic-bezier(.2,.9,.3,1.2); }
+  .pkx-cfm-card { position:relative; width:min(400px,100%); background:var(--pkx-surface); border-radius:20px; padding:28px 26px 22px; box-shadow:0 24px 70px rgba(15,15,30,.32); text-align:center; animation:pkxCfmPop .18s cubic-bezier(.2,.9,.3,1.2); }
   @keyframes pkxCfmPop { from{ opacity:0; transform:translateY(10px) scale(.96);} to{ opacity:1; transform:none;} }
   .pkx-cfm-icon { width:56px; height:56px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:26px; font-weight:800; }
-  .pkx-cfm-title { margin:0 0 8px; font-size:18px; font-weight:800; letter-spacing:-.01em; color:#1C2030; }
-  .pkx-cfm-msg { margin:0 0 22px; font-size:14px; line-height:1.55; color:#5A5F72; font-weight:500; }
+  .pkx-cfm-title { margin:0 0 8px; font-size:18px; font-weight:800; letter-spacing:-.01em; color:var(--pkx-text); }
+  .pkx-cfm-msg { margin:0 0 22px; font-size:14px; line-height:1.55; color:var(--pkx-text-2); font-weight:500; }
   .pkx-cfm-actions { display:flex; gap:10px; }
   .pkx-cfm-actions .pkx-btn { flex:1; padding:12px 16px; border-radius:12px; }
   .pkx-cfm-ok { transition:filter .12s, transform .08s; } .pkx-cfm-ok:hover{ filter:brightness(1.08); } .pkx-cfm-ok:active{ transform:translateY(1px); }
-  .pkx-cfm-x { position:absolute; top:14px; right:14px; width:32px; height:32px; border:none; border-radius:9px; background:none; color:#B8BCC9; font-size:18px; line-height:1; cursor:pointer; transition:background .12s,color .12s; }
-  .pkx-cfm-x:hover { background:#f3f4f6; color:#5A5F72; }
+  .pkx-cfm-x { position:absolute; top:14px; right:14px; width:32px; height:32px; border:none; border-radius:9px; background:none; color:var(--pkx-text-4); font-size:18px; line-height:1; cursor:pointer; transition:background .12s,color .12s; }
+  .pkx-cfm-x:hover { background:var(--pkx-soft); color:var(--pkx-text-2); }
   /* ── Maxsus galochka (FBS/DBS dizaynидан) — faqat «Создана» filtrida ── */
   .pkx-check-cell { display:flex; align-items:center; justify-content:center; }
   .pkx-row-check { appearance:none; -webkit-appearance:none; width:22px; height:22px; margin:0; flex:none;
-    border:2px solid #cdd5e3; border-radius:7px; background:#fff; cursor:pointer; position:relative;
+    border:2px solid var(--pkx-border-2); border-radius:7px; background:var(--pkx-surface); cursor:pointer; position:relative;
     transition:border-color .15s, background .15s, box-shadow .15s, transform .12s; }
   .pkx-row-check:hover { border-color:#4169E1; box-shadow:0 0 0 4px rgba(65,105,225,.12); }
   .pkx-row-check:active { transform:scale(.9); }
@@ -329,7 +394,7 @@
     background:linear-gradient(135deg,#4169E1 0%,#6384ff 100%); box-shadow:0 4px 10px rgba(65,105,225,.32); }
   .pkx-row-check:checked::after { content:""; position:absolute; left:7px; top:3px; width:5px; height:10px;
     border:solid #fff; border-width:0 2.5px 2.5px 0; border-radius:1px; transform:rotate(42deg); animation:pkxCheckPop .18s ease; }
-  .pkx-row-check:indeterminate::after { content:""; position:absolute; left:4px; right:4px; top:8px; height:2.5px; background:#fff; border-radius:2px; }
+  .pkx-row-check:indeterminate::after { content:""; position:absolute; left:4px; right:4px; top:8px; height:2.5px; background:var(--pkx-surface); border-radius:2px; }
   .pkx-row-check:focus-visible { outline:none; box-shadow:0 0 0 4px rgba(65,105,225,.28); }
   @keyframes pkxCheckPop { 0%{ opacity:0; transform:rotate(42deg) scale(.4);} 100%{ opacity:1; transform:rotate(42deg) scale(1);} }
   /* suzuvchi tanlash paneli — FBS/DBS bulk-bar (.pkx-qrbar) bilan AYNAN bir xil
@@ -352,10 +417,10 @@
   .pkx-selbar-btn:active, .pkx-selbar-btn2:active { transform:translateY(1px) scale(.99); }
   /* badges */
   .pkx-bd { display:inline-block; font-weight:700; font-size:12px; padding:5px 11px; border-radius:8px; }
-  .pkx-bd-gray { background:#E9E9EF; color:#50556B; }
-  .pkx-bd-green { background:#D8F1E1; color:#16794C; }
-  .pkx-bd-amber { background:#FBEFD6; color:#B6852A; }
-  .pkx-bd-red { background:#FCE9EA; color:#D33A3F; }
+  .pkx-bd-gray { background:var(--pkx-soft); color:var(--pkx-text-3); }
+  .pkx-bd-green { background:var(--pkx-ok-soft-bg); color:var(--pkx-ok-soft-fg); }
+  .pkx-bd-amber { background:var(--pkx-warn-soft-bg); color:var(--pkx-warn-soft-fg); }
+  .pkx-bd-red { background:var(--pkx-danger-soft-bg); color:var(--pkx-danger-soft-fg); }
   ::-webkit-scrollbar{ width:10px; height:10px; }
   ::-webkit-scrollbar-thumb{ background:#d6dae2; border-radius:8px; border:3px solid transparent; background-clip:padding-box; }
 
@@ -409,8 +474,8 @@
      shu bois yuqori qator olib tashlandi. */
   .pkx-autohd .pkx-tools { padding:13px 22px; }
   .pkx-autohd-meta { flex:0 1 auto; min-width:0; font-size:12.5px; font-weight:600;
-    color:#9499AE; line-height:1.5; cursor:help; }
-  .pkx-autohd-meta b { color:#5A6588; font-weight:800; }
+    color:var(--pkx-text-3); line-height:1.5; cursor:help; }
+  .pkx-autohd-meta b { color:var(--pkx-text-2); font-weight:800; }
   .pkx-autohd-edit { flex:none; padding:7px 14px; border-radius:9px; font-size:12.5px; }
   /* Kompyuterда qator SINMAYDI: joy yetmasa kalendar pastga tushmaydi, balki
      MATN o'z katagida o'raladi. Chiplar va kalendar SIQILMAYDI (aks holda ular
@@ -425,27 +490,27 @@
   /* Jami satri — jadval OXIRIDA, har raqam o'zi yig'gan ustun TAGIDA turadi:
      «Итого» → ТОВАР, SKU soni → SKU, jami dona → «К отправке». Chegara bilan
      solishtirish (450 из 450) YO'Q — bu накладнойning O'Z yakuni, xolos. */
-  .pkx-asum { border-top:1.5px solid #E4E8F0; background:#FBFCFE; }
-  .pkx-asum-lab { font-weight:800; font-size:13.5px; color:#1C2030; }
-  .pkx-asum-val { font-weight:800; font-size:15px; color:#1A7F4B; white-space:nowrap; }
+  .pkx-asum { border-top:1.5px solid var(--pkx-divider); background:var(--pkx-raised); }
+  .pkx-asum-lab { font-weight:800; font-size:13.5px; color:var(--pkx-text); }
+  .pkx-asum-val { font-weight:800; font-size:15px; color:var(--pkx-ok); white-space:nowrap; }
   /* Jami SKU — chipning AYNAN o'zi (o'sha quti), faqat ranglarsiz: shunda uning
      raqami ustundagi chip raqamlari bilan bir o'qда turadi. Oddiy matn bo'lganда
      chipning ichki paddingi tufayli ~18px chapда qolib ketardi. */
-  .pkx-skuc.pkx-asum-n { background:none; color:#1C2030; padding:0 9px; }
+  .pkx-skuc.pkx-asum-n { background:none; color:var(--pkx-text); padding:0 9px; }
   /* Nechta SKU — o'z ustunidagi akssent chipi: qatorдagi yagona rangli element,
      shu bois darhol ko'zga tashlanadi («ochsam arziydimi?» degan savolga javob). */
   .pkx-skuc { display:inline-flex; align-items:center; justify-content:center; min-width:36px;
-    height:26px; padding:0 9px; border-radius:8px; background:#EAF0FE; color:#3558CC;
+    height:26px; padding:0 9px; border-radius:8px; background:var(--pkx-skuc-bg); color:var(--pkx-accent-strong);
     font-weight:800; font-size:13.5px; font-variant-numeric:tabular-nums; }
   .pkx-skip { padding:10px 18px 14px; }
-  .pkx-skip > summary { cursor:pointer; font-weight:800; font-size:12.5px; color:#5A5F72; list-style:none; padding:4px 0; }
+  .pkx-skip > summary { cursor:pointer; font-weight:800; font-size:12.5px; color:var(--pkx-text-2); list-style:none; padding:4px 0; }
   .pkx-skip > summary::-webkit-details-marker { display:none; }
-  .pkx-skip > summary::before { content:'▸ '; color:#B8BCC9; }
+  .pkx-skip > summary::before { content:'▸ '; color:var(--pkx-text-4); }
   .pkx-skip[open] > summary::before { content:'▾ '; }
 
   /* Yopiq, lekin «poymat mumkin» kun — punktir halqa, ilova akssenti (#4169E1).
      Band kunlar (#1e293b) «aniq», bu esa «ovlaymiz» degan ma'noni beradi. */
-  .pkx-cal-catch:hover { background:#EEF2FE; border-color:#4169E1 !important; }
+  .pkx-cal-catch:hover { background:var(--pkx-accent-soft); border-color:#4169E1 !important; }
   .pkx-cal-catch:focus-visible, .pkx-cal-day:focus-visible { outline:2px solid #4169E1; outline-offset:2px; }
 
   @media (max-width: 1080px) { .pkx-rules { grid-template-columns:repeat(2,1fr); } }
@@ -830,7 +895,7 @@
 
   // ───────── status helpers ─────────
   function statusVal(it){ return (it.invoiceStatus||{}).value || ''; }
-  function statusDot(it){ const v=statusVal(it); const canc=(v==='CANCELED'||v==='CANCELLED'); const created=v==='CREATED'; const c=canc?'#E5484D':created?'#A2A6B8':'#2BAE6A'; const col=canc?'#E5484D':created?'#50556B':'#16794C'; const t=canc?'Отменена':created?'Создана':'Принята'; return `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:${col}"><span style="width:8px;height:8px;border-radius:50%;background:${c}"></span>${t}</span>`; }
+  function statusDot(it){ const v=statusVal(it); const canc=(v==='CANCELED'||v==='CANCELLED'); const created=v==='CREATED'; const c=canc?'#E5484D':created?'var(--pkx-text-4)':'#2BAE6A'; const col=canc?'#E5484D':created?'var(--pkx-text-3)':'var(--pkx-ok-soft-fg)'; const t=canc?'Отменена':created?'Создана':'Принята'; return `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:${col}"><span style="width:8px;height:8px;border-radius:50%;background:${c}"></span>${t}</span>`; }
 
   // Do'kon-tanlagich (ro'yxat + yaratish sahifalarida bir xil). shopMenu() shuni anchor qiladi.
   function shopSelHtml(){
@@ -910,19 +975,19 @@
     // Re-booking: akt allaqachon slotда bo'lsa ham, avto-slot faol bo'lsa
     // slot YONIDA kichik «⏳» chip (ertaroq slot kuzatilyapti; bosilsa bekor).
     const grabChip = gplan
-      ? `<span data-grabcancel="${gplan.id}" title="Авто-слот активен (ищем слот раньше) · нажмите чтобы отменить" style="display:inline-flex;align-items:center;background:#FFF4D6;color:#9A6B00;border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px;cursor:pointer">⏳</span>`
+      ? `<span data-grabcancel="${gplan.id}" title="Авто-слот активен (ищем слот раньше) · нажмите чтобы отменить" style="display:inline-flex;align-items:center;background:var(--pkx-warn-soft-bg);color:var(--pkx-warn-soft-fg);border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px;cursor:pointer">⏳</span>`
       : '';
     const passed = created && slotIsPassed(it);
     const passedChip = passed
-      ? `<span title="${SLOT_PASSED_HINT}" style="display:inline-flex;align-items:center;background:#FDECEC;color:#C0353A;border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px">просрочен</span>`
+      ? `<span title="${SLOT_PASSED_HINT}" style="display:inline-flex;align-items:center;background:var(--pkx-danger-soft-bg);color:var(--pkx-danger);border-radius:7px;padding:3px 7px;font-weight:800;font-size:11px">просрочен</span>`
       : '';
     const slotCell = slot
-      ? `<span style="display:inline-flex;align-items:center;gap:7px"><span style="color:${passed?'#9499AE':'#1C2030'};font-weight:600;font-size:13px">${fmtSlot(slot)}</span>${passedChip}${grabChip}</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:7px"><span style="color:${passed?'var(--pkx-text-3)':'var(--pkx-text)'};font-weight:600;font-size:13px">${fmtSlot(slot)}</span>${passedChip}${grabChip}</span>`
       : (gplan
-          ? `<span data-grabcancel="${gplan.id}" title="Авто-слот до ${esc(gplan.targetDay)} · нажмите чтобы отменить" style="display:inline-flex;align-items:center;gap:5px;background:#FFF4D6;color:#9A6B00;border-radius:8px;padding:4px 9px;font-weight:800;font-size:12px;cursor:pointer">⏳ ${esc(grabDayFmt(gplan.targetDay))}</span>`
-          : `<span style="color:#B8BCC9;font-weight:600;font-size:13px">— нет слота —</span>`);
+          ? `<span data-grabcancel="${gplan.id}" title="Авто-слот до ${esc(gplan.targetDay)} · нажмите чтобы отменить" style="display:inline-flex;align-items:center;gap:5px;background:var(--pkx-warn-soft-bg);color:var(--pkx-warn-soft-fg);border-radius:8px;padding:4px 9px;font-weight:800;font-size:12px;cursor:pointer">⏳ ${esc(grabDayFmt(gplan.targetDay))}</span>`
+          : `<span style="color:var(--pkx-text-4);font-weight:600;font-size:13px">— нет слота —</span>`);
     const acc=it.totalAccepted||0, tot=it.totalToStock||0, pct=tot?Math.min(100,Math.round(acc/tot*100)):0, full=acc>=tot&&tot>0;
-    const prog = `<div style="font-weight:600;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:#e9ecf2;width:120px;overflow:hidden"><div style="height:100%;background:${full?'#2BAE6A':'#1e293b'};border-radius:3px;width:${pct}%"></div></div>`;
+    const prog = `<div style="font-weight:600;font-size:13px;margin-bottom:6px">${acc} / ${tot}</div><div style="height:5px;border-radius:3px;background:var(--pkx-track);width:120px;overflow:hidden"><div style="height:100%;background:${full?'var(--pkx-ok-solid)':'var(--pkx-progress)'};border-radius:3px;width:${pct}%"></div></div>`;
     const statusCell = statusDot(it);
     const canChange = created && !passed && (it.remainingAmountOfUpdates==null || it.remainingAmountOfUpdates>0);
     // O'tgan-slotli aktda tugma o'chiq + sabab tooltip'да (disabled tugma
@@ -932,7 +997,7 @@
       : `<button class="pkx-mini" data-act="slot" ${canChange?'':'disabled'}>Слот</button>`;
     const acts = created
       ? `${slotBtn}<button class="pkx-mini danger" data-act="cancel">Отмена</button>`
-      : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
+      : `<span style="color:var(--pkx-text-4);font-weight:700">—</span>`;
     const stk = it.stock||{};
     const checkCell = selMode()
       ? (rowSelectable(it)
@@ -940,10 +1005,10 @@
           : `<div class="pkx-check-cell"></div>`)   // «Все»da Создана bo'lmagan qatorda bo'sh katak (tekislik saqlanadi)
       : '';
     return `<div class="pkx-row-hover" data-row="${it.id}" data-num="${esc(it.invoiceNumber)}" data-stock="${stk.id||''}" data-pool="${esc(stk.poolSource||'FULLFILMENT')}"
-        style="display:grid;${invGridCss()};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+        style="display:grid;${invGridCss()};align-items:center;padding:15px 22px;border-bottom:1px solid var(--pkx-row-sep);cursor:pointer">
       ${checkCell}
-      <div style="font-weight:600;font-size:14px;letter-spacing:-.01em"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(it.invoiceNumber)}</div>
-      <div style="color:#5A5F72;font-weight:600;font-size:13px">${esc(it.dateCreated)}</div>
+      <div style="font-weight:600;font-size:14px;letter-spacing:-.01em"><span style="color:var(--pkx-text-4);font-weight:700;margin-right:3px">№</span>${esc(it.invoiceNumber)}</div>
+      <div style="color:var(--pkx-text-2);font-weight:600;font-size:13px">${esc(it.dateCreated)}</div>
       <div>${statusCell}</div>
       <div>${slotCell}</div>
       <div>${prog}</div>
@@ -971,11 +1036,11 @@
       </div>`;
 
     const headCheck = selMode() ? `<div class="pkx-check-cell"><input id="pkxSelAll" type="checkbox" class="pkx-row-check" aria-label="Выбрать все"></div>` : '';
-    const head = `<div class="pkx-lhead" style="display:grid;${invGridCss()};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+    const head = `<div class="pkx-lhead" style="display:grid;${invGridCss()};align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">
         ${headCheck}${['№','ДАТА','СТАТУС','ТАЙМ-СЛОТ','ПРИНЯТО / ВСЕГО','СУММА',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
 
     const body = rows.length ? rows.map(invoiceRowHtml).join('') : `<div class="pkx-msg">${(S.invLoading||S.invHasMore)?'Загрузка…':'Нет данных'}</div>`;
-    const more = (S.invHasMore && rows.length) ? `<div id="pkxMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+    const more = (S.invHasMore && rows.length) ? `<div id="pkxMore" style="padding:16px;text-align:center;color:var(--pkx-text-4);font-weight:600;font-size:13px">Загрузка…</div>` : '';
 
     const selBar = selMode() ? `<div id="pkxSelBar" class="pkx-selbar">
         <span class="pkx-selbar-count"><b id="pkxSelCount">0</b> выбрано</span>
@@ -997,7 +1062,7 @@
   }
   function returnsCard(){
     const GRID='grid-template-columns:90px 175px 1.2fr 120px 145px 115px 155px 110px';
-    const head=`<div class="pkx-lhead" style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">
+    const head=`<div class="pkx-lhead" style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">
       ${['ТИП','СТАТУС','НОМЕР','ДАТА','ВРЕМЯ ВЫДАЧИ','МЕСТО','ХРАНЕНИЕ','ЭТТН'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const now=Date.now();
     const body = S.returns.length ? S.returns.map(r=>{
@@ -1005,21 +1070,21 @@
       const ps=r.paidStorage||{}; let storageDays=0;
       if(ps.startDate){ const end=ps.endDate||now; storageDays=Math.max(0,Math.floor((end-ps.startDate)/86400000)); }
       const storage = (ps.status==='ACTIVE'&&storageDays>0)
-        ? `<div style="display:flex;align-items:center;gap:6px;color:#E5484D;font-weight:600;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${storageDays} дней</div><div style="color:#B8BCC9;font-weight:600;font-size:11px;margin-top:2px">платное хранение</div>`
-        : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
-      const issue = r.executionDate ? `<span style="color:#1C2030;font-weight:600;font-size:13px">${fmtDate(r.executionDate)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
-      const ettn = (r.ettnInfo) ? `<span style="color:#1C2030;font-weight:600;font-size:13px">${esc(r.ettnInfo.number||r.ettnInfo)}</span>` : `<span style="color:#c3c8d4;font-weight:700">—</span>`;
-      return `<div class="pkx-row-hover" data-retrow="${esc(r.id)}" style="display:grid;${GRID};align-items:center;padding:15px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
-        <div style="font-weight:700;font-size:13px;color:#5A5F72">${esc(RET_TYPE_LABEL[r.type]||r.type||'—')}</div>
+        ? `<div style="display:flex;align-items:center;gap:6px;color:var(--pkx-danger);font-weight:600;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${storageDays} дней</div><div style="color:var(--pkx-text-4);font-weight:600;font-size:11px;margin-top:2px">платное хранение</div>`
+        : `<span style="color:var(--pkx-text-4);font-weight:700">—</span>`;
+      const issue = r.executionDate ? `<span style="color:var(--pkx-text);font-weight:600;font-size:13px">${fmtDate(r.executionDate)}</span>` : `<span style="color:var(--pkx-text-4);font-weight:700">—</span>`;
+      const ettn = (r.ettnInfo) ? `<span style="color:var(--pkx-text);font-weight:600;font-size:13px">${esc(r.ettnInfo.number||r.ettnInfo)}</span>` : `<span style="color:var(--pkx-text-4);font-weight:700">—</span>`;
+      return `<div class="pkx-row-hover" data-retrow="${esc(r.id)}" style="display:grid;${GRID};align-items:center;padding:15px 22px;border-bottom:1px solid var(--pkx-row-sep);cursor:pointer">
+        <div style="font-weight:700;font-size:13px;color:var(--pkx-text-2)">${esc(RET_TYPE_LABEL[r.type]||r.type||'—')}</div>
         <div>${retStatusBadge(r.status)}</div>
         <div style="font-weight:600;font-size:14px">${esc(r.id)}</div>
-        <div style="color:#5A5F72;font-weight:600;font-size:13px">${fmtDate(r.dateCreated)}</div>
+        <div style="color:var(--pkx-text-2);font-weight:600;font-size:13px">${fmtDate(r.dateCreated)}</div>
         <div>${issue}</div>
-        <div style="display:flex;align-items:center;gap:5px;color:#5A5F72;font-weight:600;font-size:13px">${esc(place)}</div>
+        <div style="display:flex;align-items:center;gap:5px;color:var(--pkx-text-2);font-weight:600;font-size:13px">${esc(place)}</div>
         <div>${storage}</div>
         <div>${ettn}</div></div>`;
     }).join('') : `<div class="pkx-msg">${(S.retLoading||S.retHasMore)?'Загрузка…':'Нет данных'}</div>`;
-    const more = (S.retHasMore && S.returns.length) ? `<div id="pkxRetMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+    const more = (S.retHasMore && S.returns.length) ? `<div id="pkxRetMore" style="padding:16px;text-align:center;color:var(--pkx-text-4);font-weight:600;font-size:13px">Загрузка…</div>` : '';
 
     // Tur filtri (Все типы / Возвраты / Брак / FBS) — segment o'rniga DROPDOWN
     // (Ulug'bek 2026-07-13), «Все статусы» dropdown'i BILAN BIR XIL ko'rinishда
@@ -1047,40 +1112,40 @@
     const units=(S.products||[]).reduce((a,p)=>a+(p.quantityToStock||0),0);
     const badge = created?`<span class="pkx-bd pkx-bd-gray">Создана</span>`:`<span class="pkx-bd pkx-bd-green">Принята на складе</span>`;
     const stk=d.stock||{};
-    const tile2 = (lbl,inner)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px">${lbl}${inner}</div>`;
+    const tile2 = (lbl,inner)=>`<div style="border:1px solid var(--pkx-tile-border);border-radius:14px;padding:15px 18px">${lbl}${inner}</div>`;
     const info = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
       ${tile2(`<div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Фулфилмент центр</div>`,`<div style="font-weight:700;font-size:14px;line-height:1.45">${esc(stk.address||ADDR)}</div>`)}
-      <div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-        <div><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Время поставки</div>${slot?`<div style="font-weight:700;font-size:14px">${fmtSlot(slot)}</div>`:`<div style="color:#B8BCC9;font-weight:600;font-size:14px">Не выбрано</div>`}</div>
+      <div style="border:1px solid var(--pkx-tile-border);border-radius:14px;padding:15px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Время поставки</div>${slot?`<div style="font-weight:700;font-size:14px">${fmtSlot(slot)}</div>`:`<div style="color:var(--pkx-text-4);font-weight:600;font-size:14px">Не выбрано</div>`}</div>
         ${created?`<span class="pkx-link" data-on="d-change" style="white-space:nowrap">Изменить</span>`:''}
       </div>
-      <div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="border:1px solid var(--pkx-tile-border);border-radius:14px;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div style="display:flex;align-items:center;gap:6px"><span class="pkx-muted" style="font-size:12px">ЭТТН</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8bfcc" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></div>
         <span class="pkx-link">Добавить</span></div>
       ${tile2(`<div class="pkx-muted" style="font-size:12px;margin-bottom:7px">Состав и сумма</div>`,`<div style="font-weight:700;font-size:14px">${units} шт, ${fmtSum(d.fullPrice)}</div>`)}
     </div>`;
-    const actBtn=(bg,col,svg,label,attr)=>`<button ${attr||''} class="pkx-btn" style="display:flex;align-items:center;gap:8px;background:${bg};color:${col};padding:11px 18px;${bg==='#fff'?'border:1px solid #F2C9CB':''}">${svg}${label}</button>`;
+    const actBtn=(bg,col,svg,label,attr)=>`<button ${attr||''} class="pkx-btn" style="display:flex;align-items:center;gap:8px;background:${bg};color:${col};padding:11px 18px;${bg==='#fff'?'border:1px solid var(--pkx-danger-border)':''}">${svg}${label}</button>`;
     const docSvg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6"/></svg>`;
     const qrSvg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
     const actions = created
-      ? `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}${actBtn('#f3f4f6','#334155',qrSvg,'QR-коды','data-on="d-qr"')}<button data-on="d-cancel" class="pkx-btn" style="background:#fff;border:1px solid #F2C9CB;color:#E5484D;padding:11px 18px">Отменить поставку</button></div>`
-      : `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('#f3f4f6','#334155',qrSvg,'QR-коды','data-on="d-qr"')}${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}</div>`;
+      ? `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}${actBtn('var(--pkx-soft)','var(--pkx-text-2)',qrSvg,'QR-коды','data-on="d-qr"')}<button data-on="d-cancel" class="pkx-btn" style="background:var(--pkx-surface);border:1px solid var(--pkx-danger-border);color:var(--pkx-danger);padding:11px 18px">Отменить поставку</button></div>`
+      : `<div style="display:flex;gap:10px;flex-wrap:wrap">${actBtn('var(--pkx-soft)','var(--pkx-text-2)',qrSvg,'QR-коды','data-on="d-qr"')}${actBtn('#1e293b','#fff',docSvg,'Акт отправки','data-on="d-act"')}</div>`;
 
     // products table
     const showFact = statusVal(d)==='ACCEPTED';
     const flat=[]; (S.products||[]).forEach(g=>{ (g.skuForInvoiceDtoList||[{id:g.id,skuTitle:g.skuTitle,quantityToStock:g.quantityToStock,quantityAccepted:g.quantityAccepted,purchasePrice:g.purchasePrice}]).forEach(sk=>flat.push({...sk,productTitle:g.productTitle})); });
     let ptable;
     if(showFact){
-      const head=`<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','ПЛАН, ШТ','ФАКТ, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
-      const rows=flat.map(it=>{ const short=(it.quantityAccepted||0)<(it.quantityToStock||0); return `<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+      const head=`<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['ТОВАРЫ','ПЛАН, ШТ','ФАКТ, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+      const rows=flat.map(it=>{ const short=(it.quantityAccepted||0)<(it.quantityToStock||0); return `<div style="display:grid;grid-template-columns:1fr 120px 120px 160px;align-items:center;padding:13px 22px;border-bottom:1px solid var(--pkx-row-sep)">
         <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.id)}</div></div></div>
         <div style="font-weight:700;font-size:14px">${it.quantityToStock||0}</div>
-        <div style="font-weight:700;font-size:14px"><span style="${short?'color:#E5484D':''}">${it.quantityAccepted||0}</span></div>
+        <div style="font-weight:700;font-size:14px"><span style="${short?'color:var(--pkx-danger)':''}">${it.quantityAccepted||0}</span></div>
         <div style="font-weight:700;font-size:14px">${fmtN(it.purchasePrice)}</div></div>`; }).join('');
       ptable=head+rows;
     } else {
-      const head=`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','ПЛАН, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
-      const rows=flat.map(it=>`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+      const head=`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['ТОВАРЫ','ПЛАН, ШТ','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+      const rows=flat.map(it=>`<div style="display:grid;grid-template-columns:1fr 150px 170px;align-items:center;padding:13px 22px;border-bottom:1px solid var(--pkx-row-sep)">
         <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.id)}</div></div></div>
         <div style="font-weight:700;font-size:14px">${it.quantityToStock||0}</div>
         <div style="font-weight:700;font-size:14px">${fmtN(it.purchasePrice)}</div></div>`).join('');
@@ -1089,7 +1154,7 @@
 
     return `<div>
       <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;flex-wrap:wrap">
-        <button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid var(--pkx-border-2);background:var(--pkx-surface);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <h1 class="pkx-h1" style="white-space:nowrap">Поставка №${esc(d.invoiceNumber||'')}</h1>
         <span class="pkx-muted" style="font-size:16px;font-weight:700">от ${esc(d.dateCreated||'')}</span>
         ${badge}
@@ -1147,10 +1212,10 @@
     const gab=(p.dimensionalGroup||{}).title||'—';
     const rec=(p.recommendQty!=null&&p.recommendQty>0)?`<div class="pkx-muted" style="font-size:12px;margin-top:5px">Рекомендуем привезти ${p.recommendQty} шт</div>`:'';
     // Bloklangan SKU — qizil «Заблокирован» belgisi (+ sabab, agar bor bo'lsa)
-    const blkBadge = p.blocked ? `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:5px;background:#FCE8E8;color:#D14343;font-weight:700;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid #F3C9C9"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>Заблокирован</span>${p.blockReason?`<span class="pkx-muted" style="font-size:11px">${esc(p.blockReason)}</span>`:''}</div>` : '';
-    return `<div class="pkx-prow${(S.qty[p.skuId]>0)?' is-dirty':''}" style="display:grid;${RST_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6${p.blocked?';background:#FDF5F5':''}">
+    const blkBadge = p.blocked ? `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:5px;background:var(--pkx-danger-soft-bg);color:var(--pkx-danger);font-weight:700;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--pkx-danger-border)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>Заблокирован</span>${p.blockReason?`<span class="pkx-muted" style="font-size:11px">${esc(p.blockReason)}</span>`:''}</div>` : '';
+    return `<div class="pkx-prow${(S.qty[p.skuId]>0)?' is-dirty':''}" style="display:grid;${RST_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid var(--pkx-row-sep)${p.blocked?';background:var(--pkx-danger-soft-bg)':''}">
       <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(p.image,64)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">SKU ${esc(p.skuTitle||'')} · ШК ${esc(p.barcode||'')}</div>${blkBadge}</div></div>
-      <div><span style="display:inline-block;background:#EEF1F8;color:#5A6588;font-weight:700;font-size:12px;padding:4px 10px;border-radius:7px">${esc(gab)}</span></div>
+      <div><span style="display:inline-block;background:var(--pkx-stepchip-bg);color:var(--pkx-text-2);font-weight:700;font-size:12px;padding:4px 10px;border-radius:7px">${esc(gab)}</span></div>
       <div style="font-weight:600;font-size:14px">${p.quantityActive!=null?p.quantityActive:'…'}</div>
       <div style="font-weight:600;font-size:14px">${fmtN(p.purchasePrice)}</div>
       <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${p.skuId}" data-price="${p.purchasePrice||0}" data-name="${esc(p.productTitle||'')}" data-skutitle="${esc(p.skuTitle||'')}" data-bc="${esc(p.barcode||'')}" data-img="${esc(p.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
@@ -1158,12 +1223,12 @@
   }
   function createProducts(){
     const GRID=RST_GRID;
-    const head=`<div style="display:grid;${GRID};align-items:center;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:13px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['ТОВАР','ГАБАРИТЫ','ОСТАТОК','СЕБЕСТ., soʼm','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const visible = rstFiltered();
     const searching = S.rstSearch.trim()!=='';
     const rowsHtml = visible.length ? visible.map(rstRowHtml).join('')
       : `<div class="pkx-msg">${searching ? (S.rstSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rstLoading||S.rstHasMore)?'Загрузка…':'Нет данных')}</div>`;
-    const more = (S.rstHasMore && S.restock.length && !searching) ? `<div id="pkxRstMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>` : '';
+    const more = (S.rstHasMore && S.restock.length && !searching) ? `<div id="pkxRstMore" style="padding:16px;text-align:center;color:var(--pkx-text-4);font-weight:600;font-size:13px">Загрузка…</div>` : '';
     const rows = `<div id="pkxRstRows">${rowsHtml}</div>${more}`;
 
     // Jadval — yarim-avtomatdagi kabi O'Z gorizontal scroll'i bilan (ustunlar
@@ -1281,15 +1346,15 @@
   function semiVarRowHtml(g,v){
     const q=S.qty[v.skuId]!=null?S.qty[v.skuId]:'';
     const rec=v.recommend>0?`<div class="pkx-muted" style="font-size:11.5px;margin-top:5px">Рекомендуем ${v.recommend} шт</div>`
-      : (v.need>0?`<div style="font-size:11.5px;margin-top:5px;color:#C98A2B">Нет на складе</div>`:'');
-    const blk=v.blocked?`<span title="${esc(v.blockReason||'Заблокирован')}" style="display:inline-flex;align-items:center;gap:4px;background:#FCE8E8;color:#D14343;font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:6px;margin-left:8px">Заблокирован</span>`:'';
-    return `<div class="pkx-prow pkx-vrow" data-key="${esc(g.key)}" style="display:${S.expand[g.key]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
+      : (v.need>0?`<div style="font-size:11.5px;margin-top:5px;color:var(--pkx-warn-soft-fg)">Нет на складе</div>`:'');
+    const blk=v.blocked?`<span title="${esc(v.blockReason||'Заблокирован')}" style="display:inline-flex;align-items:center;gap:4px;background:var(--pkx-danger-soft-bg);color:var(--pkx-danger);font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:6px;margin-left:8px">Заблокирован</span>`:'';
+    return `<div class="pkx-prow pkx-vrow" data-key="${esc(g.key)}" style="display:${S.expand[g.key]?'grid':'none'};${SEMI_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid var(--pkx-row-sep);background:var(--pkx-raised)">
       <div style="display:flex;align-items:center;gap:11px;min-width:0;${VAR_PAD}">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}${blk}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
       <div></div>
       <div style="font-weight:600;font-size:13px">${v.sales}</div>
       <div style="font-weight:600;font-size:13px">${v.uzum_qty}</div>
-      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
-      <div style="font-weight:600;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'var(--pkx-text)':'var(--pkx-text-4)'}">${v.wh_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.need>0?'var(--pkx-danger)':'var(--pkx-text-4)'}">${v.need>0?v.need:'—'}</div>
       <div><div class="pkx-stepper"><input class="pkx-qty" data-sku="${v.skuId}" data-key="${esc(g.key)}" data-price="${v.price||0}" data-name="${esc(g.name||'')}" data-skutitle="${esc(v.sku||'')}" data-bc="${esc(v.barcode||'')}" data-img="${esc(v.image||'')}" inputmode="numeric" value="${q}"/><span class="pkx-step-col"><button type="button" class="pkx-step" data-step="up" tabindex="-1" aria-label="Больше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button><button type="button" class="pkx-step" data-step="down" tabindex="-1" aria-label="Меньше"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></span></div>${rec}</div>
     </div>`;
   }
@@ -1298,27 +1363,27 @@
   function groupBtnHtml(g){
     const canAdd=g.recommend>0;
     return groupSel(g)>0
-      ? `<button data-gclr="${esc(g.key)}" style="border:1px solid #e6e6ec;background:#fff;color:#5A6588;border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">Убрать</button>`
-      : `<button data-gadd="${esc(g.key)}" ${canAdd?'':'disabled'} style="border:none;background:${canAdd?'#1A7F4B':'#eef0f4'};color:${canAdd?'#fff':'#B8BCC9'};border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:${canAdd?'pointer':'not-allowed'}">Добавить${canAdd?` ${g.recommend}`:''}</button>`;
+      ? `<button data-gclr="${esc(g.key)}" style="border:1px solid var(--pkx-border-2);background:var(--pkx-surface);color:var(--pkx-text-2);border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">Убрать</button>`
+      : `<button data-gadd="${esc(g.key)}" ${canAdd?'':'disabled'} style="border:none;background:${canAdd?'#1A7F4B':'var(--pkx-tile)'};color:${canAdd?'#fff':'var(--pkx-text-4)'};border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:${canAdd?'pointer':'not-allowed'}">Добавить${canAdd?` ${g.recommend}`:''}</button>`;
   }
   function semiGroupRowHtml(g){
     const open=!!S.expand[g.key];
     const sel=groupSel(g);
     const btn=`<span class="pkx-gbtn" data-key="${esc(g.key)}">${groupBtnHtml(g)}</span>`;
-    return `<div class="pkx-prow pkx-grow${sel>0?' is-dirty':''}" data-gkey="${esc(g.key)}" style="display:grid;${SEMI_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+    return `<div class="pkx-prow pkx-grow${sel>0?' is-dirty':''}" data-gkey="${esc(g.key)}" style="display:grid;${SEMI_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid var(--pkx-row-sep);cursor:pointer">
       <div style="display:flex;align-items:center;gap:11px;min-width:0">
-        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:var(--pkx-text-3);transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         ${tile(g.image,48)}
         <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
-          <div class="pkx-grow2">${g.short_sku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.short_sku)}</span>`:''}</div></div>
+          <div class="pkx-grow2">${g.short_sku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:var(--pkx-text-2);background:var(--pkx-stepchip-bg);padding:2px 7px;border-radius:6px">${esc(g.short_sku)}</span>`:''}</div></div>
       </div>
       <div><span class="pkx-skuc" title="${g.vcount} SKU внутри — раскройте строку">${g.vcount}</span></div>
       <div style="font-weight:600;font-size:13.5px">${g.sales}</div>
       <div style="font-weight:600;font-size:13.5px">${g.uzum_qty}</div>
-      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
-      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'var(--pkx-text)':'var(--pkx-text-4)'}">${g.wh_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'var(--pkx-danger)':'var(--pkx-text-4)'}">${g.need>0?g.need:'—'}</div>
       <div style="display:flex;align-items:center;gap:10px" data-stopgrow="1">
-        <span class="pkx-gsel" data-key="${esc(g.key)}" style="font-weight:600;font-size:13.5px;min-width:44px;color:${sel>0?'#1A7F4B':'#B8BCC9'}">${sel>0?sel+' шт':'—'}</span>
+        <span class="pkx-gsel" data-key="${esc(g.key)}" style="font-weight:600;font-size:13.5px;min-width:44px;color:${sel>0?'var(--pkx-ok)':'var(--pkx-text-4)'}">${sel>0?sel+' шт':'—'}</span>
         ${btn}
       </div>
     </div>`;
@@ -1340,7 +1405,7 @@
     const soldHead = (S.planCustom && window.SHDateRange)
       ? `ПРОДАНО<br>${esc(SHDateRange.label(S.planFrom,S.planTo))}`
       : `ПРОДАНО за ${S.planDays} дн.`;
-    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАР','SKU',soldHead,'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${SEMI_GRID};align-items:end;padding:13px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['ТОВАР','SKU',soldHead,'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
 
     const gs=semiFiltered();
     let rowsHtml;
@@ -1377,18 +1442,18 @@
     // Narxsiz qator — qizil ramka (Uzum baribir rad etadi). «Дальше»dan
     // kelinganда (S.reviewHi) tepada tushuntiruvchi banner ham chiqadi.
     const warn = (S.reviewHi && items.some(it=>!(it.price>0)))
-      ? `<div style="display:flex;align-items:flex-start;gap:10px;background:#FDECEC;border-radius:12px;padding:12px 15px;margin:14px 0 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C0353A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div style="color:#A32E33;font-weight:600;font-size:13px">У выделенных товаров не указана себестоимость — без неё Uzum не примет поставку. Укажите цену и нажмите «Сохранить», чтобы продолжить.</div></div>`
+      ? `<div style="display:flex;align-items:flex-start;gap:10px;background:var(--pkx-danger-soft-bg);border-radius:12px;padding:12px 15px;margin:14px 0 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C0353A" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div style="color:var(--pkx-danger);font-weight:600;font-size:13px">У выделенных товаров не указана себестоимость — без неё Uzum не примет поставку. Укажите цену и нажмите «Сохранить», чтобы продолжить.</div></div>`
       : '';
-    const body = items.length ? items.map(it=>{ const bad=!(it.price>0); return `<div style="display:grid;grid-template-columns:1fr 150px 120px 40px;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid #f3f4f6">
+    const body = items.length ? items.map(it=>{ const bad=!(it.price>0); return `<div style="display:grid;grid-template-columns:1fr 150px 120px 40px;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid var(--pkx-row-sep)">
       <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(it.image,46)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">SKU ${esc(it.skutitle||'')} · ШК ${esc(it.bc||'')}</div></div></div>
-      <div style="display:flex;align-items:center;background:${bad?'#FDECEC':'#f3f4f6'};border-radius:10px;padding:0 12px;height:42px;${bad?'box-shadow:inset 0 0 0 1.5px #E5484D':''}"><input class="pkx-rprice" data-sku="${it.skuId}" inputmode="numeric" value="${it.price}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:#1C2030;font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">сум</span></div>
-      <div style="display:flex;align-items:center;background:#f3f4f6;border-radius:10px;padding:0 12px;height:42px"><input class="pkx-rqty" data-sku="${it.skuId}" inputmode="numeric" value="${it.qty}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:#1C2030;font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">шт</span></div>
-      <button class="pkx-rdel" data-sku="${it.skuId}" style="width:40px;height:40px;border-radius:10px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9499AE;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
+      <div style="display:flex;align-items:center;background:${bad?'var(--pkx-danger-soft-bg)':'var(--pkx-soft)'};border-radius:10px;padding:0 12px;height:42px;${bad?'box-shadow:inset 0 0 0 1.5px #E5484D':''}"><input class="pkx-rprice" data-sku="${it.skuId}" inputmode="numeric" value="${it.price}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:var(--pkx-text);font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">сум</span></div>
+      <div style="display:flex;align-items:center;background:var(--pkx-soft);border-radius:10px;padding:0 12px;height:42px"><input class="pkx-rqty" data-sku="${it.skuId}" inputmode="numeric" value="${it.qty}" style="border:none;background:none;outline:none;font-size:14px;font-weight:700;width:100%;min-width:0;color:var(--pkx-text);font-family:inherit"/><span class="pkx-muted" style="font-size:12px;flex:none">шт</span></div>
+      <button class="pkx-rdel" data-sku="${it.skuId}" style="width:40px;height:40px;border-radius:10px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--pkx-text-3);flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
     </div>`; }).join('') : `<div style="padding:64px 0;text-align:center" class="pkx-muted">Нет выбранных товаров</div>`;
-    return `<div class="pkx-modal-bg" data-on="review-close"><div data-stop="1" style="background:#fff;border-radius:20px;width:760px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(15,15,30,.35)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:19px">Товары для поставки</h2><button data-on="review-close" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#5A5F72;flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    return `<div class="pkx-modal-bg" data-on="review-close"><div data-stop="1" style="background:var(--pkx-surface);border-radius:20px;width:760px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid var(--pkx-divider)"><h2 class="pkx-h2" style="font-size:19px">Товары для поставки</h2><button data-on="review-close" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--pkx-border-2);background:var(--pkx-surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--pkx-text-2);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div style="flex:1;overflow-y:auto;padding:4px 24px 8px">${warn}${body}</div>
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid #eef0f4"><button data-on="review-close" class="pkx-btn pkx-btn-soft" style="padding:11px 22px;border-radius:11px">Назад</button><button data-on="review-save" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px">Сохранить</button></div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--pkx-divider)"><button data-on="review-close" class="pkx-btn pkx-btn-soft" style="padding:11px 22px;border-radius:11px">Назад</button><button data-on="review-save" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px">Сохранить</button></div>
     </div></div>`;
   }
 
@@ -1406,7 +1471,7 @@
     const A=S.auto, c=A.cfg||{};
     const fields=RULE_FIELDS.map(f=>`<div>
         <label style="display:block;font-weight:800;font-size:13px;margin-bottom:6px">${f.label}</label>
-        <input data-rule="${f.k}" type="number" min="1" value="${esc(c[f.k]||'')}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:11px 13px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+        <input data-rule="${f.k}" type="number" min="1" value="${esc(c[f.k]||'')}" style="width:100%;border:1px solid var(--pkx-border-2);border-radius:11px;padding:11px 13px;font-size:15px;font-weight:700;color:var(--pkx-text);box-sizing:border-box">
         <div class="pkx-muted" style="font-size:11.5px;margin-top:5px;line-height:1.4">${f.hint}</div>
       </div>`).join('');
     // Slot — NISBIY oyna. Aniq sana emas: har накладнойда qaytadan hisoblanadi.
@@ -1414,9 +1479,9 @@
     const slot=`<div>
         <label style="display:block;font-weight:800;font-size:13px;margin-bottom:6px">Слот поставки</label>
         <div style="display:flex;align-items:center;gap:8px">
-          <select data-rule="slotFrom" style="flex:1;min-width:0;border:1px solid #e6e6ec;border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:#1C2030;background:#fff;box-sizing:border-box">${opts(c.slotFrom|0)}</select>
+          <select data-rule="slotFrom" style="flex:1;min-width:0;border:1px solid var(--pkx-border-2);border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:var(--pkx-text);background:var(--pkx-surface);box-sizing:border-box">${opts(c.slotFrom|0)}</select>
           <span class="pkx-muted" style="font-weight:800;font-size:13px;flex:none">→</span>
-          <select data-rule="slotTo" style="flex:1;min-width:0;border:1px solid #e6e6ec;border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:#1C2030;background:#fff;box-sizing:border-box">${opts(c.slotTo==null?2:c.slotTo)}</select>
+          <select data-rule="slotTo" style="flex:1;min-width:0;border:1px solid var(--pkx-border-2);border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:var(--pkx-text);background:var(--pkx-surface);box-sizing:border-box">${opts(c.slotTo==null?2:c.slotTo)}</select>
         </div>
         <div class="pkx-muted" style="font-size:11.5px;margin-top:5px;line-height:1.4">Отсчёт от дня создания — правило работает в любой день</div>
       </div>`;
@@ -1500,7 +1565,7 @@
     let skipHtml='';
     if(skipped.length){
       const by={}; skipped.forEach(s=>{ (by[s.reason]=by[s.reason]||[]).push(s); });
-      const items=Object.keys(by).map(r=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:12.5px;border-bottom:1px solid #f3f4f6">
+      const items=Object.keys(by).map(r=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:12.5px;border-bottom:1px solid var(--pkx-row-sep)">
         <span class="pkx-muted" style="font-weight:700">${SKIP_LABEL[r]||r}</span><span style="font-weight:800;flex:none">${by[r].length} SKU</span></div>`).join('');
       skipHtml=`<div class="pkx-card" style="margin-bottom:14px"><details class="pkx-skip"><summary>Не вошло ни в одну поставку · ${skipped.length} SKU</summary><div style="padding:4px 2px 2px">${items}</div></details></div>`;
     }
@@ -1557,26 +1622,26 @@
 
   function autoHeadHtml(){
     const cols=['ТОВАР','SKU',autoSoldHead(),'ОСТАТОК UZUM','НА СКЛАДЕ','НУЖНО','К ОТПРАВКЕ, шт'];
-    return `<div style="display:grid;${AUTO_GRID};align-items:end;padding:13px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${cols.map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    return `<div style="display:grid;${AUTO_GRID};align-items:end;padding:13px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${cols.map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
   }
 
   // Yarim-avtomat bilan BIR XIL qator tili (rasm + guruh + variantlar), lekin
   // TAHRIRLANMAYDI: avto miqdorni o'zi qo'ygan, bu — chek.
   function autoGroupRowHtml(inv,g){
     const k=`a${inv.index}:${g.key}`, open=!!S.expand[k];
-    return `<div class="pkx-prow pkx-grow" data-akey="${esc(k)}" style="display:grid;${AUTO_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid #f3f4f6;cursor:pointer">
+    return `<div class="pkx-prow pkx-grow" data-akey="${esc(k)}" style="display:grid;${AUTO_GRID};align-items:center;padding:7px 22px;border-bottom:1px solid var(--pkx-row-sep);cursor:pointer">
       <div style="display:flex;align-items:center;gap:11px;min-width:0">
-        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:#9499AE;transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="pkx-chev" style="display:inline-flex;width:22px;height:22px;flex:none;align-items:center;justify-content:center;color:var(--pkx-text-3);transition:transform .18s;${open?'transform:rotate(90deg)':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         ${tile(g.image,48)}
         <div class="pkx-ginfo" title="${esc(g.name||'')}"><div class="pkx-gname">${esc(g.name||'')}</div>
-          <div class="pkx-grow2">${g.shortSku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:#5A6588;background:#EEF1F8;padding:2px 7px;border-radius:6px">${esc(g.shortSku)}</span>`:''}</div></div>
+          <div class="pkx-grow2">${g.shortSku?`<span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:700;color:var(--pkx-text-2);background:var(--pkx-stepchip-bg);padding:2px 7px;border-radius:6px">${esc(g.shortSku)}</span>`:''}</div></div>
       </div>
       <div><span class="pkx-skuc" title="${g.vcount} SKU внутри — раскройте строку">${g.vcount}</span></div>
       <div style="font-weight:600;font-size:13.5px">${g.sales}</div>
       <div style="font-weight:600;font-size:13.5px">${g.uzum_qty}</div>
-      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'#1C2030':'#B8BCC9'}">${g.wh_qty}</div>
-      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'#C0353A':'#B8BCC9'}">${g.need>0?g.need:'—'}</div>
-      <div style="font-weight:600;font-size:13.5px;color:#1A7F4B">${g.qty} шт</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.wh_qty>0?'var(--pkx-text)':'var(--pkx-text-4)'}">${g.wh_qty}</div>
+      <div style="font-weight:600;font-size:13.5px;color:${g.need>0?'var(--pkx-danger)':'var(--pkx-text-4)'}">${g.need>0?g.need:'—'}</div>
+      <div style="font-weight:600;font-size:13.5px;color:var(--pkx-ok)">${g.qty} шт</div>
     </div>`;
   }
 
@@ -1594,14 +1659,14 @@
   function autoVarRowHtml(inv,g,v){
     const k=`a${inv.index}:${g.key}`;
     const part=v.partial?`<div class="pkx-muted" style="font-size:11.5px;margin-top:3px">из ${v.recommend|0} шт — остальное в след. поставке</div>`:'';
-    return `<div class="pkx-prow pkx-vrow" data-akey="${esc(k)}" style="display:${S.expand[k]?'grid':'none'};${AUTO_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid #f3f4f6;background:#FAFBFC">
+    return `<div class="pkx-prow pkx-vrow" data-akey="${esc(k)}" style="display:${S.expand[k]?'grid':'none'};${AUTO_GRID};align-items:center;padding:5px 22px;border-bottom:1px solid var(--pkx-row-sep);background:var(--pkx-raised)">
       <div style="display:flex;align-items:center;gap:11px;min-width:0;${VAR_PAD}">${tile(v.image,34)}<div style="min-width:0"><div style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.sku)}</div><div class="pkx-muted" style="font-size:11.5px;margin-top:2px">${v.color?esc(v.color)+' · ':''}ШК ${esc(v.barcode||'—')}</div></div></div>
       <div></div>
       <div style="font-weight:600;font-size:13px">${v.sales}</div>
       <div style="font-weight:600;font-size:13px">${v.uzum_qty}</div>
-      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'#1C2030':'#B8BCC9'}">${v.wh_qty}</div>
-      <div style="font-weight:600;font-size:13px;color:${v.need>0?'#C0353A':'#B8BCC9'}">${v.need>0?v.need:'—'}</div>
-      <div><span style="font-weight:600;font-size:13.5px;color:#1A7F4B">${v.qty} шт</span>${part}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.wh_qty>0?'var(--pkx-text)':'var(--pkx-text-4)'}">${v.wh_qty}</div>
+      <div style="font-weight:600;font-size:13px;color:${v.need>0?'var(--pkx-danger)':'var(--pkx-text-4)'}">${v.need>0?v.need:'—'}</div>
+      <div><span style="font-weight:600;font-size:13.5px;color:var(--pkx-ok)">${v.qty} шт</span>${part}</div>
     </div>`;
   }
 
@@ -1750,13 +1815,13 @@
     // ertaroq slot uchun navbat.
     const ready = !!(S.slotSel || S.catchTo);
     let sum='<span class="pkx-muted" style="font-weight:700;font-size:13px">Выберите слот или включите авто-слот</span>';
-    if(S.slotSel && S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:#334155">${esc(fmtSlot(S.slotSel))} <span class="pkx-muted">· ловим раньше, до ${fmtDay(S.catchTo)}</span></span>`;
-    else if(S.slotSel) sum=`<span style="font-weight:700;font-size:13px;color:#334155">${esc(fmtSlot(S.slotSel))}</span>`;
-    else if(S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:#4169E1">Авто-слот · до ${fmtDay(S.catchTo)}</span>`;
+    if(S.slotSel && S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:var(--pkx-text-2)">${esc(fmtSlot(S.slotSel))} <span class="pkx-muted">· ловим раньше, до ${fmtDay(S.catchTo)}</span></span>`;
+    else if(S.slotSel) sum=`<span style="font-weight:700;font-size:13px;color:var(--pkx-text-2)">${esc(fmtSlot(S.slotSel))}</span>`;
+    else if(S.catchTo) sum=`<span style="font-weight:700;font-size:13px;color:var(--pkx-accent)">Авто-слот · до ${fmtDay(S.catchTo)}</span>`;
     const footer=`<div class="pkx-card pkx-tfoot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:14px;padding:14px 18px">
       <button data-on="later" class="pkx-btn pkx-btn-soft" style="padding:11px 18px;border-radius:11px;flex:none">Выбрать позже</button>
       <div class="pkx-tfoot-sum" style="flex:1;text-align:center;min-width:0">${sum}</div>
-      <div style="display:flex;gap:10px;flex:none"><button data-on="back-products" class="pkx-btn" style="background:#f3f4f6;color:#334155;padding:11px 20px;border-radius:11px">Назад</button>
+      <div style="display:flex;gap:10px;flex:none"><button data-on="back-products" class="pkx-btn" style="background:var(--pkx-soft);color:var(--pkx-text-2);padding:11px 20px;border-radius:11px">Назад</button>
       <button data-on="finish" class="pkx-btn pkx-btn-primary" style="padding:11px 26px;border-radius:11px;${ready?'':'opacity:.5;cursor:not-allowed'}">Готово</button></div></div>`;
     return place+cal+footer;
   }
@@ -1810,25 +1875,25 @@
       const ts=new Date(y,mo,dn).getTime();
       const sel=S.daySel===key;
       const base='aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px';
-      if(sel && has) cells+=`<div data-day="${key}" style="${base};background:#1e293b;color:#fff;font-weight:800;cursor:pointer">${dn}</div>`;
-      else if(has) cells+=`<div data-day="${key}" class="pkx-cal-day" style="${base};color:#1C2030;font-weight:700;cursor:pointer">${dn}</div>`;
+      if(sel && has) cells+=`<div data-day="${key}" style="${base};background:var(--pkx-sel-bg);color:var(--pkx-sel-fg);font-weight:800;cursor:pointer">${dn}</div>`;
+      else if(has) cells+=`<div data-day="${key}" class="pkx-cal-day" style="${base};color:var(--pkx-text);font-weight:700;cursor:pointer">${dn}</div>`;
       else if(canCatch && isCatchable(ts,has)){
         // Deadline kuni — to'la; oraliq ichidagilar — yumshoq; qolgani — punktir.
         if(catchTs!==null && ts===catchTs)
           cells+=`<div data-catch="${key}" title="Ловим слот до этого дня" style="${base};background:#4169E1;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(65,105,225,.32)">${dn}</div>`;
         else if(catchTs!==null && ts<catchTs && ts>=todayMid())
-          cells+=`<div data-catch="${key}" style="${base};background:#EEF2FE;color:#4169E1;font-weight:800;cursor:pointer">${dn}</div>`;
+          cells+=`<div data-catch="${key}" style="${base};background:var(--pkx-accent-soft);color:var(--pkx-accent);font-weight:800;cursor:pointer">${dn}</div>`;
         else
-          cells+=`<div data-catch="${key}" class="pkx-cal-catch" title="Слотов нет — можно поймать автоматически" style="${base};color:#4169E1;font-weight:700;cursor:pointer;border:1.5px dashed #B9C6F5">${dn}</div>`;
+          cells+=`<div data-catch="${key}" class="pkx-cal-catch" title="Слотов нет — можно поймать автоматически" style="${base};color:var(--pkx-accent);font-weight:700;cursor:pointer;border:1.5px dashed #B9C6F5">${dn}</div>`;
       }
-      else cells+=`<div style="${base};color:#ccd2dc;font-weight:600">${dn}</div>`;
+      else cells+=`<div style="${base};color:var(--pkx-cal-off);font-weight:600">${dn}</div>`;
     }
-    const dows=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(d=>`<div style="text-align:center;color:#B8BCC9;font-weight:800;font-size:11px;padding:4px 0">${d}</div>`).join('');
-    const calLeft=`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:16px">
+    const dows=['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'].map(d=>`<div style="text-align:center;color:var(--pkx-text-4);font-weight:800;font-size:11px;padding:4px 0">${d}</div>`).join('');
+    const calLeft=`<div style="border:1px solid var(--pkx-tile-border);border-radius:14px;padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div data-on="cal-prev" style="width:32px;height:32px;border-radius:9px;border:1px solid #e6e6ec;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div data-on="cal-prev" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--pkx-border-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div style="font-weight:800;font-size:15px">${MONTHS[mo]} <span class="pkx-muted" style="margin-left:6px">${y}</span></div>
-        <div data-on="cal-next" style="width:32px;height:32px;border-radius:9px;border:1px solid #e6e6ec;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div data-on="cal-next" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--pkx-border-2);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${dows}</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div></div>`;
@@ -1840,14 +1905,14 @@
       const lead=none ? 'Uzum сейчас не отдаёт свободных слотов.' : 'На ближайшие дни свободных слотов нет.';
       right=`<div style="align-self:center;max-width:340px">
         <div style="font-weight:800;font-size:15px;margin-bottom:8px">${none?'Свободных слотов нет':'Выберите день'}</div>
-        <div class="pkx-muted" style="font-size:13px;line-height:1.55">${lead} Слот можно <span style="color:#4169E1;font-weight:800">поймать автоматически</span> — нажмите день с пунктиром, и поставка встанет в очередь.</div>
+        <div class="pkx-muted" style="font-size:13px;line-height:1.55">${lead} Слот можно <span style="color:var(--pkx-accent);font-weight:800">поймать автоматически</span> — нажмите день с пунктиром, и поставка встанет в очередь.</div>
       </div>`;
     }
     if(S.daySel && map[S.daySel]){
       const arr=map[S.daySel]; const d0=new Date(arr[0].timeFrom);
       const heading=`${d0.getDate()} ${MONTHS_G[d0.getMonth()]}`;
       const chips=arr.map(s=>{ const sel=S.slotSel===s.timeFrom; const lbl=new Date(s.timeFrom).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+'–'+new Date(s.timeTo).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-        return `<button data-slot="${s.timeFrom}" style="border:${sel?'1.5px solid #1e293b':'1px solid #e6e6ec'};background:${sel?'#1e293b':'#fff'};color:${sel?'#fff':'#334155'};border-radius:11px;padding:13px 8px;font-size:14px;font-weight:700;cursor:pointer">${lbl}</button>`; }).join('');
+        return `<button data-slot="${s.timeFrom}" style="border:${sel?'1.5px solid var(--pkx-sel-bg)':'1px solid var(--pkx-border-2)'};background:${sel?'var(--pkx-sel-bg)':'var(--pkx-surface)'};color:${sel?'var(--pkx-sel-fg)':'var(--pkx-text-2)'};border-radius:11px;padding:13px 8px;font-size:14px;font-weight:700;cursor:pointer">${lbl}</button>`; }).join('');
       right=`<div><div style="font-weight:800;font-size:15px;margin-bottom:14px">${heading}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${chips}</div></div>`;
     }
     else if(canCatch && S.catchTo){
@@ -1855,21 +1920,21 @@
       const to=fmtDay(S.catchTo);
       const booked = S.slotSel ? fmtSlot(S.slotSel) : null;
       const what = booked
-        ? `Забронируем <b style="color:#1C2030">${esc(booked)}</b> прямо сейчас. Если до <b style="color:#1C2030">${to}</b> освободится слот раньше — перенесём поставку на него автоматически.`
-        : `Поставка встанет в очередь и займёт слот сама, как только кто-то отменит бронь — не позже <b style="color:#1C2030">${to}</b>.`;
+        ? `Забронируем <b style="color:var(--pkx-text)">${esc(booked)}</b> прямо сейчас. Если до <b style="color:var(--pkx-text)">${to}</b> освободится слот раньше — перенесём поставку на него автоматически.`
+        : `Поставка встанет в очередь и займёт слот сама, как только кто-то отменит бронь — не позже <b style="color:var(--pkx-text)">${to}</b>.`;
       right=`<div style="align-self:start;max-width:380px">
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
-          <span style="width:26px;height:26px;border-radius:8px;background:#EEF2FE;color:#4169E1;display:flex;align-items:center;justify-content:center;flex:none">
+          <span style="width:26px;height:26px;border-radius:8px;background:var(--pkx-accent-soft);color:var(--pkx-accent);display:flex;align-items:center;justify-content:center;flex:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg>
           </span>
           <div style="font-weight:800;font-size:15px">Авто-слот до ${to}</div>
         </div>
         <div class="pkx-muted" style="font-size:13px;line-height:1.6;margin-bottom:14px">${what}</div>
-        <div style="border:1px solid #e9ecf2;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;background:#f8fafc">
+        <div style="border:1px solid var(--pkx-tile-border);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;background:var(--pkx-raised)">
           <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px"><span class="pkx-muted" style="font-weight:700">Ловим с</span><span style="font-weight:800">сегодня</span></div>
           <div style="display:flex;justify-content:space-between;gap:12px"><span class="pkx-muted" style="font-weight:700">Крайний день</span><span style="font-weight:800">${to}</span></div>
         </div>
-        <button data-on="catch-clear" style="margin-top:12px;background:none;border:none;padding:0;color:#5A5F72;font-weight:700;font-size:13px;cursor:pointer;text-decoration:underline;font-family:inherit">Убрать авто-слот</button>
+        <button data-on="catch-clear" style="margin-top:12px;background:none;border:none;padding:0;color:var(--pkx-text-2);font-weight:700;font-size:13px;cursor:pointer;text-decoration:underline;font-family:inherit">Убрать авто-слот</button>
       </div>`;
     }
     return `<div class="pkx-calgrid" style="display:grid;grid-template-columns:340px 1fr;gap:32px">${calLeft}${right}</div>`;
@@ -2268,7 +2333,7 @@
       const g=S.plan.find(x=>x.key===span.dataset.key); if(!g) return;
       const sel=groupSel(g);
       span.textContent = sel>0 ? sel+' шт' : '—';
-      span.style.color = sel>0 ? '#1A7F4B' : '#B8BCC9';
+      span.style.color = sel>0 ? 'var(--pkx-ok)' : 'var(--pkx-text-4)';
       const row=span.closest('.pkx-grow'); if(row) row.classList.toggle('is-dirty', sel>0);
       const bwrap=row && row.querySelector(`.pkx-gbtn[data-key="${CSS.escape(g.key)}"]`);
       if(bwrap){ const next=groupBtnHtml(g); if(bwrap.innerHTML!==next) bwrap.innerHTML=next; }
@@ -2280,7 +2345,7 @@
     el.querySelectorAll('.pkx-rprice').forEach(i=>i.addEventListener('input',()=>{ S.price[i.dataset.sku]=parseInt(i.value)||0; saveCreateDraft();
       // Qizil belgi jonli yangilansin: narx kiritilgach ramka o'chadi (re-render'siz — fokus saqlanadi).
       const box=i.parentElement, ok=(parseInt(i.value)||0)>0;
-      if(box){ box.style.background = ok?'#f3f4f6':'#FDECEC'; box.style.boxShadow = ok?'':'inset 0 0 0 1.5px #E5484D'; }
+      if(box){ box.style.background = ok?'var(--pkx-soft)':'var(--pkx-danger-soft-bg)'; box.style.boxShadow = ok?'':'inset 0 0 0 1.5px #E5484D'; }
     }));
     // «Посмотреть» oynasida miqdor o'zgarsa — orqadagi panel ham jonli yangilanadi
     // (hammasi 0 ga tushsa, oyna yopilishini kutmasdan panel ketadi).
@@ -2566,10 +2631,10 @@
     const titleTxt = S.slotModal.bulk
       ? `Время поставки · ${S.slotModal.items.length} ${plural(S.slotModal.items.length,'поставка','поставки','поставок')}`
       : `Изменить слот · №${esc(S.slotModal.num||'')}`;
-    host.innerHTML=`<div class="pkx-modal-bg" id="pkxSlotBg"><div id="pkxSlotCard" style="background:#fff;border-radius:20px;width:860px;max-width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 70px rgba(15,15,30,.35)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:18px">${titleTxt}</h2><button id="pkxSlotX" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;cursor:pointer;color:#5A5F72">✕</button></div>
+    host.innerHTML=`<div class="pkx-modal-bg" id="pkxSlotBg"><div id="pkxSlotCard" style="background:var(--pkx-surface);border-radius:20px;width:860px;max-width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--pkx-divider)"><h2 class="pkx-h2" style="font-size:18px">${titleTxt}</h2><button id="pkxSlotX" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--pkx-border-2);background:var(--pkx-surface);cursor:pointer;color:var(--pkx-text-2)">✕</button></div>
       <div style="padding:20px 24px" id="pkxSlotBody">${inner}</div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #eef0f4"><button id="pkxSlotCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxSlotSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px;${S.slotSel?'':'opacity:.5;cursor:not-allowed'}">Сохранить</button></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--pkx-divider)"><button id="pkxSlotCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxSlotSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px;${S.slotSel?'':'opacity:.5;cursor:not-allowed'}">Сохранить</button></div>
     </div></div>`;
     const close=()=>{host.innerHTML='';S.slotModal=null;};
     host.querySelector('#pkxSlotBg').addEventListener('click',e=>{ if(e.target.id==='pkxSlotBg') close(); });
@@ -2633,27 +2698,27 @@
     // `failed` rejalar panelда ko'rsatilmaydi — ular odatda o'lik/arvox
     // (akt keyin boshqa reja bilan band bo'lgan) va xom JSON-xato chalg'itadi.
     const plans=(S.allPlans||[]).filter(p=>p.status!=='failed');
-    const SL={waiting:['⏳ Ожидает','#FFF4D6','#9A6B00'], booked:['✅ Забронирован','#D8F1E1','#16794C'],
-              canceled:['Отменён','#e9ecf2','#8A8F9E'], failed:['❌ Ошибка','#FCE9EA','#D33A3F']};
+    const SL={waiting:['⏳ Ожидает','#FFF4D6','#9A6B00'], booked:['✅ Забронирован','var(--pkx-ok-soft-bg)','var(--pkx-ok-soft-fg)'],
+              canceled:['Отменён','#e9ecf2','#8A8F9E'], failed:['❌ Ошибка','var(--pkx-danger-soft-bg)','var(--pkx-danger-soft-fg)']};
     const GRID='grid-template-columns:1.1fr 1.4fr 90px 160px 160px 110px';
-    const head=`<div style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['МАГАЗИН','№ ПОСТАВКИ','ОБЪЁМ','ЖЕЛАЕМЫЙ ДЕНЬ','СТАТУС',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${GRID};align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['МАГАЗИН','№ ПОСТАВКИ','ОБЪЁМ','ЖЕЛАЕМЫЙ ДЕНЬ','СТАТУС',''].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const body = plans.length ? plans.map(p=>{
       const s=SL[p.status]||[p.status,'#e9ecf2','#5A5F72'];
       const cancelBtn = p.status==='waiting'
         ? `<button class="pkx-mini danger" data-grabcancel2="${p.id}" data-shop="${esc(p.shop)}">Отмена</button>`
-        : '<span style="color:#c3c8d4;font-weight:700">—</span>';
+        : '<span style="color:var(--pkx-text-4);font-weight:700">—</span>';
       const booked = (p.status==='booked'&&p.bookedSlotMs) ? `<div class="pkx-muted" style="font-size:11px;margin-top:3px">слот: ${fmtSlot(p.bookedSlotMs)}</div>` : '';
-      const err = (p.status==='failed'&&p.error) ? `<div class="pkx-muted" style="font-size:11px;margin-top:3px;color:#D33A3F">${esc(p.error)}</div>` : '';
-      return `<div style="display:grid;${GRID};align-items:center;padding:14px 22px;border-bottom:1px solid #f3f4f6">
+      const err = (p.status==='failed'&&p.error) ? `<div class="pkx-muted" style="font-size:11px;margin-top:3px;color:var(--pkx-danger-soft-fg)">${esc(p.error)}</div>` : '';
+      return `<div style="display:grid;${GRID};align-items:center;padding:14px 22px;border-bottom:1px solid var(--pkx-row-sep)">
         <div style="font-weight:700;font-size:13px">${esc(p.shopName||p.shop)}</div>
-        <div style="font-weight:800;font-size:14px"><span style="color:#B8BCC9;font-weight:700;margin-right:3px">№</span>${esc(p.invoiceNumber||p.invoiceId)}</div>
+        <div style="font-weight:800;font-size:14px"><span style="color:var(--pkx-text-4);font-weight:700;margin-right:3px">№</span>${esc(p.invoiceNumber||p.invoiceId)}</div>
         <div style="font-weight:700;font-size:13px">${p.size} шт</div>
         <div style="font-weight:700;font-size:13px">${esc(grabDayFmt(p.targetDay))}${booked}${err}</div>
         <div><span style="display:inline-flex;background:${s[1]};color:${s[2]};border-radius:8px;padding:5px 11px;font-weight:800;font-size:12px">${s[0]}</span></div>
         <div style="text-align:right">${cancelBtn}</div>
       </div>`;
     }).join('') : `<div class="pkx-msg">Нет авто-слотов. Создайте на вкладке FBO → «Создана» → выберите поставки → «Авто-слот по дате».</div>`;
-    const hint=`<div style="padding:14px 22px;color:#8A8F9E;font-size:12px;border-top:1px solid #f3f4f6">Система следит за выбранным днём по каждой поставке и бронирует слот, как только он освободится.</div>`;
+    const hint=`<div style="padding:14px 22px;color:var(--pkx-text-3);font-size:12px;border-top:1px solid var(--pkx-row-sep)">Система следит за выбранным днём по каждой поставке и бронирует слот, как только он освободится.</div>`;
     // Toolbar FBO ro'yxatidagi bilan bir xil balandlikда: chapda ro'yxat nomi,
     // o'ngda — AYNAN o'sha joyda — bosilgan «Авто-слот» tugmasi (qayta bosilsa
     // FBO ro'yxatiga qaytaradi).
@@ -2685,25 +2750,25 @@
     if(!items.length) return;
     const pad=n=>String(n).padStart(2,'0'); const t=new Date();
     const minDay=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
-    const list=items.map(it=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="font-weight:800">№${esc(it.num)}</span><span class="pkx-muted" style="font-weight:700">${it.size} шт</span></div>`).join('');
-    host.innerHTML=`<div class="pkx-modal-bg" id="pkxGrabBg"><div style="background:#fff;border-radius:20px;width:540px;max-width:100%;box-shadow:0 24px 70px rgba(15,15,30,.35)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eef0f4"><h2 class="pkx-h2" style="font-size:18px">Авто-слот до даты · ${items.length} ${plural(items.length,'поставка','поставки','поставок')}</h2><button id="pkxGrabX" style="width:34px;height:34px;border-radius:50%;border:1px solid #e6e6ec;background:#fff;cursor:pointer;color:#5A5F72">✕</button></div>
+    const list=items.map(it=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--pkx-row-sep);font-size:13px"><span style="font-weight:800">№${esc(it.num)}</span><span class="pkx-muted" style="font-weight:700">${it.size} шт</span></div>`).join('');
+    host.innerHTML=`<div class="pkx-modal-bg" id="pkxGrabBg"><div style="background:var(--pkx-surface);border-radius:20px;width:540px;max-width:100%;box-shadow:0 24px 70px rgba(15,15,30,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--pkx-divider)"><h2 class="pkx-h2" style="font-size:18px">Авто-слот до даты · ${items.length} ${plural(items.length,'поставка','поставки','поставок')}</h2><button id="pkxGrabX" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--pkx-border-2);background:var(--pkx-surface);cursor:pointer;color:var(--pkx-text-2)">✕</button></div>
       <div style="padding:20px 24px">
         <p class="pkx-muted" style="font-size:13px;margin:0 0 16px;line-height:1.5">Система забронирует слот, освободившийся в выбранном диапазоне дней (включительно). Раньше начала («с») слоты не берутся — удобно, если товар готов не сразу. Чем раньше включён авто-слот, тем выше место в очереди. Если поставка уже забронирована — переставит на более ранний слот (один раз).</p>
         <div style="display:flex;gap:12px;margin-bottom:18px">
           <div style="flex:1">
             <label style="display:block;font-weight:800;font-size:13px;margin-bottom:8px">С (от)</label>
-            <input id="pkxGrabMinDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+            <input id="pkxGrabMinDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid var(--pkx-border-2);border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:var(--pkx-text);box-sizing:border-box">
           </div>
           <div style="flex:1">
             <label style="display:block;font-weight:800;font-size:13px;margin-bottom:8px">До (крайний)</label>
-            <input id="pkxGrabDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid #e6e6ec;border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:#1C2030;box-sizing:border-box">
+            <input id="pkxGrabDay" type="date" min="${minDay}" value="${minDay}" style="width:100%;border:1px solid var(--pkx-border-2);border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:var(--pkx-text);box-sizing:border-box">
           </div>
         </div>
         <div style="font-weight:800;font-size:13px;margin-bottom:6px">Поставки (${items.length})</div>
         <div style="max-height:200px;overflow:auto">${list}</div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #eef0f4"><button id="pkxGrabCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxGrabSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px">Создать план</button></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--pkx-divider)"><button id="pkxGrabCancel" class="pkx-btn pkx-btn-soft" style="padding:11px 20px;border-radius:11px">Отмена</button><button id="pkxGrabSave" class="pkx-btn pkx-btn-primary" style="padding:11px 24px;border-radius:11px">Создать план</button></div>
     </div></div>`;
     const close=()=>{ host.innerHTML=''; };
     host.querySelector('#pkxGrabBg').addEventListener('click',e=>{ if(e.target.id==='pkxGrabBg') close(); });
@@ -2738,9 +2803,9 @@
   // ── Maxsus tasdiqlash/ogohlantirish modali (native confirm/alert o'rniga) ──
   // pkxConfirm({title,message,okLabel,cancelLabel,variant:'success'|'primary'|'danger',icon}) → Promise<bool>
   // pkxAlert(opts|string) → Promise (faqat OK). Dizayn postavki kartalariga mos + Esc/Enter + backdrop.
-  const PKX_CFM={ success:{ibg:'#D8F1E1',ic:'#16794C',ok:'#1A7F4B'},
-                  primary:{ibg:'#ECEFF8',ic:'#1e293b',ok:'#1e293b'},
-                  danger :{ibg:'#FCE9EA',ic:'#D33A3F',ok:'#E5484D'} };
+  const PKX_CFM={ success:{ibg:'var(--pkx-ok-soft-bg)',ic:'var(--pkx-ok-soft-fg)',ok:'#1A7F4B'},
+                  primary:{ibg:'var(--pkx-accent-soft)',ic:'var(--pkx-text)',ok:'#1e293b'},
+                  danger :{ibg:'var(--pkx-danger-soft-bg)',ic:'var(--pkx-danger-soft-fg)',ok:'#E5484D'} };
   function pkxConfirm(o){ return _pkxDialog(o||{}, true); }
   function pkxAlert(o){ return _pkxDialog(typeof o==='string'?{message:o}:(o||{}), false); }
   function _pkxDialog(o, withCancel){
@@ -2777,7 +2842,7 @@
   }
 
   // ════════════ ВОЗВРАТЫ: detal + bekor + yaratish ════════════
-  const _backBtn=`<button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid #e6e6ec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
+  const _backBtn=`<button data-on="back" style="width:38px;height:38px;border-radius:11px;border:1px solid var(--pkx-border-2);background:var(--pkx-surface);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>`;
 
   async function openRetDetail(id){ S.retDetailId=id; S.retDetail=null; go('retdetail'); try{ await loadRetDetail(id); }catch(e){ el.innerHTML=`<div class="pkx-msg">Ошибка: ${esc(e.message)}</div>`; return; } render(); }
 
@@ -2787,8 +2852,8 @@
     const items=d.returnItems||[];
     const created=d.status==='CREATED';
     const GR='grid-template-columns:1fr 120px 130px 160px';
-    const head=`<div style="display:grid;${GR};align-items:center;padding:11px 22px;border-top:1px solid #eef0f4;border-bottom:1px solid #eef0f4;background:#f8fafc">${['ТОВАРЫ','КОЛ-ВО','УПАКОВАНО','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
-    const rows=items.map(it=>`<div style="display:grid;${GR};align-items:center;padding:13px 22px;border-bottom:1px solid #f3f4f6">
+    const head=`<div style="display:grid;${GR};align-items:center;padding:11px 22px;border-top:1px solid var(--pkx-divider);border-bottom:1px solid var(--pkx-divider);background:var(--pkx-raised)">${['ТОВАРЫ','КОЛ-ВО','УПАКОВАНО','ЦЕНА ЗАКУПКИ, сум'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const rows=items.map(it=>`<div style="display:grid;${GR};align-items:center;padding:13px 22px;border-bottom:1px solid var(--pkx-row-sep)">
       <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(it),44)}<div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(it.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(it.skuTitle||'')} · SKU ID ${esc(it.skuId)}</div></div></div>
       <div style="font-weight:700;font-size:14px">${it.amount||0}</div>
       <div style="font-weight:700;font-size:14px">${it.packedAmount||0}</div>
@@ -2796,12 +2861,12 @@
     const totalUnits=d.totalAmount!=null?d.totalAmount:items.reduce((a,it)=>a+(it.amount||0),0);
     const totalSum=items.reduce((a,it)=>a+((it.purchasePrice||0)*(it.amount||0)),0);
     const place=(d.stock||{}).title;
-    const tile2=(lbl,val)=>`<div style="border:1px solid #e9ecf2;border-radius:14px;padding:15px 18px"><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">${lbl}</div><div style="font-weight:700;font-size:14px">${val}</div></div>`;
+    const tile2=(lbl,val)=>`<div style="border:1px solid var(--pkx-tile-border);border-radius:14px;padding:15px 18px"><div class="pkx-muted" style="font-size:12px;margin-bottom:7px">${lbl}</div><div style="font-weight:700;font-size:14px">${val}</div></div>`;
     const info=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:${created?'18px':'0'}">
       ${tile2('Тип', esc(RET_TYPE_LABEL[d.type]||d.type||'—'))}
       ${tile2('Место выдачи', esc(place||'—'))}
       ${tile2('Состав и сумма', `${totalUnits} шт, ${fmtSum(totalSum)}`)}</div>`;
-    const cancelBtn = created ? `<button data-on="retd-cancel" class="pkx-btn" style="background:#fff;border:1px solid #F2C9CB;color:#E5484D;padding:11px 18px">Отменить возврат</button>` : '';
+    const cancelBtn = created ? `<button data-on="retd-cancel" class="pkx-btn" style="background:var(--pkx-surface);border:1px solid var(--pkx-danger-border);color:var(--pkx-danger);padding:11px 18px">Отменить возврат</button>` : '';
     return `<div>
       <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;flex-wrap:wrap">
         ${_backBtn}<h1 class="pkx-h1" style="white-space:nowrap">Возврат №${esc(d.id||'')}</h1>
@@ -2827,8 +2892,8 @@
     const anchor=el.querySelector('#pkxRetStatus'); if(!anchor) return;
     const existing=document.getElementById('pkxRetStatusMenu'); if(existing){ existing.remove(); return; }
     const menu=document.createElement('div'); menu.id='pkxRetStatusMenu';
-    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
-    const opt=(val,label)=>`<div data-rst="${val}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${val===S.retStatus?'background:#f3f4f6':''}">${esc(label)}</div>`;
+    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:var(--pkx-surface);border:1px solid var(--pkx-border-2);border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
+    const opt=(val,label)=>`<div data-rst="${val}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${val===S.retStatus?'background:var(--pkx-soft)':''}">${esc(label)}</div>`;
     menu.innerHTML=opt('','Все статусы')+RET_STATUS_ORDER.map(s=>opt(s,RET_STATUS_LABEL[s])).join('');
     anchor.appendChild(menu);
     menu.querySelectorAll('[data-rst]').forEach(it=>it.addEventListener('click',async ev=>{ ev.stopPropagation(); menu.remove(); await setRetStatus(it.dataset.rst); }));
@@ -2841,9 +2906,9 @@
     const anchor=el.querySelector('#pkxRetType'); if(!anchor) return;
     const existing=document.getElementById('pkxRetTypeMenu'); if(existing){ existing.remove(); return; }
     const menu=document.createElement('div'); menu.id='pkxRetTypeMenu';
-    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
+    menu.style.cssText='position:absolute;top:100%;left:0;margin-top:6px;background:var(--pkx-surface);border:1px solid var(--pkx-border-2);border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:210px;max-height:340px;overflow:auto';
     menu.innerHTML=Object.keys(RET_TYPE_FILTER_LABEL).map(k=>
-      `<div data-rtt="${k}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${k===S.retType?'background:#f3f4f6':''}">${esc(RET_TYPE_FILTER_LABEL[k])}</div>`).join('');
+      `<div data-rtt="${k}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${k===S.retType?'background:var(--pkx-soft)':''}">${esc(RET_TYPE_FILTER_LABEL[k])}</div>`).join('');
     anchor.appendChild(menu);
     menu.querySelectorAll('[data-rtt]').forEach(it=>it.addEventListener('click',async ev=>{ ev.stopPropagation(); menu.remove(); await setRetType(it.dataset.rtt); }));
     setTimeout(()=>document.addEventListener('click',function h(){ const m=document.getElementById('pkxRetTypeMenu'); if(m)m.remove(); document.removeEventListener('click',h); }),0);
@@ -2885,9 +2950,9 @@
     const amt = v>0 ? v : '';
     const gab = rskuGab(p);
     const sub = 'SKU '+(p.skuFullTitle||p.skuTitle||'') + (p.barcode?(' · ШК '+p.barcode):'');
-    return `<div class="pkx-prow" style="display:grid;${RSKU_GRID};align-items:center;padding:5px 6px;border-bottom:1px solid #f3f4f6">
+    return `<div class="pkx-prow" style="display:grid;${RSKU_GRID};align-items:center;padding:5px 6px;border-bottom:1px solid var(--pkx-row-sep)">
       <div style="display:flex;align-items:center;gap:13px;min-width:0">${tile(skuImg(p),64)}<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.productTitle||'')}</div><div class="pkx-muted" style="font-size:12px;margin-top:2px">${esc(sub)}</div></div></div>
-      <div><span style="display:inline-block;background:#EEF1F8;color:#5A6588;font-weight:700;font-size:12px;padding:4px 11px;border-radius:7px">${esc(gab)}</span></div>
+      <div><span style="display:inline-block;background:var(--pkx-stepchip-bg);color:var(--pkx-text-2);font-weight:700;font-size:12px;padding:4px 11px;border-radius:7px">${esc(gab)}</span></div>
       <div style="display:flex;align-items:center;gap:10px"><input class="pkx-ramt pkx-inp" data-sku="${p.skuId}" data-max="${avail}" inputmode="numeric" value="${amt}" placeholder="0" style="width:92px;text-align:center" ${avail>0?'':'disabled'}/><span class="pkx-muted" style="font-weight:700;font-size:13px;white-space:nowrap">/ ${avail}</span></div>
     </div>`;
   }
@@ -2916,7 +2981,7 @@
   function renderRskuRows(){
     const cont=el.querySelector('#pkxRskuRows'); if(!cont) return;
     const rows=filteredRskus();
-    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>`:'';
+    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:var(--pkx-text-4);font-weight:600;font-size:13px">Загрузка…</div>`:'';
     cont.innerHTML = (rows.length ? rows.map(rskuRowHtml).join('') : `<div class="pkx-msg">${S.rskuSearch.trim() ? (S.rskuSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rskuLoading||S.rskuHasMore)?'Загрузка…':'Ничего не найдено')}</div>`) + more;
     bindRamt();
   }
@@ -2926,9 +2991,9 @@
   function viewRetCreate(){
     const retIco=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>`;
     const search=`<div class="pkx-search" style="width:100%;margin-bottom:14px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9499AE" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="pkxRskuSearch" type="search" placeholder="SKU или название товара" value="${esc(S.rskuSearch)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>`;
-    const head=`<div style="display:grid;${RSKU_GRID};align-items:center;padding:11px 6px;border-bottom:1px solid #eef0f4">${['ТОВАР','ГАБАРИТЫ','К ВОЗВРАТУ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
+    const head=`<div style="display:grid;${RSKU_GRID};align-items:center;padding:11px 6px;border-bottom:1px solid var(--pkx-divider)">${['ТОВАР','ГАБАРИТЫ','К ВОЗВРАТУ, шт'].map(h=>`<div class="pkx-th">${h}</div>`).join('')}</div>`;
     const fr=filteredRskus();
-    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:#B8BCC9;font-weight:600;font-size:13px">Загрузка…</div>`:'';
+    const more = (S.rskuHasMore && !S.rskuSearch.trim() && S.rskus.length) ? `<div id="pkxRskuMore" style="padding:16px;text-align:center;color:var(--pkx-text-4);font-weight:600;font-size:13px">Загрузка…</div>`:'';
     const rows = (fr.length ? fr.map(rskuRowHtml).join('') : `<div class="pkx-msg">${S.rskuSearch.trim() ? (S.rskuSrchBusy?'Загрузка…':'Ничего не найдено') : ((S.rskuLoading||S.rskuHasMore)?'Загрузка…':'Ничего не найдено')}</div>`) + more;
     const skuCount=Object.values(S.ramt).filter(v=>v>0).length;
     const units=Object.values(S.ramt).reduce((a,v)=>a+(v>0?v:0),0);
@@ -2940,7 +3005,7 @@
       <div style="font-weight:700;font-size:13px"><span style="color:#A9AEC4">Единиц:</span> <b id="pkxRetUnits">${units}</b></div>
       <div style="flex:1"></div>
       <button data-on="ret-selectall" class="pkx-btn" style="background:rgba(255,255,255,.1);color:#fff;padding:11px 18px">Выбрать все</button>
-      <button data-on="ret-submit" id="pkxRetDone" class="pkx-btn" ${can?'':'disabled'} style="background:#fff;color:#1e293b;padding:12px 24px;${can?'':'opacity:.5;cursor:not-allowed'}">Создать возврат</button>
+      <button data-on="ret-submit" id="pkxRetDone" class="pkx-btn" ${can?'':'disabled'} style="background:var(--pkx-surface);color:#1e293b;padding:12px 24px;${can?'':'opacity:.5;cursor:not-allowed'}">Создать возврат</button>
     </div>`;
     return `<div>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
@@ -2985,8 +3050,8 @@
     const anchor=el.querySelector('#pkxShopSel'); if(!anchor) return;
     const existing=document.getElementById('pkxShopMenu'); if(existing){ existing.remove(); return; }
     const menu=document.createElement('div'); menu.id='pkxShopMenu';
-    menu.style.cssText='position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #e6e6ec;border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:180px;max-height:300px;overflow:auto';
-    menu.innerHTML=SHOPS.map(s=>`<div data-shop="${s.uzum_id}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${s.uzum_id===S.shop?'background:#f3f4f6':''}">${esc(s.name)}</div>`).join('');
+    menu.style.cssText='position:absolute;top:100%;right:0;margin-top:6px;background:var(--pkx-surface);border:1px solid var(--pkx-border-2);border-radius:12px;box-shadow:0 12px 30px rgba(22,22,40,.15);padding:6px;z-index:50;min-width:180px;max-height:300px;overflow:auto';
+    menu.innerHTML=SHOPS.map(s=>`<div data-shop="${s.uzum_id}" style="padding:9px 12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;${s.uzum_id===S.shop?'background:var(--pkx-soft)':''}">${esc(s.name)}</div>`).join('');
     anchor.appendChild(menu);
     menu.querySelectorAll('[data-shop]').forEach(it=>it.addEventListener('click',async ev=>{
       ev.stopPropagation(); if(it.dataset.shop===S.shop){ menu.remove(); return; }

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, time as dt_time
 
-from flask import Blueprint, redirect, render_template, request, url_for
+import json as _json
+
+from flask import Blueprint, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import select, func, delete, update, false as sql_false
 
@@ -268,6 +270,116 @@ def groups_page():
         page=page, total_pages=total_pages, total_count=total_count,
         count_active=count_active, count_archived=count_archived,
     )
+
+# Uzum arxivlash xatolarini foydalanuvchi tiliga tarjima qilish. Uzum «HTTP 400»
+# kabi xom kod qaytaradi — buni tushunarli sababga aylantiramiz. Manba: JONLI
+# probe (2026-07-26, mixbox 2683148): archive'ga sotuvdagi mahsulotni yuborsa
+# `{"errors":[{"code":"product-003","message":"Product either has active invoice
+# or is on sale"}]}`. Bu bizning bug EMAS — Uzum ataylab bloklaydi (draft/tugagan
+# mahsulotgina arxivlanadi).
+_UZUM_ARCHIVE_ERR = {
+    "product-003": {
+        "uz": "Mahsulot hozir sotuvda yoki faol yuk xati (invoice) bor. "
+              "Avval sotuvdan olib (yoki yuk xatini tugatib), keyin arxivlang.",
+        "ru": "Товар сейчас продаётся или есть активная накладная. "
+              "Сначала снимите с продажи (или завершите накладную), затем архивируйте.",
+    },
+}
+
+
+def _resolve_lang() -> str:
+    """Foydalanuvchi tili: sessiya override → users.language → «uz»
+    (app.py `_inject_lang` bilan bir xil tartib)."""
+    lang = session.get("lang")
+    if lang not in ("ru", "uz"):
+        lang = getattr(current_user, "language", None)
+    return lang if lang in ("ru", "uz") else "uz"
+
+
+def _uzum_archive_error_text(body: str, http_status: int, lang: str) -> str:
+    """Uzum xato tanasidan tushunarli xabar. Ma'lum kod bo'lsa — tarjima;
+    bo'lmasa Uzum'ning o'z matni; u ham yo'q bo'lsa — HTTP status."""
+    code = msg = ""
+    try:
+        d = _json.loads(body or "")
+        errs = d.get("errors") or []
+        if errs:
+            code = (errs[0].get("code") or "").strip()
+            msg = (errs[0].get("message") or "").strip()
+        if not msg:
+            msg = (d.get("error") or "").strip()
+    except Exception:
+        pass
+    mapped = _UZUM_ARCHIVE_ERR.get(code)
+    if mapped:
+        return mapped.get(lang) or mapped["uz"]
+    if msg:
+        return msg
+    return f"Uzum: HTTP {http_status}"
+
+
+@products_bp.post("/groups/api/archive")
+@login_required
+def api_group_archive():
+    """Mahsulotni UZUMDA arxivlaydi / arxivdan chiqaradi, so'ng bayroqni
+    lokal ko'zgu qiladi. Karta ⋮-menyusidagi «Arxivlash»/«Arxivdan chiqarish».
+
+    So'rov: ``{"gid": <ProductGroup.id>, "archive": bool}``. Egalik-himoyasi:
+    guruh kiruvchining do'konlariga tegishli bo'lishi shart. HAQIQIY Uzum
+    mutatsiyasi (PRODUCT_DELETE huquqi) — avval Uzum'ni chaqiramiz, faqat
+    muvaffaqiyatda DB'ni o'zgartiramiz. Qaytariladigan amal (restore bor)."""
+    data = request.get_json(silent=True) or {}
+    try:
+        gid = int(data.get("gid"))
+    except (TypeError, ValueError):
+        return _json_response({"error": "Некорректный товар."}, 400)
+    make_archived = bool(data.get("archive"))
+    uid = int(current_user.get_id())
+    allowed = _user_shop_ids(uid)
+    if not allowed:
+        return _json_response({"error": "Магазин недоступен."}, 403)
+
+    with SessionLocal() as db:
+        group = db.execute(
+            select(ProductGroup).where(
+                ProductGroup.id == gid,
+                ProductGroup.shop_id.in_(allowed),
+            )
+        ).scalar_one_or_none()
+        if not group:
+            return _json_response({"error": "Товар не найден или недоступен."}, 404)
+        shop_uzum_id = db.execute(
+            select(Shop.uzum_id).where(Shop.id == group.shop_id)
+        ).scalar_one_or_none() if group.shop_id else None
+        uzum_pid = (group.uzum_product_id or "").strip()
+
+    if not shop_uzum_id or not uzum_pid:
+        return _json_response({"error": "Товар ещё не синхронизирован с Uzum."}, 422)
+
+    from noviy_tavar.client import archive_product, NoviyTavarError
+    try:
+        archive_product(shop_uzum_id, uzum_pid, restore=not make_archived)
+    except NoviyTavarError as e:
+        msg = _uzum_archive_error_text(e.body, e.http_status, _resolve_lang())
+        # 409 = biznes-qoida rad etishi (sotuvda/faol invoice), 502 = boshqa Uzum
+        # nosozligi. Frontend baribir `error` matnini ko'rsatadi.
+        status = 409 if e.http_status == 400 else 502
+        return _json_response({"error": msg}, status)
+    except Exception as e:
+        return _json_response({"error": f"Ошибка Uzum: {e!s}"}, 502)
+
+    # Uzum qabul qildi → bayroqni lokal ko'zgu qilamiz (tab hisoblari + ro'yxat
+    # darhol yangilanadi; aks holda keyingi products-sync uni tiklardi).
+    with SessionLocal() as db:
+        db.execute(
+            update(ProductGroup)
+            .where(ProductGroup.id == gid)
+            .values(is_archived=make_archived)
+        )
+        db.commit()
+
+    return _json_response({"ok": True, "archived": make_archived})
+
 
 @products_bp.get("/expenses")
 @login_required

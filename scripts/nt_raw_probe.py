@@ -1,11 +1,11 @@
-"""NAZORATLI TAJRIBA — «2 razmer → 400» ni qat'iy isbotlash.
-Bir xil tana; faqat razmer xususiyatlari soni farq qiladi.
-Routes override CHETLAB o'tiladi (client to'g'ridan-to'g'ri). Konteyner ichida ishlaydi."""
-import io
+"""Noyob strukturalar auditi — o'zimdan hech narsa qo'shmasdan, jonli meta bilan.
+A) 3-razmer defolt (Зеркала 12811), B) razmer-emas o'lcham (14655), C) 0-xususiyat (12498).
+Konteyner ichida, routes override CHETLAB."""
+import io, json
 from noviy_tavar import client
 from noviy_tavar.client import NoviyTavarError
 
-SHOP = "40571"; CAT = 12434
+SHOP = "40571"
 
 
 def img():
@@ -24,38 +24,69 @@ def cs(ch, n, o):
             "values": (ch.get("characteristicValues") or [])[:n]}
 
 
-def run(name, chars, image):
+def req_fv(meta):
+    for f in (meta.get("filters") or []):
+        if f.get("required"):
+            return {"filterId": f["id"], "filterValueId": (f.get("emptyValue") or {}).get("id")}
+    return None
+
+
+def create(cid, chars, image, fv):
     body = client.build_create_body(
-        category_id=CAT, title_uz="AB test", title_ru="AB test",
-        short_uz="", short_ru="", desc_uz="Test", desc_ru="Test",
-        filter_values_sel=[{"filterId": 6, "filterValueId": 13942}],
-        characteristics_sel=chars, images=[image], product_fields={})
-    n_dc = len(body.get("definedCharacteristics") or [])
+        category_id=cid, title_uz="AUD", title_ru="AUD", short_uz="", short_ru="",
+        desc_uz="Test", desc_ru="Test",
+        filter_values_sel=[fv] if fv else [], characteristics_sel=chars,
+        images=[image], product_fields={})
     try:
         r = client.create_product(SHOP, body)
-        print("  %-38s DC=%d -> 201 OK (id %s)" % (name, n_dc, r.get("id")))
+        # SKU jadvalini ham o'qiymiz (nechta SKU qatori chiqdi)
+        pid = r.get("id")
+        try:
+            dr = client.product_description_response(SHOP, pid)
+            nsku = len(dr.get("skuList") or [])
+            dc = [(c.get("characteristicTitle") or {}).get("ru") for c in (dr.get("definedCharacteristicList") or [])]
+        except Exception:
+            nsku, dc = "?", "?"
+        return "201 id=%s | SKU=%s | keptDC=%s" % (pid, nsku, dc)
     except NoviyTavarError as e:
-        import json
         try:
             code = json.loads(e.body)["errors"][0]["code"]
         except Exception:
-            code = "?"
-        print("  %-38s DC=%d -> HTTP %d  code=%s" % (name, n_dc, e.http_status, code))
+            code = e.body[:70]
+        return "HTTP %d code=%s" % (e.http_status, code)
+
+
+def meta(cid):
+    return client.category_meta(SHOP, cid)
+
+
+def by(chs, ru):
+    for c in chs:
+        if (c.get("characteristicTitle") or {}).get("ru") == ru:
+            return c
 
 
 def main():
-    meta = client.category_meta(SHOP, CAT)
-    chars = meta["characteristics"]
-    def of(ru):
-        for c in chars:
-            if (c.get("characteristicTitle") or {}).get("ru") == ru:
-                return c
-    color, ln, wr = of("Цвет"), of("Длина браслета, см"), of("Обхват запястья, см")
-    image = img(); print("img:", image["key"], "\nNAZORATLI TAJRIBA (bir xil tana, faqat razmer soni farq):")
-    run("T1 rang + Длина(1)", [cs(color, 1, 0), cs(ln, 1, 1)], image)
-    run("T2 rang + Обхват(1)", [cs(color, 1, 0), cs(wr, 1, 1)], image)
-    run("T3 rang + Длина(1) + Обхват(1)", [cs(color, 1, 0), cs(ln, 1, 1), cs(wr, 1, 2)], image)
-    run("T4 rang (razmersiz)", [cs(color, 1, 0)], image)
+    image = img(); print("img:", image["key"], "\n")
+
+    # A) Зеркала 12811 — 3 generic razmer defolt
+    m = meta(12811); chs = m["characteristics"]; fv = req_fv(m)
+    color = by(chs, "Цвет"); s1 = by(chs, "Размер колец"); s2 = by(chs, "Размер ремня")
+    print("A) 12811 Зеркала (3 generic razmer):")
+    print("   rang+1razmer :", create(12811, [cs(color, 1, 0), cs(s1, 1, 1)], image, fv))
+    print("   rang+2razmer :", create(12811, [cs(color, 1, 0), cs(s1, 1, 1), cs(s2, 1, 2)], image, fv))
+
+    # B) 14655 — razmer-EMAS o'lcham (Тип электротранспорта) + rang, ikkovi NOT_REQUIRED
+    m = meta(14655); chs = m["characteristics"]; fv = req_fv(m)
+    color = by(chs, "Цвет"); typ = by(chs, "Тип электротранспорта")
+    print("\nB) 14655 Электротранспорт (razmer-emas o'lcham):")
+    print("   rang+Тип     :", create(14655, [cs(color, 1, 0), cs(typ, 1, 1)], image, fv))
+    print("   faqat Тип    :", create(14655, [cs(typ, 1, 0)], image, fv))
+
+    # C) 12498 Хлебопечки — 0 xususiyat
+    m = meta(12498); chs = m["characteristics"]; fv = req_fv(m)
+    print("\nC) 12498 Хлебопечки (0 xususiyat), filters:", [(f.get("id"), f.get("required")) for f in (m.get("filters") or [])])
+    print("   xususiyatsiz :", create(12498, [], image, fv))
 
 
 if __name__ == "__main__":

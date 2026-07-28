@@ -40,13 +40,24 @@
     uzum: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M8.5 9.6 v3.0 a3.5 3.5 0 0 0 7 0 v-3.0" fill="none" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/><path d="M12 7.6 v3.4" stroke="#fff" stroke-width="2.15" stroke-linecap="round"/></svg>'
   };
 
-  // «Поставка» nav'ga PENDING_DELIVERY soni qo'shamiz (loadCounts avtomat to'ldiradi).
+  // «Поставка» nav'ga накладные (postavka) sonini qo'shamiz. ESLATMA: bu badge
+  // ATAYLAB `data-status-count` EMAS — aks holda loadCounts uni PENDING_DELIVERY
+  // BUYURTMA soni bilan bosib ketardi. 1 накладная ко'p buyurtma tutgani uchun
+  // ular teng emas edi (badge 15 vs ro'yxat 3 — Abdulaziz 2026-07-24). Endi uni
+  // embed «Поставка» ro'yxati postMessage (fbs-postavka-count) bilan to'ldiradi —
+  // fbs_orders.html message-handler'iga qara (qo'shimcha Uzum so'rovi YO'Q).
   var nav = row.querySelector(".fbs-status-nav");
-  if (nav && !nav.querySelector("[data-status-count]")) {
+  if (nav && !nav.querySelector("[data-postavka-count]")) {
     var navCt = document.createElement("span");
     navCt.className = "fbs-status-chip-count";
-    navCt.setAttribute("data-status-count", "PENDING_DELIVERY");
-    navCt.textContent = "·";
+    navCt.setAttribute("data-postavka-count", "");
+    // Oxirgi ma'lum акт sonini localStorage'dan DARHOL ko'rsatamiz — Yangi/
+    // Yig'ilmoqda tabida F5 bosilsa badge «·» ga tushib qolmasin (Abdulaziz
+    // 2026-07-24). Qo'shimcha Uzum so'rovi YO'Q; embed ochilganda aniq songa
+    // yangilanadi (fbs-postavka-count) va kesh yangilanadi.
+    var cachedCount = null;
+    try { cachedCount = localStorage.getItem("fbs_postavka_count"); } catch (_) {}
+    navCt.textContent = (cachedCount !== null && cachedCount !== "") ? cachedCount : "·";
     nav.appendChild(navCt);
   }
 

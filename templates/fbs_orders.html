@@ -2796,6 +2796,20 @@
         sizePostavkaFrame();
         return;
       }
+      // «Поставка» nav-badge = embed'dagi CREATED (0-sahifa) ro'yxatida ko'ringan
+      // акт soni. Embed uni O'ZI olgan ro'yxatdan yuboradi (qo'shimcha Uzum so'rovi
+      // YO'Q). >20 bo'lsa hasMore=true → «20+». Faqat CREATED/0-sahifada keladi,
+      // shuning uchun barqaror (Abdulaziz 2026-07-24).
+      if (d.type === "fbs-postavka-count") {
+        const el = statusRow.querySelector("[data-postavka-count]");
+        const n = Number(d.count) || 0;
+        const txt = d.hasMore ? `${n}+` : String(n);
+        if (el) el.textContent = txt;
+        // Keshlaymiz → keyingi F5'da (Yangi/Yig'ilmoqda tabida ham) badge darhol
+        // shu sonni ko'rsatadi, «·» ga tushmaydi (qo'shimcha so'rovsiz).
+        try { localStorage.setItem("fbs_postavka_count", txt); } catch (_) {}
+        return;
+      }
       // «Поставка» iframe akt-tanlovi o'zgardi → parent viewport-fixed bar.
       if (d.type === "fbs-postavka-akt-selection") {
         const n = Number(d.count) || 0;
@@ -2845,6 +2859,8 @@
       if (d.type === "fbs-invoice-changed") {
         const pf = document.getElementById("fbsPostavkaFrame");
         if (pf) pf.contentWindow && pf.contentWindow.postMessage({ type: "fbs-reload" }, "*");
+        // Накладная bekor/qabul bo'lsa embed qayta yuklanadi (fbs-reload) va yangi
+        // sonni O'ZI yuboradi (fbs-postavka-count) → badge avtomat yangilanadi.
         return;
       }
       if (d.type === "fbs-order-changed") {
@@ -2855,6 +2871,8 @@
         // faqat chipdagi raqamlar uchun. loadOrders(true) esa ro'yxatni
         // baribir jonli tortib DB'ni yangilaydi, ya'ni raqamlar DB'da to'g'ri.
         Promise.all([loadOrders(true), loadCounts(false, { silent: true })]);
+        // «Поставка» badge'i embed ochilganda o'zi yangilanadi (fbs-postavka-count);
+        // bu yerda alohida so'rov shart emas.
       }
     });
   }
@@ -3423,6 +3441,11 @@
     } catch (e) { /* silent — counts are nice-to-have */ }
   }
 
+  // «Поставка» nav-badge'ni embed «fbs-postavka-count» xabari to'ldiradi
+  // (yuqoridagi message-handler'ga qara) — embed O'ZI olgan CREATED ro'yxatidan,
+  // QO'SHIMCHA UZUM SO'ROVISIZ. Shuning uchun bu yerda alohida `loadPostavkaCount`
+  // fetch'i YO'Q (Abdulaziz 2026-07-24: ortiqcha so'rovlar tashlandi).
+
   function setActiveStatus(status){
     // Status chip bosilsa «Поставка» ko'rinishidan chiqamiz.
     exitPostavkaView();
@@ -3511,20 +3534,18 @@
       sizePostavkaFrame();
       _fr.addEventListener("load", () => _fr.classList.add("is-loaded"), { once: true });
     }
-    // «Поставки» nav-badge = PENDING_DELIVERY BUYURTMA soni, DB'dan — xuddi
-    // boshqa chiplar kabi (Abdulaziz 2026-07-15).
+    // «Поставки» nav-badge = embed ochilganda ko'ringan акт (CREATED) soni.
+    // Embed uni O'ZI olgan ro'yxatdan postMessage (fbs-postavka-count) bilan
+    // yuboradi → yuqoridagi message-handler badge'ga yozadi.
     //
-    // TARIX: 07-14 da badge'ni iframe'dagi накладные ro'yxatidan (postMessage
-    // "fbs-postavka-count") oldirgandim — Uzumga qo'shimcha /count yubormaslik
-    // uchun. LEKIN u BEQAROR chiqdi: накладные ro'yxatining o'z status-filtri bor
-    // (Все статусы / Создана / Отменена), filtr o'zgarsa ro'yxat qayta yuklanib
-    // badge har safar boshqa raqam ko'rsatardi (18+, 5, 14+ — Abdulaziz topdi).
+    // TARIX: 07-14 da badge iframe ro'yxatidan postMessage bilan olinardi, lekin
+    // HAR filtr o'zgarishida yuborilardi → O'ZGARUVCHAN status-filtri (Все/Создана/
+    // Отменена) badge'ni 18/5/14 ga sakratardi. So'ng DB PENDING_DELIVERY BUYURTMA
+    // soniga qaytarilgandi — lekin u накладная emas, buyurtma sanardi (15 vs 3).
     //
-    // Endi DB'dan olamiz: bugun (07-14) PENDING_DELIVERY fon-worker'ga qo'shildi,
-    // ya'ni DB'da bor. loadCounts(false) uni /fbs/api/counts-all'dan (DB GROUP BY)
-    // o'qiydi — barqaror, bepul (Uzum so'rovi yo'q), boshqa chiplar bilan bir xil
-    // ma'no. Iframe'dagi postMessage badge mexanizmi OLIB TASHLANDI.
-    if (shopSel.value && HAS_TOKEN) loadCounts(false, { silent: true });
+    // ENDI: postMessage FAQAT CREATED + 0-sahifada yuboriladi (fbs_invoices.html
+    // renderPage) → barqaror + aynan ko'ringan акт soni + QO'SHIMCHA UZUM SO'ROVI 0
+    // (Abdulaziz 2026-07-24). Shuning uchun bu yerda alohida so'rov KERAK EMAS.
   }
   function exitPostavkaView(){
     if (!postavkaActive) return;
@@ -4762,6 +4783,10 @@
     loadOrders(FBS_LIVE_CHIPS.has(currentStatus));
     loadCounts(false, { silent: true });
   }
+  // «Поставка» nav-badge'ni endi embed «Поставка» ochilganda o'zi yuboradi
+  // (fbs-postavka-count) — kirishда alohida so'rov YO'Q. Ochilmaguncha badge «·»
+  // bo'ladi; ochilganda ko'ringan акт soni bilan to'ladi (Abdulaziz 2026-07-24:
+  // «birinchi kirganda jonli olinadi — ko'ringan акт soni = badge»).
   // Background-warm the drop-off points cache after a delay so the
   // first time the seller opens the 📍 modal it feels instant. We
   // prefetch the DB source only (no Uzum yet — that'd consume rate

@@ -573,58 +573,328 @@ def test_multiple_rows_keep_their_own_characteristics():
     assert got == ["Бежевый", "Белый"]
 
 
-# ── definedCharacteristics shakli: requiredType + flowA MAJBURIY ──────
+# ── definedCharacteristics shakli: t8 etaloni (defined/fillType/isRequired) ──
 #
-# ⚠️ Ildiz sabab (jonli, 2026-07-18): o'lcham xarakteristikali mahsulot
-# createProduct'da `validation-failed` berardi. TARMOQ DALILI: 230
-# muvaffaqiyatli referens tanasi / 133 xarakteristika — HAMMASI `requiredType`
-# + `flowA` yuboradi, `defined` kalitini HECH QAYSI yubormaydi (0/133).
-# Oldin build_create_body teskarisini qilardi (defined:true, requiredType yo'q).
+# ⚠️ JONLI ETALON (t8.har, 2026-07-18 — Uzumda yasagan haqiqiy karta) + QAT'IY
+# jonli tasdiq (2026-07-19, 12434 va 11894 → 201): createProduct
+# definedCharacteristics `defined:true` yuboradi; REQUIRED (rang) uchun qo'shimcha
+# `fillType:"REQUIRED"` + `isRequired:true`. `requiredType`/`flowA` YUBORILMAYDI.
+# `orderingNumber` = xususiyatning O'Z tartibi (rang=0, Длина=44), qator indeksi EMAS.
+# ❌ Oldingi model (requiredType+flowA MAJBURIY, defined yuborilmaydi) eski
+# HAR' larга asoslangan edi — t8 va jonli 201 uni rad etdi.
 
 
 def _chars(**kw):
     base = dict(
         characteristicId=-44,
         characteristicTitle={"uz": "Bilaguzuk uzunligi, sm", "ru": "Длина браслета, см"},
-        orderingNumber=1,
+        orderingNumber=44,
         values=[{"title": {"uz": "15–16", "ru": "15–16"}, "value": "15–16", "skuValue": "15"}],
     )
     base.update(kw)
     return base
 
 
-def test_defined_characteristic_emits_required_type_and_flow_a():
-    """Har xarakteristika `requiredType` + `flowA` chiqarishi shart."""
+def test_defined_characteristic_emits_defined_true():
+    """Har xarakteristika `defined:true` chiqaradi (t8 etaloni)."""
     body = _body(characteristics_sel=[
-        _chars(characteristicId=-1, requiredType="REQUIRED", flowA=False,
+        _chars(characteristicId=-1, requiredType="REQUIRED", orderingNumber=0,
                characteristicTitle={"uz": "Rang", "ru": "Цвет"}),
-        _chars(characteristicId=-44, requiredType="REQUIRED_ONE_OF_SIZE", flowA=False),
+        _chars(characteristicId=-44, requiredType="NOT_REQUIRED"),
     ])
     dc = body["definedCharacteristics"]
     assert len(dc) == 2
-    assert dc[0]["requiredType"] == "REQUIRED"
-    assert dc[1]["requiredType"] == "REQUIRED_ONE_OF_SIZE"
-    assert dc[0]["flowA"] is False and dc[1]["flowA"] is False
+    assert dc[0]["defined"] is True and dc[1]["defined"] is True
 
 
-def test_defined_characteristic_never_sends_defined_key():
-    """`defined` kaliti referensда 0/133 — YUBORILMASLIGI shart."""
-    body = _body(characteristics_sel=[_chars(requiredType="REQUIRED_ONE_OF_SIZE")])
-    assert "defined" not in body["definedCharacteristics"][0]
+def test_required_color_emits_fill_type_and_is_required():
+    """REQUIRED (rang) → `fillType:"REQUIRED"` + `isRequired:true` (t8 etaloni)."""
+    body = _body(characteristics_sel=[
+        _chars(characteristicId=-1, requiredType="REQUIRED", orderingNumber=0),
+    ])
+    dc = body["definedCharacteristics"][0]
+    assert dc["fillType"] == "REQUIRED"
+    assert dc["isRequired"] is True
+
+
+def test_non_required_char_omits_fill_type():
+    """NOT_REQUIRED/o'lcham → fillType/isRequired YUBORILMAYDI (t8: o'lchamda yo'q)."""
+    dc = _body(characteristics_sel=[_chars(requiredType="NOT_REQUIRED")])["definedCharacteristics"][0]
+    assert "fillType" not in dc and "isRequired" not in dc
+
+
+def test_defined_characteristic_never_sends_required_type_or_flow_a():
+    """`requiredType`/`flowA` YUBORILMASLIGI shart (t8 etaloni)."""
+    dc = _body(characteristics_sel=[_chars(requiredType="REQUIRED")])["definedCharacteristics"][0]
+    assert "requiredType" not in dc and "flowA" not in dc
+
+
+def test_ordering_number_is_characteristic_own_not_row_index():
+    """`orderingNumber` = xususiyatning O'Z tartibi (44), qator indeksi (0/1) EMAS."""
+    dc = _body(characteristics_sel=[_chars(characteristicId=-44, orderingNumber=44)])["definedCharacteristics"][0]
+    assert dc["orderingNumber"] == 44
 
 
 def test_defined_characteristic_keys_match_reference_exactly():
-    """Kalitlar to'plami referens 201-tanasinikiga AYNAN teng (6 ta)."""
-    body = _body(characteristics_sel=[_chars(requiredType="REQUIRED")])
-    keys = set(body["definedCharacteristics"][0].keys())
-    assert keys == {
+    """Kalitlar to'plami t8 etaloniga AYNAN teng.
+    O'lcham (NOT_REQUIRED): 5 kalit; rang (REQUIRED): +fillType +isRequired = 7."""
+    size = _body(characteristics_sel=[_chars(requiredType="NOT_REQUIRED")])["definedCharacteristics"][0]
+    assert set(size.keys()) == {
         "characteristicId", "characteristicTitle", "characteristicValues",
-        "orderingNumber", "requiredType", "flowA",
+        "orderingNumber", "defined",
+    }
+    color = _body(characteristics_sel=[_chars(requiredType="REQUIRED")])["definedCharacteristics"][0]
+    assert set(color.keys()) == {
+        "characteristicId", "characteristicTitle", "characteristicValues",
+        "orderingNumber", "defined", "fillType", "isRequired",
     }
 
 
-def test_missing_required_type_falls_back_to_not_required():
-    """Frontend requiredType bermasa — xavfsiz `NOT_REQUIRED` (valid enum)."""
-    body = _body(characteristics_sel=[_chars()])   # requiredType YO'Q
-    assert body["definedCharacteristics"][0]["requiredType"] == "NOT_REQUIRED"
-    assert body["definedCharacteristics"][0]["flowA"] is False
+# ── «≤2 xususiyat» darvozasi: filled_characteristic_count ────────────
+#
+# ⚠️ JONLI dalil (QAT'IY probe 2026-07-19, kat. 12811/12434):
+#   2 razmer (rangsiz)          → 201 ✓   ·  3 razmer (rangsiz)   → 400 ✗
+#   rang + 1 razmer             → 201 ✓   ·  rang + 2 razmer      → 400 ✗
+#   12434 rang+Длина+Обхват     → 400 ✗   (ikkalasi NOT_REQUIRED!)
+#   1 xususiyat × ko'p qiymat   → 201 ✓   (bitta char ichida ko'p qiymat NORMAL)
+# Qoida sof SON (≤2) — TUR (rang/razmer) AHAMIYATSIZ, rang ham sanaladi.
+# Route (nt_create) bu funksiya >2 qaytarsa 400 beradi — brauzer cap'iga
+# ishonmasdan. [[project_noviy_tavar_size_constraint]]
+
+from noviy_tavar.client import filled_characteristic_count
+
+
+def _size(vals=1):
+    return {"characteristicId": -21, "requiredType": "REQUIRED_ONE_OF_SIZE",
+            "values": [{"skuValue": str(i)} for i in range(vals)]}
+
+
+def test_two_characteristics_are_allowed():
+    """Rang + 1 razmer = 2 → darvoza o'tkazadi (jonli 201)."""
+    chars = [{"characteristicId": -1, "requiredType": "REQUIRED", "values": [{"skuValue": "К"}]},
+             _size()]
+    assert filled_characteristic_count(chars) == 2
+
+
+def test_three_characteristics_are_counted_as_three():
+    """3 qiymatli char → 3 → route 400 beradi (jonli validation-failed-001).
+    12434 Braslet: rang + Длина + Обхват (ikkalasi NOT_REQUIRED!) → 400."""
+    color = {"characteristicId": -1, "requiredType": "REQUIRED", "values": [{"skuValue": "К"}]}
+    a = {"characteristicId": -30, "requiredType": "NOT_REQUIRED", "values": [{"skuValue": "1"}]}
+    b = {"characteristicId": -31, "requiredType": "NOT_REQUIRED", "values": [{"skuValue": "2"}]}
+    assert filled_characteristic_count([color, a, b]) == 3
+
+
+def test_color_is_counted_too():
+    """Rang MAXSUS emas — u ham qiymatli xususiyat sifatida sanaladi."""
+    color = {"characteristicId": -1, "requiredType": "REQUIRED", "values": [{"skuValue": "К"}]}
+    assert filled_characteristic_count([color]) == 1
+
+
+def test_multiple_values_in_one_characteristic_still_count_as_one():
+    """⚠️ Bitta char ICHIDA ko'p qiymat NORMAL (poyabzal 36/37/38 → 201) —
+    QIYMAT emas, XUSUSIYAT sanaladi."""
+    assert filled_characteristic_count([_size(vals=8)]) == 1
+
+
+def test_empty_characteristic_is_not_counted():
+    """Qatori bor, lekin qiymatsiz xususiyat sanalmaydi."""
+    assert filled_characteristic_count([_size(vals=0)]) == 0
+    assert filled_characteristic_count([{"requiredType": "REQUIRED_ONE_OF_SIZE"}]) == 0
+
+
+def test_none_and_junk_are_safe():
+    """None / buzuq element yiqilmasin."""
+    assert filled_characteristic_count(None) == 0
+    assert filled_characteristic_count([None, "x", {"requiredType": "NOT_REQUIRED",
+                                                    "values": [{"skuValue": "1"}]}]) == 1
+
+
+# ── createProduct 400 → tushunarli xabar: explain_create_error ───────
+#
+# ⚠️ JONLI dalil (2026-07-18, scripts/nt_forbidden.py + nt_codes.py):
+#   forbidden = razmer kategoriyaga to'g'ri kelmaydi (ayollar босоножкаsiда
+#   «bolalar»/«erkaklar» razmeri) · missed = rang/razmer majburiy, yo'q ·
+#   bad-request-001 = Бренд filtri yo'q. Read-only signal YO'Q — faqat shu 400.
+# [[project_noviy_tavar_createproduct_rules]]
+
+from noviy_tavar.client import explain_create_error
+
+
+def test_known_create_error_codes_map_to_uzbek_messages():
+    for code in ("category-defined-characteristics-forbidden",
+                 "category-defined-characteristics-missed",
+                 "bad-request-001", "validation-failed-001"):
+        body = '{"payload":null,"errors":[{"code":"%s","message":"x"}]}' % code
+        got_code, msg = explain_create_error(body)
+        assert got_code == code
+        assert msg and isinstance(msg, str), code
+
+
+def test_forbidden_message_tells_user_to_pick_another_size():
+    _, msg = explain_create_error('{"errors":[{"code":"category-defined-characteristics-forbidden"}]}')
+    assert "razmer" in msg.lower()
+
+
+def test_unknown_code_returns_empty_message_for_fallback():
+    """Noma'lum kod → '' (chaqiruvchi eski _portal_error 502 ga tushadi)."""
+    code, msg = explain_create_error('{"errors":[{"code":"some-new-code"}]}')
+    assert code == "some-new-code"
+    assert msg == ""
+
+
+def test_code_extracted_from_TRUNCATED_body():
+    """⚠️ NoviyTavorError tanani 500 belgiga kesadi — uzun ko'p-xatoli tanada
+    json.loads YIQILADI. Regex `errors[0].code` ni baribir topishi shart."""
+    # Tana o'rtasida kesilgan (yopuvchi } yo'q) — json.loads bu yerda yiqiladi.
+    truncated = ('{"payload":null,"errors":[{"code":'
+                 '"category-defined-characteristics-missed","message":'
+                 '"Bosonojkalar toifasi uchun majburiy xususiyat')
+    code, msg = explain_create_error(truncated)
+    assert code == "category-defined-characteristics-missed"
+    assert msg
+
+
+def test_empty_or_garbage_body_is_safe():
+    assert explain_create_error("") == ("", "")
+    assert explain_create_error("not json at all") == ("", "")
+    assert explain_create_error(None) == ("", "")
+
+
+def test_sendsku_dimension_error_is_mapped():
+    """2-BOSQICH (JONLI 2026-07-18): o'lchovsiz SKU → 400
+    `weight-and-size-characteristics-required-error` (createProduct bilan bir xil
+    `{errors:[{code}]}` shakl → explain_create_error tutadi)."""
+    body = ('{"payload":null,"errors":[{"code":'
+            '"weight-and-size-characteristics-required-error","message":"..."}]}')
+    code, msg = explain_create_error(body)
+    assert code == "weight-and-size-characteristics-required-error"
+    assert "o'lcham" in msg.lower() or "vazn" in msg.lower()
+
+
+# ── 3-BOSQICH (save-filters) xato shakli: explain_filter_error ───────
+#
+# ⚠️ Shakl createProduct'nikidan BOSHQA (JONLI 2026-07-18):
+#   {"payload":[{"in":"body","path":"skus.<id>.attributes.<code>",
+#                "msg":"Qiymatni to'ldiring"}]}  ← "msg" (createProduct "message")
+
+from noviy_tavar.client import explain_filter_error
+
+
+def test_filter_error_maps_missing_required_attributes():
+    body = ('{"payload":[{"in":"body","path":"skus.11.attributes.gender",'
+            '"msg":"Qiymatni to\'ldiring"},{"in":"body",'
+            '"path":"skus.11.attributes.ring_material","msg":"Qiymatni to\'ldiring"}]}')
+    msg = explain_filter_error(body)
+    assert msg and "Свойства" in msg
+
+
+def test_filter_error_works_on_truncated_body():
+    """NoviyTavorError tanani 500 belgiga kesadi — `"msg"` boshida, topiladi."""
+    truncated = '{"payload":[{"in":"body","path":"skus.11.attributes.gender","msg":"Qiymatni'
+    assert explain_filter_error(truncated)
+
+
+def test_filter_error_empty_for_non_filter_bodies():
+    """createProduct shakli (`"message"`, `"msg"` yo'q) → '' (bu parser tegmaydi)."""
+    assert explain_filter_error('{"errors":[{"code":"x","message":"y"}]}') == ""
+    assert explain_filter_error("") == ""
+    assert explain_filter_error(None) == ""
+
+
+# ── MAXSUS («custom») xususiyatlar -> customCharacteristics[] ────────
+#
+# DALIL (Uzum bandli, editProductCard/Characteristics + submit yig'uvchisi `it()`):
+#   definedCharacteristics = tanlanganlarning `defined` bo'lganlari
+#   customCharacteristics  = qolgani, `orderingNumber: 100 + indeks` bilan
+#   `ne()` maxsus xususiyatga characteristicId BERMAYDI — faqat
+#   `custom:true` + characteristicTitle + characteristicValues.
+# Chegara: >3 bo'lsa Uzum saqlashda rad etadi (limiting_number_of_custom_...).
+
+
+def _char(custom=False, **kw):
+    base = dict(
+        characteristicId=44,
+        characteristicTitle={"uz": "Uzunligi", "ru": "Длина"},
+        orderingNumber=44,
+        values=[{"title": {"uz": "18 sm", "ru": "18 см"}, "value": "18 см",
+                 "skuValue": ""}],
+    )
+    if custom:
+        base["custom"] = True
+    base.update(kw)
+    return base
+
+
+def test_custom_characteristic_goes_to_custom_bucket_not_defined():
+    body = _body(characteristics_sel=[_char(custom=True)])
+    assert body["definedCharacteristics"] == []
+    assert len(body["customCharacteristics"]) == 1
+    entry = body["customCharacteristics"][0]
+    assert entry["custom"] is True
+    assert entry["characteristicTitle"] == {"uz": "Uzunligi", "ru": "Длина"}
+    # Bandl: maxsus xususiyatda characteristicId YO'Q (`defined` ham yo'q).
+    assert "characteristicId" not in entry
+    assert "defined" not in entry
+
+
+def test_custom_characteristics_are_renumbered_from_100():
+    body = _body(characteristics_sel=[
+        _char(custom=True, characteristicTitle={"uz": "A", "ru": "А"}, orderingNumber=7),
+        _char(custom=True, characteristicTitle={"uz": "B", "ru": "Б"}, orderingNumber=9),
+    ])
+    assert [c["orderingNumber"] for c in body["customCharacteristics"]] == [100, 101]
+
+
+def test_defined_and_custom_are_split_correctly():
+    body = _body(characteristics_sel=[
+        _char(characteristicId=-1, characteristicTitle={"uz": "Rang", "ru": "Цвет"},
+              orderingNumber=0, requiredType="REQUIRED"),
+        _char(custom=True, characteristicTitle={"uz": "Naqsh", "ru": "Узор"}),
+    ])
+    assert len(body["definedCharacteristics"]) == 1
+    assert len(body["customCharacteristics"]) == 1
+    # Rang REQUIRED -> fillType/isRequired qo'shiladi (mavjud xulq buzilmadi).
+    assert body["definedCharacteristics"][0]["fillType"] == "REQUIRED"
+    assert body["definedCharacteristics"][0]["defined"] is True
+
+
+def test_custom_characteristic_without_values_is_dropped():
+    """Qiymatsiz xususiyat — bandl ham `characteristicValues.length > 0` filtri."""
+    body = _body(characteristics_sel=[_char(custom=True, values=[])])
+    assert body["customCharacteristics"] == []
+    assert body["definedCharacteristics"] == []
+
+
+# ── Гарантия (WARRANTY) -> productFields ─────────────────────────────
+#
+# DALIL (jonli field-descriptions: fieldName WARRANTY, INTEGER, required false;
+# bandl ProductFieldsDescriptions `i()`/`o()`): create body `productFields`
+# INTEGER kutadi; bo'sh/string tozalanadi; <6 UI+server rad etadi.
+
+
+def test_warranty_passed_as_integer():
+    body = _body(product_fields={"WARRANTY": 12})
+    assert body["productFields"] == {"WARRANTY": 12}
+    assert isinstance(body["productFields"]["WARRANTY"], int)
+
+
+def test_warranty_string_is_coerced_to_int():
+    body = _body(product_fields={"WARRANTY": "6"})
+    assert body["productFields"] == {"WARRANTY": 6}
+
+
+def test_empty_warranty_is_dropped():
+    for empty in ("", None):
+        body = _body(product_fields={"WARRANTY": empty})
+        assert body["productFields"] == {}
+
+
+def test_no_product_fields_gives_empty_dict():
+    body = _body(product_fields={})
+    assert body["productFields"] == {}
+
+
+def test_garbage_warranty_is_dropped_not_crashed():
+    body = _body(product_fields={"WARRANTY": "abc"})
+    assert body["productFields"] == {}

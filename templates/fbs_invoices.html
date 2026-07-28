@@ -2353,6 +2353,21 @@
     const hasMore = _invHasMore.has(`${_invFilter}:${_invPage}`)
       ? _invHasMore.get(`${_invFilter}:${_invPage}`)
       : (list.length >= PAGE_SIZE);
+    // «Поставка» nav-badge = shu ro'yxatda ko'ringan акт (накладная) soni.
+    // Parent'ga FAQAT CREATED + 0-sahifada yuboramiz → badge status-filtridan
+    // (Все/Отменена) va sahifadan MUSTAQIL, barqaror (07-15 dagi «badge sakrardi»
+    // muammosi shu shart bilan yo'q). Qo'shimcha Uzum so'rovi YO'Q — son allaqachon
+    // olingan ro'yxatdan olinadi (Abdulaziz 2026-07-24: ortiqcha so'rovlar tashlandi).
+    if (INV_EMBED && window.parent && window.parent !== window
+        && _invFilter === "CREATED" && _invPage === 0) {
+      try {
+        window.parent.postMessage({
+          type: "fbs-postavka-count",
+          count: list.length,
+          hasMore: hasMore === true,
+        }, "*");
+      } catch (_) { /* parent yo'q — ahamiyatsiz */ }
+    }
     if (!list.length) {
       // Empty page 0 = nothing in this status; empty page N = walked past end.
       // A full-but-all-foreign page (hasMore yet 0 owned rows) keeps "Keyingi"

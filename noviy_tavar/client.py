@@ -496,6 +496,55 @@ def create_product(shop_id: str | int, body: dict) -> dict:
                 json_body=body, timeout=60)
 
 
+def can_edit_product(shop_id: str | int, product_id: int | str) -> dict:
+    """POST /product/editable?productId=X — kartani tahrirlash mumkinmi.
+
+    Bandl `canEditProduct` (mf-products @3234674): POST, TANASIZ, faqat query.
+    Uzum portali tahrirlash sahifasini ochganda shuni chaqiradi va javob
+    «tahrirlash mumkin emas» desa 1-qadam nishonini «RESTRICTED» qiladi.
+    """
+    return _req("POST", f"{_BASE}/{shop_id}/product/editable"
+                        f"?productId={int(product_id)}")
+
+
+def edit_product(shop_id: str | int, body: dict) -> dict:
+    """POST /product/editProduct → MAVJUD kartani yangilaydi.
+
+    ⚠️ `create_product` bilan ADASHTIRMANG: createProduct HAR SAFAR YANGI
+    qoralama yaratadi. Foydalanuvchi 1-qadamga qaytib «Saqlash» bosganda
+    createProduct yuborilsa — dublikat karta paydo bo'ladi.
+
+    DALIL (Uzum bandli `chunk-6dbbb9d8` @79125 — saqlash tugmasi):
+        isEdit ? editProduct(shopId, {...v}) : createProduct(shopId, v, {testVariant})
+    ya'ni TANA IKKALASIDA BIR XIL obyekt; farqi — endpoint va tanadagi `id`
+    (store `Oe` klassida `id` maydoni bor, `isEdit = !!route.params.productId`).
+    Saqlashdan oldin bandl `delete v.categories` va `delete v.status` qiladi —
+    bizning tanamizda u kalitlar umuman yo'q.
+    """
+    return _req("POST", f"{_BASE}/{shop_id}/product/editProduct",
+                json_body=body, timeout=60)
+
+
+def archive_product(shop_id: str | int, product_id: int | str,
+                    *, restore: bool = False) -> dict:
+    """POST /shop/{shopId}/product/{productId}/archive[/restore] — kartani
+    arxivlaydi yoki arxivdan chiqaradi.
+
+    ⚠️ HAQIQIY UZUM MUTATSIYASI — sotuvchi katalogining holatini o'zgartiradi
+    (`PRODUCT_ARCHIVING`, ichki `PRODUCT_DELETE` huquqi). Qaytariladigan amal:
+    `restore=True` arxivdan chiqaradi.
+
+    DALIL (Uzum portal bandli `mf-products`, `.uicheck/uzum-har/new.har`):
+        archiveProduct(shopId, productId)  → path "/seller/shop/{s}/product/{p}/archive",  POST, secure
+        restoreFromArchive(shopId, productId) → path "…/archive/restore", POST
+    IDlar FAQAT path'da — request TANASI YO'Q (bandl `opts={}` yuboradi).
+    ⚠️ Bitta POST = bitta mahsulot (bulk-array yo'q).
+    """
+    suffix = "/archive/restore" if restore else "/archive"
+    url = f"{_BASE}/{shop_id}/product/{product_id}{suffix}"
+    return _req("POST", url, timeout=30)
+
+
 def check_sku(shop_id: str | int, sku: str) -> dict:
     """GET /product/checkSku?sku=X → {"exists": bool} (SKU bosqichi uchun)."""
     from urllib.parse import quote
@@ -773,13 +822,32 @@ def attr_enums(attr_code: str, *, search: str = "", page: int = 0,
     ⚠️ Yorliq `localizedValue` da (ikki til inline). Saqlashda `code` yuboriladi.
     """
     from urllib.parse import quote
-    url = (f"{_ASSORT_BASE}/attributes/enums?attrCode={quote(attr_code or '')}"
-           f"&page={int(page)}&size={int(size)}&search={quote(search or '')}")
-    res = _req("GET", url, lang=lang)
-    if isinstance(res, dict):
-        rows = res.get("attributeEnums")
-        return rows if isinstance(rows, list) else []
-    return res if isinstance(res, list) else []
+
+    def _page(p: int) -> list:
+        url = (f"{_ASSORT_BASE}/attributes/enums?attrCode={quote(attr_code or '')}"
+               f"&page={int(p)}&size={int(size)}&search={quote(search or '')}")
+        res = _req("GET", url, lang=lang)
+        if isinstance(res, dict):
+            rows = res.get("attributeEnums")
+            return rows if isinstance(rows, list) else []
+        return res if isinstance(res, list) else []
+
+    rows = _page(page)
+    # ⚠️ BITTA SAHIFA YETMAYDI. JONLI XATO (2026-07-22): «Qurilma modeli»
+    # (filter_4770) 1000 dan ko'p qiymatga ega — 1-sahifadan keyingi kodlar
+    # keshda topilmay, jadvalda XOM KOD ko'rinardi («filter_value_672150»),
+    # chunki yorliq izlash `code`ga fallback qiladi (bandl `g()` ham shunday).
+    # Qidiruvsiz to'liq ro'yxatni yig'amiz; `search` berilganda Uzum allaqachon
+    # filtrlab beradi, sahifalash shart emas.
+    if not search:
+        pages = 1
+        while len(rows) and len(rows) % int(size) == 0 and pages < 12:
+            nxt = _page(page + pages)
+            if not nxt:
+                break
+            rows = rows + nxt
+            pages += 1
+    return rows
 
 
 def save_filters(shop_id: str | int, product_id: int | str,
@@ -805,6 +873,86 @@ def save_filters(shop_id: str | int, product_id: int | str,
 
 
 # ── createProduct body quruvchisi (HAR shakli — YAGONA joy) ─────────
+
+
+def filled_characteristic_count(characteristics: list[dict] | None) -> int:
+    """Qiymatga ega defined-xususiyatlar soni (TUR AHAMIYATSIZ — rang ham sanaladi).
+
+    JONLI dalil (QAT'IY probe 2026-07-19): qiymatli defined-char soni >2 bo'lsa
+    createProduct `validation-failed-001` bilan rad etadi. Uzum SKU = 2-o'lchovli
+    matritsa, shuning uchun eng ko'pi bilan 2 ta xususiyat qiymatga ega bo'ladi.
+    - 2 razmer (rangsiz) → 201 · 3 razmer (rangsiz) → 400
+    - rang + 1 razmer → 201 · rang + 2 razmer → 400
+    - 12434 Braslet: rang+Длина+Обхват → 400 (ikkalasi NOT_REQUIRED!)
+
+    ⚠️ `requiredType` «razmer»likni AJRATMAYDI — qoida sof SON (≤2). Oldingi
+    `filled_size_system_count` FAQAT REQUIRED_ONE_OF_SIZE'ni sanardi → NOT_REQUIRED
+    razmerlar (Bilaguzuk 12434, 12811) o'tib ketardi. Bitta xususiyat ICHIDA ko'p
+    qiymat NORMAL (poyabzal 36/37/38 → 201) — QIYMATNI emas, qiymatli XUSUSIYAT
+    sonini sanaymiz.
+
+    Darvoza route'da (nt_create) qo'llanadi — «brauzerga ishonmaymiz» naqshi
+    ([[project_noviy_tavar_size_constraint]]).
+    """
+    n = 0
+    for c in characteristics or []:
+        if not isinstance(c, dict):
+            continue
+        if c.get("values"):
+            n += 1
+    return n
+
+
+# createProduct 400 kodlari → foydalanuvchi tiliga tushunarli xabar.
+# HAMMASI JONLI probe bilan uchraган (2026-07-18) — [[project_noviy_tavar_createproduct_rules]]:
+#   validation-failed-001                        → qiymatli xususiyat >2 (≤2 cap bilan oldi olindi)
+#   category-defined-characteristics-missed      → rang yoki razmer majburiy, to'ldirilmagan
+#   category-defined-characteristics-forbidden   → razmer bu kategoriyaga to'g'ri kelmaydi
+#   bad-request-001                              → majburiy filtr (Бренд) yo'q
+# ⚠️ Read-only signal YO'Q: forbidden'ni oldindan bilib bo'lmaydi, faqat shu 400.
+_CREATE_ERROR_MESSAGES = {
+    "category-defined-characteristics-forbidden":
+        "Tanlangan razmer-tizim bu kategoriyaga to'g'ri kelmaydi — boshqa razmer tanlang.",
+    "category-defined-characteristics-missed":
+        "Kategoriya majburiy xususiyatni talab qiladi — rang va kamida bitta razmer tanlang.",
+    "bad-request-001":
+        "Majburiy filtr tanlanmagan (masalan «Бренд»).",
+    "validation-failed-001":
+        "Ko'pi bilan 2 ta xususiyat tanlash mumkin (masalan rang + o'lcham).",
+    # 2-BOSQICH (sendSkuData) — JONLI 2026-07-18: o'lchovsiz SKU rad etiladi.
+    "weight-and-size-characteristics-required-error":
+        "Har SKU uchun vazn va o'lchamlarni (eni/bo'yi/uzunligi/vazn) to'ldiring.",
+}
+
+
+def explain_create_error(body: str) -> tuple[str, str]:
+    """Portal 400 tanasidan ``(code, foydalanuvchi_xabari)`` ajratadi.
+
+    ⚠️ Kod REGEX bilan olinadi (json.loads emas): NoviyTavarError tanani 500
+    belgiga KESADI, bu esa uzun ko'p-xatoli tanada JSON'ni buzadi. `errors[0].code`
+    esa tananing boshida — regex uni kesilgan tanadan ham topadi.
+
+    Xabar `''` bo'lsa — kod noma'lum (chaqiruvchi eski _portal_error'ga tushadi).
+    """
+    m = _re.search(r'"code"\s*:\s*"([^"]+)"', body or "")
+    code = m.group(1) if m else ""
+    return code, _CREATE_ERROR_MESSAGES.get(code, "")
+
+
+def explain_filter_error(body: str) -> str:
+    """3-BOSQICH (save-filters) 400 → foydalanuvchi xabari.
+
+    ⚠️ Bu shakl createProduct'nikidan BOSHQA (JONLI 2026-07-18):
+        {"payload":[{"in":"body","path":"skus.<id>.attributes.<code>",
+                     "msg":"Qiymatni to'ldiring"}, ...]}
+    Har element — bo'sh MAJBURIY skuAttribute. Kod nomlari texnik
+    (handcrafted/gender/ring_material) — foydalanuvchiga umumiy, aniq harakat
+    beramiz. `"msg"` mavjudligi shu shaklga xos (createProduct `"message"` beradi),
+    kesilgan tanada ham ishlaydi. [[project_noviy_tavar_createproduct_rules]]
+    """
+    if body and '"msg"' in body:
+        return "Majburiy xususiyatlar to'ldirilmagan — «Свойства» bo'limini to'liq to'ldiring."
+    return ""
 
 
 def _html_escape(s: str) -> str:
@@ -892,22 +1040,60 @@ def build_create_body(*, category_id: int,
     product_fields      — {"WARRANTY": 12} kabi (field-descriptions'dan)
     """
     defined = []
+    custom = []
     for ch in characteristics_sel or []:
         vals = [v for v in (ch.get("values") or []) if isinstance(v, dict)]
         if not vals:
             continue
-        defined.append({
+        # ── MAXSUS (foydalanuvchi yaratgan) xususiyat ──────────────────────
+        # DALIL (Uzum bandli, `it()` submit-yig'uvchisi):
+        #   definedCharacteristics = tanlanganlarning `defined` bo'lganlari
+        #   customCharacteristics  = qolgani, `orderingNumber: 100 + indeks`
+        # Bandl `ne()` maxsus xususiyatga characteristicId BERMAYDI, faqat
+        # `custom: true` + characteristicTitle + characteristicValues.
+        # Chegara: 3 tadan ko'p bo'lsa Uzum saqlashda xato beradi
+        # (errors.limiting_number_of_custom_characteristics) — UI ham to'sadi.
+        if ch.get("custom"):
+            custom.append({
+                "orderingNumber": 100 + len(custom),
+                "characteristicValues": vals,
+                "characteristicTitle": ch.get("characteristicTitle") or {},
+                "custom": True,
+            })
+            continue
+        # ⚠️ JONLI ETALON (t8.har, 2026-07-18 — Uzumda yasagan haqiqiy karta):
+        # createProduct definedCharacteristics `defined:true` yuboradi; REQUIRED
+        # (rang) uchun qo'shimcha `fillType:"REQUIRED"` + `isRequired:true`.
+        # `requiredType`/`flowA` YUBORILMAYDI (eski HAR'larда bor edi — Uzum
+        # ikkalasini ham qabul qiladi; 1:1 uchun t8 shaklini beramiz).
+        # `orderingNumber` — xususiyatning O'Z tartibi (rang=0, Длина=44), QATOR
+        # INDEKSI EMAS (frontend meta'dan uzatadi). [[project_noviy_tavar_createproduct_rules]]
+        entry = {
             "orderingNumber": int(ch.get("orderingNumber") or 0),
             "characteristicValues": vals,
             "characteristicTitle": ch.get("characteristicTitle") or {},
             "characteristicId": ch.get("characteristicId", -1),
-            # ⚠️ requiredType + flowA MAJBURIY (tarmoq dalili: 230 muvaffaqiyatli
-            # referens tanasi / 133 xarakteristika HAMMASI yuboradi). Ularsiz
-            # o'lcham xarakteristikasi (REQUIRED_ONE_OF_SIZE) `validation-failed`
-            # beradi. `defined:true` referensда 0/133 — YUBORILMAYDI.
-            "requiredType": ch.get("requiredType") or "NOT_REQUIRED",
-            "flowA": bool(ch.get("flowA", False)),
-        })
+            "defined": True,
+        }
+        if (ch.get("requiredType") or "") == "REQUIRED":
+            entry["fillType"] = "REQUIRED"
+            entry["isRequired"] = True
+        defined.append(entry)
+
+    # productFields — {WARRANTY: <oy>} kabi. Bandl WARRANTY'ni INTEGER yuboradi;
+    # bo'sh/string qiymatlarni tozalab, sonli holatga o'giramiz (brauzer allaqachon
+    # shunday yuboradi, lekin write endpoint uchun ishonmay tozalaymiz).
+    clean_fields: dict = {}
+    for k, v in (product_fields or {}).items():
+        if v in (None, ""):
+            continue
+        if k == "WARRANTY":
+            try:
+                clean_fields[k] = int(v)
+            except (TypeError, ValueError):
+                continue
+        else:
+            clean_fields[k] = v
 
     prod_images = [
         {"deletable": True, "url": im["url"], "key": im["key"], "status": "ACTIVE"}
@@ -1040,7 +1226,7 @@ def build_create_body(*, category_id: int,
         "colorCollectionImages": col_cols,
         "colorVideos": col_vids,
         "comments": comments,
-        "customCharacteristics": [],
+        "customCharacteristics": custom,
         "dateModerated": None,
         "definedCharacteristics": defined,
         "description": {"ru": desc_fn(desc_ru), "uz": desc_fn(desc_uz)},
@@ -1050,7 +1236,7 @@ def build_create_body(*, category_id: int,
         "okpd2": None,
         "hasAnySkuBlocked": False,
         "photoOnPreview": False,
-        "productFields": product_fields or {},
+        "productFields": clean_fields,
         "productImages": prod_images,
         "productCertificates": list(certificates or []),
         "ratingInfo": None,
@@ -1061,3 +1247,36 @@ def build_create_body(*, category_id: int,
         "skuList": [],
         "switchbackActive": False,
     }
+
+
+# ── 6b. Yangilash (MAVJUD karta) ─────────────────────────────────────
+#
+# Tana `build_create_body` bilan bir xil — bandl saqlashda AYNAN bitta
+# obyektni ikkala endpointga yuboradi (chunk-6dbbb9d8 @79125). Farqi:
+#   · `id` — qaysi kartani yangilash (store `Oe` klassidagi maydon)
+#   · kartaning O'Z holati (SKU ro'yxati, moderatsiya izlari) tanada
+#     SAQLANIB qolishi kerak — portalda ular store'ga GET'dan yuklangan
+#     bo'ladi. Biz esa tanani formadan quramiz, shuning uchun ularni
+#     joriy kartadan KO'CHIRAMIZ.
+#
+# ⚠️ `skuList` eng muhimi: bo'sh ro'yxat yuborsak, 2-qadamda yaratilgan
+# SKU'lar yo'qolib ketishi mumkin. Joriy karta berilmasa — funksiya
+# yangilashni bajarmaydi (routes uni majburiy oldindan o'qiydi).
+_EDIT_CARRY_KEYS = (
+    "skuList", "createdByFlowB", "dateModerated", "blockReason",
+    "blockReasons", "blockComment", "hasAnySkuBlocked", "okpd2",
+    "allFiltersFilled", "categoryEditable", "switchbackActive",
+)
+
+
+def build_edit_body(*, product_id: int, current: dict, **create_kwargs) -> dict:
+    """`editProduct` tanasi = create tanasi + `id` + joriy kartadan ko'chirmalar.
+
+    ``current`` — `get_product()` javobi (GET /product?productId=X).
+    """
+    body = build_create_body(**create_kwargs)
+    body["id"] = int(product_id)
+    for key in _EDIT_CARRY_KEYS:
+        if isinstance(current, dict) and key in current:
+            body[key] = current[key]
+    return body

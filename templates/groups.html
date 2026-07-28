@@ -155,6 +155,53 @@
 .pp-store-item:hover { background: var(--pp-hover); }
 .pp-store-item.selected { background: var(--pp-active-bg); color: var(--pp-text); font-weight: 600; }
 
+/* ── Karta ⋮ amallar menyusi (Uzumniki bilan bir xil, bizning dizayn) ──
+ * ⚠️ Menyu `.pp-products` dan TASHQARIDA (body ostida suzuvchi), shuning uchun
+ * `--pp-*` o'zgaruvchilarni MEROS OLMAYDI. Shu bois o'z `--cm-*` ranglari
+ * `[data-bs-theme]` (root'da) bo'yicha aniqlanadi — nesting'ga bog'liq emas. */
+[data-bs-theme="light"] .pp-cardmenu, .pp-cardmenu {
+  --cm-surface:#FFFFFF; --cm-border:#ECECF0; --cm-text:#1A1A22;
+  --cm-muted:#8E8B97; --cm-hover:#F4F4F7;
+  --cm-shadow:0 12px 36px rgba(20,16,40,.14), 0 2px 6px rgba(20,16,40,.06);
+}
+[data-bs-theme="dark"] .pp-cardmenu {
+  --cm-surface:#18181F; --cm-border:#2A2A35; --cm-text:#F0EDF5;
+  --cm-muted:#8A8896; --cm-hover:#22222D;
+  --cm-shadow:0 14px 40px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+}
+.pp-cardmenu {
+  position: fixed; z-index: 1000;
+  min-width: 250px; padding: 6px;
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+  box-shadow: var(--cm-shadow);
+  animation: pp-cm-in .14s cubic-bezier(.2,.8,.3,1);
+  transform-origin: top right;
+}
+.pp-cardmenu[hidden] { display: none; }
+@keyframes pp-cm-in {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.pp-cardmenu-item {
+  display: block; width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0; background: transparent;
+  border-radius: 9px;
+  font: inherit; font-size: 14px; font-weight: 500;
+  color: var(--cm-text);
+  cursor: pointer; white-space: nowrap;
+  transition: background .12s;
+}
+.pp-cardmenu-item:hover:not(.is-disabled) { background: var(--cm-hover); }
+.pp-cardmenu-item.is-disabled { color: var(--cm-muted); cursor: not-allowed; opacity: .55; }
+.pp-cardmenu-sep { height: 1px; margin: 6px 8px; background: var(--cm-border); }
+.pp-cm-unarchive { display: none; }
+.pp-cardmenu.is-archived .pp-cm-archive { display: none; }
+.pp-cardmenu.is-archived .pp-cm-unarchive { display: inline; }
+
 .pp-tabs { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
 .pp-tab {
   height: 38px; padding: 0 14px;
@@ -522,7 +569,7 @@
     </div>
   </div>
 
-  {% macro render_card(g, a, store_name, store_key, view) -%}
+  {% macro render_card(g, a, store_name, store_key, view, shop_uid='') -%}
     {% set img = g.image_url | uzum540 if g.image_url else '' %}
     {% if view == 'grid' %}
     <a class="pp-card" draggable="false" data-product-id="{{ g.id }}" href="/groups/{{ g.id }}">
@@ -533,7 +580,7 @@
             <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
-          <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
+          <button type="button" class="pp-card-iconbtn pp-menu-btn" data-pid="{{ g.uzum_product_id or '' }}" data-shop="{{ shop_uid }}" data-gid="{{ g.id }}" data-name="{{ g.name | e }}" data-archived="{{ '1' if g.is_archived else '0' }}" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation(); ppOpenCardMenu(this);">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </button>
         </div>
@@ -578,7 +625,7 @@
               <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
-            <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
+            <button type="button" class="pp-card-iconbtn pp-menu-btn" data-pid="{{ g.uzum_product_id or '' }}" data-shop="{{ shop_uid }}" data-gid="{{ g.id }}" data-name="{{ g.name | e }}" data-archived="{{ '1' if g.is_archived else '0' }}" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation(); ppOpenCardMenu(this);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>
           </div>
@@ -636,7 +683,7 @@
           <svg class="pp-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
           <svg class="pp-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
-        <button type="button" class="pp-card-iconbtn" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation();">
+        <button type="button" class="pp-card-iconbtn pp-menu-btn" data-pid="{{ g.uzum_product_id or '' }}" data-shop="{{ shop_uid }}" data-gid="{{ g.id }}" data-name="{{ g.name | e }}" data-archived="{{ '1' if g.is_archived else '0' }}" title="{{ 'Amallar' if lang == 'uz' else 'Действия' }}" onclick="event.preventDefault(); event.stopPropagation(); ppOpenCardMenu(this);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
       </div>
@@ -650,11 +697,12 @@
     {% set shop = shops_by_id.get(g.shop_id) %}
     {% set sname = (shop.name if shop else None) or '' %}
     {% set skey = sname.lower() %}
-    {% set ns.items = ns.items + [(g, a, sname, skey)] %}
+    {% set suid = (shop.uzum_id if shop else '') or '' %}
+    {% set ns.items = ns.items + [(g, a, sname, skey, suid)] %}
   {% endfor %}
 
   <div id="ppGridView" class="pp-grid">
-    {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'grid') }}{% endfor %}
+    {% for g, a, sname, skey, suid in ns.items %}{{ render_card(g, a, sname, skey, 'grid', suid) }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
         <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
@@ -664,7 +712,7 @@
   </div>
 
   <div id="ppListView" class="pp-list" style="display:none">
-    {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'list') }}{% endfor %}
+    {% for g, a, sname, skey, suid in ns.items %}{{ render_card(g, a, sname, skey, 'list', suid) }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
         <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
@@ -674,7 +722,7 @@
   </div>
 
   <div id="ppStatsView" class="pp-stats-grid" style="display:none">
-    {% for g, a, sname, skey in ns.items %}{{ render_card(g, a, sname, skey, 'stats') }}{% endfor %}
+    {% for g, a, sname, skey, suid in ns.items %}{{ render_card(g, a, sname, skey, 'stats', suid) }}{% endfor %}
     {% if not groups %}
       <div class="pp-empty">
         <div class="pp-empty-title">{{ "Hozircha hech narsa yo'q" if lang == "uz" else "Здесь пока пусто" }}</div>
@@ -694,6 +742,21 @@
 </div>
 
 <div id="ppToast" class="pp-toast" role="status" aria-live="polite"></div>
+
+{# ── Karta ⋮ menyusi (Uzumniki bilan bir xil, bizning dizaynga moslangan) ── #}
+<div id="ppCardMenu" class="pp-cardmenu" data-lang="{{ lang }}" hidden>
+  <button type="button" class="pp-cardmenu-item" data-act="edit1">{{ "Umumiy ta'rifni o'zgartirish" if lang == "uz" else "Изменить общее описание" }}</button>
+  <button type="button" class="pp-cardmenu-item" data-act="edit2">{{ "SKU-ni o'zgartirish" if lang == "uz" else "Изменить СКУ" }}</button>
+  <button type="button" class="pp-cardmenu-item" data-act="edit3">{{ "Tovar xususiyatlarini o'zgartirish" if lang == "uz" else "Изменить характеристики товара" }}</button>
+  <div class="pp-cardmenu-sep"></div>
+  <button type="button" class="pp-cardmenu-item" data-act="market">{{ "Uzum Marketda ochish" if lang == "uz" else "Открыть в Uzum Market" }}</button>
+  <button type="button" class="pp-cardmenu-item is-disabled" data-act="events" disabled aria-disabled="true">{{ "Hodisalar tahlili" if lang == "uz" else "Анализ событий" }}</button>
+  <div class="pp-cardmenu-sep"></div>
+  <button type="button" class="pp-cardmenu-item" data-act="archive">
+    <span class="pp-cm-archive">{{ "Arxivlash" if lang == "uz" else "Архивировать" }}</span>
+    <span class="pp-cm-unarchive">{{ "Arxivdan chiqarish" if lang == "uz" else "Разархивировать" }}</span>
+  </button>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -910,7 +973,10 @@
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 2200);
+    // Uzun xabar (masalan «sotuvda — arxivlab bo'lmaydi») o'qishga ulgurilsin:
+    // davomiylik matn uzunligiga qarab 2.2s…6s oralig'ida.
+    var dur = Math.min(6000, Math.max(2200, msg.length * 55));
+    toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, dur);
   }
 
   // pagination — rebuilt from data-attrs so it also works after an AJAX swap;
@@ -952,6 +1018,106 @@
   if (newBtn) newBtn.addEventListener('click', function() { window.location.href = '/noviy-tavar'; });
   var sortBtn = document.getElementById('pp-sort-btn');
   if (sortBtn) sortBtn.addEventListener('click', function() { showToast('{{ "Tez kunda: saralash" if lang == "uz" else "Скоро: сортировка" }}'); });
+
+  /* ── Karta ⋮ amallar menyusi ─────────────────────────────────────────
+   * Uzumniki bilan bir xil tarkib, bizning dizaynga (pp-* tokenlar, dark-mode)
+   * moslangan. HAR UCH ko'rinishda (grid/list/stats) bitta umumiy suzuvchi
+   * menyu (#ppCardMenu) ishlatiladi — kontekst bosilgan ⋮ tugmasidan olinadi. */
+  var NO_PID_MSG = '{{ "Bu mahsulot hali Uzum bilan sinxronlanmagan" if lang == "uz" else "Товар ещё не синхронизирован с Uzum" }}';
+  var ARCHIVE_FAIL_MSG = '{{ "Arxivlashda xatolik" if lang == "uz" else "Ошибка архивации" }}';
+  var ARCHIVED_MSG = '{{ "Mahsulot arxivlandi" if lang == "uz" else "Товар архивирован" }}';
+  var UNARCHIVED_MSG = '{{ "Mahsulot arxivdan chiqarildi" if lang == "uz" else "Товар разархивирован" }}';
+
+  var ppMenuCtx = null;
+  var ppMenuOpenBtn = null;
+
+  function ppCloseCardMenu() {
+    var menu = document.getElementById('ppCardMenu');
+    if (menu) menu.hidden = true;
+    ppMenuOpenBtn = null;
+  }
+
+  window.ppOpenCardMenu = function (btn) {
+    var menu = document.getElementById('ppCardMenu');
+    if (!menu) return;
+    // Ayni tugma menyusi ochiq bo'lsa — yopamiz (toggle).
+    if (!menu.hidden && ppMenuOpenBtn === btn) { ppCloseCardMenu(); return; }
+    ppMenuCtx = {
+      pid: btn.getAttribute('data-pid') || '',
+      shop: btn.getAttribute('data-shop') || '',
+      gid: btn.getAttribute('data-gid') || '',
+      name: btn.getAttribute('data-name') || '',
+      archived: btn.getAttribute('data-archived') === '1'
+    };
+    ppMenuOpenBtn = btn;
+    menu.classList.toggle('is-archived', ppMenuCtx.archived);
+    menu.hidden = false;
+    // Joylash: o'ng chetga tekislab, tugma ostiga; joy yo'q bo'lsa tepaga.
+    var r = btn.getBoundingClientRect();
+    var mw = menu.offsetWidth, mh = menu.offsetHeight, gap = 6;
+    var left = r.right - mw;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - 8 - mw;
+    var top = r.bottom + gap;
+    if (top + mh > window.innerHeight - 8) top = r.top - mh - gap;
+    if (top < 8) top = 8;
+    menu.style.left = Math.round(left) + 'px';
+    menu.style.top = Math.round(top) + 'px';
+  };
+
+  function ppArchive(c) {
+    if (!c.gid) return;
+    var makeArchived = !c.archived;
+    fetch('/groups/api/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ gid: Number(c.gid), archive: makeArchived })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d || {} }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.ok) { showToast(res.d.error || ARCHIVE_FAIL_MSG); return; }
+        showToast(makeArchived ? ARCHIVED_MSG : UNARCHIVED_MSG);
+        setTimeout(function () { window.location.reload(); }, 700);
+      })
+      .catch(function () { showToast(ARCHIVE_FAIL_MSG); });
+  }
+
+  var menuEl = document.getElementById('ppCardMenu');
+  if (menuEl) {
+    menuEl.addEventListener('click', function (e) {
+      var it = e.target.closest('.pp-cardmenu-item');
+      if (!it || it.classList.contains('is-disabled')) return;
+      var act = it.getAttribute('data-act');
+      var c = ppMenuCtx;
+      ppCloseCardMenu();
+      if (!c) return;
+      if (act === 'edit1' || act === 'edit2' || act === 'edit3') {
+        if (!c.pid || !c.shop) { showToast(NO_PID_MSG); return; }
+        var step = act === 'edit1' ? 1 : (act === 'edit2' ? 2 : 3);
+        window.location.href = '/noviy-tavar?productId=' + encodeURIComponent(c.pid) +
+                               '&shop=' + encodeURIComponent(c.shop) + '&step=' + step;
+      } else if (act === 'market') {
+        if (!c.pid) { showToast(NO_PID_MSG); return; }
+        var lg = menuEl.getAttribute('data-lang') === 'ru' ? 'ru' : 'uz';
+        window.open('https://uzum.uz/' + lg + '/product/-' + encodeURIComponent(c.pid),
+                    '_blank', 'noopener');
+      } else if (act === 'archive') {
+        ppArchive(c);
+      }
+    });
+  }
+
+  // Tashqariga bosish / Escape / skroll / resize — menyuni yopadi.
+  document.addEventListener('click', function (e) {
+    var menu = document.getElementById('ppCardMenu');
+    if (!menu || menu.hidden) return;
+    if (e.target.closest('#ppCardMenu') || e.target.closest('.pp-menu-btn')) return;
+    ppCloseCardMenu();
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ppCloseCardMenu(); });
+  window.addEventListener('scroll', function () { ppCloseCardMenu(); }, true);
+  window.addEventListener('resize', ppCloseCardMenu);
 })();
 </script>
 {% endblock %}

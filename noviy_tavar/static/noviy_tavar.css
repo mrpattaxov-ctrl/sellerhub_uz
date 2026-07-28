@@ -26,17 +26,35 @@
 
   --nt-tip-yellow: #fff7e6;      /* sariq maslahat foni */
   --nt-violet-soft: #e5e4ff;     /* «Добавить» tugma foni */
-  --nt-violet-ink: #6f5ce6;      /* violet matn/link */
+  /* Uzum accent — REFERENS SCREENSHOTDAN PIKSEL BO'YICHA O'LCHANGAN (taxmin emas):
+     screenshots/sacvoyage-filled-step3-properties.png «Завершить» tugmasi = #7F4CFF.
+     Boolean «Ha|Yoʻq» toggle, asosiy tugma, focus — hammasi shu rangda. */
+  --nt-violet-ink: #7f4cff;      /* violet matn/link — Uzum o'lchovi */
   --nt-disabled-bg: #e3e2e7;     /* o'chiq tugma */
+  --nt-tips-bg: #e6e8ed;         /* «Скрыть подсказки» — jonli o'lchov */
+  --nt-tips-bg-h: #dcdfe6;       /* uning hover holati */
   --nt-disabled-ink: #9f9ea3;
-  --nt-step-active: #6da5d4;     /* faol qadam doirasi */
-  --nt-step-idle: #c5c9d5;       /* nofaol qadam doirasi */
+  --nt-step-active: #6da5d4;     /* ochiq qadam doirasi — o'lchangan (104,165,219) */
+  --nt-step-idle: #c5c9d5;       /* qulflangan qadam doirasi */
+  --nt-step-done: #52cf5f;       /* bajarilgan ✓ — o'lchangan (82,207,95) */
   --nt-req: #f5222d;             /* majburiy yulduzcha */
+  /* Bandl `--border-negative, #E50000` — xato ramkasi va katak ostidagi
+     «Обязательное поле» matni (3-qadam «Yakunlash» validatsiyasi). */
+  --nt-negative: #e50000;
+  --nt-chip-bg: #eceef3;         /* 3-qadam ko'p-qiymat chipi foni */
+  --nt-chip-x: #b7bcca;          /* chip ✕ doirasi */
+  --nt-chip-x-h: #8f95a6;        /* chip ✕ hover */
+  --nt-img-empty: #eceef3;       /* rasm yo'q — bo'sh katak foni */
+  --nt-sort-icon: #acacac;       /* ↕ saralash nishoni — Uzum o'lchovi */
 
   /* ── Geometriya (skan o'lchovi) ──────────────────────────────── */
   --nt-header-h: 104px;          /* header 0..103 */
-  --nt-col-w: 1064px;            /* karta x=530..1593 */
-  --nt-card-gap: 10px;           /* kartalar orasi */
+  /* --nt-col-w (1064px, skan: karta x=530..1593) OLIB TASHLANDI —
+     ustun endi «Поставки» kabi to'liq kenglikda (.nt-col ga qara). */
+  /* Kartalar orasi. JONLI O'LCHOV (2026-07-21, seller.uzum.uz/seller/7138/
+     products/new, 1440px): ajratgich qatorlari y396..404, y793..801,
+     y1251..1259 — har biri roppa-rosa 9px, rangi #F1F1F1. */
+  --nt-card-gap: 9px;
   --nt-card-pad-x: 25px;         /* karta chap/o'ng ichki bo'shliq */
   --nt-card-pad-y: 28px;
   --nt-control-h: 40px;          /* input/tugma balandligi */
@@ -76,7 +94,9 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 0 28px;
+  /* Yon bo'shliq YO'Q — «Поставки» kabi base'ning `container-fluid px-3`
+     gutter'iga tayanamiz, shunda sarlavha kartalar chekkasi bilan tekis. */
+  padding: 0;
   background: var(--nt-header-bg);
   box-shadow: 0 1px 0 var(--nt-header-shadow);
 }
@@ -102,11 +122,35 @@
   margin-left: auto;
 }
 
+/* Qadam nishoni endi <button> — brauzer uslublarini nolga tushiramiz, aks
+   holda header'da kulrang ramka va boshqa shrift chiqadi. */
 [data-page="noviy-tavar"] .nt-step {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 4px 6px;
+  margin: -4px -6px;          /* joyni kengaytirmasin — o'lchov o'zgarmaydi */
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+  cursor: default;            /* bosilmaydigan (disabled) holat */
+  transition: background-color .15s ease, opacity .15s ease;
 }
+
+/* Bosilishi mumkin bo'lgan qadam — Uzumdagidek qo'l kursori + yumshoq hover */
+[data-page="noviy-tavar"] .nt-step:not([disabled]) { cursor: pointer; }
+[data-page="noviy-tavar"] .nt-step:not([disabled]):hover { background: #eef2f7; }
+[data-page="noviy-tavar"] .nt-step:not([disabled]):hover .nt-step-label { color: var(--nt-step-active); }
+[data-page="noviy-tavar"] .nt-step:focus-visible {
+  outline: 2px solid var(--nt-step-active);
+  outline-offset: 2px;
+}
+
+/* Hali ochilmagan (qulflangan) qadam — xira. Joriy qadam ham `disabled`,
+   lekin u xira EMAS: uni `is-active`/`is-done` ranglari ajratib turadi. */
+[data-page="noviy-tavar"] .nt-step.is-locked { opacity: .5; }
 
 [data-page="noviy-tavar"] .nt-step-dot {
   width: 22px;
@@ -122,10 +166,25 @@
   flex: none;
 }
 
-[data-page="noviy-tavar"] .nt-step.is-active .nt-step-dot { background: var(--nt-step-active); }
+/* ── Qadam doirasining UCH holati ────────────────────────────────
+ *  Uch referens kadrdan (piksel bilan o'lchangan) chiqarilgan qoida:
+ *
+ *   kadr                       1-doira      2-doira      3-doira
+ *   blank-step1-baseline       KO'K «1»     kulrang «2»  kulrang «3»
+ *   sacvoyage-filled-step2     yashil ✓     yashil ✓     KO'K «3»
+ *   sacvoyage-filled-step3     yashil ✓     yashil ✓     yashil ✓
+ *
+ *  ya'ni:  yashil ✓ = bajarilgan · ko'k = ochiq (bosilishi mumkin yoki joriy)
+ *          kulrang  = qulflangan (yaratish oqimida oldinga sakrab bo'lmaydi)
+ *  O'lchangan ranglar: yashil (82,207,95) · ko'k (104,165,219) — bizdagi
+ *  `--nt-step-active: #6da5d4` bilan mos.
+ */
+[data-page="noviy-tavar"] .nt-step:not(.is-locked) .nt-step-dot {
+  background: var(--nt-step-active);
+}
 
 [data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot {
-  background: #22c55e;
+  background: var(--nt-step-done);
   font-size: 0;
 }
 [data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot::after {
@@ -189,18 +248,31 @@
   cursor: not-allowed;
 }
 
-/* «Скрыть подсказки» — qora pill */
+/* «Скрыть подсказки» — och-kulrang, QORA matnli.
+   JONLI O'LCHOV (2026-07-21, seller.uzum.uz): fon #E6E8ED, matn #1F2026,
+   balandlik 39-40px, burchak radiusi ~8px (chap chetdan 1px ichkarida fon
+   4px pastdan boshlanadi -> R=8). Ilgari bu yerda QORA pill turardi — eski
+   referens kadrdan noto'g'ri o'qilgan edi, jonli portalda hech qachon
+   qora bo'lmagan. */
 [data-page="noviy-tavar"] .nt-btn--tips {
-  background: var(--nt-ink);
-  color: #fff;
+  background: var(--nt-tips-bg);
+  color: var(--nt-ink);
   border-radius: var(--nt-radius-control);
+  /* Uzum tugmasi bir xil matnda 189px; bizniki `.nt-btn` ning 20px/8px
+     bilan 178.5px edi. Jonli o'lchov: chap chetdan lampochkagacha 24px,
+     lampochka bilan matn orasi 10px — shu ikkisi farqni roppa-rosa yopadi.
+     Faqat shu tugmaga: `.nt-btn` ning umumiy paddingi tegilmaydi. */
+  padding: 0 24px;
+  gap: 11px;
 }
-[data-page="noviy-tavar"] .nt-btn--tips:hover { background: #33343c; }
+[data-page="noviy-tavar"] .nt-btn--tips:hover { background: var(--nt-tips-bg-h); }
 
-[data-page="noviy-tavar"] .nt-btn--tips .nt-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+/* Uzumdagi belgi — to'ldirilgan lampochka (gumbaz + kichik tsokol).
+   Jonli o'lchov: roppa-rosa 8x10px, matn bilan bir xil rangda. */
+[data-page="noviy-tavar"] .nt-btn--tips .nt-tips-icon {
+  width: 8px;
+  height: 10px;
+  fill: currentColor;
   flex: none;
 }
 
@@ -236,15 +308,37 @@
 
 /* ── Kontent ustuni ────────────────────────────────────────────── */
 
+/* Kenglik — «Поставки» bilan BIR XIL qoida (templates/postavki.html
+   `.pkx-wrap { max-width:none; margin:0 }`): ustun cheklanmaydi, yon
+   bo'shliq base.html'ning `container-fluid px-3` idan keladi.
+   Ilgari `--nt-col-w: 1064px` qotirilgan edi → chetlarda bo'sh joy
+   qolib, 3-qadam jadvali erta kesilib skrollga tushardi. */
 [data-page="noviy-tavar"] .nt-col {
-  width: var(--nt-col-w);
-  max-width: 100%;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 14px 0 40px;
   display: flex;
   flex-direction: column;
   gap: var(--nt-card-gap);
 }
+
+/* Kartalar `.nt-col` ning BEVOSITA bolalari emas — ular `#ntStep1/2/3`
+   o'ramlari ichida yotadi (jonli DOM bilan tasdiqlangan). Shuning uchun
+   `.nt-col { gap }` faqat o'sha uch o'ram orasiga tushardi va kartalar
+   tutash oq maydonga qo'shilib ketardi. Uzumda esa har karta orasida
+   fon rangidagi ajratgich bor (jonli o'lchov: 9px, #F1F1F1). O'ramlarga
+   ham ustun-gap beramiz. */
+[data-page="noviy-tavar"] .nt-col > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nt-card-gap);
+}
+
+/* `display:flex` (muallif uslubi) UA'ning `[hidden]{display:none}` idan
+   USTUN keladi -> yashirin qadamlar ko'rinib qolardi. `.nt-btn[hidden]`
+   uchun shunday himoya allaqachon bor; bu yerda ham aniq qoida shart. */
+[data-page="noviy-tavar"] .nt-col > div[hidden] { display: none; }
 
 [data-page="noviy-tavar"] .nt-card {
   background: var(--nt-card-bg);
@@ -338,6 +432,47 @@
 
 [data-page="noviy-tavar"] .nt-note a { color: var(--nt-violet-ink); }
 
+/* Xususiyat majburiyligi eslatmasi — Saqlash nega o'chiqligi (rang/razmer). */
+/* Uzum'dagi AYNAN inline xato qutisi — majburiy xususiyat to'ldirilmaganda.
+   Rasm-dalil (t9 skrinshoti): och-pushti fon + qizil «!» dumaloq + qatorlardan
+   yuqorida; karta esa qizil ramka oladi (.nt-card.is-invalid). */
+[data-page="noviy-tavar"] .nt-char-req {
+  position: relative;
+  margin: 14px 0;
+  padding: 14px 16px 14px 46px;
+  font-size: var(--nt-fs-body);
+  line-height: 1.45;
+  font-weight: 500;
+  color: #1e2026;
+  background: #fdecee;
+  border-radius: 12px;
+}
+[data-page="noviy-tavar"] .nt-char-req::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 13px;
+  width: 20px;
+  height: 20px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23F5405E'/%3E%3Cpath d='M12 7v6' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='16.5' r='1.2' fill='white'/%3E%3C/svg%3E") no-repeat center / 20px 20px;
+}
+/* Majburiy xato holatida karta qizil ramka oladi (Uzum kabi). */
+[data-page="noviy-tavar"] .nt-card.is-invalid {
+  box-shadow: inset 0 0 0 1.5px #f5405e;
+}
+/* Qorong'i rejim — SAYT temasi (data-bs-theme), OS emas.
+   ⚠️ Ilgari `@media (prefers-color-scheme: dark)` edi: OS qorong'i +
+   sayt yorug' bo'lganda och-pushti matn och-pushti fonda ko'rinmay
+   qolar edi. Tema base.html'da <html data-bs-theme> orqali beriladi.
+
+   ⚠️ Selektor `[data-page="noviy-tavar"]` bilan BOSHLANISHI shart
+   (test_noviy_tavar_scope). Shuning uchun tema shartи `:where()` ichida
+   — u nol xoslik (specificity) qo'shadi, tartib bo'yicha baribir ustun. */
+[data-page="noviy-tavar"]:where([data-bs-theme="dark"] *) .nt-char-req {
+  color: #f6dde1;
+  background: rgba(245, 64, 94, 0.14);
+}
+
 /* ── Form kontrollari ──────────────────────────────────────────── */
 
 [data-page="noviy-tavar"] .nt-label {
@@ -386,6 +521,20 @@
 [data-page="noviy-tavar"] .nt-input:disabled,
 [data-page="noviy-tavar"] .nt-select:disabled { background: #f5f5f7; color: var(--nt-disabled-ink); }
 
+/* ── O'ZGARTIRILMAYDIGAN input (mahsulot SKU'si) ──────────────────
+   ⚠️ BU YERDA ATAYLAB QOIDA YO'Q — va bu tekshirilgan qaror.
+
+   Uzum bu maydonga sof `readonly` beradi (`disabled` EMAS: matn o'qiladi
+   va nusxa olinadi, kulrang bo'lmaydi). Bandlda yangi `u-input`
+   komponentining `readonly` holati uchun BITTA ham uslub qoidasi yo'q —
+   ya'ni ko'rinish o'zgarmaydi, fokus ramkasi ham o'z holicha qoladi.
+   `cursor:not-allowed` topilgan qoidalar ESKI komponentlarniki
+   (`data-v-65bf44cc`, `data-v-7029fe4f`) va bu maydonga tegishli emas.
+
+   Bir vaqtlar shu yerda `cursor:default` + fokus ramkasini o'chirish
+   turgandi — dalilsiz edi, olib tashlandi. Qo'shishdan oldin bandlda
+   `u-input ... readonly` qoidasini toping. */
+
 /* input + hisoblagich */
 [data-page="noviy-tavar"] .nt-input-wrap { position: relative; width: 506px; max-width: 100%; }
 [data-page="noviy-tavar"] .nt-input-wrap .nt-input { padding-right: 56px; }
@@ -399,6 +548,46 @@
   color: var(--nt-ink-muted);
   pointer-events: none;
 }
+
+/* ── Гарантия (в месяцах) ─────────────────────────────────────────
+   Referens (screenshot): kulrang to'ldirilgan input (#f5f5f7), o'ngida
+   kulrang doira ичida × tozalash tugmasi. Kenglik boshqa kontrollar
+   bilan bir xil (506px). */
+[data-page="noviy-tavar"] .nt-warranty-wrap {
+  position: relative;
+  width: 506px;
+  max-width: 100%;
+  margin-top: 16px;
+}
+[data-page="noviy-tavar"] .nt-warranty-input {
+  background: #f5f5f7;
+  border-color: transparent;
+  padding-right: 44px;
+}
+[data-page="noviy-tavar"] .nt-warranty-input:focus {
+  background: #fff;
+}
+[data-page="noviy-tavar"] .nt-warranty-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--nt-ink-placeholder);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+[data-page="noviy-tavar"] .nt-warranty-clear[hidden] { display: none; }
+[data-page="noviy-tavar"] .nt-warranty-clear:hover { background: var(--nt-ink-muted); }
 
 [data-page="noviy-tavar"] .nt-counter--below {
   position: static;
@@ -1507,23 +1696,58 @@
   --nt-neg: #f5222d;          /* manfiy «К выводу» */
 }
 
+/* Uzumda uch abzats ketma-ket qator kabi zich turadi — abzats oralig'i YO'Q
+   (referens kadr: 1-abzatsning oxirgi qatori bilan 2-abzats orasi oddiy
+   qator balandligi). Shuning uchun ichki `p` larga margin bermaymiz. */
 [data-page="noviy-tavar"] .nt-step2-intro {
   margin: 0 0 18px;
   font-size: var(--nt-fs-body);
-  color: var(--nt-ink-muted);
-  line-height: 1.5;
+  /* QORA, kulrang emas — o'lchandi: referens kadrda intro pikselleri rgb(7,0,0)
+     atrofida, ya'ni asosiy matn rangi. Ilgari `--nt-ink-muted` edi. */
+  color: var(--nt-ink);
+  /* Qator oralig'i o'lchandi: intro qatorlari y=237,253,269,285,301,317,333 —
+     roppa-rosa 16px, ya'ni 14px shriftda ~1.14. Ilgari 1.5 (21px) edi. */
+  line-height: 1.15;
 }
 
+[data-page="noviy-tavar"] .nt-step2-intro p { margin: 0; }
+[data-page="noviy-tavar"] .nt-step2-intro b { font-weight: 600; color: var(--nt-ink); }
+
+/* Matn ustuni KARTADAN TOR: o'lchandi — qatorlar x=556..1186 oralig'ida
+   tugaydi (eng uzuni 628px), holbuki karta ichki eni ~1010px. Ya'ni Uzum
+   intro matnini o'qishga qulay tor ustunda beradi. */
+[data-page="noviy-tavar"] .nt-step2-intro { max-width: 640px; }
+
+/* 2-qadamda YUQORI KARTA tor va markazda, JADVAL esa butun kenglikda —
+   o'lchandi (sacvoyage-filled-step2-prices-sku.png, sahifa 1920px):
+   karta x=528..1593 -> 1066px, jadval esa 228..1896 (deyarli to'liq).
+   Shuning uchun cheklovni faqat kartaga beramiz, `.nt-col` ga emas. */
+[data-page="noviy-tavar"] #ntStep2 > .nt-card {
+  max-width: 1064px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* «SKU ДЛЯ НАЗВАНИЯ ТОВАРА» — o'lchandi: bosh harf balandligi 12px (uppercase
+   bo'lgani uchun descender yo'q, ya'ni o'lchov ishonchli) -> ~16px shrift, va
+   rangi rgb(4,0,0), ya'ni QORA. Ilgari 12px/kulrang edi. */
 [data-page="noviy-tavar"] .nt-step2-sub {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
-  color: var(--nt-ink-muted);
+  color: var(--nt-ink);
 }
 
-[data-page="noviy-tavar"] .nt-field--sku { max-width: 520px; }
+/* SKU maydoni karta ichida TO'LIQ enlikda — o'lchandi: input x=556..1556
+   (1000px) karta 528..1593 (1066px) ichida, ya'ni chetlarida faqat karta
+   paddingi qoladi. Ilgari 520px ga qisilgan edi.
+   `.nt-input-wrap` ning 506px qotirilgan eni 1-qadam maydonlari uchun —
+   bu yerda uni ochib yuborish kerak, aks holda input tor qolaveradi. */
+[data-page="noviy-tavar"] .nt-field--sku { max-width: none; }
+[data-page="noviy-tavar"] .nt-field--sku .nt-input-wrap { width: 100%; }
 
 [data-page="noviy-tavar"] .nt-err {
   margin: 6px 0 0;
@@ -1652,6 +1876,38 @@
 
 [data-page="noviy-tavar"] .nt-td-input.has-unit .nt-input--cell { padding-right: 40px; }
 
+/* ── Bo'sh MAJBURIY step-2 katagi («Saqlash va davom etish» dan keyin) ──
+   Uzum: input/MXIK QIZIL ramka + o'ng chekkada qizil «!» doira (foydalanuvchi
+   kadri 2026-07-23). Belgi FAQAT saqlash bosilgach chiqadi, katak to'ldirilishi
+   bilan o'chadi. BANDL: `.u-select-input--error{border:1px solid #E50000}`. */
+[data-page="noviy-tavar"] .nt-td.has-error .nt-input--cell,
+[data-page="noviy-tavar"] .nt-td.has-error .nt-ikpu-btn {
+  border-color: var(--nt-negative);
+}
+
+/* MXIK tugmasi blok-flex — «!» yonida tursin deb xato holatida inline qilamiz. */
+[data-page="noviy-tavar"] .nt-td.has-error[data-field="ikpu"] .nt-ikpu-btn {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+[data-page="noviy-tavar"] .nt-cell-err-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--nt-negative);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
 [data-page="noviy-tavar"] .nt-td-unit {
   position: absolute;
   right: 10px;
@@ -1660,6 +1916,56 @@
   color: var(--nt-ink-placeholder);
   font-size: 13px;
   pointer-events: none;
+}
+
+/* ── Omborda o'lchangan SKU: ko'k ⓘ + qora maslahat ──────────────
+   Uzum tovarni omborga qabul qilib o'lchagach ВГХ ni QULFLAYDI: to'rtala
+   katak `disabled`, o'ng chekkasida ko'k ⓘ, ustiga borilsa qora maslahat.
+
+   BANDL (mf-products, `edit-product-sku-table` + `size-input`):
+     .size-input{position:relative;width:110px}
+     .validation-icon{position:absolute;right:-20px;top:calc(50% + 2px);
+                      transform:translateY(-50%);cursor:pointer}
+   Nishon rangi — dizayn tokeni `IconInfo: "#478eff"` (yorug' mavzu). */
+[data-page="noviy-tavar"] .nt-wms {
+  position: absolute;
+  right: -20px;
+  top: calc(50% + 1px);
+  transform: translateY(-50%);
+  display: flex;
+  cursor: pointer;
+  line-height: 0;
+}
+
+[data-page="noviy-tavar"] .nt-wms:focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+/* Maslahat jadvaldan TASHQARIDA — sahifa ildizining bevosita bolasi
+   (jadval `overflow-x: auto`, ichkarida kesilardi). `position: fixed`
+   ekan, ildizning oqimi unga ta'sir qilmaydi.
+   BANDL `.base-tooltip__content`:
+     padding:8px 12px · background:#1f2026 · color:#fff · border-radius:8px
+     max-width: calc(100vw - 16px) · fade 0.1s */
+[data-page="noviy-tavar"] .nt-wms-tip {
+  position: fixed;
+  z-index: 1200;
+  max-width: calc(100vw - 16px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #1f2026;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: none;
+  animation: nt-wms-fade 0.1s;
+}
+
+@keyframes nt-wms-fade {
+  from { opacity: 0; margin-top: -10px; }
+  to   { opacity: 1; margin-top: 0; }
 }
 
 /* ── ⚡ bulk-fill ─────────────────────────────────────────────── */
@@ -1722,18 +2028,37 @@
 }
 
 [data-page="noviy-tavar"] .nt-ikpu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--nt-line-input);
   border-radius: 8px;
   background: var(--nt-card-bg);
   padding: 8px 10px;
-  min-width: 150px;
-  text-align: left;
+  min-width: 160px;
+  max-width: 200px;
   font-size: 13px;
   color: var(--nt-ink);
   cursor: pointer;
 }
 
-[data-page="noviy-tavar"] .nt-ikpu-btn.is-empty { color: var(--nt-ink-placeholder); }
+[data-page="noviy-tavar"] .nt-ikpu-btn-t {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-btn-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--nt-ink-placeholder);
+}
+
+[data-page="noviy-tavar"] .nt-ikpu-btn.is-empty .nt-ikpu-btn-t { color: var(--nt-ink-placeholder); }
 
 [data-page="noviy-tavar"] .nt-ikpu-btn:disabled {
   background: var(--nt-disabled-bg);
@@ -1784,17 +2109,14 @@
   font-size: var(--nt-fs-body);
 }
 
-/* Bajarilgan qadam — header nishoni */
-[data-page="noviy-tavar"] .nt-step.is-done .nt-step-dot {
-  background: var(--nt-step-active);
-  color: #fff;
-}
+/* ⚠️ BU YERDA ILGARI «bajarilgan qadam = KO'K» qoidasi turgan edi va u
+   yuqoridagi yashil qoidani bekor qilardi. Referens kadrlar buni RAD ETDI
+   (uchta kadr, piksel bilan o'lchangan) — qoida `.nt-step-dot` blokida. */
 
 /* ── ⓘ maslahat nishoni ──────────────────────────────────────────
-   Referensda jadval sarlavhasidagi ⓘ — KULRANG, to'ldirilgan doira
-   (qator ichidagi o'lchov ⓘ si esa KO'K — u boshqa komponent,
-   `dim_range` chegara maslahati; u BU YERDA QILINMAGAN, chunki min/max
-   alohida endpointdan keladi). */
+   Referensda jadval sarlavhasidagi ⓘ — KULRANG, to'ldirilgan doira.
+   Qator ichidagi o'lchov ⓘ si esa KO'K va boshqa komponent — u
+   `.nt-wms` (omborda o'lchangan SKU), shu faylda yuqorida. */
 [data-page="noviy-tavar"] .nt-hint {
   display: inline-block;
   margin-left: 5px;
@@ -1819,6 +2141,18 @@
   color: var(--nt-ink-muted);
   font-size: var(--nt-fs-body);
   line-height: 1.5;
+}
+
+/* Kirish kartasi jadvaldan TOR — referens kadrdan piksel bo'yicha o'lchandi
+   (sacvoyage-filled-step3-properties.png, 2400px kenglikdagi viewport):
+     · sahifa foni  #f1f1f1, kartalar oq
+     · kontent maydoni x=228..1895 (1668px)
+     · kirish kartasi x=230..1044 -> KENGLIGI 815px
+     · karta bilan jadval orasi 24px (y=264..287)
+   Ilgari karta jadval kabi to'liq kenglikda edi. */
+[data-page="noviy-tavar"] #ntStep3 > .nt-card {
+  max-width: 815px;
+  margin-bottom: 24px;
 }
 
 /* SKU yo'q ekrani — markazlashtirilgan bo'sh holat (Uzumdek). */
@@ -1853,8 +2187,88 @@
 
 [data-page="noviy-tavar"] .nt-s3-forbidden .nt-btn { margin-top: 8px; }
 
-/* Atribut jadvali — sarlavha va kataklar. */
-[data-page="noviy-tavar"] .nt-s3-th { vertical-align: top; }
+/* Atribut jadvali — sarlavha va kataklar.
+ *
+ * ⚠️ 3-QADAM SARLAVHASI 2-QADAMNIKIDAN BOSHQA (referens kadr + bandl CSS):
+ *   · foni OQ (kulrang band emas) — piksel: (1200,300) = #ffffff
+ *   · matni QORA, `font-weight: 500` (bandl `.attribute-header__text`)
+ *   · KO'P QATORGA o'ralади (bandl `white-space: wrap`) — «Объем встроенной
+ *     памяti» uch qatorda turadi; `nowrap` bilan jadval cho'zilib ketardi
+ *   · ustun eng kami 180px (bandl `.attribute-header{min-width:180px}`)
+ *   · majburiy `*` QIZIL (bandl `.attribute-header__required{color:red}`)
+ */
+/* ⚠️ Selektor JADVAL bo'yicha — birinchi ustun sarlavhasi («Tovar») `.nt-s3-th`
+   sinfini olmaydi (u `.nt-th--sticky`), shuning uchun u kulrang bo'lib qolgan
+   edi: jonli kadrda bitta kulrang katak butun qatordan ajralib turardi. */
+[data-page="noviy-tavar"] .nt-s3-tbl .nt-th {
+  vertical-align: middle;
+  background: #fff;
+  color: var(--nt-ink);
+  font-weight: 500;
+  white-space: normal;
+  min-width: 180px;
+  padding: 18px 12px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-th .nt-req { color: red; font-weight: 500; }
+
+/* Qator o'lchovlari — referensdan o'lchandi: qator chizig'i har 81px
+   (y=374, 455, 536, 617, 698), boshqaruv balandligi 42px (394..435),
+   ya'ni ustki/ostki bo'shliq 20px. Bizda qator 62px edi — jadval Uzumnikidan
+   zichroq ko'rinardi. */
+[data-page="noviy-tavar"] .nt-s3-td { padding: 20px 12px; }
+
+/* «Tovar» ustuni — referensda x=230..418, ya'ni 188px. Bizda u kontentga
+   qarab kengayib ketardi (~270px) va SKU bir qatorga sig'ib qolardi;
+   Uzumda esa SKU IKKI QATORGA o'raladi («SMART01-СИНИЙ»). */
+[data-page="noviy-tavar"] .nt-s3-tbl .nt-th--sticky,
+[data-page="noviy-tavar"] .nt-s3-tbl .nt-td--sticky {
+  width: 188px;
+  max-width: 188px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-tbl .nt-s3-prod-top,
+[data-page="noviy-tavar"] .nt-s3-tbl .nt-s3-prod-sub {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
+/* Sarlavha ichi — yorliq chapda, ommaviy-tahrir nishoni o'ngda.
+   BANDL `.attribute-header{display:flex;align-items:center;gap:8px;
+   width:100%;min-width:180px}` — nishon ko'p qatorli sarlavhaga nisbatan
+   vertikal MARKAZDA. */
+[data-page="noviy-tavar"] .nt-s3-th-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+[data-page="noviy-tavar"] .nt-s3-th-lab { min-width: 0; }
+
+/* ⚠️ Saralash EMAS — «Ommaviy tahrirlash» modalini ochadi (bandl
+   `attribute-header` -> `attribute-bulk-modal`, `data-v-12137e6d`).
+   Nishon rangi bandlda `--icon-tertiary-filled, #b4b7bf`; bizda referens
+   kadrdan o'lchangan --nt-sort-icon (#ACACAC) saqlab qolindi. */
+[data-page="noviy-tavar"] .nt-s3-bulk-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--nt-sort-icon);
+  cursor: pointer;
+}
+
+[data-page="noviy-tavar"] .nt-s3-bulk-btn:hover { color: var(--nt-ink-muted); }
+[data-page="noviy-tavar"] .nt-s3-bulk-btn:focus-visible {
+  outline: 2px solid var(--nt-violet-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 [data-page="noviy-tavar"] .nt-s3-th-sub {
   display: block;
@@ -1866,34 +2280,228 @@
 
 [data-page="noviy-tavar"] .nt-s3-td { min-width: 200px; }
 
-[data-page="noviy-tavar"] .nt-s3-prod-top { color: var(--nt-ink); }
+/* ── Bo'sh MAJBURIY katak («Yakunlash» dan keyin) ─────────────────
+   BANDL: `.u-select-input--error{border:1px solid var(--border-negative,
+   #E50000)}`; matn `common.validation.required_field` («Обязательное поле»)
+   boshqaruv OSTIDA, qizil, kichik shriftda (foydalanuvchi kadri 2026-07-22).
+   ⚠️ Bu holat FAQAT «Yakunlash» bosilgandan keyin chiqadi. */
+[data-page="noviy-tavar"] .nt-s3-td.has-error .nt-s3-combo,
+[data-page="noviy-tavar"] .nt-s3-td.has-error .nt-input {
+  border-color: var(--nt-negative);
+}
 
-/* Enum combosi — katak ichidagi ochiluvchi tugma. */
-[data-page="noviy-tavar"] .nt-s3-combo {
+[data-page="noviy-tavar"] .nt-s3-cell-err {
   display: block;
-  width: 100%;
-  min-width: 180px;
-  height: var(--nt-control-h);
-  padding: 0 12px;
-  background: #fff;
-  border: 1px solid var(--nt-line-input);
-  border-radius: var(--nt-radius-control);
-  font: inherit;
-  font-size: var(--nt-fs-body);
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--nt-negative);
+}
+
+/* ── «Ommaviy tahrirlash» modali ─────────────────────────────────
+   Kenglik 600px — foydalanuvchi kadridan o'lchandi (x=408..1008).
+   Bandl: `__header-text{flex-direction:column;gap:4px}`,
+          `__close-button{margin-left:auto}`,
+          `__body{display:flex;flex-direction:column;gap:12px}`,
+          `__actions{justify-content:flex-end;gap:8px}`. */
+[data-page="noviy-tavar"] .nt-modal--bulk { width: 600px; }
+
+[data-page="noviy-tavar"] .nt-modal--bulk .nt-modal-head {
+  align-items: flex-start;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+[data-page="noviy-tavar"] .nt-s3-bulk-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+[data-page="noviy-tavar"] .nt-s3-bulk-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--nt-ink-muted);
+}
+
+[data-page="noviy-tavar"] .nt-s3-bulk-field { padding: 20px 0 4px; }
+
+/* Bandl `__actions{justify-content:flex-end;gap:8px}` — IKKALA tugma ham
+   o'ngda (umumiy .nt-modal-foot esa space-between). «Bekor qilish» —
+   `variant:"secondary-neutral"`, ya'ni kulrang to'ldirilgan tugma
+   (foydalanuvchi kadri 2026-07-22), matnli havola EMAS. */
+[data-page="noviy-tavar"] .nt-modal--bulk .nt-modal-foot {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+[data-page="noviy-tavar"] .nt-modal--bulk .nt-btn--ghost {
+  padding: 0 20px;
+  border-radius: 10px;
+  background: #f1f2f4;
   color: var(--nt-ink);
-  text-align: left;
+}
+
+[data-page="noviy-tavar"] .nt-modal--bulk .nt-btn--ghost:hover { background: #e6e8ec; }
+
+/* Modal ichидagi boshqaruv — jadvaldagining AYNAN o'zi, faqat to'liq kenglikda. */
+[data-page="noviy-tavar"] .nt-s3-bulk-field .nt-s3-combo,
+[data-page="noviy-tavar"] .nt-s3-bulk-field .nt-input,
+[data-page="noviy-tavar"] .nt-s3-bulk-field .nt-s3-num { width: 100%; }
+
+/* Mahsulot katagi — Uzumdek: rasm + rang nomi + skuTitle. */
+[data-page="noviy-tavar"] .nt-s3-prod {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+[data-page="noviy-tavar"] .nt-s3-prod-img {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--nt-img-empty);
+  border: 1px solid var(--nt-row-line);
+}
+[data-page="noviy-tavar"] .nt-s3-prod-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+[data-page="noviy-tavar"] .nt-s3-prod-top {
+  display: block;
+  color: var(--nt-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+[data-page="noviy-tavar"] .nt-s3-prod-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--nt-ink-placeholder);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Enum combosi — Uzum dropdowni: chip/qiymat + chevron. Ko'p-qiymatда
+   balandligi chip'lar bilan o'sadi (shuning uchun min-height + wrap). */
+[data-page="noviy-tavar"] .nt-s3-combo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 180px;
+  /* Referens: dropdown balandligi 42px (yuqori chegara y=394, pastki y=435) */
+  min-height: 42px;
+  /* Bandl: `.u-select-input{border-radius: var(--rounding-150, 10px)}` —
+     bizdagi umumiy 8px emas, aynan 10px. */
+  border-radius: 10px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid var(--nt-line-input);
+  border-radius: var(--nt-radius-control);
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+  text-align: left;
   cursor: pointer;
 }
 
-[data-page="noviy-tavar"] .nt-s3-combo.is-placeholder { color: var(--nt-ink-placeholder); }
+[data-page="noviy-tavar"] .nt-s3-combo-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+[data-page="noviy-tavar"] .nt-s3-combo-val {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-page="noviy-tavar"] .nt-s3-combo-ph { color: var(--nt-ink-placeholder); }
+
+[data-page="noviy-tavar"] .nt-s3-combo-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--nt-ink-placeholder);
+}
+
+/* Ochiq holat — referens kadrdan piksel bo'yicha:
+     · ichi KULRANG #f5f5f5 (yopiqda oq #fff) — (470,400) namunasi
+     · chegara QORA #222226 — (468,395) namunasi
+     · atrofida KO'K fokus halqasi (bandl `--border-focus: #70b5ff`)
+     · chevron teskari buriladi (∨ -> ∧) */
+[data-page="noviy-tavar"] .nt-s3-combo.is-open {
+  background: #f5f5f5;
+  border-color: #222226;
+  box-shadow: 0 0 0 3px rgba(112, 181, 255, .45);
+}
+
+[data-page="noviy-tavar"] .nt-s3-combo.is-open .nt-s3-combo-caret {
+  transform: rotate(180deg);
+}
+
+/* Tugma ichidagi filtr inputi — ramkasiz, tugmaning o'zidek ko'rinadi. */
+[data-page="noviy-tavar"] .nt-s3-combo-filter {
+  flex: 1 1 60px;
+  min-width: 60px;
+  border: 0;
+  outline: none;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--nt-fs-body);
+  color: var(--nt-ink);
+}
 
 [data-page="noviy-tavar"] .nt-s3-combo:focus-visible {
   outline: 2px solid var(--nt-violet-ink);
   outline-offset: 1px;
 }
+
+/* Ko'p-qiymat chipi — Женский ✕. */
+[data-page="noviy-tavar"] .nt-s3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  background: var(--nt-chip-bg);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--nt-ink);
+}
+[data-page="noviy-tavar"] .nt-s3-chip-t {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-page="noviy-tavar"] .nt-s3-chip-x {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--nt-chip-x);
+  color: #fff;
+  cursor: pointer;
+}
+[data-page="noviy-tavar"] .nt-s3-chip-x:hover { background: var(--nt-chip-x-h); }
 
 /* Numerik katak — birlik qo'shimchasi bilan. */
 [data-page="noviy-tavar"] .nt-s3-num {
@@ -1917,51 +2525,88 @@
   pointer-events: none;
 }
 
-/* Boolean — «Ha / Yoʻq» segmentli tugma. */
-[data-page="noviy-tavar"] .nt-s3-bool {
-  display: inline-flex;
-  border: 1px solid var(--nt-line-input);
-  border-radius: var(--nt-radius-control);
-  overflow: hidden;
-}
+/* ⚠️ «Ha | Yoʻq» SEGMENTLI TUGMA OLIB TASHLANDI (2026-07-22).
+   Uzumda mantiqiy atribut ham oddiy dropdown: bandl `BooleanField`
+   (mf-products @2022149) u-select'ni [Ha / Yoʻq / —] variantlari bilan
+   chizadi. Segment tugma butun jadvalni Uzumnikidan farqli qilib turardi. */
 
-[data-page="noviy-tavar"] .nt-s3-bool-btn {
-  border: 0;
-  background: #fff;
-  padding: 0 16px;
-  height: var(--nt-control-h);
-  font: inherit;
-  font-size: var(--nt-fs-body);
-  color: var(--nt-ink);
-  cursor: pointer;
-}
-
-[data-page="noviy-tavar"] .nt-s3-bool-btn + .nt-s3-bool-btn { border-left: 1px solid var(--nt-line-input); }
-
-[data-page="noviy-tavar"] .nt-s3-bool-btn.is-on {
-  background: var(--nt-violet-ink);
+/* Qatordagi xato nishoni — bandl `sku-errors-hint`:
+     .sku-errors-hint__icon{width:16px;height:16px;color:#e53e3e;cursor:pointer;
+                            animation: pulse 2s ease-in-out infinite}
+   Referens kadrda har qatorning SKU matnidan keyin turadi (qizil doira «!»). */
+[data-page="noviy-tavar"] .nt-s3-err {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #e53e3e;
   color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  cursor: help;
+  animation: nt-s3-err-pulse 2s ease-in-out infinite;
 }
+
+@keyframes nt-s3-err-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-page="noviy-tavar"] .nt-s3-err { animation: none; }
+}
+
+/* «Chuqur tahrir» yuklagichi (⋮-menyudan 2/3-qadam ochilganda 1-qadam o'rniga).
+   Flash oldini oladi: karta yuklanguncha markazda spinner ko'rinadi. */
+[data-page="noviy-tavar"] .nt-edit-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 320px;
+  color: var(--nt-muted, #6b7280);
+  font-size: 15px;
+}
+[data-page="noviy-tavar"] .nt-edit-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid var(--nt-border, #e5e7eb);
+  border-top-color: var(--nt-accent, #7c3aed);
+  animation: nt-edit-spin .7s linear infinite;
+}
+@keyframes nt-edit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-page="noviy-tavar"] .nt-edit-spinner { animation-duration: 1.6s; }
+}
+
 
 /* Enum dropdown popoveri (bitta nusxa, JS ko'chiradi). */
 [data-page="noviy-tavar"] .nt-s3-pop {
   position: absolute;
-  z-index: 60;
+  /* ⚠️ Modal ustidan: xuddi shu dropdown «Ommaviy tahrirlash» modalining
+     ichida ham ochiladi (.nt-modal-overlay z-index:1000). */
+  z-index: 1100;
   background: var(--nt-card-bg);
-  border: 1px solid var(--nt-line);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
-  padding: 12px;
-  width: 300px;
+  /* Referens (…step3-operating-system-dropdown.png): panel TUGMA KENGLIGIDA,
+     yumshoq soya bilan, ramkasi deyarli ko'rinmaydi va burchagi ~12px.
+     Kengligini JS tugmadan o'lchab beradi (minWidth). */
+  border: 1px solid #eceef2;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(31, 32, 38, .16);
+  padding: 6px;
   max-width: 90vw;
 }
 
 [data-page="noviy-tavar"] .nt-s3-pop[hidden] { display: none; }
 
 [data-page="noviy-tavar"] .nt-s3-pop-list {
-  max-height: 280px;
+  /* Bandl: `.u-select__options-list{max-height:244px}` */
+  max-height: 244px;
   overflow-y: auto;
-  margin-top: 10px;
 }
 
 [data-page="noviy-tavar"] .nt-s3-opt {
@@ -1991,3 +2636,46 @@
   color: var(--nt-ink-placeholder);
   font-size: 13px;
 }
+
+/* ════════════════════════════════════════════════════════════════
+ *  MAXSUS («custom») xususiyat — «Добавить новую характеристику»
+ *  Uzum bandli: ro'yxatning OXIRGI qatori oddiy element ko'rinishida
+ *  (alohida rang/ikonka YO'Q — kadrda ham shunday), modal esa
+ *  `new-char-popup`: sarlavha + 2 ta maydon + [Отмена][Сохранить].
+ * ════════════════════════════════════════════════════════════════ */
+
+/* Ro'yxatdagi «yangi xususiyat» qatori — ustidagilardan ingichka chiziq
+   bilan ajraladi (kadr: qiymatlardan keyin turadi). */
+[data-page="noviy-tavar"] .nt-panel-item--new {
+  border-top: 1px solid var(--nt-list-line);
+}
+
+/* Modal — mavjud .nt-modal tokenlaridan foydalanadi, faqat tanasi
+   maydonlar uchun biroz bo'shroq. */
+[data-page="noviy-tavar"] .nt-modal--newchar .nt-modal-body {
+  padding: 20px 24px 4px;
+}
+
+[data-page="noviy-tavar"] .nt-input.is-invalid {
+  border-color: var(--nt-req);
+}
+
+/* Maxsus xususiyat QIYMATLARI — uz/ru juftligi (bandl `X()`: har qiymat
+   ikkala tilda bo'lishi shart). */
+[data-page="noviy-tavar"] .nt-cval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 0;
+}
+[data-page="noviy-tavar"] .nt-cval + .nt-cval {
+  border-top: 1px solid var(--nt-list-line);
+}
+
+[data-page="noviy-tavar"] .nt-cval-f { flex: 1 1 200px; min-width: 0; }
+
+[data-page="noviy-tavar"] .nt-cval-del { flex: 0 0 auto; }
+
+/* Xato matni butun qator eniga tushsin (flex bolasi sifatida). */
+[data-page="noviy-tavar"] .nt-cval .nt-err { flex: 1 1 100%; }

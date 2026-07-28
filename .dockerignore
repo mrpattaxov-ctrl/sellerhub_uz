@@ -1,6 +1,12 @@
 __pycache__
 *.pyc
 data/
+artifacts/
+.uicheck/
+tests/fixtures/
+gp.json
+*.har
+node_modules/
 .env
 .git
 *.db

@@ -94,10 +94,24 @@ def _portal_error(e: NoviyTavarError):
 def noviy_tavar_page():
     lang = session.get("lang", "uz")
     shops = _user_shops()
+    # «Chuqur tahrir»: mavjud kartani 2/3-qadamdan ochish (⋮-menyu). Bu holda
+    # 1-qadam BUTUNLAY yashiriladi va o'rniga yuklagich ko'rsatiladi — aks holda
+    # 1-qadam formasi «yonib» keyin kerakli qadamga sakrardi (flash; foydalanuvchi
+    # shikoyati 2026-07-26). Server-tomon yashirish = flash umuman bo'lmaydi.
+    try:
+        _pid = int(request.args.get("productId") or 0)
+    except (TypeError, ValueError):
+        _pid = 0
+    try:
+        _step = int(request.args.get("step") or 0)
+    except (TypeError, ValueError):
+        _step = 0
+    deep_edit = _pid > 0 and _step in (2, 3)
     return render_template(
         "noviy_tavar.html",
         title="Yangi tovar" if lang == "uz" else "Новый товар",
         shops=shops,
+        deep_edit=deep_edit,
     )
 
 
@@ -367,6 +381,88 @@ def nt_get_product():
     })
 
 
+@noviy_tavar_bp.get("/noviy-tavar/api/load-product")
+@login_required
+def nt_load_product():
+    """1-QADAM tahrirlash uchun mavjud karta — `get_product` javobini
+    `restoreDraft` iste'mol qiladigan «draft» shakliga xaritalaydi.
+    «Umumiy ta'rifni o'zgartirish» (karta ⋮-menyusi) shu bilan 1-qadamni
+    to'ldiradi. FAQAT O'QISH — hech narsa yozilmaydi.
+
+    Xaritalash (get_product → draft): jonli o'lchangan shakldan (2026-07-25):
+      title{uz,ru}, shortDescription{uz,ru}, description{uz,ru},
+      category{id,parent…} → catPath (ildizdan bargга title'lar),
+      productFields{WARRANTY}, productImages[{key,url}],
+      filters[{id,values[{id,title}]}] → [{fid,text,id}],
+      definedCharacteristics[{characteristicId, characteristicValues[
+        {title{uz,ru},value,skuValue}]}] → rows[{id,selected[{uz,ru,value,skuValue}]}].
+    """
+    shop, err = _shop_or_403()
+    if err:
+        return err
+    try:
+        pid = int(request.args.get("productId") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if pid <= 0:
+        return jsonify({"error": "productId kerak"}), 400
+    try:
+        r = client.get_product(shop, pid, lang=_lang())
+    except NoviyTavarError as e:
+        return _portal_error(e)
+
+    title = r.get("title") or {}
+    short = r.get("shortDescription") or {}
+    desc = r.get("description") or {}
+    cat = r.get("category") or {}
+
+    # Kategoriya yo'li: parent zanjiri bargдан ildizga — teskari qilamiz.
+    path, node = [], cat
+    seen = 0
+    while node and seen < 12:            # zanjir uzilmasa ham cheksiz aylanmasin
+        t = node.get("title")
+        if t:
+            path.append(t)
+        node = node.get("parent")
+        seen += 1
+    path.reverse()                        # [ildiz … barg]
+
+    images = [{"key": im.get("key"), "url": im.get("url")}
+              for im in (r.get("productImages") or []) if im.get("key")]
+
+    filters = []
+    for f in (r.get("filters") or []):
+        for v in (f.get("values") or []):
+            if v.get("id") is None:
+                continue
+            filters.append({"fid": f.get("id"),
+                            "text": v.get("title") or v.get("value") or "",
+                            "id": v.get("id")})
+
+    rows = []
+    for dc in (r.get("definedCharacteristics") or []):
+        sel = []
+        for v in (dc.get("characteristicValues") or []):
+            t = v.get("title") or {}
+            sel.append({"uz": t.get("uz") or "", "ru": t.get("ru") or "",
+                        "value": v.get("value"), "skuValue": v.get("skuValue")})
+        rows.append({"id": dc.get("characteristicId"), "selected": sel, "custom": None})
+
+    warranty = (r.get("productFields") or {}).get("WARRANTY")
+    return jsonify({
+        "categoryId": cat.get("id"),
+        "catPath": path,
+        "titleUz": title.get("uz") or "", "titleRu": title.get("ru") or "",
+        "shortUz": short.get("uz") or "", "shortRu": short.get("ru") or "",
+        "descUz": desc.get("uz") or "", "descRu": desc.get("ru") or "",
+        "warranty": str(warranty) if warranty not in (None, "") else "",
+        "productFields": r.get("productFields") or {},
+        "images": images,
+        "filters": filters,
+        "rows": rows,
+    })
+
+
 @noviy_tavar_bp.get("/noviy-tavar/api/ikpu-search")
 @login_required
 def nt_ikpu_search():
@@ -496,17 +592,15 @@ def nt_commission():
     ]})
 
 
-@noviy_tavar_bp.post("/noviy-tavar/api/create")
-@login_required
-def nt_create():
-    """QORALAMA yaratish — createProduct (moderatsiyaga O'ZI KETMAYDI)."""
-    body = request.get_json(silent=True) or {}
-    shop = str(body.get("shop") or "").strip()
-    if not shop:
-        return jsonify({"error": "shop kerak"}), 400
-    if not _can_access(shop):
-        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+def _card_form_kwargs(body: dict):
+    """1-qadam formasini tekshiradi va `build_create_body` kwargs'ini qaytaradi.
 
+    Yaratish (`createProduct`) va yangilash (`editProduct`) AYNAN bitta tanani
+    yuboradi (Uzum bandli ham shunday) — shuning uchun validatsiya ham,
+    tana qurish ham shu yagona joyda.
+
+    Qaytaradi: ``(kwargs, None)`` yoki ``(None, (javob, status))``.
+    """
     # Server-side minimal validatsiya (brauzer validatsiyasiga ishonmaymiz).
     try:
         cid = int(body.get("categoryId") or 0)
@@ -516,12 +610,41 @@ def nt_create():
     title_ru = str(body.get("titleRu") or "").strip()
     images = body.get("images") or []
     if not cid:
-        return jsonify({"error": "Kategoriya tanlanmagan"}), 400
+        return None, (jsonify({"error": "Kategoriya tanlanmagan"}), 400)
     if not (title_uz or title_ru):
-        return jsonify({"error": "Nomi kiritilmagan"}), 400
+        return None, (jsonify({"error": "Nomi kiritilmagan"}), 400)
     if not isinstance(images, list) or not any(
             isinstance(im, dict) and im.get("key") for im in images):
-        return jsonify({"error": "Kamida bitta rasm yuklang"}), 400
+        return None, (jsonify({"error": "Kamida bitta rasm yuklang"}), 400)
+    # «≤2 xususiyat» darvozasi — brauzer cap'iga ISHONMAYMIZ (write endpoint).
+    # JONLI dalil (2026-07-19): qiymatli defined-char soni >2 bo'lsa Uzum
+    # createProduct'ni `validation-failed-001` bilan rad etadi (Uzum SKU =
+    # 2-o'lchovli matritsa). TUR AHAMIYATSIZ — sof son, rang ham sanaladi;
+    # bitta xususiyat ichida ko'p qiymat normal —
+    # [[project_noviy_tavar_size_constraint]].
+    if client.filled_characteristic_count(body.get("characteristics")) > 2:
+        return None, (jsonify({"error": "Ko'pi bilan 2 ta xususiyat tanlash mumkin "
+                                        "(masalan rang + o'lcham) — Uzum ko'pini rad etadi"}), 400)
+    # «maks. 3 maxsus xususiyat» — brauzer cap'iga ishonmaymiz (write endpoint).
+    # Bandl dalili: saqlashda `customCharacteristics.length > 3` bo'lsa
+    # editProductCard.errors.limiting_number_of_custom_characteristics chiqadi.
+    _custom = [c for c in (body.get("characteristics") or [])
+               if isinstance(c, dict) and c.get("custom") and (c.get("values") or [])]
+    if len(_custom) > 3:
+        return None, (jsonify({"error": "Foydalanuvchi xususiyatlarining maksimal soni "
+                                        "3 ta bo'lishi mumkin"}), 400)
+    # Гарантия (WARRANTY) — brauzer cap'iga ishonmaymiz (write endpoint).
+    # Bandl `o()`: 0 → value_cannot_be_zero; <6 → warranty_min_months.
+    # Bo'sh/yo'q — ixtiyoriy (qonun bo'yicha 6 bo'ladi), tekshirilmaydi.
+    _pf = body.get("productFields") or {}
+    if isinstance(_pf, dict) and _pf.get("WARRANTY") not in (None, ""):
+        try:
+            _w = int(_pf.get("WARRANTY"))
+        except (TypeError, ValueError):
+            _w = None
+        if _w is not None and _w < 6:
+            return None, (jsonify({"error": "Kafolat muddati kamida 6 oy bo'lishi kerak"}), 400)
+
     # Bir til bo'sh bo'lsa ikkinchisidan nusxa (portal ikkalasini kutadi).
     title_uz = title_uz or title_ru
     title_ru = title_ru or title_uz
@@ -536,30 +659,55 @@ def nt_create():
 
     care_uz = str(body.get("careUz") or "").strip()
     care_ru = str(body.get("careRu") or "").strip()
-    create_body = client.build_create_body(
-        category_id=cid,
-        title_uz=title_uz, title_ru=title_ru,
-        short_uz=short_uz, short_ru=short_ru,
-        desc_uz=desc_uz, desc_ru=desc_ru,
-        filter_values_sel=body.get("filterValues") or [],
-        characteristics_sel=body.get("characteristics") or [],
-        images=images,
-        product_fields=body.get("productFields") or {},
-        desc_is_html=bool(body.get("descIsHtml")),
-        color_images=body.get("colorImages") or [],
-        color_videos=body.get("colorVideos") or [],
-        color_collections=body.get("colorCollections") or [],
-        video=body.get("video") or None,
-        image_collection=body.get("imageCollection") or None,
-        care_uz=care_uz, care_ru=care_ru,
-        certificates=body.get("certificates") or [],
+    return {
+        "category_id": cid,
+        "title_uz": title_uz, "title_ru": title_ru,
+        "short_uz": short_uz, "short_ru": short_ru,
+        "desc_uz": desc_uz, "desc_ru": desc_ru,
+        "filter_values_sel": body.get("filterValues") or [],
+        "characteristics_sel": body.get("characteristics") or [],
+        "images": images,
+        "product_fields": body.get("productFields") or {},
+        "desc_is_html": bool(body.get("descIsHtml")),
+        "color_images": body.get("colorImages") or [],
+        "color_videos": body.get("colorVideos") or [],
+        "color_collections": body.get("colorCollections") or [],
+        "video": body.get("video") or None,
+        "image_collection": body.get("imageCollection") or None,
+        "care_uz": care_uz, "care_ru": care_ru,
+        "certificates": body.get("certificates") or [],
         # Ixtiyoriy bo'limlar (Состав/Размеры/Инструкция/Сертификация).
         # Brauzer yubormasa None -> eski care-only xatti-harakat saqlanadi.
-        comments_sel=body.get("comments") if isinstance(body.get("comments"), list) else None,
-    )
+        "comments_sel": (body.get("comments")
+                         if isinstance(body.get("comments"), list) else None),
+    }, None
+
+
+@noviy_tavar_bp.post("/noviy-tavar/api/create")
+@login_required
+def nt_create():
+    """QORALAMA yaratish — createProduct (moderatsiyaga O'ZI KETMAYDI)."""
+    body = request.get_json(silent=True) or {}
+    shop = str(body.get("shop") or "").strip()
+    if not shop:
+        return jsonify({"error": "shop kerak"}), 400
+    if not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+
+    kwargs, err = _card_form_kwargs(body)
+    if err:
+        return err
+    title_uz = kwargs["title_uz"]
+    create_body = client.build_create_body(**kwargs)
     try:
         res = client.create_product(shop, create_body)
     except NoviyTavarError as e:
+        # Uzum 400'ini tushunarli xabarga o'giramiz (forbidden/missed/filtr/…).
+        # Noma'lum kod bo'lsa xabar '' — eski _portal_error (502) ishlaydi.
+        if e.http_status == 400:
+            code, msg = client.explain_create_error(e.body)
+            if msg:
+                return jsonify({"error": msg, "code": code}), 400
         return _portal_error(e)
 
     pid = res.get("id") if isinstance(res, dict) else None
@@ -569,6 +717,58 @@ def nt_create():
         "title": res.get("title") if isinstance(res, dict) else None,
         "skuTitlePrefix": res.get("shopSkuTitle") if isinstance(res, dict) else None,
     }), 201
+
+
+@noviy_tavar_bp.post("/noviy-tavar/api/update")
+@login_required
+def nt_update():
+    """MAVJUD kartani yangilash — editProduct (**YOZUVCHI**).
+
+    Nega alohida yo'nalish: foydalanuvchi 3-qadamdan 1-qadamga qaytib
+    «Saqlash» bosganda `createProduct` yuborilsa, Uzumda IKKINCHI karta
+    paydo bo'ladi. Bandl ham shu joyda ikkiga bo'linadi:
+    ``isEdit ? editProduct(...) : createProduct(...)``.
+
+    `skuList` va moderatsiya izlari joriy kartadan ko'chiriladi — shuning
+    uchun oldin `get_product` bilan uni O'QIYMIZ (bir so'rov, bandl uchun
+    bu store'dagi tayyor obyekt edi).
+    """
+    body = request.get_json(silent=True) or {}
+    shop = str(body.get("shop") or "").strip()
+    if not shop:
+        return jsonify({"error": "shop kerak"}), 400
+    if not _can_access(shop):
+        return jsonify({"error": "Do'kon topilmadi yoki ruxsat yo'q"}), 403
+    try:
+        pid = int(body.get("productId") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if pid <= 0:
+        return jsonify({"error": "productId kerak"}), 400
+
+    kwargs, err = _card_form_kwargs(body)
+    if err:
+        return err
+
+    try:
+        # Karta SHU do'konga tegishlimi — Uzumning o'zi hal qiladi: begona
+        # do'kon mahsuloti bo'lsa bu chaqiruv xato beradi (guard shu).
+        current = client.get_product(shop, pid, lang=_lang())
+        edit_body = client.build_edit_body(product_id=pid, current=current, **kwargs)
+        res = client.edit_product(shop, edit_body)
+    except NoviyTavarError as e:
+        if e.http_status == 400:
+            code, msg = client.explain_create_error(e.body)
+            if msg:
+                return jsonify({"error": msg, "code": code}), 400
+        return _portal_error(e)
+
+    print(f"[NoviyTavar] UPDATED product id={pid} shop={shop} "
+          f"title={kwargs['title_uz']!r} skus={len(current.get('skuList') or [])}")
+    return jsonify({
+        "id": (res.get("id") if isinstance(res, dict) else None) or pid,
+        "title": res.get("title") if isinstance(res, dict) else None,
+    })
 
 
 @noviy_tavar_bp.post("/noviy-tavar/api/send-sku")
@@ -630,6 +830,12 @@ def nt_send_sku():
     try:
         res = client.send_sku_data(shop, sku_body)
     except NoviyTavarError as e:
+        # sendSkuData 400 shakli createProduct bilan bir xil ({errors:[{code}]}) —
+        # o'lchovsiz SKU `weight-and-size-characteristics-required-error` beradi.
+        if e.http_status == 400:
+            code, msg = client.explain_create_error(e.body)
+            if msg:
+                return jsonify({"error": msg, "code": code}), 400
         return _portal_error(e)
 
     created = res.get("skuDataResponseList") if isinstance(res, dict) else None
@@ -763,6 +969,12 @@ def nt_save_filters():
     try:
         res = client.save_filters(shop, pid, portal_body)
     except NoviyTavarError as e:
+        # save-filters 400 shakli BOSHQA ({payload:[{msg}]}) — bo'sh majburiy
+        # skuAttribute. explain_filter_error uni tushunarli xabarga o'giradi.
+        if e.http_status == 400:
+            msg = client.explain_filter_error(e.body)
+            if msg:
+                return jsonify({"error": msg}), 400
         return _portal_error(e)
 
     print(f"[NoviyTavar] FILTERS SAVED product={pid} shop={shop} "

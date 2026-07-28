@@ -38,14 +38,71 @@
     colorVideos: [],       // [{color:{uz,ru}, videoKey, videoUrl}]
     colorCollections: [],  // [{color:{uz,ru}, collectionId, previewUrl}]
     filterValues: {},   // {filterId: valueId} — create body: filterValues[]
+    // create body: productFields — {WARRANTY: <oy>} kabi. field-descriptions'dan
+    // (hozircha faqat WARRANTY qo'llab-quvvatlanadi). Bo'sh {} bo'lsa yuborilmaydi.
+    productFields: {},
     shop: null,
-    tipsHidden: false
+    tipsHidden: false,
+    // Yaratilgan/ochilgan qoralama id'si — qadam nishonlari va «Saqlash»
+    // tugmasining yaratish/yangilash tanlovi shunga qarab ishlaydi.
+    productId: null,
+    // Kartochka formasi SHU sahifada to'ldirilganmi. ?productId= bilan
+    // yangidan ochilganda forma bo'sh bo'ladi — u holda 1-qadam qulflanadi
+    // (bo'sh formani mavjud karta ustiga saqlab yubormaslik uchun).
+    cardFilled: false
   };
 
   try {
     var shops = JSON.parse(root.dataset.shops || '[]');
     if (shops.length) state.shop = shops[0].uzum_id;
   } catch (e) { /* shops yo'q — proxy 400 qaytaradi, UI tirik qoladi */ }
+
+
+  /* ══════════════════════════════════════════════════════════════
+   *  SAQLANMAGAN MEHNAT QO'RIQCHISI (F5 / «orqaga» / oynani yopish)
+   *
+   *  Brauzerning O'Z tasdiq oynasini chiqaramiz (`beforeunload`). Maxsus
+   *  matn 2018-dan beri taqiqlangan — brauzer o'z standart matnini
+   *  ko'rsatadi; bizning ishimiz FAQAT «yo'qotadigan narsa bormi?» ga
+   *  to'g'ri javob berish, aks holda har chiqishda bezor qiladigan oyna.
+   *
+   *  · 1-QADAM — imzo (signature) taqqoslash: forma holati oxirgi XAVFSIZ
+   *    nuqtadan (bo'sh forma / tiklangan qoralama / Uzumga saqlangan karta)
+   *    farq qilsa «iflos». `collectDraft()` butun holatni qamrab olgani
+   *    uchun bu KLIK bilan bo'ladigan o'zgarishlarni ham (rasm, xususiyat,
+   *    kategoriya, sertifikat) ushlaydi — ular `input`/`change` bermaydi.
+   *  · 2/3-QADAM — oddiy bayroq. Bu qadamlarda localStorage qoralamasi
+   *    YO'Q (narx/SKU/xususiyat faqat Uzumda), ya'ni har qanday tahrir
+   *    yangilashda BUTUNLAY yo'qoladi — ogohlantirish shu yerda eng zarur.
+   *
+   *  ⚠️ In-app qadam nishonlari sahifani tark etmaydi — u yerda oyna
+   *  chiqmaydi va chiqmasligi kerak (ma'lumot DOM'da qoladi).
+   * ══════════════════════════════════════════════════════════════ */
+  var ntDirty = { 2: false, 3: false };
+  var ntCleanSig = null;        // 1-qadamning oxirgi XAVFSIZ holati imzosi
+
+  function ntSig() {
+    // `collectDraft` pastda e'lon qilingan (funksiya deklaratsiyasi — ko'tariladi).
+    try { var d = collectDraft(); d.ts = 0; return JSON.stringify(d); }
+    catch (e) { return null; }         // holat hali qurilmagan
+  }
+  function ntSnapshot() { ntCleanSig = ntSig(); }
+
+  function ntHasUnsaved() {
+    if (state.step !== 1) return !!ntDirty[state.step];
+    var s = ntSig();
+    if (s === null) return false;
+    // Xavfsiz nuqta hali belgilanmagan (ildizlar kelmadi/xato) — shubhada
+    // FOYDALANUVCHI foydasiga: o'zgargan deb hisoblaymiz.
+    var changed = (ntCleanSig === null) || (s !== ntCleanSig);
+    if (!changed) return false;
+    // ⚠️ MAZMUN DARVOZASI. O'zgarish o'zi yetarli emas: bo'sh formada do'kon
+    // almashtirish ham imzoni o'zgartiradi, lekin yo'qotadigan MEHNAT yo'q —
+    // u yerda oyna chiqarish shunchaki bezor qilish bo'lardi (jonli uchradi
+    // 2026-07-22: do'kon tanlash ogohlantirish chiqarib yubordi).
+    try { return draftHasContent(collectDraft()); } catch (e) { return false; }
+  }
+
 
   // ── Maslahatlarni yashirish/ko'rsatish ──────────────────────────
   var tipsBtn = document.getElementById('ntTipsToggle');
@@ -153,7 +210,96 @@
 
     // Rang-media darvozasining ikkinchi sharti — requiredMediaType (kategoriyadan).
     syncColorMedia();
+
+    // Гарантия — meta.fieldDescriptions'da WARRANTY bo'lsa ko'rsatiladi.
+    syncWarranty();
   }
+
+  // ── Гарантия (в месяцах) ────────────────────────────────────────
+  // DALIL (jonli field-descriptions + bandl ProductFieldsDescriptions):
+  //   javob = [{fieldName:"WARRANTY", fieldType:"INTEGER", required:false, ...}]
+  //   bandl `i()`: number → >3 belgi bo'lsa 999, aks holda raqamlarni ajratib son
+  //   bandl `l()`: qiymat bo'lsa productFields[WARRANTY]=son, bo'lmasa o'chiradi
+  //   bandl `o()`: 0 → value_cannot_be_zero; <6 → warranty_min_months
+  //   yuklashda: productFields[WARRANTY] bo'sh bo'lsa default 6 qo'yiladi
+  function warrantyField() {
+    var list = state.meta && state.meta.fieldDescriptions;
+    if (!Array.isArray(list)) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].fieldName === 'WARRANTY') return list[i];
+    }
+    return null;
+  }
+
+  function syncWarranty() {
+    var card = document.getElementById('ntCardWarranty');
+    var input = document.getElementById('ntWarranty');
+    if (!card) return;
+    var wf = warrantyField();
+    if (!state.categoryId || !wf) {
+      card.hidden = true;
+      // Kategoriya WARRANTY'siz bo'lsa — eski qiymatni tashlaymiz.
+      delete state.productFields.WARRANTY;
+      return;
+    }
+    card.hidden = false;
+    // Bandl: qiymat yo'q bo'lsa qonuniy default 6 qo'yiladi.
+    if (state.productFields.WARRANTY == null || state.productFields.WARRANTY === '') {
+      state.productFields.WARRANTY = 6;
+    }
+    if (input) input.value = String(state.productFields.WARRANTY);
+    syncWarrantyClear();
+  }
+
+  function syncWarrantyClear() {
+    var input = document.getElementById('ntWarranty');
+    var clr = document.getElementById('ntWarrantyClear');
+    if (clr && input) clr.hidden = !input.value;
+  }
+
+  // Bo'sh emas va <6 bo'lsa false qaytaradi + inline xato ko'rsatadi.
+  function warrantyValid() {
+    var err = document.getElementById('ntWarrantyErr');
+    var card = document.getElementById('ntCardWarranty');
+    var hide = function () { if (err) err.hidden = true; };
+    if (!card || card.hidden) { hide(); return true; }
+    var raw = state.productFields.WARRANTY;
+    // Bo'sh — ixtiyoriy (qonun bo'yicha 6 bo'ladi), xato yo'q.
+    if (raw == null || raw === '') { hide(); return true; }
+    var n = Number(raw);
+    var msg = '';
+    if (n === 0) msg = tr('Maydon qiymati 0 ga teng boʻlmasligi kerak',
+                          'Значение поля не может быть равно 0');
+    else if (n < 6) msg = tr('Kafolat muddati kamida 6 oy boʻlishi kerak',
+                             'Минимальный срок гарантии — 6 месяцев');
+    if (err) { err.textContent = msg; err.hidden = !msg; }
+    return !msg;
+  }
+
+  (function wireWarranty() {
+    var input = document.getElementById('ntWarranty');
+    var clr = document.getElementById('ntWarrantyClear');
+    if (input) {
+      input.addEventListener('input', function () {
+        // Bandl `i()`: 3 belgidan uzun → 999, aks holda faqat raqamlar.
+        var digits = input.value.replace(/[^0-9]/g, '');
+        var n = digits.length > 3 ? 999 : (digits === '' ? '' : Number(digits));
+        input.value = n === '' ? '' : String(n);
+        if (n === '') delete state.productFields.WARRANTY;
+        else state.productFields.WARRANTY = n;
+        syncWarrantyClear();
+        warrantyValid();
+      });
+    }
+    if (clr) {
+      clr.addEventListener('click', function () {
+        if (input) input.value = '';
+        delete state.productFields.WARRANTY;
+        syncWarrantyClear();
+        warrantyValid();
+      });
+    }
+  })();
 
   function requiredMediaType() {
     var f = state.meta && state.meta.fields && state.meta.fields.fields;
@@ -170,6 +316,80 @@
     });
   }
 
+  function requiredCharsSelected() {
+    // «Цвет» kabi REQUIRED xususiyat qatori MAVJUD va QIYMATLI bo'lishi shart.
+    // JONLI dalil (2026-07-18): REQUIRED cat.da rang qiymatsiz → createProduct
+    // 400 `category-defined-characteristics-missed`. Signal meta'dan (o.required).
+    return (charOptions || []).filter(function (o) { return o.required; })
+      .every(function (o) {
+        var row = state.rows.filter(function (r) { return r.id === o.id; })[0];
+        return row && row.selected.length > 0;
+      });
+  }
+
+  function sizeRequirementMet() {
+    // REQUIRED_ONE_OF_SIZE bor kategoriyada AYNAN bitta razmer-tizim qiymatli
+    // bo'lishi shart (radio ≤1 ni, bu ≥1 ni ta'minlaydi). JONLI: razmersiz →
+    // 400 `...-missed`. Razmer bo'lmasa (12811 kabi) ortiqcha bloklamaymiz.
+    var hasSize = (charOptions || []).some(function (o) {
+      return o.requiredType === 'REQUIRED_ONE_OF_SIZE';
+    });
+    if (!hasSize) return true;
+    return state.rows.filter(isSizeRow).some(function (r) { return r.selected.length > 0; });
+  }
+
+  // ⚠️ Qizil xato qutisi DARROV chiqmaydi — faqat foydalanuvchi «Saqlash»ga
+  // urinib majburiy xususiyatni to'ldirmagan bo'lsa (Uzum kabi). saveBtn handler
+  // uni `true` qiladi; to'ldirilgach qayta hidden.
+  var charReqAttempted = false;
+
+  function syncCharReq() {
+    // Majburiy xususiyat to'ldirilmasa Uzum'dagi AYNAN inline xato qutisi.
+    // Matn Uzum bundle i18n'idan (t9 + category-interactions HAR):
+    //   required_characteristics_without_values / required_one_of_size_characteristics
+    // Karta ('ntCardChars') qizil ramka oladi (is-invalid). Faqat 1-qadamda.
+    var el = document.getElementById('ntCharReq');
+    var card = document.getElementById('ntCardChars');
+    if (!el) return;
+    var hide = function () {
+      el.hidden = true;
+      if (card) card.classList.remove('is-invalid');
+    };
+    // Urinish bo'lmaguncha — hech qachon ko'rsatmaymiz.
+    if (!charReqAttempted) { hide(); return; }
+    if (state.step === 2 || !state.categoryId || !charOptions || !charOptions.length) {
+      hide(); return;
+    }
+    var msgs = [];
+    // Majburiy (REQUIRED, masalan «Цвет») qiymatsiz xususiyatlar NOMI bilan.
+    var missNames = (charOptions || []).filter(function (o) { return o.required; })
+      .filter(function (o) {
+        var row = state.rows.filter(function (r) { return r.id === o.id; })[0];
+        return !(row && row.selected.length > 0);
+      })
+      .map(function (o) { return tr(o.uz, o.ru); });
+    if (missNames.length) {
+      msgs.push(tr(
+        "Iltimos, xususiyat uchun kamida bitta qadrlikni tanlang va to'ldiring: ",
+        "Пожалуйста, выберите и заполните хотя бы одно значение для характеристики: "
+      ) + missNames.join(', '));
+    }
+    if (!sizeRequirementMet()) {
+      msgs.push(tr(
+        "Iltimos, kamida bitta o'lcham xususiyatini tanlang va to'ldiring",
+        "Пожалуйста, выберите и заполните хотя бы одну размерную характеристику"
+      ));
+    }
+    if (!msgs.length) { hide(); return; }
+    el.textContent = '';
+    msgs.forEach(function (m, i) {
+      if (i) el.appendChild(document.createElement('br'));
+      el.appendChild(document.createTextNode(m));
+    });
+    el.hidden = false;
+    if (card) card.classList.add('is-invalid');
+  }
+
   // ── Validatsiya + asosiy tugma holati ───────────────────────────
   // Referens: bo'sh formada «Сохранить и продолжить» O'CHIQ.
   function validate() {
@@ -184,12 +404,21 @@
     // rasmsiz qoralama yaratmaydi (routes.nt_create). Karta ko'rinmasa
     // (NOT_DEFINED) rasm talab qilinmaydi.
     var needPhoto = !!state.categoryId && requiredMediaType() !== 'NOT_DEFINED';
+    // ⚠️ Majburiy XUSUSIYAT (rang/razmer) bu yerda tugmani O'CHIRMAYDI — Uzum
+    // kabi tugma bosilsin, keyin urinishda qizil xato chiqsin (saveBtn handler +
+    // charReqAttempted). Aks holda foydalanuvchi hech narsa qilmasdan turib
+    // qizil ogohlantirish darrov chiqib turardi (user shikoyati 2026-07-19).
     var ok = !!state.categoryId && !!(titleUz || titleRu) && !!(descUz || descRu)
              && (!needPhoto || state.images.length > 0)
              && requiredFiltersFilled()
              && certificatesValid();
     var save = document.getElementById('ntSave');
     if (save) save.disabled = !ok;
+    syncCharReq();
+    // validate() forma HAR o'zgarganda chaqiriladi (rasm, xususiyat,
+    // kategoriya, sertifikat) — qoralamani saqlash uchun ishonchli ilgak.
+    // `input`/`change` hodisalari faqat matn maydonlarini qamrab oladi.
+    if (root.ntSaveDraft) root.ntSaveDraft();
     return ok;
   }
 
@@ -1516,6 +1745,21 @@
       // 2-qadamda SKU/narxlarni saqlaydi.
       if (state.step === 2) { s2Send(); return; }
       if (!validate()) return;
+      // Гарантия <6 bo'lsa — bandldagi kabi to'xtaymiz (warranty_min_months).
+      if (!warrantyValid()) {
+        var wc = document.getElementById('ntCardWarranty');
+        if (wc && wc.scrollIntoView) wc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      // Majburiy xususiyat darvozasi — faqat SHU URINISHDA (Uzum kabi):
+      // to'ldirilmagan bo'lsa qizil xato qutisini ko'rsatamiz va to'xtaymiz.
+      if (!requiredCharsSelected() || !sizeRequirementMet()) {
+        charReqAttempted = true;
+        syncCharReq();
+        var cc = document.getElementById('ntCardChars');
+        if (cc && cc.scrollIntoView) cc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       var prev = saveBtn.textContent;
       saveBtn.disabled = true;
       saveBtn.textContent = tr('Saqlanmoqda...', 'Сохранение...');
@@ -1527,15 +1771,21 @@
       });
 
       var chars = state.rows.filter(function (r) { return r.selected.length; })
-        .map(function (r, i) {
+        .map(function (r) {
           return {
             characteristicId: r.id,
             characteristicTitle: { uz: r.opt.uz, ru: r.opt.ru },
-            orderingNumber: i,
-            // ⚠️ requiredType + flowA — create tanasi uchun MAJBURIY (aks holda
-            // o'lcham xarakteristikasi validation-failed). client.py chiqaradi.
+            // ⚠️ Xususiyatning O'Z tartibi (meta'dan) — QATOR INDEKSI EMAS.
+            // Etalon (t8): rang=0, Длина=44. client.py `defined:true` +
+            // (REQUIRED bo'lsa) fillType/isRequired qo'shadi.
+            orderingNumber: r.opt.orderingNumber,
+            // requiredType — server REQUIRED (rang) ni aniqlashi uchun.
             requiredType: r.opt.requiredType || 'NOT_REQUIRED',
             flowA: !!r.opt.flowA,
+            // MAXSUS xususiyat — server uni `customCharacteristics` ga ajratadi
+            // (bandl: definedCharacteristics = defined, custom = qolgani,
+            //  orderingNumber 100+indeks bilan qayta raqamlanadi).
+            custom: !!r.opt.custom,
             // Qiymatlar — portal bergan obyektlar VERBATIM (client shuni kutadi).
             values: r.selected.map(function (v) {
               return { title: { uz: v.uz, ru: v.ru }, value: v.value, skuValue: v.skuValue };
@@ -1543,12 +1793,19 @@
           };
         });
 
-      fetch('/noviy-tavar/api/create', {
+      // ⚠️ Qoralama ALLAQACHON yaratilgan bo'lsa (foydalanuvchi qadam nishoni
+      // orqali 1-qadamga qaytgan) — createProduct DUBLIKAT karta yasardi.
+      // Uzum bandli ham shu joyda ikkiga bo'linadi (chunk-6dbbb9d8 @79125):
+      //   isEdit ? editProduct(...) : createProduct(...)
+      var isEdit = !!(state.productId && state.cardFilled);
+      fetch(isEdit ? '/noviy-tavar/api/update' : '/noviy-tavar/api/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
           shop: state.shop,
+          // create'da bu kalit yo'q — JSON.stringify `undefined` ni tashlaydi.
+          productId: isEdit ? state.productId : undefined,
           categoryId: state.categoryId,
           titleUz: val('ntTitleUz'), titleRu: val('ntTitleRu'),
           shortUz: val('ntShortUz'), shortRu: val('ntShortRu'),
@@ -1577,6 +1834,9 @@
           }),
           filterValues: fvals,
           characteristics: chars,
+          // Гарантия va shu kabi qo'shimcha maydonlar — {WARRANTY: <oy>}.
+          // Bo'sh {} bo'lsa client.py uni oddiygina tashlaydi.
+          productFields: state.productFields,
           comments: collectComments()
         })
       })
@@ -1587,12 +1847,24 @@
           // ⚠️ Xato JIM YUTILMAYDI — foydalanuvchi saqlandi deb o'ylamasin.
           if (!res.ok || !res.d || !res.d.id) {
             notify((res.d && res.d.error) ||
-                   tr('Qoralama yaratilmadi', 'Не удалось создать черновик'));
+                   (isEdit ? tr('Kartochka yangilanmadi', 'Не удалось обновить карточку')
+                           : tr('Qoralama yaratilmadi', 'Не удалось создать черновик')));
             return;
           }
-          notify(tr('Qoralama yaratildi: #' + res.d.id,
-                    'Черновик создан: #' + res.d.id));
-          // Bandl ham muvaffaqiyatdan keyin keyingi qadamga o'tadi.
+          notify(isEdit
+            ? tr('Kartochka saqlandi', 'Карточка сохранена')
+            : tr('Qoralama yaratildi: #' + res.d.id,
+                 'Черновик создан: #' + res.d.id));
+          // Uzumda yaratildi — endi lokal qoralama KERAKMAS. Tozalamasak,
+          // keyingi «Yangi tovar» ochilishida eski forma tirilib chiqardi.
+          if (root.ntClearDraft) root.ntClearDraft();
+          // Karta endi Uzumda bor — keyingi «Saqlash» YANGILASH bo'ladi.
+          state.productId = res.d.id;
+          state.cardFilled = true;
+          // 1-qadam Uzumga tushdi — shu holat endi XAVFSIZ nuqta.
+          ntSnapshot();
+          // Bandl ham muvaffaqiyatdan keyin 2-qadamga o'tadi (yaratishda ham,
+          // yangilashda ham: `push(/{shop}/products/id/{id}/edit/sku/all)`).
           s2Enter(res.d.id);
         })
         .catch(function () {
@@ -1622,7 +1894,13 @@
     defined: [],          // definedCharacteristicList — send-sku'ga VERBATIM ketadi
     rows: [],
     tab: 'all',
-    loading: false
+    loading: false,
+    // Bo'sh MAJBURIY kataklar. Uzum belgini FAQAT «Saqlash va davom etish»
+    // bosilgach ko'rsatadi (errShown), katak to'ldirilishi bilan o'chiradi.
+    errs: {},        // {rowIndex: {field: true}}
+    errShown: false,
+    // Mahsulot SKU'si saqlangan bo'lsa o'zgartirilmaydi — s2LockPrefix() qo'yadi.
+    skuLocked: false
   };
 
   var step1El = document.getElementById('ntStep1');
@@ -1668,28 +1946,63 @@
   //
   // ⚠️ HAMMA MATN Uzum bandlining O'Z i18n'idan (ru @356800.., uz @419100..).
   // O'zbekchasini O'YLAB TOPMA — Uzumniki bor va farq qiladi.
-  function s2RowError(row) {
-    var full = s2Num(row.fullPrice), off = s2Num(row.off);
-    if (!(full > 0)) return tr('Narxni toʻldiring', 'Заполните цену');
-    if (!((off === 0 && full === 0) || off < full)) {
-      return tr('Chegirma summasi tovar summasidan oshmasligi yoki unga teng boʻlmasligi kerak',
-                'Сумма скидки не должна превышать или быть равной сумме товара');
+  // Bo'sh MAJBURIY katak maydonlari — Uzum «Saqlash va davom etish» da bularni
+  // qizil «!» bilan belgilaydi. Format/mantiq xatolari (s2RowFormatError) ALOHIDA
+  // — ular toast bilan chiqadi, katak qizarmaydi (Uzum ko'rinishi 2026-07-23).
+  //   · Narx (fullPrice) — >0 bo'lishi shart
+  //   · MXIK (ikpu) — bo'sh bo'lmasligi kerak
+  //   · O'lchovlar — JONLI dalil (2026-07-18): o'lchovsiz sendSkuData 400
+  //     `weight-and-size-characteristics-required-error`; build_sku_body yarim
+  //     o'lchovni tashlaydi, shuning uchun 4 tasi ham kerak. Signal:
+  //     meta.fields.fields.DIMENSIONAL_GROUP (har kategoriyada bor).
+  function s2EmptyRequired(row) {
+    var out = [];
+    if (!(s2Num(row.fullPrice) > 0)) out.push('fullPrice');
+    if (!String(row.ikpu || '').trim()) out.push('ikpu');
+    // Omborda o'lchangan SKU — o'lchov tekshirilmaydi (bandl `y(e,t)`:
+    // `if (!(status in [ARCHIVED, ARCHIVED_BLOCKED, BLOCKED] || e.updatedFromWms))`
+    // — ya'ni bayroq bor bo'lsa validatsiya BUTUNLAY o'tkazib yuboriladi).
+    // Aks holda qulflangan katakni foydalanuvchi to'ldira olmay qolardi.
+    if (!row.updatedFromWms && s2DimsRequired()) {
+      ['width', 'length', 'height', 'weight'].forEach(function (k) {
+        if (!(s2Num(row[k]) > 0)) out.push(k);
+      });
     }
-    // ⚠️ Xabar «1000 ga karrali» deydi, tekshiruv esa `% 10` — Uzumning O'Z
-    // nomuvofiqligi (f231: `var l = f(10)`). Foydalanuvchi 1:1 taqlidni tanladi.
-    if (!(off === 0 || s2Mult(off))) {
+    return out;
+  }
+
+  // Bo'sh bo'lmagan kataklardagi format/mantiq xatolari (toast, qizil emas).
+  function s2RowFormatError(row) {
+    var full = s2Num(row.fullPrice), off = s2Num(row.off);
+    if (full > 0) {
+      if (!(off < full)) {
+        return tr('Chegirma summasi tovar summasidan oshmasligi yoki unga teng boʻlmasligi kerak',
+                  'Сумма скидки не должна превышать или быть равной сумме товара');
+      }
+      // ⚠️ Xabar «1000 ga karrali» deydi, tekshiruv esa `% 10` — Uzumning O'Z
+      // nomuvofiqligi (f231: `var l = f(10)`). Foydalanuvchi 1:1 taqlidni tanladi.
+      if (!s2Mult(full)) {
+        return tr('Narx 1000 ga karrali boʻlishi kerak', 'Цена должна быть кратной тысяче');
+      }
+    }
+    if (off > 0 && !s2Mult(off)) {
       return tr('Chegirma 1000 ga karrali boʻlishi kerak',
                 'Скидка должна быть кратной тысяче');
     }
-    if (!s2Mult(full)) {
-      return tr('Narx 1000 ga karrali boʻlishi kerak', 'Цена должна быть кратной тысяче');
+    if (String(row.ikpu || '').trim() && row.ikpuValid === false) {
+      return tr('Notogʻri MXIK', 'Неверный ИКПУ');
     }
-    if (!String(row.ikpu || '').trim()) {
-      return tr('MXIK maydonini toʻldirilishi shart', 'Поле ИКПУ обязательно для заполнения');
-    }
-    if (row.ikpuValid === false) return tr('Notogʻri MXIK', 'Неверный ИКПУ');
     return null;
   }
+
+  function s2DimsRequired() {
+    var f = state.meta && state.meta.fields && state.meta.fields.fields;
+    return !!(f && f.DIMENSIONAL_GROUP);
+  }
+
+  // ВГХ (o'lchov-og'irlik) ustunlari — bandl `["width","length","height","weight"]`.
+  // Omborda o'lchangan SKU'da AYNAN shu to'rttasi qulflanadi.
+  var S2_DIMS = ['width', 'length', 'height', 'weight'];
 
   // Bandl `sku_restriction`: butunlay lotin+raqam YOKI butunlay kirill+raqam.
   function s2PrefixError(v) {
@@ -1710,6 +2023,15 @@
   function s2Money(n) {
     if (n == null || n === '' || isNaN(Number(n))) return '';
     return String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  // hex -> rgba (status.color'ni Uzumdek och fon + to'q matn qilish uchun).
+  function s2HexA(hex, a) {
+    var h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    if (!isFinite(n) || h.length !== 6) return hex;
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
 
   // ── sku-step yuklash ────────────────────────────────────────────
@@ -1756,6 +2078,14 @@
             status: sk.status || null,
             isActive: sk.isActive,
             canEdit: sk.canEdit !== false,
+            // ⚠️ OMBORDA O'LCHANGAN SKU (ВГХ qulfi). Uzum tovar omborga
+            // kelgach o'zi o'lchaydi va shundan keyin sotuvchiga o'lchov
+            // yozishga RUXSAT BERMAYDI. Bayroq — description-response'ning
+            // O'ZIDA, `dimensions` bilan bir qatorda.
+            // JONLI DALIL (2026-07-28, do'kon 5983, mahsulot 2907838):
+            //   11/11 SKU -> updatedFromWms:true, canEdit:true, IN_STOCK.
+            // Ya'ni `canEdit` BU HOLATNI BILDIRMAYDI — alohida bayroq kerak.
+            updatedFromWms: !!sk.updatedFromWms,
             sellerItemCode: sk.sellerItemCode || '',
             barcode: sk.barcode || null,
             ikpu: sk.ikpu || '',
@@ -1778,6 +2108,7 @@
         }
         var pf = document.getElementById('ntSkuPrefix');
         if (pf && d.productSkuTitle) { pf.value = d.productSkuTitle; s2CountPrefix(); }
+        s2LockPrefix(pf, !!d.productSkuTitle);
 
         s2Render();
         s2Commission();
@@ -1788,6 +2119,34 @@
         notify(tr('Tarmoq xatosi', 'Ошибка сети'));
         return false;
       });
+  }
+
+  // ── Mahsulot SKU'si — SAQLANGANDAN KEYIN O'ZGARMAYDI ─────────────
+  //
+  // BANDL (mf-products, «SKU для названия товара» inputi @15691746):
+  //     readonly: O.isEditing && !!O.original.productSkuTitle
+  //               && !O.isProductInActiveInvoice
+  // Uchinchi shart — o'sha chunk'da `ref(!1)` bo'lib e'lon qilingan va HECH
+  // QAYERDA o'zlashtirilmagan (`Z.value=` yo'q) => amalda DOIM false, ya'ni
+  // qoida `isEditing && saqlangan productSkuTitle bor` ga qisqaradi.
+  //
+  // Bizda bayroq KERAK EMAS: yangi qoralamada `productSkuTitle` BO'SH keladi
+  // (routes.py da qayd: qoralama 3068623 -> productSkuTitle=""), mavjud
+  // kartada esa to'la. Ya'ni bo'sh-emaslikning O'ZI «tahrirlanmoqda» degani.
+  // JONLI DALIL (2026-07-28): mahsulot 2907838 -> productSkuTitle="BRELOK1".
+  //
+  // NEGA umuman qulf: prefiks har bir SKU'ning `skuTitle` ichiga pishirilgan
+  // ("LUXUZ-BRELOK1-КОРИЧН"), keyin o'zgartirilsa mavjud SKU'lar uziladi.
+  //
+  // ⚠️ `disabled` EMAS, `readonly`: Uzum inputni kulrang qilmaydi — matn
+  // o'qiladi va nusxa olinadi, faqat yozib bo'lmaydi. Bandlda bu holat uchun
+  // uslub qoidasi UMUMAN yo'q, shuning uchun bizda ham CSS qo'shilmagan
+  // (izohi noviy_tavar.css da).
+  function s2LockPrefix(pf, locked) {
+    S2.skuLocked = !!locked;
+    if (!pf) return;
+    // Qayta yuklashda TIKLANADI — bir xil DOM elementi qayta ishlatiladi.
+    pf.readOnly = !!locked;
   }
 
   // ── Komissiya (O'QISH) ──────────────────────────────────────────
@@ -1865,9 +2224,14 @@
     if (opts.placeholder) inp.placeholder = opts.placeholder;
     inp.setAttribute('aria-label', opts.label || field);
     if (row.canEdit === false) inp.disabled = true;
+    // Omborda o'lchangan SKU — ВГХ katagi QULF (bandl `edit-product-sku-table`:
+    // `disabled: f(n) || n.updatedFromWms`, bu yerda `f` = status ARCHIVED/
+    // ARCHIVED_BLOCKED/BLOCKED). Bayroq faqat 4 ta o'lchov ustuniga beriladi.
+    if (opts.wms) inp.disabled = true;
     inp.addEventListener('input', function () {
       row[field] = inp.value;
       if (field === 'fullPrice' || field === 'off') { s2Sync(i); s2Commission(); }
+      if (S2.errShown) s2ClearCellError(inp, i, field, inp.value);
       s2Validate();
     });
     wrap.appendChild(inp);
@@ -1877,22 +2241,129 @@
       u.textContent = opts.unit;
       wrap.appendChild(u);
     }
+    // Ko'k ⓘ — inputning O'NG chekkasidan tashqarida (bandl:
+    // `.validation-icon{position:absolute;right:-20px}`), shuning uchun
+    // `wrap` ichida turadi, `td` da emas.
+    if (opts.wms) wrap.appendChild(s2WmsIcon(opts.tipTop));
     td.appendChild(wrap);
+    // Bo'sh majburiy katak («Saqlash va davom etish» dan keyin) — qizil + «!».
+    td.dataset.field = field;
+    if (s2HasErr(i, field)) { td.classList.add('has-error'); td.appendChild(s2ErrMark()); }
     return td;
+  }
+
+  // Qizil «!» doira belgisi — Uzum bo'sh majburiy katagining o'ng chekkasida.
+  function s2ErrMark() {
+    var m = document.createElement('span');
+    m.className = 'nt-cell-err-mark';
+    m.setAttribute('aria-label', tr('Maydon toʻldirish majburiy', 'Обязательное поле'));
+    m.textContent = '!';
+    return m;
+  }
+
+  function s2HasErr(i, field) {
+    return !!(S2.errShown && S2.errs[i] && S2.errs[i][field]);
+  }
+
+  // ── Omborda o'lchangan SKU: ko'k ⓘ + qora maslahat ────────────────
+  //
+  // Matn Uzum bandlining O'Z i18n bloki (`create_sku.updated_from_wms`) —
+  // ru @48970064, uz @49035417. So'zma-so'z, tarjima QILINMAGAN.
+  function s2WmsText() {
+    return tr('Ushbu SKU omborda o‘lchab bo‘lingan. VGT o‘zgartirish uchun ' +
+              'biznes qo‘llab-quvvatlash xizmatiga murojaat qiling',
+              'Данный SKU был замерен на складе. Для изменения ВГХ ' +
+              'пожалуйста обратитесь в бизнес-поддержку');
+  }
+
+  // Yagona maslahat elementi — jadvaldan TASHQARIDA, sahifa ILDIZIDA.
+  // Jadval `overflow-x: auto` bo'lgani uchun katak ichidagi maslahat
+  // kesilardi; Uzum ham aynan shu sababdan `teleport` qiladi
+  // (bandl: `drop-down-props:{teleport:...}`).
+  // ⚠️ `document.body` EMAS — modul doirasi qoidasi (test_noviy_tavar_scope)
+  // har bir uslub selektori `[data-page="noviy-tavar"]` dan boshlanishini
+  // talab qiladi, ya'ni element ildiz ICHIDA turishi shart.
+  var wmsTipEl = null;
+  function s2WmsTipEl() {
+    if (wmsTipEl && wmsTipEl.parentNode) return wmsTipEl;
+    wmsTipEl = document.createElement('div');
+    wmsTipEl.className = 'nt-wms-tip';
+    wmsTipEl.setAttribute('role', 'tooltip');
+    wmsTipEl.hidden = true;
+    (root || document.body).appendChild(wmsTipEl);
+    return wmsTipEl;
+  }
+
+  function s2WmsTipShow(anchor, top) {
+    var el = s2WmsTipEl();
+    el.textContent = s2WmsText();
+    el.hidden = false;
+    var a = anchor.getBoundingClientRect();
+    var b = el.getBoundingClientRect();
+    // Bandl `v(a)`: OXIRGI qator -> "top-center", qolganlari -> "bottom-center".
+    var y = top ? (a.top - b.height - 8) : (a.bottom + 8);
+    var x = a.left + (a.width / 2) - (b.width / 2);
+    // Ekrandan chiqib ketmasin (bandl: `max-width: calc(100vw - 16px)`).
+    x = Math.max(8, Math.min(x, window.innerWidth - b.width - 8));
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+  }
+
+  function s2WmsTipHide() {
+    if (wmsTipEl) wmsTipEl.hidden = true;
+  }
+
+  function s2WmsIcon(top) {
+    var s = document.createElement('span');
+    s.className = 'nt-wms';
+    s.setAttribute('tabindex', '0');
+    s.setAttribute('role', 'img');
+    s.setAttribute('aria-label', s2WmsText());
+    // Uzum nishoni: to'ldirilgan ko'k doira + oq «i» (16px).
+    // Rang — bandlning O'Z dizayn tokeni: `IconInfo: "#478eff"` (yorug' mavzu).
+    s.innerHTML =
+      '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">' +
+      '<circle cx="8" cy="8" r="8" fill="#478eff"></circle>' +
+      '<rect x="7" y="6.8" width="2" height="5.4" rx="1" fill="#fff"></rect>' +
+      '<circle cx="8" cy="4.6" r="1.1" fill="#fff"></circle></svg>';
+    s.addEventListener('mouseenter', function () { s2WmsTipShow(s, top); });
+    s.addEventListener('mouseleave', s2WmsTipHide);
+    s.addEventListener('focus', function () { s2WmsTipShow(s, top); });
+    s.addEventListener('blur', s2WmsTipHide);
+    return s;
+  }
+
+  // Katak to'ldirilishi bilan qizil belgini o'chiradi (qatorni QAYTA QURMASDAN —
+  // aks holda yozish o'rtasida fokus yo'qoladi).
+  function s2ClearCellError(inp, i, field, val) {
+    if (!(S2.errs[i] && S2.errs[i][field])) return;
+    var filled = (s2Num(val) > 0);
+    if (!filled) return;
+    delete S2.errs[i][field];
+    var td = inp.closest ? inp.closest('td') : null;
+    if (!td) return;
+    td.classList.remove('has-error');
+    var mk = td.querySelector('.nt-cell-err-mark');
+    if (mk && mk.parentNode) mk.parentNode.removeChild(mk);
   }
 
   function s2Render() {
     var tb = document.getElementById('ntSkuRows');
     var empty = document.getElementById('ntSkuEmpty');
     if (!tb) return;
+    // Qatorlar qayta quriladi — ochiq maslahat «yetim» nishonni ko'rsatmasin.
+    s2WmsTipHide();
     tb.textContent = '';
     var vis = s2Visible();
     if (empty) {
       empty.hidden = vis.length > 0;
       empty.textContent = tr('Bu bo‘limda SKU yo‘q', 'В этом разделе нет SKU');
     }
-    vis.forEach(function (row) {
+    vis.forEach(function (row, vi) {
       var i = S2.rows.indexOf(row);
+      // Bandl `v(a)`: OXIRGI qatorning maslahati YUQORIDA ochiladi (aks holda
+      // jadval ostidan chiqib ketardi), qolganlariniki pastda.
+      var tipTop = vi === vis.length - 1;
       var tr_ = document.createElement('tr');
       tr_.className = 'nt-tr';
       tr_.dataset.i = String(i);
@@ -1917,6 +2388,14 @@
         var b = document.createElement('span');
         b.className = 'nt-sku-badge';
         b.textContent = row.status.title;
+        // Rang Uzumdan keladi (status.color: IN_STOCK #51AE42, RUN_OUT #E4981B,
+        // ...) — o'zimdan hech narsa qo'shmayman, faqat och fon + to'q matn.
+        var sc = row.status.color;
+        if (sc) {
+          b.style.color = sc;
+          b.style.background = s2HexA(sc, 0.12);
+          b.style.borderColor = s2HexA(sc, 0.32);
+        }
         tdS.appendChild(b);
       } else {
         tdS.textContent = '—';
@@ -1939,10 +2418,15 @@
       // 5. ИКПУ — tanlagich (bandl: ro'yxatdan tanlanadi, erkin matn emas)
       var tdI = document.createElement('td');
       tdI.className = 'nt-td';
+      tdI.dataset.field = 'ikpu';
+      if (s2HasErr(i, 'ikpu')) { tdI.classList.add('has-error'); }
       var ib = document.createElement('button');
       ib.type = 'button';
       ib.className = 'nt-ikpu-btn' + (row.ikpu ? '' : ' is-empty');
-      ib.textContent = row.ikpu || tr('Tanlang', 'Выберите');
+      // Uzum ko'rinishi: kod (kesiluvchi) + chevron ▼.
+      ib.innerHTML = '<span class="nt-ikpu-btn-t">' +
+        esc(row.ikpu || tr('Tanlang', 'Выберите')) + '</span>' +
+        '<span class="nt-ikpu-btn-caret" aria-hidden="true">' + S3_CARET + '</span>';
       ib.setAttribute('aria-label', tr('IKPU tanlash', 'Выбрать ИКПУ'));
       if (row.canEdit === false) ib.disabled = true;
       ib.addEventListener('click', function (e) {
@@ -1950,16 +2434,19 @@
         s2OpenIkpu(ib, i);
       });
       tdI.appendChild(ib);
+      if (s2HasErr(i, 'ikpu')) tdI.appendChild(s2ErrMark());
       tr_.appendChild(tdI);
 
       // 6-9. O'lchovlar — HAMMASI-YOKI-HECHNARSA (bandl `lt()`: bittasi bo'sh
       //      bo'lsa `dimensions` BUTUNLAY tushadi). Buni foydalanuvchiga
       //      ko'rsatish uchun s2Validate() da ogohlantiramiz.
+      //      Omborda o'lchangan bo'lsa — TO'RTALASI ham qulf + ko'k ⓘ.
       var mm = tr('mm', 'мм'), gg = tr('g', 'г');
-      tr_.appendChild(s2Cell(row, i, 'width', { numeric: true, unit: mm, label: tr('Eni', 'Ширина') }));
-      tr_.appendChild(s2Cell(row, i, 'length', { numeric: true, unit: mm, label: tr('Uzunligi', 'Длина') }));
-      tr_.appendChild(s2Cell(row, i, 'height', { numeric: true, unit: mm, label: tr('Balandligi', 'Высота') }));
-      tr_.appendChild(s2Cell(row, i, 'weight', { numeric: true, unit: gg, label: tr('Ogʻirligi', 'Вес') }));
+      var w = !!row.updatedFromWms;
+      tr_.appendChild(s2Cell(row, i, 'width', { numeric: true, unit: mm, label: tr('Eni', 'Ширина'), wms: w, tipTop: tipTop }));
+      tr_.appendChild(s2Cell(row, i, 'length', { numeric: true, unit: mm, label: tr('Uzunligi', 'Длина'), wms: w, tipTop: tipTop }));
+      tr_.appendChild(s2Cell(row, i, 'height', { numeric: true, unit: mm, label: tr('Balandligi', 'Высота'), wms: w, tipTop: tipTop }));
+      tr_.appendChild(s2Cell(row, i, 'weight', { numeric: true, unit: gg, label: tr('Ogʻirligi', 'Вес'), wms: w, tipTop: tipTop }));
 
       // 10. Рекомендуемая цена -> marketPrice (bo'sh bo'lsa Uzum matni)
       var tdM = document.createElement('td');
@@ -2012,23 +2499,37 @@
   }
 
   // ── Validatsiya ─────────────────────────────────────────────────
+  // ⚠️ UZUMDEK: «Saqlash va davom etish» bo'sh majburiy kataklar uchun
+  // O'CHIRILMAYDI. U bosiladi, keyin s2MarkRequiredErrors() kataklarni qizartadi
+  // (step 3'dagi «Yakunlash» bilan bir xil xatti-harakat). Tugma faqat SKU
+  // umuman bo'lmasa o'chiq. SKU-nomi prefiksi esa jonli qizil matn beradi.
   function s2Validate() {
     var saveBtn2 = document.getElementById('ntSave');
-    var err = null;
     var pf = document.getElementById('ntSkuPrefix');
-    var pe = s2PrefixError(pf ? pf.value : '');
+    // Qulflangan prefiks TEKSHIRILMAYDI: qiymat Uzumning O'ZIDAN keldi va
+    // foydalanuvchi uni tuzata olmaydi — aks holda tuzatilmas qizil xato
+    // «Saqlash» ni butunlay to'sib qo'yardi (eski kartalarda real xavf).
+    var pe = S2.skuLocked ? null : s2PrefixError(pf ? pf.value : '');
     var pErr = document.getElementById('ntSkuPrefixErr');
     if (pErr) { pErr.textContent = pe || ''; pErr.hidden = !pe; }
-    if (pe) err = pe;
+    if (saveBtn2 && state.step === 2) saveBtn2.disabled = !S2.rows.length;
+    return !pe && S2.rows.length > 0;
+  }
 
-    if (!err) {
-      for (var i = 0; i < S2.rows.length; i++) {
-        var e = s2RowError(S2.rows[i]);
-        if (e) { err = e; break; }
-      }
-    }
-    if (saveBtn2 && state.step === 2) saveBtn2.disabled = !!err || !S2.rows.length;
-    return !err && S2.rows.length > 0;
+  // «Saqlash va davom etish» bosilganda — bo'sh MAJBURIY kataklarni qizil
+  // «!» bilan belgilaydi. Qaytaradi: belgilangan kataklar soni.
+  function s2MarkRequiredErrors() {
+    S2.errs = {};
+    var n = 0;
+    S2.rows.forEach(function (row, i) {
+      var empty = s2EmptyRequired(row);
+      if (!empty.length) return;
+      S2.errs[i] = {};
+      empty.forEach(function (f) { S2.errs[i][f] = true; n++; });
+    });
+    S2.errShown = true;
+    s2Render();
+    return n;
   }
 
   function s2CountPrefix() {
@@ -2117,9 +2618,14 @@
       var inp = document.getElementById('ntBulkInput');
       if (!inp) return;
       var v = inp.value.trim();
+      var isDim = S2_DIMS.indexOf(bulkOpenFor) >= 0;
       S2.rows.forEach(function (r) {
         // Bandl: `canEdit` false yoki bloklangan SKU'ga o'lchov yozilmaydi.
         if (r.canEdit === false) return;
+        // Bandl `R()`: `n.updatedFromWms && l || (...)` — l = maydon o'lchov
+        // ustunlaridan biri. Ya'ni ⚡ omborda o'lchangan qatorning ВГХ sini
+        // CHETLAB O'TADI, lekin narx/MXIK ni baribir to'ldiradi.
+        if (isDim && r.updatedFromWms) return;
         r[bulkOpenFor] = v;
       });
       s2CloseBulk();
@@ -2137,29 +2643,64 @@
   var ikpuNote = document.getElementById('ntIkpuNote');
   var ikpuTarget = null;   // qator indeksi; -1 = hammasi
   var ikpuTimer = null;
+  var ikpuAnchorBox = null;   // ochilgan tugma o'rni (hujjat koordinatalarida)
 
   function s2CloseIkpu() {
     if (ikpuPop) ikpuPop.hidden = true;
     ikpuTarget = null;
+    ikpuAnchorBox = null;
   }
 
   function s2OpenIkpu(anchor, i) {
     if (!ikpuPop) return;
-    s2CloseBulk.call(null);
+    // ⚠️ Anchor bulk popover ICHIDA bo'lishi mumkin (⚡ -> «Выберите»). Avval
+    // s2CloseBulk() chaqirilardi: popover display:none bo'lgach anchor'ning
+    // getBoundingClientRect() i NOL qaytarardi va panel sahifa chap-yuqorisiga
+    // uchib ketardi (bag 2026-07-22). Bulk ochiq bo'lsa — yopmaymiz.
+    var inBulk = !!(bulkPop && !bulkPop.hidden && bulkPop.contains(anchor));
+    if (!inBulk) s2CloseBulk();
     ikpuTarget = i;
     ikpuPop.hidden = false;
     var r = anchor.getBoundingClientRect();
-    ikpuPop.style.top = (window.scrollY + r.bottom + 6) + 'px';
-    ikpuPop.style.left = Math.max(8, window.scrollX + r.left) + 'px';
-    if (ikpuSearch) { ikpuSearch.value = ''; ikpuSearch.focus(); }
+    ikpuAnchorBox = {                       // hujjat koordinatalarida saqlaymiz
+      top: r.top + window.scrollY,
+      bottom: r.bottom + window.scrollY,
+      left: r.left + window.scrollX
+    };
     if (ikpuList) ikpuList.textContent = '';
     s2IkpuNote(tr('Iltimos, uchtadan ortiq belgi kiriting', 'Введите более трех символов'));
+    s2PlaceIkpu();
+    // preventScroll: fokus sahifani sakratmasin.
+    if (ikpuSearch) {
+      ikpuSearch.value = '';
+      try { ikpuSearch.focus({ preventScroll: true }); } catch (e) { ikpuSearch.focus(); }
+    }
+  }
+
+  // Panelni anchor'ga nisbatan joylash. Ro'yxat to'lgach balandlik o'zgaradi,
+  // shuning uchun HAR renderdan keyin qayta chaqiriladi (aks holda «tepaga
+  // ochilgan» panel bilan tugma orasida bo'sh joy qoladi).
+  function s2PlaceIkpu() {
+    if (!ikpuPop || ikpuPop.hidden || !ikpuAnchorBox) return;
+    var b = ikpuAnchorBox;
+    var h = ikpuPop.offsetHeight;
+    var vTop = window.scrollY;
+    var vBot = vTop + document.documentElement.clientHeight;
+    var top = b.bottom + 6;
+    // Pastda joy yo'q, tepada bor bo'lsa — tugmaning USTIDA ochamiz.
+    if (top + h > vBot - 8 && b.top - 6 - h > vTop + 8) top = b.top - 6 - h;
+    ikpuPop.style.top = top + 'px';
+    // O'ng chekkadan chiqib ketmasin (panel 460px, bulk popover esa 260px).
+    var maxLeft = window.scrollX + document.documentElement.clientWidth -
+                  ikpuPop.offsetWidth - 8;
+    ikpuPop.style.left = Math.max(8, Math.min(b.left, maxLeft)) + 'px';
   }
 
   function s2IkpuNote(msg) {
     if (!ikpuNote) return;
     ikpuNote.textContent = msg || '';
     ikpuNote.hidden = !msg;
+    s2PlaceIkpu();   // balandlik o'zgardi — anchor'ga qayta yopishtiramiz
   }
 
   if (ikpuSearch) {
@@ -2218,6 +2759,7 @@
           b.addEventListener('click', function () { s2PickIkpu(it); });
           ikpuList.appendChild(b);
         });
+        s2PlaceIkpu();   // ro'yxat to'ldi — joyni qayta hisoblaymiz
       })
       .catch(function () { s2IkpuNote(tr('Tarmoq xatosi', 'Ошибка сети')); });
   }
@@ -2228,16 +2770,23 @@
       r.ikpu = it.ikpu;
       r.ikpuValid = it.validForCategory !== false;
     };
-    if (ikpuTarget === -1) S2.rows.forEach(apply);
-    else if (S2.rows[ikpuTarget]) apply(S2.rows[ikpuTarget]);
+    if (ikpuTarget === -1) {
+      S2.rows.forEach(function (r, i) { apply(r); if (S2.errs[i]) delete S2.errs[i].ikpu; });
+    } else if (S2.rows[ikpuTarget]) {
+      apply(S2.rows[ikpuTarget]);
+      if (S2.errs[ikpuTarget]) delete S2.errs[ikpuTarget].ikpu;
+    }
     s2CloseIkpu();
     s2CloseBulk();
     s2Render();
   }
 
   document.addEventListener('click', function (e) {
-    if (ikpuPop && !ikpuPop.hidden && !ikpuPop.contains(e.target)) s2CloseIkpu();
-    if (bulkPop && !bulkPop.hidden && !bulkPop.contains(e.target)) s2CloseBulk();
+    // IKPU paneli bulk popover'dan ochilgan bo'lishi mumkin — panel ichidagi
+    // klik bulk'ni YOPMASIN (aks holda «Выберите» tugmasi ostidan yo'qoladi).
+    var inIkpu = !!(ikpuPop && ikpuPop.contains(e.target));
+    if (ikpuPop && !ikpuPop.hidden && !inIkpu) s2CloseIkpu();
+    if (bulkPop && !bulkPop.hidden && !inIkpu && !bulkPop.contains(e.target)) s2CloseBulk();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
@@ -2251,17 +2800,29 @@
   // tekshiruvlar server ro'yxatining NUSXASI: maqsad — foydalanuvchi 400
   // ko'rmasin, xatoni shu yerda ko'rsin.
   function s2Send() {
-    if (!s2Validate()) {
-      // Birinchi xatoni ko'rsatamiz (bandl `nt()` ham shunday qiladi).
-      var pf = document.getElementById('ntSkuPrefix');
-      var m = s2PrefixError(pf ? pf.value : '');
-      if (!m) {
-        for (var i = 0; i < S2.rows.length; i++) {
-          m = s2RowError(S2.rows[i]);
-          if (m) { m = (i + 1) + '-qator: ' + m; break; }
-        }
-      }
-      notify(m || tr('Forma to‘liq emas', 'Форма заполнена не полностью'));
+    if (!S2.rows.length) {
+      notify(tr('Forma to‘liq emas', 'Форма заполнена не полностью'));
+      return;
+    }
+    // Uzumdek: bosilganda tekshiramiz. Bo'sh majburiy kataklar → qizil «!»,
+    // format/mantiq xatolari → toast, SKU-nomi → qizil matn maydonda.
+    var pf = document.getElementById('ntSkuPrefix');
+    // Qulflangan prefiks — s2Validate() dagi bilan bir xil sabab.
+    var pe = S2.skuLocked ? null : s2PrefixError(pf ? pf.value : '');
+    var pErr = document.getElementById('ntSkuPrefixErr');
+    if (pErr) { pErr.textContent = pe || ''; pErr.hidden = !pe; }
+
+    var nEmpty = s2MarkRequiredErrors();
+
+    var fmt = null;
+    for (var i = 0; i < S2.rows.length; i++) {
+      var e = s2RowFormatError(S2.rows[i]);
+      if (e) { fmt = (i + 1) + '-qator: ' + e; break; }
+    }
+
+    if (pe || nEmpty || fmt) {
+      notify(pe || fmt ||
+        tr('Majburiy maydonlarni toʻldiring', 'Заполните обязательные поля'));
       return;
     }
 
@@ -2310,6 +2871,7 @@
           notify(res.d.error || tr('SKU saqlanmadi', 'Не удалось сохранить SKU'));
           return;
         }
+        ntDirty[2] = false;        // SKU/narxlar Uzumda — yo'qotadigan narsa yo'q
         var n = (res.d.skus || []).length;
         // Bandl `sku_created_successfully` (ru/uz) — Uzum matni.
         notify(tr('SKU muvaffaqiyatli yaratildi! (' + n + ')',
@@ -2328,8 +2890,21 @@
   // ── Qadamlar orasida o'tish ─────────────────────────────────────
   state.step = 1;
 
+  // «Chuqur tahrir» yuklagichini yashiradi (⋮-menyudan 2/3-qadam ochilganda
+  // 1-qadam o'rniga ko'rsatilgan spinner). Kerakli qadam render bo'lgach yoki
+  // 1-qadamга qaytilganda chaqiriladi.
+  function ntHideEditLoader() {
+    var el = document.getElementById('ntEditLoader');
+    if (el) el.hidden = true;
+  }
+  function ntShowEditLoader() {
+    var el = document.getElementById('ntEditLoader');
+    if (el) el.hidden = false;
+  }
+
   function s2Show(on) {
     state.step = on ? 2 : 1;
+    ntHideEditLoader();
     if (step1El) step1El.hidden = on;
     if (step2El) step2El.hidden = !on;
     // Qoralama yaratilgach do'kon almashmaydi — draft do'konga qat'iy
@@ -2338,16 +2913,8 @@
     var legend = document.querySelector('.nt-required-legend');
     if (legend) legend.hidden = on;
 
-    // Header qadam nishonlari
-    var steps = document.querySelectorAll('.nt-step');
-    if (steps.length >= 2) {
-      steps[0].classList.toggle('is-active', !on);
-      steps[0].classList.toggle('is-done', on);
-      steps[1].classList.toggle('is-active', on);
-      steps[0].removeAttribute('aria-current');
-      steps[1].removeAttribute('aria-current');
-      (on ? steps[1] : steps[0]).setAttribute('aria-current', 'step');
-    }
+    if (step3El) step3El.hidden = true;   // 3-qadamdan qaytilgan bo'lishi mumkin
+    paintSteps();                          // header nishonlari — yagona joyda
     window.scrollTo(0, 0);
     if (on) s2Validate(); else validate();
   }
@@ -2355,8 +2922,10 @@
   // Qoralama yaratilgach 2-qadamga o'tish (bandl ham shunday qiladi:
   // muvaffaqiyatdan keyin `/{shopId}/products/id/{productId}/edit/filters`).
   function s2Enter(productId) {
-    s2Load(productId).then(function (ok) {
+    state.productId = Number(productId) || null;
+    return s2Load(productId).then(function (ok) {
       if (ok) {
+        ntDirty[2] = false;   // serverdan yangi tortildi — toza holat
         s2Show(true);
         // Qayta yuklashga chidamli: qoralama URL'da qoladi.
         try {
@@ -2365,7 +2934,11 @@
           u.searchParams.set('shop', String(state.shop));
           window.history.replaceState({}, '', u.toString());
         } catch (e) { /* eski brauzer — URL yangilanmaydi, UI ishlaydi */ }
+      } else {
+        // Yuklab bo'lmadi — «chuqur tahrir» yuklagichida qotib qolmasin.
+        showStep1();
       }
+      return ok;
     });
   }
   root.ntEnterStep2 = s2Enter;   // 1-qadam saqlashi shu orqali chaqiradi
@@ -2390,12 +2963,38 @@
     attrs: [],     // ustunlar (skuAttributes[0].attributes)
     sku: [],       // qatorlar (filters/product javobidagi `sku`)
     values: {},    // {skuId: {attributeCode: <raw>}}
+    // Katak xatolari — {skuId: {attributeCode: true}}. Uzumdek FAQAT
+    // «Yakunlash» bosilgandan keyin to'ldiriladi (oldindan qizartirilmaydi).
+    errs: {},
+    errShown: false,
     loading: false
   };
+  // Ommaviy tahrirlash modalidagi boshqaruv ham AYNAN katak boshqaruvi —
+  // shu sabab u ham «SKU» sifatida yashaydi, faqat soxta id bilan.
+  var S3_BULK_SKU = { skuId: '__bulk__' };
 
   var step3El = document.getElementById('ntStep3');
   var ENUM_SINGLE = ['enum', 'localizableEnum'];
   var ENUM_MULTI = ['enumArray', 'localizableEnumArray'];
+  // Uzum dropdowni chevroni + chip ✕ (ichki SVG — tashqi ikonka darkormas).
+  var S3_CARET = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none">' +
+    '<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var S3_CHIP_X = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+    '<path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.5" ' +
+    'stroke-linecap="round"/></svg>';
+  // Ustun sarlavhasidagi nishon (↕ + 3 chiziq) — referens kadrdan o'lchangan:
+  // ink #ACACAC, strelka chapda, chiziqlar o'ngda qisqarib boradi.
+  // ⚠️ O'LCHAMI 18px — bandl `.attribute-header__icon{width:18px;height:18px}`.
+  // ⚠️ BU SARALASH EMAS: bandl `data-v-12137e6d` da shu tugma
+  // `attribute-bulk-modal` ni ochadi (i18n `bulkEditTitle`). Ilgari bizda
+  // saralash osilgan edi — Uzumda ustunni saralash imkoniyati YO'Q.
+  var S3_BULK_ICON = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none">' +
+    '<path d="M4 3v10M2.2 4.9L4 3l1.8 1.9M2.2 11.1L4 13l1.8-1.9" ' +
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" ' +
+    'stroke-linejoin="round"/>' +
+    '<path d="M8.5 4.5h6M8.5 8h4.5M8.5 11.5h3" stroke="currentColor" ' +
+    'stroke-width="1.5" stroke-linecap="round"/></svg>';
   function s3IsEnum(vt) { return ENUM_SINGLE.indexOf(vt) >= 0 || ENUM_MULTI.indexOf(vt) >= 0; }
   function s3IsMulti(vt) { return ENUM_MULTI.indexOf(vt) >= 0; }
 
@@ -2420,7 +3019,27 @@
     search:      tr('Qidirish...', 'Поиск...'),
     yes:         tr('Ha', 'Да'),
     no:          tr('Yoʻq', 'Нет'),
+    // Bandl BooleanField uchinchi varianti — bo'sh qiymatning YORLIG'I.
+    dash:        '—',
+    // Bandl i18n `value` — ochiq dropdown filtri placeholder'i.
+    valueWord:   tr('Qiymat', 'Значение'),
+    // ⚠️ 3-QADAMDA TUGMA MATNI BOSHQA: bandl umumiy i18n `finish`
+    // («Yakunlash» / «Завершить») — referens kadrda ham shunday. 1- va
+    // 2-qadamda esa `save_and_continue` qoladi.
+    finish:      tr('Yakunlash', 'Завершить'),
     maxValues:   tr('maks. qiymatlar:', 'макс. значений:'),
+    // ── Ommaviy tahrirlash (ustun sarlavhasidagi nishon) ──────────
+    // Bandl `assortment-kit` i18n (ru @2019442 / uz @2021501):
+    //   bulkEditTitle · applyValueToAllSku {name} · applyValueToAllSkuGeneric
+    bulkTitle:   tr('Ommaviy tahrirlash', 'Массовое редактирование'),
+    bulkAllGen:  tr('Qiymatni barcha SKUlarga qoʻllash',
+                    'Применить значение ко всем SKU'),
+    // ── Xato matnlari ─────────────────────────────────────────────
+    // `requiredField` (ru @2019115 / uz @2021175) — katak ostidagi qizil matn.
+    requiredField: tr('Maydon toʻldirish majburiy', 'Обязательное поле'),
+    // `create_filters.validation_errors` — «Yakunlash» bosilgandagi bildirishnoma.
+    validationErrors: tr('Maʼlumotlar notoʻgʻri toʻldirilgan. Kiriting qiymatlarni tekshiring.',
+                         'Данные заполнены некорректно. Проверьте введённые значения.'),
     fbMain:      tr('SKU kodsiz mahsulot xususiyatlarini qoʻsha olmaysiz',
                     'Вы не можете добавить свойства товаров без SKU'),
     saved:       tr('Xususiyatlar saqlangan', 'Свойства сохранены'),
@@ -2480,6 +3099,21 @@
           });
           S3.values[rowObj.skuId] = m;
         });
+        // Saqlangan qiymatli ENUM atributlar uchun nomlarni oldindan tortamiz —
+        // aks holda chip/matn kodni (masalan «gender_female») ko'rsatib qoladi.
+        var enumMap = {};
+        S3.attrs.forEach(function (a) { if (s3IsEnum(a.valueType)) enumMap[a.attributeCode] = 1; });
+        var need = {};
+        Object.keys(S3.values).forEach(function (skuId) {
+          Object.keys(S3.values[skuId] || {}).forEach(function (code) {
+            if (enumMap[code] && !s3EnumCache[code]) need[code] = 1;
+          });
+        });
+        var codes = Object.keys(need);
+        if (codes.length) {
+          return Promise.all(codes.map(function (c) { return s3FetchEnums(c); }))
+            .then(function () { s3Render(); return true; });
+        }
         s3Render();
         return true;
       })
@@ -2503,12 +3137,155 @@
   }
   function s3Set(skuId, code, val) {
     (S3.values[skuId] || (S3.values[skuId] = {}))[code] = val;
+    // 3-qadam tahriri — faqat shu yo'l orqali o'tadi (dropdown/chip/matn),
+    // s3Load esa `S3.values` ni TO'G'RIDAN-TO'G'RI to'ldiradi. Shu sababli
+    // bu yerdagi bayroq «foydalanuvchi o'zgartirdi» degani.
+    ntDirty[3] = true;
+    // Katak to'ldirilgan bo'lsa — qizil belgi darhol ketadi (Uzumdek).
+    var a = s3AttrByCode(code);
+    if (a && !s3IsEmpty(a.valueType, val)) s3ClearCellError(skuId, code);
+    // Qiymat o'zgardi — majburiy-atribut gate + hint qayta hisoblanadi.
+    s3SyncSave();
+  }
+
+  function s3AttrByCode(code) {
+    for (var i = 0; i < S3.attrs.length; i++) {
+      if (S3.attrs[i].attributeCode === code) return S3.attrs[i];
+    }
+    return null;
+  }
+
+  // ── Katak xatosi («Обязательное поле») ──────────────────────────
+  // Uzum bu belgini FAQAT «Yakunlash» bosilgandan keyin ko'rsatadi va katak
+  // to'ldirilishi bilan o'chiradi (bandl `setAttributeErrors`/`clearAttributeErrors`).
+  function s3HasErr(skuId, code) {
+    return !!(S3.errs[skuId] && S3.errs[skuId][code]);
+  }
+
+  function s3ClearCellError(skuId, code) {
+    if (!s3HasErr(skuId, code)) return;
+    delete S3.errs[skuId][code];
+    // Katakni QAYTA QURMAYMIZ — ochiq dropdown shu boshqaruvga bog'langan,
+    // qayta qurilsa tanlov o'rtasida uzilib qolardi.
+    var td = document.querySelector('#ntS3Rows .nt-s3-td[data-sku="' + skuId +
+                                    '"][data-code="' + code + '"]');
+    if (!td) return;
+    td.classList.remove('has-error');
+    var msg = td.querySelector('.nt-s3-cell-err');
+    if (msg && msg.parentNode) msg.parentNode.removeChild(msg);
+  }
+
+  function s3PaintCellError(td, sk, a) {
+    if (!td || !td.classList) return;
+    var on = s3HasErr(sk.skuId, a.attributeCode);
+    td.classList.toggle('has-error', on);
+    var msg = td.querySelector('.nt-s3-cell-err');
+    if (!on) {
+      if (msg && msg.parentNode) msg.parentNode.removeChild(msg);
+      return;
+    }
+    if (msg) return;
+    var m = document.createElement('span');
+    m.className = 'nt-s3-cell-err';
+    m.textContent = NT_S3.requiredField;
+    td.appendChild(m);
+  }
+
+  // «Yakunlash» bosilganda — bo'sh MAJBURIY kataklarni belgilaydi.
+  // Qaytaradi: belgilangan kataklar soni.
+  function s3MarkRequiredErrors() {
+    S3.errs = {};
+    var n = 0;
+    S3.attrs.forEach(function (a) {
+      if (!a.required) return;
+      S3.sku.forEach(function (sk) {
+        if (!s3IsEmpty(a.valueType, s3Get(sk.skuId, a.attributeCode))) return;
+        (S3.errs[sk.skuId] || (S3.errs[sk.skuId] = {}))[a.attributeCode] = true;
+        n++;
+      });
+    });
+    S3.errShown = true;
+    s3Render();
+    return n;
   }
 
   // ── Jadval renderi ──────────────────────────────────────────────
   function s3MaxLabel(n) {
     // limits.max_values — «maks. qiymatlar: {n}» / «макс. значений: {n}»
     return (NT_S3.maxValues || '') + ' ' + n;
+  }
+
+  // ── Ommaviy tahrirlash (ustun sarlavhasidagi nishon) ────────────
+  // Bandl `data-v-12137e6d`: nishon -> `attribute-bulk-modal`; modal ichidagi
+  // boshqaruv KATAKNIKI bilan AYNAN bir xil, «Применить» esa qiymatni BARCHA
+  // SKU'ga yozadi. Modal soxta «__bulk__» SKU'da ishlaydi — shu tufayli
+  // s3FillCell/s3OpenEnum ni qayta yozmasdan ishlatamiz.
+  var s3BulkModal = document.getElementById('ntS3BulkModal');
+  var s3BulkAttr = null;
+
+  function s3OpenBulk(ai) {
+    var a = S3.attrs[ai];
+    if (!a || !s3BulkModal) return;
+    s3BulkAttr = a;
+    // Oldingi qiymat qolib ketmasin.
+    S3.values[S3_BULK_SKU.skuId] = {};
+
+    var sub = document.getElementById('ntS3BulkSub');
+    if (sub) {
+      var nm = s3AttrName(a);
+      // `applyValueToAllSku`: «{name}» qiymatini barcha SKUlarga qoʻllash /
+      // Применить значение «{name}» ко всем SKU
+      sub.textContent = nm
+        ? tr('«' + nm + '» qiymatini barcha SKUlarga qoʻllash',
+             'Применить значение «' + nm + '» ко всем SKU')
+        : NT_S3.bulkAllGen;
+    }
+    var lim = document.getElementById('ntS3BulkLimits');
+    if (lim) {
+      var mv = (a.dataProperties || {}).maxValues;
+      var show = s3IsMulti(a.valueType) && mv;
+      lim.textContent = show ? s3MaxLabel(mv) : '';
+      lim.hidden = !show;
+    }
+    var field = document.getElementById('ntS3BulkField');
+    if (field) {
+      field.innerHTML = '';
+      s3FillCell(field, S3_BULK_SKU, a);
+    }
+    s3BulkModal.hidden = false;
+  }
+
+  function s3CloseBulk() {
+    if (s3BulkModal) s3BulkModal.hidden = true;
+    s3CloseEnum();
+    s3BulkAttr = null;
+    delete S3.values[S3_BULK_SKU.skuId];
+  }
+
+  function s3ApplyBulk() {
+    var a = s3BulkAttr;
+    if (!a) { s3CloseBulk(); return; }
+    var val = s3Get(S3_BULK_SKU.skuId, a.attributeCode);
+    S3.sku.forEach(function (sk) {
+      // Massiv — HAR SKU'ga nusxa (bitta havolani bo'lishsa, bitta chip
+      // o'chirilganda hamma qatordan yo'qolardi).
+      s3Set(sk.skuId, a.attributeCode, Array.isArray(val) ? val.slice() : val);
+    });
+    s3CloseBulk();
+    s3Render();
+    s3SyncSave();
+  }
+
+  if (s3BulkModal) {
+    var bCancel = document.getElementById('ntS3BulkCancel');
+    var bClose = document.getElementById('ntS3BulkClose');
+    var bApply = document.getElementById('ntS3BulkApply');
+    if (bCancel) bCancel.addEventListener('click', s3CloseBulk);
+    if (bClose) bClose.addEventListener('click', s3CloseBulk);
+    if (bApply) bApply.addEventListener('click', s3ApplyBulk);
+    s3BulkModal.addEventListener('click', function (e) {
+      if (e.target === s3BulkModal) s3CloseBulk();   // fon bosilsa yopiladi
+    });
   }
 
   function s3Render() {
@@ -2526,24 +3303,35 @@
     if (save && state.step === 3) save.disabled = !hasSku;
     if (!hasSku) return;
 
-    // Sarlavha: «Товar» + har atribut.
+    // Sarlavha: «Товar» + har atribut (+ Uzumdek ↕ saralash nishoni).
     var ths = ['<th class="nt-th nt-th--sticky">' + esc(NT_S3.colProduct) + '</th>'];
-    S3.attrs.forEach(function (a) {
+    S3.attrs.forEach(function (a, ai) {
       var sub = '';
       var mv = (a.dataProperties || {}).maxValues;
       if (s3IsMulti(a.valueType) && mv) {
         sub = '<span class="nt-s3-th-sub">' + esc(s3MaxLabel(mv)) + '</span>';
       }
       var req = a.required ? '<span class="nt-req" aria-hidden="true">*</span>' : '';
-      ths.push('<th class="nt-th nt-s3-th">' + esc(s3AttrName(a)) + req + sub + '</th>');
+      ths.push('<th class="nt-th nt-s3-th"><span class="nt-s3-th-in">' +
+        '<span class="nt-s3-th-lab">' + esc(s3AttrName(a)) + req + sub + '</span>' +
+        '<button type="button" class="nt-s3-bulk-btn" data-ai="' + ai + '" ' +
+        'aria-label="' + esc(NT_S3.bulkTitle) + '" title="' + esc(NT_S3.bulkTitle) + '">' +
+        S3_BULK_ICON + '</button></span></th>');
     });
     head.innerHTML = ths.join('');
+    head.querySelectorAll('.nt-s3-bulk-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        s3OpenBulk(Number(btn.getAttribute('data-ai')));
+      });
+    });
 
     // Qatorlar: har SKU.
     body.innerHTML = '';
     S3.sku.forEach(function (sk) {
       var tr_ = document.createElement('tr');
-      var tds = ['<td class="nt-td nt-td--sticky">' + s3ProductCell(sk) + '</td>'];
+      var tds = ['<td class="nt-td nt-td--sticky" data-prod="' + esc(String(sk.skuId)) +
+                 '">' + s3ProductCell(sk) + '</td>'];
       S3.attrs.forEach(function (a) {
         tds.push('<td class="nt-td nt-s3-td" data-sku="' + esc(String(sk.skuId)) +
                  '" data-code="' + esc(a.attributeCode) + '"></td>');
@@ -2557,13 +3345,49 @@
     });
   }
 
+  // rang nomi — `characteristics` "[uz: Alvon, ru: Алый]" dan tanlangan tilda.
+  function s3ColorName(sk) {
+    var c = String(sk.characteristics || '');
+    var re = (lang === 'ru') ? /ru:\s*([^,\]]+)/ : /uz:\s*([^,\]]+)/;
+    var m = c.match(re);
+    if (m && m[1]) return m[1].trim();
+    // Fallback — skuTitle oxirgi bo'lagi (rang odatda oxirida).
+    var parts = String(sk.skuTitle || '').split('-');
+    return parts.length ? parts[parts.length - 1] : String(sk.skuTitle || '');
+  }
+
+  // Shu QATORDA to'ldirilmagan majburiy atributlar (qizil «!» nishoni uchun).
+  // Bandl `sku-errors-hint`: nishon qator ichida turadi va tooltip'da qaysi
+  // atribut xato ekani sanaladi. Referens kadrda har qatorda ko'rinadi.
+  function s3RowMissing(sk) {
+    var out = [];
+    S3.attrs.forEach(function (a) {
+      if (!a.required) return;
+      if (s3IsEmpty(a.valueType, s3Get(sk.skuId, a.attributeCode))) out.push(s3AttrName(a));
+    });
+    return out;
+  }
+
   function s3ProductCell(sk) {
-    // sku qatoridan rang/nom — bandl skuTitle.split('-').slice(2).
-    var title = String(sk.skuTitle || '');
-    var parts = title.split('-').slice(2);
-    var sub = parts.join('-');
-    return '<div class="nt-s3-prod"><span class="nt-s3-prod-top">' + esc(sub || title) +
-           '</span></div>';
+    // Uzum ko'rinishi: rasm + rang nomi (tepa) + to'liq skuTitle (ost) + «!».
+    var color = s3ColorName(sk);
+    var skuT = String(sk.skuTitle || '');
+    var img = sk.imageLow || sk.imageHigh || '';
+    var imgHtml = img
+      ? '<img class="nt-s3-prod-img" src="' + esc(img) + '" alt="" loading="lazy">'
+      : '<span class="nt-s3-prod-img is-empty" aria-hidden="true"></span>';
+    var miss = s3RowMissing(sk);
+    var err = miss.length
+      ? '<span class="nt-s3-err" data-sku="' + esc(String(sk.skuId)) + '" role="img" ' +
+        'aria-label="' + esc(tr('Toʻldirilmagan majburiy xususiyatlar',
+                                'Незаполненные обязательные свойства')) + '" ' +
+        'title="' + esc(tr('Toʻldiring: ', 'Заполните: ') + miss.join(', ')) + '">!</span>'
+      : '';
+    return '<div class="nt-s3-prod">' + imgHtml +
+      '<span class="nt-s3-prod-txt">' +
+        '<span class="nt-s3-prod-top">' + esc(color || skuT) + '</span>' +
+        (skuT ? '<span class="nt-s3-prod-sub">' + esc(skuT) + '</span>' : '') +
+      '</span>' + err + '</div>';
   }
 
   // Bitta katakni to'ldirish — valueType bo'yicha turli boshqaruv.
@@ -2571,16 +3395,38 @@
     if (!td) return;
     var vt = a.valueType;
     var raw = s3Get(sk.skuId, a.attributeCode);
-    if (s3IsEnum(vt)) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'nt-s3-combo';
-      s3ComboLabel(btn, a, raw);
-      btn.addEventListener('click', function (e) {
+    // ⚠️ MANTIQIY (boolean) atribut ham DROPDOWN — segment tugma EMAS.
+    // JONLI DALIL (bandl `BooleanField`, mf-products @2022149):
+    //   u-select type:"single", input-variant:"outlined", size:"medium",
+    //   values: [{yes,true},{no,false},{"—",null}], showClearIcon:false
+    // Ilgari bu yerda binafsha «Ha|Yoʻq» segmenti chizilardi — Uzumda bunday
+    // boshqaruv YO'Q, jadvaldagi hamma katak bir xil ko'rinishli dropdown.
+    if (s3IsEnum(vt) || vt === 'boolean') {
+      // Uzum kombosi: div konteyner (chip'lar ichkaridan bo'ladi — <button>
+      // ichida <button> yaroqsiz) + chevron. Enter/Space bilan ham ochiladi.
+      var combo = document.createElement('div');
+      combo.className = 'nt-s3-combo';
+      combo.setAttribute('role', 'button');
+      combo.tabIndex = 0;
+      var body = document.createElement('div');
+      body.className = 'nt-s3-combo-body';
+      var caret = document.createElement('span');
+      caret.className = 'nt-s3-combo-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      caret.innerHTML = S3_CARET;
+      combo.appendChild(body);
+      combo.appendChild(caret);
+      s3ComboLabel(combo, sk, a);
+      combo.addEventListener('click', function (e) {
+        // chip ✕ bosilsa dropdown ochilmaydi (faqat o'chirish).
+        if (e.target.closest && e.target.closest('.nt-s3-chip-x')) return;
         e.stopPropagation();
-        s3OpenEnum(btn, sk, a);
+        s3OpenEnum(combo, sk, a);
       });
-      td.appendChild(btn);
+      combo.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); s3OpenEnum(combo, sk, a); }
+      });
+      td.appendChild(combo);
     } else if (vt === 'numeric') {
       var dp = a.dataProperties || {};
       var wrapN = document.createElement('div');
@@ -2603,24 +3449,6 @@
         wrapN.appendChild(u);
       }
       td.appendChild(wrapN);
-    } else if (vt === 'boolean') {
-      var seg = document.createElement('div');
-      seg.className = 'nt-s3-bool';
-      [['1', NT_S3.yes, true], ['0', NT_S3.no, false]].forEach(function (opt) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'nt-s3-bool-btn' + (raw === opt[2] ? ' is-on' : '');
-        b.textContent = opt[1];
-        b.addEventListener('click', function () {
-          var cur = s3Get(sk.skuId, a.attributeCode);
-          var next = (cur === opt[2]) ? null : opt[2];  // qayta bossa — tozalash
-          s3Set(sk.skuId, a.attributeCode, next);
-          seg.querySelectorAll('.nt-s3-bool-btn').forEach(function (x) { x.classList.remove('is-on'); });
-          if (next === opt[2]) b.classList.add('is-on');
-        });
-        seg.appendChild(b);
-      });
-      td.appendChild(seg);
     } else {
       // string / localizableString — oddiy matn kiritish.
       var t = document.createElement('input');
@@ -2633,6 +3461,8 @@
       });
       td.appendChild(t);
     }
+    // Bo'sh majburiy katak «Yakunlash» dan keyin qizil ramka + matn oladi.
+    s3PaintCellError(td, sk, a);
   }
 
   function s3UnitLabel(unit) {
@@ -2642,26 +3472,78 @@
     return '';
   }
 
-  // Enum combo yorlig'i — tanlanган qiymat(lar) yoki placeholder.
-  function s3ComboLabel(btn, a, raw) {
+  // Enum combo yorlig'i — Uzum ko'rinishi: multi → o'chiriladigan chip'lar
+  // (Женский ✕), single → matn, bo'sh → placeholder. Konteyner `.nt-s3-combo`.
+  function s3ComboLabel(combo, sk, a) {
+    var body = combo.querySelector && combo.querySelector('.nt-s3-combo-body');
+    if (!body) return;
     var multi = s3IsMulti(a.valueType);
-    var chosen = [];
+    var raw = s3Get(sk.skuId, a.attributeCode);
     var cache = s3EnumCache[a.attributeCode] || [];
     function titleOf(code) {
       for (var i = 0; i < cache.length; i++) if (cache[i].code === code) return s3EnumTitle(cache[i]);
       return code;
     }
-    if (multi && Array.isArray(raw) && raw.length) {
-      chosen = raw.map(titleOf);
-    } else if (!multi && raw) {
-      chosen = [titleOf(raw)];
+    body.innerHTML = '';
+    // Mantiqiy atribut — bandl `BooleanField`: bo'sh qiymat ham TANLANGAN
+    // variant («—») sifatida ko'rsatiladi, placeholder emas
+    // (`get: () => options.find(...) ?? options[2]`, options[2] = {"—", null}).
+    if (a.valueType === 'boolean') {
+      combo.classList.remove('is-placeholder');
+      var bv = document.createElement('span');
+      bv.className = 'nt-s3-combo-val';
+      bv.textContent = (raw === true) ? NT_S3.yes : (raw === false) ? NT_S3.no : NT_S3.dash;
+      body.appendChild(bv);
+      return;
     }
-    if (chosen.length) {
-      btn.classList.remove('is-placeholder');
-      btn.textContent = chosen.join(', ');
-    } else {
-      btn.classList.add('is-placeholder');
-      btn.textContent = multi ? NT_S3.chooseMulti : NT_S3.choose;
+    if (multi && Array.isArray(raw) && raw.length) {
+      combo.classList.remove('is-placeholder');
+      raw.forEach(function (code) {
+        var chip = document.createElement('span');
+        chip.className = 'nt-s3-chip';
+        var t = document.createElement('span');
+        t.className = 'nt-s3-chip-t';
+        t.textContent = titleOf(code);
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'nt-s3-chip-x';
+        x.setAttribute('aria-label', tr('Oʻchirish', 'Удалить'));
+        x.innerHTML = S3_CHIP_X;
+        x.addEventListener('click', function (e) {
+          e.stopPropagation();
+          s3RemoveMulti(sk, a, code, combo);
+        });
+        chip.appendChild(t); chip.appendChild(x);
+        body.appendChild(chip);
+      });
+      return;
+    }
+    if (!multi && raw) {
+      combo.classList.remove('is-placeholder');
+      var v = document.createElement('span');
+      v.className = 'nt-s3-combo-val';
+      v.textContent = titleOf(raw);
+      body.appendChild(v);
+      return;
+    }
+    combo.classList.add('is-placeholder');
+    var ph = document.createElement('span');
+    ph.className = 'nt-s3-combo-ph';
+    ph.textContent = multi ? NT_S3.chooseMulti : NT_S3.choose;
+    body.appendChild(ph);
+  }
+
+  // Chip ✕ — bitta multi qiymatini olib tashlaydi (dropdown ochilmaydi).
+  function s3RemoveMulti(sk, a, code, combo) {
+    var raw = s3Get(sk.skuId, a.attributeCode);
+    var arr = Array.isArray(raw) ? raw.slice() : [];
+    var i = arr.indexOf(code);
+    if (i >= 0) arr.splice(i, 1);
+    s3Set(sk.skuId, a.attributeCode, arr.length ? arr : null);
+    s3RefreshCombo(combo, sk, a);
+    // Shu atribut dropdowni ochiq bo'lsa — belgilangan holatni yangilaymiz.
+    if (s3PopCtx && s3PopCtx.btn === combo && s3Pop && !s3Pop.hidden) {
+      s3RenderPop(s3FilterValue());
     }
   }
 
@@ -2672,13 +3554,78 @@
   var s3PopCtx = null;   // {btn, sk, a}
 
   function s3OpenEnum(btn, sk, a) {
+    if (s3PopCtx && s3PopCtx.btn && s3PopCtx.btn !== btn) s3CloseEnum();
     s3PopCtx = { btn: btn, sk: sk, a: a };
     if (s3PopSearch) s3PopSearch.value = '';
+    btn.classList.add('is-open');          // chevron teskari + fokus halqasi
     s3PositionPop(btn);
     if (s3Pop) s3Pop.hidden = false;
+    // ⚠️ QIDIRUV MAYDONI PANELDA EMAS, TUGMANING ICHIDA.
+    // JONLI DALIL: sacvoyage-step3-operating-system-dropdown.png — dropdown
+    // ochilganda tugma matn maydoniga aylanadi («Значение…» placeholder'i
+    // bilan), ro'yxatda esa alohida qidiruv qatori YO'Q. Bandl ham shunday:
+    // `EnumField` u-select'ga `filter:{placeholder: t("search")}` beradi
+    // (u-select filtrni O'Z inputiga qo'yadi), `BooleanField` esa bermaydi.
+    var isBool = a.valueType === 'boolean';
+    if (isBool) { s3RenderPop(''); return; }
+    s3MountFilter(btn, sk, a);
     if (s3PopList) s3PopList.innerHTML = '<p class="nt-s3-pop-empty">' + esc(NT_S3.search) + '</p>';
-    s3FetchEnums(a.attributeCode).then(function () { s3RenderPop(''); });
-    if (s3PopSearch) s3PopSearch.focus();
+    s3FetchEnums(a.attributeCode).then(function () {
+      if (s3PopCtx && s3PopCtx.btn === btn) s3RenderPop(s3FilterValue());
+    });
+  }
+
+  // Tugma ichidagi filtr inputi (Uzum u-select'ining ochiq holati).
+  function s3MountFilter(combo, sk, a) {
+    var body = combo.querySelector('.nt-s3-combo-body');
+    if (!body || body.querySelector('.nt-s3-combo-filter')) return;
+    // Bitta tanlovli maydonda ochilganda joriy MATN o'rniga input turadi;
+    // ko'p tanlovlida chip'lar qoladi va input ular yonига qo'shiladi.
+    if (!s3IsMulti(a.valueType)) {
+      body.innerHTML = '';
+    } else {
+      // ⚠️ Ko'p tanlovda chip'lar qoladi, LEKIN placeholder span'ini olib
+      // tashlaymiz. Aks holda bo'sh multi ochilganda «Qiymatlarni tanlang»
+      // yorlig'i input placeholder'i «Qiymat» bilan yonma-yon chiqib
+      // ikkilanardi (flex-wrap body). Uzumda ochilganda faqat input turadi.
+      var phEl = body.querySelector('.nt-s3-combo-ph');
+      if (phEl) phEl.parentNode.removeChild(phEl);
+    }
+    var inp = document.createElement('input');
+    inp.className = 'nt-s3-combo-filter';
+    inp.type = 'text';
+    inp.autocomplete = 'off';
+    // Ochiq holatdagi placeholder — «Qiymat» / «Значение» (bandl i18n `value`).
+    // Referens kadrda tugma ochilganda aynan shu matn turadi, «Qiymatni
+    // tanlang» EMAS (u yopiq holatning yorlig'i).
+    inp.placeholder = NT_S3.valueWord;
+    inp.addEventListener('click', function (e) { e.stopPropagation(); });
+    inp.addEventListener('input', function () { s3RenderPop(inp.value.trim()); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); s3CloseEnum(); }
+    });
+    body.appendChild(inp);
+    inp.focus();
+  }
+
+  function s3FilterValue() {
+    var inp = s3PopCtx && s3PopCtx.btn
+      ? s3PopCtx.btn.querySelector('.nt-s3-combo-filter') : null;
+    return inp ? inp.value.trim() : '';
+  }
+
+  // Yorliqni qayta chizadi va dropdown OCHIQ bo'lsa filtr inputini tiklaydi
+  // (ko'p tanlovda chip qo'shilgach input yo'qolib qolmasin — Uzumda ochiq
+  // dropdown chip qo'shgandan keyin ham yozishda davom etadi).
+  function s3RefreshCombo(combo, sk, a) {
+    var open = combo.classList.contains('is-open');
+    var keep = open ? s3FilterValue() : '';
+    s3ComboLabel(combo, sk, a);
+    if (open && a.valueType !== 'boolean') {
+      s3MountFilter(combo, sk, a);
+      var inp = combo.querySelector('.nt-s3-combo-filter');
+      if (inp && keep) inp.value = keep;
+    }
   }
 
   function s3PositionPop(btn) {
@@ -2692,6 +3639,25 @@
   function s3RenderPop(q) {
     if (!s3PopCtx || !s3PopList) return;
     var a = s3PopCtx.a, sk = s3PopCtx.sk;
+    // Mantiqiy atribut — bandl BooleanField'ning AYNAN uchta varianti:
+    //   [{yes,true}, {no,false}, {"—", null}]
+    if (a.valueType === 'boolean') {
+      var cur = s3Get(sk.skuId, a.attributeCode);
+      s3PopList.innerHTML = '';
+      [[NT_S3.yes, true], [NT_S3.no, false], [NT_S3.dash, null]].forEach(function (o) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nt-s3-opt' + ((cur === o[1] || (cur == null && o[1] === null)) ? ' is-on' : '');
+        b.textContent = o[0];
+        b.addEventListener('click', function () {
+          s3Set(sk.skuId, a.attributeCode, o[1]);
+          if (s3PopCtx && s3PopCtx.btn) s3ComboLabel(s3PopCtx.btn, sk, a);
+          s3CloseEnum();
+        });
+        s3PopList.appendChild(b);
+      });
+      return;
+    }
     var multi = s3IsMulti(a.valueType);
     var maxV = (a.dataProperties || {}).maxValues || 0;
     var items = (s3EnumCache[a.attributeCode] || []).filter(function (it) {
@@ -2733,18 +3699,37 @@
         arr.push(code);
       }
       s3Set(sk.skuId, a.attributeCode, arr.length ? arr : null);
-      s3RenderPop(s3PopSearch ? s3PopSearch.value : '');
-    } else {
-      var next = (raw === code) ? null : code;
-      s3Set(sk.skuId, a.attributeCode, next);
-      s3CloseEnum();
+      // Combo yorlig'i + filtr inputi (ochiq qoladi — Uzumdek).
+      if (s3PopCtx && s3PopCtx.btn) s3RefreshCombo(s3PopCtx.btn, sk, a);
+      s3RenderPop(s3FilterValue());
+      return;
     }
-    // Combo yorlig'ini yangilash.
-    if (s3PopCtx && s3PopCtx.btn) s3ComboLabel(s3PopCtx.btn, a, s3Get(sk.skuId, a.attributeCode));
+    var next = (raw === code) ? null : code;
+    s3Set(sk.skuId, a.attributeCode, next);
+    s3CloseEnum();   // yopilishda yorliq o'zi tiklanadi
   }
 
-  function s3CloseEnum() { if (s3Pop) s3Pop.hidden = true; s3PopCtx = null; }
-  if (s3PopSearch) s3PopSearch.addEventListener('input', function () { s3RenderPop(s3PopSearch.value.trim()); });
+  function s3CloseEnum() {
+    if (s3Pop) s3Pop.hidden = true;
+    // Filtr inputini olib tashlab, yorliqni (chip/qiymat/placeholder) tiklaymiz.
+    if (s3PopCtx && s3PopCtx.btn) {
+      s3PopCtx.btn.classList.remove('is-open');
+      if (s3PopCtx.a.valueType !== 'boolean') {
+        s3ComboLabel(s3PopCtx.btn, s3PopCtx.sk, s3PopCtx.a);
+      }
+    }
+    s3PopCtx = null;
+  }
+  // (Paneldagi eski qidiruv qatori olib tashlandi — filtr endi tugma ichida.)
+  //
+  // ⚠️ Panel ichidagi bosishlar hujjatga CHIQMASLIGI kerak. Aks holda ko'p
+  // tanlovli atributda qiymat bosilgach ro'yxat qayta chiziladi, bosilgan
+  // tugma DOM'dan chiqib ketadi va pastdagi tekshiruv (`s3Pop.contains`)
+  // uni «tashqarida» deb topib, dropdown'ni yopib qo'yardi (jonli ushlandi:
+  // chip qo'shilgach panel yopilib ketardi, Uzumda esa ochiq qoladi).
+  if (s3Pop) {
+    s3Pop.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
   document.addEventListener('click', function (e) {
     if (s3Pop && !s3Pop.hidden && !s3Pop.contains(e.target)) s3CloseEnum();
   });
@@ -2776,9 +3761,48 @@
     return { valueType: vt, value: raw };
   }
 
+  // ⚠️ s3MissingRequired() OLIB TASHLANDI — u «qaysi ustunlar bo'sh» ro'yxatini
+  // qaytarib, tugmani o'chirish + hint qatori uchun ishlatilardi. Uzumda gate
+  // KATAK darajasida: `s3MarkRequiredErrors()` har (SKU × majburiy atribut)
+  // katakni belgilaydi. JONLI dalil (2026-07-18) o'z kuchida qoladi: bo'sh
+  // majburiy atribut → save-filters 400 «Qiymatni to'ldiring», shuning uchun
+  // POST oldidan tekshiruv SAQLANDI, faqat ko'rinishi Uzumnikiga o'tdi.
+
+  // Qatorlardagi qizil «!» nishonini qayta chizadi (qiymat o'zgargach).
+  function s3PaintRowErrors() {
+    var cells = document.querySelectorAll('#ntS3Rows .nt-td--sticky[data-prod]');
+    for (var i = 0; i < cells.length; i++) {
+      var id = cells[i].getAttribute('data-prod');
+      var sk = null;
+      for (var j = 0; j < S3.sku.length; j++) {
+        if (String(S3.sku[j].skuId) === id) { sk = S3.sku[j]; break; }
+      }
+      if (sk) cells[i].innerHTML = s3ProductCell(sk);
+    }
+  }
+
+  function s3SyncSave() {
+    // ⚠️ UZUMDEK: «Yakunlash» bo'sh majburiy maydonlar uchun O'CHIRILMAYDI —
+    // u bosiladi, keyin kataklar qizaradi (s3MarkRequiredErrors) va
+    // `validation_errors` bildirishnomasi chiqadi. Ilgari bu yerda tugma
+    // o'chirilib, ustiga «Majburiy — toʻldiring: …» hint qatori chizilardi;
+    // Uzumda bunday qator YO'Q.
+    if (state.step !== 3) return;
+    s3PaintRowErrors();
+    var save = document.getElementById('ntSave');
+    if (save) save.disabled = !(S3.sku.length && S3.attrs.length);
+  }
+
   function s3Send() {
     if (!S3.sku.length || !S3.attrs.length) {
       notify(NT_S3.fbMain);
+      return;
+    }
+    // MAJBURIY atributlar gate — chala yuborilса Uzum 400 beradi.
+    // UZUMDEK: bo'sh kataklar qizaradi + ostida «Обязательное поле», tepada
+    // esa `create_filters.validation_errors` bildirishnomasi.
+    if (s3MarkRequiredErrors()) {
+      notify(NT_S3.validationErrors);
       return;
     }
     var skuAttributeValues = S3.sku.map(function (sk) {
@@ -2817,8 +3841,22 @@
           notify(res.d.error || NT_S3.saveFail);
           return;
         }
+        ntDirty[3] = false;        // xususiyatlar Uzumda — ogohlantirish shart emas
         // Bandl `properties_saved` — Uzum matni.
         notify(NT_S3.saved);
+        // ── YAKUN: karta to'liq yaratildi. Endi «Mahsulotlar» (/groups) ni
+        // AYNAN shu do'kon tanlangan holda ochamiz (foydalanuvchi talabi
+        // 2026-07-25 — ilgari sahifada qolib ketardi). Do'kon tanlovi barcha
+        // sahifalar o'rtasida `sh_shop` cookie orqali ulashiladi (uzum_id
+        // saqlaydi; /groups shundan o'qiydi — products/routes.py). Uni
+        // sales.html'dagi `saveShopCookie` bilan BIR XIL yozamiz.
+        try {
+          document.cookie = 'sh_shop=' + encodeURIComponent(state.shop || '') +
+                            '; path=/; max-age=31536000; SameSite=Lax';
+        } catch (e) { /* cookie o'chiq — baribir o'tamiz, /groups fallback qiladi */ }
+        ntBypassGuard = true;      // qo'riqchi jim (holat allaqachon toza, ishonch uchun)
+        // Qisqa kechikish — «Xususiyatlar saqlangan» toast'i ko'rinib ulgursin.
+        setTimeout(function () { window.location.assign('/groups'); }, 900);
       })
       .catch(function () {
         if (btn) { btn.disabled = false; btn.textContent = prev; }
@@ -2829,29 +3867,25 @@
   // ── Qadam almashish ─────────────────────────────────────────────
   function s3Show(on) {
     state.step = on ? 3 : 2;
+    ntHideEditLoader();
     if (step1El) step1El.hidden = true;
     if (step2El) step2El.hidden = on;
     if (step3El) step3El.hidden = !on;
     var legend = document.querySelector('.nt-required-legend');
     if (legend) legend.hidden = true;
-    var steps = document.querySelectorAll('.nt-step');
-    if (steps.length >= 3) {
-      steps[0].classList.remove('is-active'); steps[0].classList.add('is-done');
-      steps[1].classList.toggle('is-active', !on); steps[1].classList.toggle('is-done', on);
-      steps[2].classList.toggle('is-active', on);
-      steps[0].removeAttribute('aria-current');
-      steps[1].removeAttribute('aria-current');
-      steps[2].removeAttribute('aria-current');
-      (on ? steps[2] : steps[1]).setAttribute('aria-current', 'step');
-    }
+    paintSteps();
     window.scrollTo(0, 0);
     var save = document.getElementById('ntSave');
     if (save) save.disabled = on ? !(S3.sku.length && S3.attrs.length) : false;
+    // 3-qadamda majburiy-atribut gate + hint (Save'ni yana o'chirishi mumkin).
+    if (on) s3SyncSave();
   }
 
   function s3Enter(productId) {
-    s3Load(productId).then(function (ok) {
+    state.productId = Number(productId) || null;
+    return s3Load(productId).then(function (ok) {
       if (ok) {
+        ntDirty[3] = false;   // serverdan yangi tortildi — toza holat
         s3Show(true);
         try {
           var u = new URL(window.location.href);
@@ -2860,7 +3894,12 @@
           u.searchParams.set('step', '3');
           window.history.replaceState({}, '', u.toString());
         } catch (e) { /* eski brauzer — URL yangilanmaydi, UI ishlaydi */ }
+      } else {
+        // Yuklab bo'lmadi — «chuqur tahrir» yuklagichida qotib qolmasin
+        // (s3Load xato toast'ini allaqachon ko'rsatdi).
+        showStep1();
       }
+      return ok;
     });
   }
 
@@ -2878,6 +3917,141 @@
     });
   }
 
+  /* ════════════════════════════════════════════════════════════════
+   *  HEADER QADAM NISHONLARI — bosiladi (Uzumdagidek)
+   *
+   *  DALIL (bandl `chunk-2e85dd89` @52129, t12.har bilan tasdiqlangan):
+   *    [{card, /edit}, {prices, /edit/sku/all}, {property, /edit/filters}]
+   *      .forEach((e, t) => {
+   *         (t === joriy || yuklanmoqda) && (e.link = "")
+   *         !isEdit && t > joriy       && (e.link = "")
+   *         isEdit && !editable.isEditable && t === 0 && (e.link = "RESTRICTED")
+   *      })
+   *  Ya'ni: ORQAGA qaytish doim ochiq, OLDINGA sakrash yo'q (faqat o'tib
+   *  bo'lingan qadamga), joriy qadam esa umuman bosilmaydi.
+   *
+   *  t12.har (195 yozuv, 6+ marta qadam almashtirilgan): har bosishda faqat
+   *  O'QISH so'rovlari ketadi, hech narsa saqlanmaydi. Bizda ham shunday —
+   *  s2Enter/s3Enter serverdan qayta yuklaydi.
+   * ════════════════════════════════════════════════════════════════ */
+
+  // Qaysi qadamgacha borilgan (nishonlarni «bajarildi» qilish uchun ham).
+  state.maxStep = 1;
+
+  function stepReachable(n) {
+    if (n === state.step) return false;             // joriy qadam — bosilmaydi
+    if (n === 1) {
+      // 1-qadam ochiq bo'ladi, agar:
+      //   · yangi yaratish (productId yo'q) — forma o'sha yerda; YOKI
+      //   · karta MA'LUMOTI bu sahifada bor (cardFilled — yangi yaratishda
+      //     saqlangan forma); YOKI
+      //   · MAVJUD kartani tahrirlayapmiz (editingProduct) — bosilganda
+      //     `goStep(1)` s1Load bilan YUKLAB beradi, bo'sh forma ko'rsatilmaydi
+      //     (shuning uchun «ustidan saqlab o'chirish» xavfi yo'q).
+      // Ilgari tahrirда (productId bor, cardFilled yo'q) 1-qadam QULF edi —
+      // foydalanuvchi 3-qadamdan 1-ga qayta olmasdi (shikoyat 2026-07-26).
+      return !state.productId || !!state.cardFilled || !!state.editingProduct;
+    }
+    // Bandl: `!isEdit && t > joriy -> link=""`, bunda `isEdit = !!productId`.
+    // Ya'ni karta MAVJUD bo'lsa oldinga ham o'tiladi; karta yo'q ekan
+    // 2/3-qadamda ko'rsatadigan narsaning O'ZI yo'q — shu shart yetarli.
+    // (3-qadam SKU'siz ochilsa Uzum «taqiq» ekranini ko'rsatadi — bizda ham.)
+    return !!state.productId;
+  }
+
+  // «Saqlash va davom etish» → 3-qadamda «Yakunlash» (bandl i18n `finish`;
+  // referens kadrda ham 3-qadamda «Завершить» turadi).
+  var ntSaveLabelDefault = null;
+  function syncSaveLabel() {
+    var b = document.getElementById('ntSave');
+    if (!b) return;
+    if (ntSaveLabelDefault === null) ntSaveLabelDefault = b.textContent.trim();
+    b.textContent = (state.step === 3) ? NT_S3.finish : ntSaveLabelDefault;
+  }
+
+  function paintSteps() {
+    if (state.step > state.maxStep) state.maxStep = state.step;
+    syncSaveLabel();
+    var btns = document.querySelectorAll('.nt-step');
+    for (var i = 0; i < btns.length; i++) {
+      var n = i + 1;
+      var b = btns[i];
+      var open = stepReachable(n);
+      b.classList.toggle('is-active', n === state.step);
+      // «Bajarilgan» (yashil ✓) — referens kadrlardan chiqarilgan qoida:
+      //   · o'tib bo'lingan qadam DOIM yashil
+      //   · JORIY qadam ham yashil, agar karta allaqachon mavjud bo'lsa
+      //     (tahrirlash oqimi: 2- va 3-kadrda joriy qadam yashil turibdi);
+      //     bo'sh yaratishda esa 1-qadam KO'K raqamli qoladi (1-kadr).
+      b.classList.toggle('is-done',
+        n < state.step || (n === state.step && !!state.productId));
+      b.classList.toggle('is-locked', !open && n !== state.step);
+      b.disabled = !open;
+      if (n === state.step) b.setAttribute('aria-current', 'step');
+      else b.removeAttribute('aria-current');
+      if (open) b.removeAttribute('title');
+      else if (n !== state.step && n > 1 && !state.productId) {
+        b.title = tr('Avval tovar kartasini saqlang',
+                     'Сначала сохраните карточку товара');
+      } else if (n === 1 && state.productId && !state.cardFilled) {
+        b.title = tr('Kartochka maʼlumotlari bu sahifada yuklanmagan',
+                     'Данные карточки не загружены на этой странице');
+      } else {
+        b.removeAttribute('title');
+      }
+    }
+  }
+
+  // 1-qadamga qaytish (nishon orqali). Forma DOM'da turgani uchun
+  // foydalanuvchi kiritgan hamma narsa joyida qoladi.
+  function showStep1() {
+    state.step = 1;
+    ntHideEditLoader();
+    if (step1El) step1El.hidden = false;
+    if (step2El) step2El.hidden = true;
+    if (step3El) step3El.hidden = true;
+    var legend = document.querySelector('.nt-required-legend');
+    if (legend) legend.hidden = false;
+    paintSteps();
+    window.scrollTo(0, 0);
+    validate();          // «Saqlash» tugmasi holatini 1-qadam qoidasiga qaytaradi
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.delete('step');
+      window.history.replaceState({}, '', u.toString());
+    } catch (e) { /* eski brauzer — UI baribir ishlaydi */ }
+  }
+
+  function goStep(n) {
+    if (!stepReachable(n)) return;
+    if (n === 1) {
+      // Mavjud karta hali bu sahifada yuklanmagan bo'lsa (masalan ⋮→3-qadamdan
+      // kelib, 1-qadamга qaytish) — bo'sh forma emas, SERVERDAN yuklaymiz.
+      if (state.productId && !state.cardFilled) {
+        if (step2El) step2El.hidden = true;
+        if (step3El) step3El.hidden = true;
+        ntShowEditLoader();           // yuklaguncha spinner (s1Load→showStep1 yopadi)
+        s1Load(state.productId);
+      } else {
+        showStep1();
+      }
+      return;
+    }
+    if (n === 2) { s2Enter(state.productId); return; }
+    if (n === 3) { s3Enter(state.productId); return; }
+  }
+
+  (function () {
+    var nav = document.querySelector('.nt-steps');
+    if (!nav) return;
+    nav.addEventListener('click', function (ev) {
+      var b = ev.target.closest ? ev.target.closest('.nt-step') : null;
+      if (!b || b.disabled) return;
+      goStep(Number(b.dataset.step || 0));
+    });
+    paintSteps();     // boshlang'ich holat (1-qadam faol, qolgani qulfda)
+  })();
+
   // ?productId=&shop=[&step=3] bilan ochilsa — to'g'ridan-to'g'ri o'sha qadam.
   // Jonli qoralamani (#3068623) tekshirish yo'li ham shu.
   (function () {
@@ -2887,7 +4061,27 @@
       var sh = q.get('shop');
       var st = Number(q.get('step') || 0);
       if (sh) state.shop = sh;
-      if (pid > 0) { if (st === 3) s3Enter(pid); else s2Enter(pid); }
+      if (pid > 0) {
+        state.cardFilled = false;
+        // Har tugma O'Z qadamiga: 1 → umumiy ta'rif (get_product yuklab),
+        // 2 → SKU, 3 → xususiyatlar. Ilgari step=1 ham `else` orqali 2-qadamga
+        // tushib ketardi (foydalanuvchi shikoyati 2026-07-25).
+        if (st === 1) {
+          s1Enter(pid);
+        } else {
+          // «Chuqur tahrir»: 1-qadam SERVER-TOMON yashiritilgan (deep_edit) va
+          // yuklagich ko'rinib turibdi. Nav nishonini ham darhol kerakli
+          // qadamga qo'yamiz — yuklanayotgan bosqich header'da to'g'ri porlasin
+          // (aks holda spinner davomida «1» faol ko'rinardi).
+          // MAVJUD kartani tahrirlayapmiz — 1-qadam nishoni ochiq bo'lsin
+          // (bosilganda goStep→s1Load YUKLAB beradi).
+          state.editingProduct = pid;
+          state.step = (st === 3) ? 3 : 2;
+          try { paintSteps(); } catch (e) { /* paintSteps hali yo'q — s2/s3Show qiladi */ }
+          if (st === 3) s3Enter(pid);
+          else s2Enter(pid);
+        }
+      }
     } catch (e) { /* URLSearchParams yo'q — 1-qadam ochiladi */ }
   })();
 
@@ -2898,6 +4092,27 @@
   (function () {
     var sel = document.getElementById('ntShopSelect');
     if (!sel) return;
+
+    /* ⚠️ TANLANGAN DO'KONNI ESLAB QOLAMIZ — qoralama tiklanishi shunga
+     *  bog'liq. Qoralama kaliti do'kon bo'yicha (`nt.draft.<shop>`), sahifa
+     *  esa yangilanganda `state.shop` ni jimgina `shops[0]` ga qaytarardi.
+     *  Oqibat: BIRINCHIDAN BOSHQA do'konda (mixbox) F5 bosilsa, tiklash
+     *  YO'Q do'konning kalitiga qarab bo'sh forma ko'rsatardi — mehnat
+     *  «yo'qolgan»dek tuyulardi. Jonli uchradi 2026-07-22.
+     *  URL (`?shop=`) va qoralama URL'i ustunroq — ularga tegmaymiz.
+     */
+    var fromUrl = false;
+    try {
+      var q0 = new URLSearchParams(window.location.search);
+      fromUrl = !!q0.get('shop') || Number(q0.get('productId') || 0) > 0;
+    } catch (e) { /* eski brauzer — eslab qolgan do'kondan foydalanamiz */ }
+    if (!fromUrl) {
+      try {
+        var last = localStorage.getItem('nt.shop');
+        if (last && sel.querySelector('option[value="' + last + '"]')) state.shop = last;
+      } catch (e) { /* localStorage o'chiq — jim o'tamiz */ }
+    }
+
     if (state.shop) sel.value = state.shop;
     // Agar joriy state.shop ro'yxatda bo'lmasa (masalan noto'g'ri ?shop=),
     // select birinchi variantda qoladi — state'ni shunga tortamiz.
@@ -2906,6 +4121,7 @@
     sel.addEventListener('change', function () {
       if (sel.disabled) return;
       state.shop = sel.value;
+      try { localStorage.setItem('nt.shop', String(sel.value)); } catch (e) {}
     });
   })();
 
@@ -2958,7 +4174,15 @@
     levels: [],      // [{items:[], selected:{id,title}|null, open:bool}]
     cache: {},       // parentId -> items
     confirmed: null, // {id, path:[...]} — «Принять» bosilgach
-    editing: false   // «Изменить» rejimi (o'shanda «Отмена» chiqadi)
+    editing: false,  // «Изменить» rejimi (o'shanda «Отмена» chiqadi)
+    // Quyi darajalar tortilyaptimi. TRUE bo'lsa «Qabul qilish» O'CHIQ —
+    // tanlov barg ekani hali noma'lum (pickLevel izohiga qarang).
+    pendingChildren: false,
+    // Avlod qulfi (postavki `S.rstGen` naqshi): tanlov o'zgarsa raqam oshadi
+    // va kech kelgan eski javob TASHLAB YUBORILADI. Usiz: foydalanuvchi
+    // tortish paytida matn tersa, eskirgan javob yot daraja qo'shar va
+    // `pendingChildren` abadiy yoqiq qolib «Qabul qilish»ni o'ldirardi.
+    pickGen: 0
   };
 
   var catLevelsEl = document.getElementById('ntCatLevels');
@@ -2982,7 +4206,11 @@
   // Bu YOLG'ON xabar. Endi bo'sh ro'yxat va xato FARQLANADI.
   function fetchCategories(parentId) {
     var key = parentId == null ? 'root' : String(parentId);
-    if (cat.cache[key]) return Promise.resolve({ items: cat.cache[key] });
+    // ⚠️ BO'SH massiv `[]` JS'da truthy — `.length` sharti bo'lmasa o'tkinchi
+    // bo'sh javob kesh-hit deb sanalib, tarmoqqa qayta chiqmasdik.
+    if (cat.cache[key] && cat.cache[key].length) {
+      return Promise.resolve({ items: cat.cache[key] });
+    }
     if (!state.shop) return Promise.resolve({ items: [], error: 'noshop' });
     var url = '/noviy-tavar/api/categories?shop=' + encodeURIComponent(state.shop) +
       (parentId == null ? '' : '&parentId=' + encodeURIComponent(parentId));
@@ -3046,6 +4274,10 @@
         lv.query = input.value;
         lv.selected = null;
         cat.levels = cat.levels.slice(0, i + 1);
+        // Kutilayotgan bola-tortishni BEKOR qilamiz: aks holda kech kelgan
+        // javob yot daraja qo'shar, `pendingChildren` esa yoqiq qolardi.
+        cat.pickGen++;
+        cat.pendingChildren = false;
         cat.confirmed = null;
         clearCategoryState();
         lv.open = true;
@@ -3138,6 +4370,7 @@
   }
 
   function pickLevel(i, c) {
+    var gen = ++cat.pickGen;   // bu tanlovning avlodi
     var lv = cat.levels[i];
     lv.selected = { id: c.id, title: catTitle(c) };
     lv.query = '';
@@ -3148,15 +4381,29 @@
     clearCategoryState();
 
     if (c.hasChildren && c.hasActiveChildren !== false) {
-      // Ostiga yangi «Выбрать подкатегорию» select'i qo'shiladi.
+      // ⚠️ POYGA: yangi daraja ASINXRON qo'shiladi. Shu oraliqda oxirgi
+      // daraja «tanlangan» ko'rinadi va leafSelected() uni BARG deb hisoblab
+      // «Qabul qilish»ni yoqib yuborardi — foydalanuvchi barg BO'LMAGAN
+      // (masalan ildiz «Aksessuarlar») kategoriyani tasdiqlab, mahsulotni
+      // noto'g'ri joyga qo'yishi mumkin edi. Jonli o'lchov bilan uchradi
+      // (2026-07-21): sovuq yuklashda 400ms lik oyna ochiq qolardi.
+      cat.pendingChildren = true;
       renderLevels();
       fetchCategories(c.id).then(function (res) {
+        if (gen !== cat.pickGen) return;   // eskirgan tanlov — tashlab yuboramiz
+        cat.pendingChildren = false;
         cat.levels.push({ items: res.items, selected: null, open: false,
                           query: '', error: res.error, parentId: c.id });
         renderLevels();
         syncAccept();
+      }).catch(function () {
+        if (gen !== cat.pickGen) return;
+        // Tortib bo'lmadi — baribir ochib qo'ymaymiz (barg emasligi ANIQ).
+        cat.pendingChildren = false;
+        syncAccept();
       });
     } else {
+      cat.pendingChildren = false;
       renderLevels();   // barg — «Принять» yonadi
     }
     syncAccept();
@@ -3164,6 +4411,8 @@
 
   function leafSelected() {
     if (!cat.levels.length) return null;
+    // Quyi darajalar hali yuklanyapti — bu tanlov BARG ekani hali NOMA'LUM.
+    if (cat.pendingChildren) return null;
     var last = cat.levels[cat.levels.length - 1];
     return last.selected || null;   // oxirgi daraja tanlangan = barg
   }
@@ -3178,6 +4427,7 @@
     state.meta = null;
     state.rows = [];
     charOptions = [];
+    charReqAttempted = false;   // yangi kategoriyaга xato holatini olib o'tmaymiz
     renderRows();
     syncCategoryDependent();
     validate();
@@ -3242,6 +4492,15 @@
     showDoneMode();
   }
 
+  // Kategoriya meta'si — «Qabul qilish» va qoralama tiklash IKKALASI ham
+  // shu orqali oladi (bitta joy — ikki chaqiruvchi bir xil ishlasin).
+  function fetchCategoryMeta(categoryId) {
+    return fetch('/noviy-tavar/api/category-meta?shop=' + encodeURIComponent(state.shop) +
+                 '&categoryId=' + encodeURIComponent(categoryId),
+                 { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; });
+  }
+
   // ── «Принять» → kategoriya meta → forma ochiladi ────────────────
   if (acceptBtn) {
     acceptBtn.addEventListener('click', function () {
@@ -3250,10 +4509,7 @@
       acceptBtn.disabled = true;
       var prev = acceptBtn.textContent;
       acceptBtn.textContent = tr('Yuklanmoqda...', 'Загрузка...');
-      fetch('/noviy-tavar/api/category-meta?shop=' + encodeURIComponent(state.shop) +
-            '&categoryId=' + encodeURIComponent(leaf.id),
-            { credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : null; })
+      fetchCategoryMeta(leaf.id)
         .then(function (meta) {
           acceptBtn.textContent = prev;
           if (!meta) {
@@ -3285,13 +4541,423 @@
     });
   }
 
+  /* ══════════════════════════════════════════════════════════════
+   *  QORALAMA (draft) — 1-bosqich holati
+   *
+   *  MAQSAD: F5 / brauzer «orqaga» tugmasi / brauzerni yopib qayta ochish —
+   *  bularning HECH BIRIDA to'ldirilgan forma yo'qolmasin. Uzumda karta
+   *  yaratish uzoq ish (rasm, xususiyat, sertifikat) — bir tasodifiy
+   *  yangilash butun mehnatni yo'q qilardi.
+   *
+   *  Naqsh postavki.html:3153 (`saveCreateDraftNow`/`restoreCreateDraft`)
+   *  dan olingan: do'kon bo'yicha kalit, 250ms debounce, navigatsiyadan
+   *  OLDIN majburiy yozish, har localStorage murojaati try/catch ichida.
+   *
+   *  ⚠️ Bu KESH EMAS — tezlik uchun emas, foydalanuvchi MEHNATI uchun.
+   *  O'z prefiksi bor (`nt.draft.*`), UI bayroqlaridan (`nt.tipsHidden`)
+   *  ajratilgan.
+   * ══════════════════════════════════════════════════════════════ */
+
+  var NT_DRAFT_VER = 1;          // shakl o'zgarsa +1 (eski qoralama tashlanadi)
+  var NT_DRAFT_PREFIX = 'nt.draft.';
+  var NT_DRAFT_TTL = 7 * 24 * 3600e3;   // 7 kun — juda eski qoralama tirilmasin
+
+  function draftKey() { return NT_DRAFT_PREFIX + (state.shop || '?'); }
+
+  function setVal(id, v) {
+    var e = document.getElementById(id);
+    if (e && v != null) e.value = v;
+  }
+  function setHtml(id, v) {
+    var e = document.getElementById(id);
+    if (e && v != null) e.innerHTML = v;
+  }
+
+  // Filtr (Brend/Model/Davlat): `state.filterValues` faqat ID saqlaydi,
+  // ko'rinadigan matn esa input'da — tiklashda IKKALASI ham kerak.
+  function collectFilterTexts() {
+    var out = [];
+    if (!filtersEl) return out;
+    filtersEl.querySelectorAll('[data-nt-filter]').forEach(function (sec) {
+      var fid = sec.getAttribute('data-nt-filter');
+      var inp = sec.querySelector('input');
+      if (fid && inp && inp.value) {
+        out.push({ fid: fid, text: inp.value, id: state.filterValues[fid] });
+      }
+    });
+    return out;
+  }
+
+  function collectDraft() {
+    return {
+      v: NT_DRAFT_VER,
+      ts: Date.now(),
+      shop: state.shop,
+      categoryId: state.categoryId,
+      catPath: cat.confirmed ? cat.confirmed.path : null,
+      titleUz: val('ntTitleUz'), titleRu: val('ntTitleRu'),
+      shortUz: val('ntShortUz'), shortRu: val('ntShortRu'),
+      descUz: html('ntDescUz'), descRu: html('ntDescRu'),
+      warranty: (document.getElementById('ntWarranty') || {}).value || '',
+      productFields: state.productFields,
+      // Media — Uzumga ALLAQACHON yuklangan, {key,url} bardoshli.
+      images: state.images,
+      certificates: state.certificates,
+      colorImages: state.colorImages,
+      video: state.video,
+      imageCollection: state.imageCollection,
+      colorVideos: state.colorVideos,
+      colorCollections: state.colorCollections,
+      filters: collectFilterTexts(),
+      // Xususiyat qatorlari: `opt` meta'dan qayta quriladi, shuning uchun
+      // faqat id + tanlangan qiymatlar saqlanadi. MAXSUS (custom) xususiyat
+      // meta'da YO'Q — uni nomi bilan saqlab, tiklashda qayta yaratamiz.
+      rows: state.rows.map(function (r) {
+        return {
+          id: r.id,
+          selected: r.selected || [],
+          custom: (r.opt && r.opt.custom)
+            ? { uz: r.opt.uz, ru: r.opt.ru, values: r.opt.values || [] } : null
+        };
+      })
+    };
+  }
+
+  // Bo'sh formani saqlamaymiz — aks holda har ochilishda keraksiz yozuv.
+  function draftHasContent(d) {
+    var desc = (d.descUz || '').replace(/<br\s*\/?>|&nbsp;|\s/gi, '');
+    var descRu = (d.descRu || '').replace(/<br\s*\/?>|&nbsp;|\s/gi, '');
+    return !!(d.categoryId || d.titleUz || d.titleRu || d.shortUz || d.shortRu ||
+              desc || descRu || (d.images && d.images.length) ||
+              (d.rows && d.rows.length) || (d.filters && d.filters.length));
+  }
+
+  // ⚠️ TARTIB QULFI. Sahifa ochilganda forma BO'SH, tiklash esa ildizlar
+  // yuklangach (~400ms) boshlanadi. Bu qulfsiz: bo'sh formaning 250ms
+  // debounce'i tiklashdan OLDIN ishga tushib, `draftHasContent` false
+  // bo'lgani uchun qoralamani O'CHIRIB yuborardi. Jonli uchradi (2026-07-21)
+  // — ilgari brauzer keshi ildizlarni oniy bergani uchun xato YASHIRIN edi.
+  var draftReady = false;
+  function markDraftReady() { draftReady = true; }
+
+  function saveDraftNow() {
+    if (!draftReady) return;          // tiklash tugamaguncha YOZMAYMIZ
+    // Mavjud kartani tahrirlash (s1Load) — «yangi tovar» qoralamasini
+    // IFLOSLAMAYMIZ (aks holda keyingi yangi-tovar ochilishida eski karta
+    // tirilib qolardi).
+    if (state.editingProduct) return;
+    // 2-qadamda qoralama Uzumda yaratilgan — endi localStorage'da saqlash
+    // ma'nosiz (va zararli: eski 1-qadam holati tirilib qolardi).
+    if (state.step !== 1) return;
+    try {
+      var d = collectDraft();
+      if (draftHasContent(d)) localStorage.setItem(draftKey(), JSON.stringify(d));
+      else localStorage.removeItem(draftKey());
+    } catch (e) { /* kvota/private rejim — jim o'tamiz, UI tirik qoladi */ }
+  }
+
+  var _draftT = null;
+  function saveDraft() {
+    clearTimeout(_draftT);
+    _draftT = setTimeout(function () { _draftT = null; saveDraftNow(); }, 250);
+  }
+  function saveDraftFlush() {
+    clearTimeout(_draftT); _draftT = null; saveDraftNow();
+  }
+  function clearDraft() {
+    clearTimeout(_draftT); _draftT = null;
+    try { localStorage.removeItem(draftKey()); } catch (e) {}
+  }
+  root.ntSaveDraft = saveDraft;        // boshqa bloklar chaqiradi
+  root.ntClearDraft = clearDraft;
+
+  function restoreDraft() {
+    // HAR chiqish yo'lida `markDraftReady()` chaqirilishi SHART — aks holda
+    // saqlash butunlay o'chib qoladi (yuqoridagi tartib qulfi izohiga qara).
+    var raw;
+    try { raw = localStorage.getItem(draftKey()); } catch (e) { markDraftReady(); return false; }
+    if (!raw) { markDraftReady(); return false; }
+    var d;
+    try { d = JSON.parse(raw); } catch (e) { markDraftReady(); return false; }
+    if (!d || d.v !== NT_DRAFT_VER) { markDraftReady(); return false; }
+    if (!d.ts || (Date.now() - d.ts) > NT_DRAFT_TTL) {
+      draftReady = true; clearDraft(); return false;
+    }
+
+    applyDraftObject(d, { notify: tr('Qoralama tiklandi — davom etishingiz mumkin',
+                                     'Черновик восстановлен — можно продолжить') });
+    return true;
+  }
+
+  // Draft (localStorage) YOKI get_product (server) obyektini 1-qadam formasiga
+  // qo'llaydi. `restoreDraft` va `s1Load` (mavjud kartani tahrirlash) — ikkalasi
+  // shu bir mashinani ishlatadi.
+  //   opts.notify     — tugagach ko'rsatiladigan xabar (yoki null)
+  //   opts.cardFilled — true → holat «Uzumga saqlangan» deb belgilanadi
+  //                     (tahrirlash: yuklangan holat TOZA baza; keyingi edit=iflos)
+  function applyDraftObject(d, opts) {
+    opts = opts || {};
+    var doneMsg = opts.notify || null;
+    var markFilled = !!opts.cardFilled;
+
+    // ── Matn maydonlari (kategoriyaga bog'liq emas) ──────────────
+    setVal('ntTitleUz', d.titleUz); setVal('ntTitleRu', d.titleRu);
+    setVal('ntShortUz', d.shortUz); setVal('ntShortRu', d.shortRu);
+    setHtml('ntDescUz', d.descUz);  setHtml('ntDescRu', d.descRu);
+    setVal('ntWarranty', d.warranty);
+    state.productFields = d.productFields || {};
+
+    // ── Media (URL'lar Uzumda, qayta yuklash shart emas) ─────────
+    state.images = d.images || [];
+    state.certificates = d.certificates || [];
+    state.colorImages = d.colorImages || [];
+    state.video = d.video || null;
+    state.imageCollection = d.imageCollection || null;
+    state.colorVideos = d.colorVideos || [];
+    state.colorCollections = d.colorCollections || [];
+
+    function finish() {
+      // Tahrirlash: yuklangan holat toza baza (edit qilinsa ogohlantirish
+      // chiqadi). Draft-tiklash: ATAYLAB snapshot YO'Q (2026-07-24) — to'la
+      // forma chiqishda baribir ogohlantirsin.
+      if (markFilled) { state.cardFilled = true; ntSnapshot(); }
+      if (doneMsg) notify(doneMsg);
+    }
+
+    // ── Kategoriya: meta'siz xususiyat/filtrlarni qura olmaymiz ──
+    if (d.categoryId && d.catPath && d.catPath.length) {
+      fetchCategoryMeta(d.categoryId).then(function (meta) {
+        if (!meta) { markDraftReady(); return; }  // meta yo'q — matnlar baribir tiklandi
+        state.categoryId = d.categoryId;
+        state.meta = meta;
+        state.rows = [];
+        buildCharOptions(meta);                  // REQUIRED qatorlar avto-qo'shiladi
+        buildFilters(meta);                      // ⚠️ state.filterValues ni TOZALAYDI
+
+        // Filtrlarni tiklash — buildFilters'dan KEYIN (u tozalab ketadi).
+        (d.filters || []).forEach(function (f) {
+          if (f.id != null) state.filterValues[f.fid] = f.id;
+          var sec = filtersEl && filtersEl.querySelector('[data-nt-filter="' + f.fid + '"]');
+          var inp = sec && sec.querySelector('input');
+          if (inp) inp.value = f.text || '';
+        });
+
+        // Xususiyat qatorlari
+        state.rows = [];
+        (d.rows || []).forEach(function (sr) {
+          var opt = charOptions.filter(function (o) { return o.id === sr.id; })[0];
+          if (!opt && sr.custom) {
+            // Maxsus xususiyat meta'da yo'q — qayta yaratamiz.
+            opt = { id: sr.id, uz: sr.custom.uz, ru: sr.custom.ru, custom: true,
+                    required: false, requiredType: 'NOT_REQUIRED', flowA: false,
+                    orderingNumber: 0, values: sr.custom.values || [] };
+            charOptions.push(opt);
+          }
+          if (!opt) return;                      // sxema o'zgargan — o'sha qatorni tashlaymiz
+          state.rows.push({ id: sr.id, opt: opt, selected: sr.selected || [] });
+        });
+
+        renderRows();
+        syncCategoryDependent();
+        cat.confirmed = { id: d.categoryId, path: d.catPath, meta: meta,
+                          rows: state.rows, charOptions: charOptions };
+        showDoneMode();
+        repaintMedia();
+        markDraftReady();     // ⚠️ validate() dan OLDIN — u saqlashni chaqiradi
+        validate();
+        finish();
+      }).catch(function () {
+        markDraftReady();     // meta olinmadi — matnlar tiklandi, saqlash tiklansin
+      });
+    } else {
+      repaintMedia();
+      markDraftReady();
+      validate();
+      finish();
+    }
+  }
+
+  // ── 1-QADAM: mavjud kartani tahrirlash uchun yuklash ─────────────
+  // «Umumiy ta'rifni o'zgartirish» (karta ⋮-menyusi) → ?productId=&step=1.
+  function s1Enter(productId) {
+    state.productId = Number(productId) || null;
+    s1Load(productId);
+  }
+  function s1Load(productId) {
+    var url = '/noviy-tavar/api/load-product?shop=' + encodeURIComponent(state.shop) +
+              '&productId=' + encodeURIComponent(productId);
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d || {} }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          notify(res.d.error || tr('Kartani yuklab bo\'lmadi', 'Не удалось загрузить карточку'));
+          showStep1();
+          return;
+        }
+        // Tahrirlash sessiyasi: localStorage «yangi tovar» qoralamasini
+        // IFLOSLAMAYMIZ (u boshqa oqim). saveDraftNow shu bayroqni tekshiradi.
+        state.editingProduct = Number(productId) || null;
+        applyDraftObject(res.d, { cardFilled: true });
+        showStep1();
+      })
+      .catch(function () {
+        notify(tr('Tarmoq xatosi', 'Ошибка сети'));
+        showStep1();
+      });
+  }
+  root.ntEnterStep1 = s1Enter;
+
+  // Media bo'limlarini qayta chizish (funksiyalar yuqorida e'lon qilingan).
+  function repaintMedia() {
+    try { renderPhotos(); } catch (e) {}
+    try { renderCerts(); } catch (e) {}
+    try { renderVideo(); } catch (e) {}
+    try { render360(); } catch (e) {}
+    try { syncColorMedia(); renderColorMedia(); } catch (e) {}
+    try { syncCertGate(); } catch (e) {}
+    try { syncWarranty(); } catch (e) {}
+  }
+
+  // Har o'zgarishda saqlaymiz. `input`+`change` — matn, tanlov va
+  // contenteditable tavsif uchun yetarli; media/xususiyat o'zgarishlari
+  // validate() ni chaqiradi, uni ham ilib qo'yamiz (pastda).
+  ['input', 'change'].forEach(function (ev) {
+    root.addEventListener(ev, function () {
+      if (state.step === 1) saveDraft();
+      // 2/3-qadamda qoralama YO'Q — faqat «saqlanmagan» bayrog'ini ko'taramiz.
+      else ntDirty[state.step] = true;
+    }, true);
+  });
+  // Sahifadan chiqishdan OLDIN kutib turgan yozuvni diskka tushiramiz.
+  window.addEventListener('pagehide', saveDraftFlush);
+
+  /* ══════════════════════════════════════════════════════════════════
+   *  SAHIFADAN CHIQISH OGOHLANTIRISHI
+   *
+   *  ⚠️ HALOL CHEKLOV: brauzerning NATIV `beforeunload` oynasini
+   *  («Закрыть сайт? / Изменения могут не сохраниться») dizaynga moslab
+   *  BO'LMAYDI — Chrome/Firefox/Edge buni ataylab bloklaydi (matn ham,
+   *  ko'rinish ham). U faqat F5 / tab yopish / manzil satri uchun qoladi.
+   *
+   *  Lekin aksariyat tasodifiy chiqish ilova ICHIDAGI o'tishdan bo'ladi
+   *  (chap menyu, logotip, «orqaga»). AYNAN shu joylarni ushlab, o'z
+   *  dizaynli modalimizni ko'rsatamiz; nativ oyna zaxira bo'lib qoladi.
+   * ══════════════════════════════════════════════════════════════════ */
+  var ntBypassGuard = false;        // «Chiqish» tasdiqlangach — qo'riqchini o'chirar
+  var ntPendingNav = null;          // {type:'href'|'back', url?}
+  var leaveModal = document.getElementById('ntLeaveModal');
+  var leaveOk = document.getElementById('ntLeaveOk');
+  var leaveCancel = document.getElementById('ntLeaveCancel');
+
+  function showLeaveModal(pending) {
+    ntPendingNav = pending;
+    if (leaveModal) {
+      leaveModal.hidden = false;
+      // Fokusni «Qolish» ga — xavfsiz standart (Enter tasodifan chiqarmasin).
+      if (leaveCancel) { try { leaveCancel.focus({ preventScroll: true }); } catch (e) { leaveCancel.focus(); } }
+    }
+  }
+  function hideLeaveModal() {
+    if (leaveModal) leaveModal.hidden = true;
+    ntPendingNav = null;
+  }
+  function doLeave() {
+    ntBypassGuard = true;           // endi nativ beforeunload ham jim o'tadi
+    var p = ntPendingNav;
+    hideLeaveModal();
+    if (!p) return;
+    if (p.type === 'back') history.go(-2);   // qayta qo'yilgan sentinel + joriy sahifadan o'tib ketamiz
+    else if (p.url) window.location.href = p.url;
+  }
+  if (leaveOk) leaveOk.addEventListener('click', doLeave);
+  if (leaveCancel) leaveCancel.addEventListener('click', hideLeaveModal);
+  if (leaveModal) {
+    leaveModal.addEventListener('click', function (e) {
+      if (e.target === leaveModal) hideLeaveModal();   // fon bosilsa yopiladi
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && leaveModal && !leaveModal.hidden) hideLeaveModal();
+  });
+
+  // ── 1. Ichki navigatsiya bosilishi (chap menyu, logotip, breadcrumb) ──
+  // Havolalar IKKI xil bo'ladi:
+  //   · oddiy `<a href>` — profil menyusi, hujjat havolalari;
+  //   · yon-panelning `[data-href]` elementlari — `uzum_ui.js` ularning
+  //     `href`'ini olib tashlab, klikda `location.assign()` bilan JS orqali
+  //     o'tadi. AGAR ularni ushlamasak, o'sha JS o'tishi NATIV oynani chiqarib
+  //     yuboradi (foydalanuvchi shikoyati 2026-07-24). Shuning uchun ikkalasini
+  //     ham ushlaymiz.
+  // ⚠️ `e.stopPropagation()` SHART: biz capture-fazada ishlaymiz, uzum_ui.js
+  //   esa bubble-fazada `[data-href]` ni tinglaydi. To'xtatmasak, u baribir
+  //   navigatsiya qilib, nativ oynani chiqaradi.
+  document.addEventListener('click', function (e) {
+    if (ntBypassGuard) return;
+    var a = e.target.closest && e.target.closest('a[href], [data-href]');
+    if (!a) return;
+    var raw = a.getAttribute('href') || a.getAttribute('data-href');
+    if (!raw || raw.charAt(0) === '#' || /^(javascript:|mailto:|tel:)/i.test(raw)) return;
+    if (a.hasAttribute('download')) return;
+    if (a.target && a.target !== '_self') return;          // yangi tab — tegmaymiz
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey ||
+        e.shiftKey || e.altKey) return;                    // Ctrl+klik va h.k. — yangi tab
+    var dest;
+    try { dest = new URL(raw, location.href); } catch (_) { return; }
+    // Ayni sahifa (faqat hash) — o'tish emas.
+    if (dest.origin === location.origin &&
+        dest.pathname === location.pathname && dest.search === location.search) return;
+    if (!ntHasUnsaved()) return;                            // yo'qotadigan narsa yo'q
+    e.preventDefault();
+    e.stopPropagation();       // uzum_ui.js `data-href` ishlovchisi navigatsiya qilmasin
+    showLeaveModal({ type: 'href', url: dest.href });
+  }, true);
+
+  // ── 2. «Orqaga» tugmasi — history sentinel bilan ushlanadi ───────
+  // Sentinel: yuklashda bitta soxta yozuv qo'shamiz. «Orqaga» bosilsa u
+  // iste'mol qilinadi va URL o'zgarmaydi — shunda ushlab qolamiz.
+  if (window.history && history.pushState) {
+    try { history.pushState(null, '', location.href); } catch (e) {}
+    window.addEventListener('popstate', function () {
+      if (ntBypassGuard) return;                 // «Chiqish» tasdiqlangan — o'tadi
+      if (!ntHasUnsaved()) { history.back(); return; }  // toza — orqaga davom etsin
+      try { history.pushState(null, '', location.href); } catch (e) {}  // sahifada qolamiz
+      showLeaveModal({ type: 'back' });
+    });
+  }
+
+  // ── 3. Qattiq unload (F5 / tab yopish / manzil satri) — NATIV oyna ──
+  // Bularni brauzer boshqacha ko'rsatishga ruxsat bermaydi; zaxira sifatida
+  // qoldiramiz. Faqat haqiqatan saqlanmagan mehnat bo'lsa chiqadi.
+  window.addEventListener('beforeunload', function (e) {
+    saveDraftFlush();                      // qoralama HAR HOLDA diskka tushsin
+    if (ntBypassGuard || !ntHasUnsaved()) return;
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  });
+
   // Boshlang'ich daraja — ildizlar
   fetchCategories(null).then(function (res) {
     cat.levels = [{ items: res.items, selected: null, open: false,
                     query: '', error: res.error, parentId: null }];
     renderLevels();
     syncAccept();
+    // Ildizlar kelgach qoralamani tiklaymiz (kategoriya tanlagichi tayyor).
+    // ⚠️ URL'da productId bo'lsa — foydalanuvchi ALLAQACHON 2-qadamda,
+    // 1-qadam qoralamasini tiklash noto'g'ri bo'lardi.
+    try {
+      var q = new URLSearchParams(window.location.search);
+      // `restoreDraft()` false qaytarsa — tiklanadigan narsa yo'q edi, ya'ni
+      // forma BO'SH: aynan shu «xavfsiz nuqta». Tiklangan holatda esa imzo
+      // tiklash tugagach (kategoriya meta'si ham) ichkarida olinadi.
+      if (!Number(q.get('productId') || 0)) { if (!restoreDraft()) ntSnapshot(); }
+      else { markDraftReady(); ntSnapshot(); }   // 2-qadam: tiklamaymiz, qulf ochilsin
+    } catch (e) { restoreDraft(); }
   });
+
+  // Zaxira: ildizlar tortilishi qotib qolsa ham saqlash abadiy o'chib
+  // qolmasin — 8 soniyadan keyin qulfni majburan ochamiz.
+  setTimeout(markDraftReady, 8000);
 
   var pickLink = document.getElementById('ntPickCategoryLink');
   if (pickLink) {
@@ -3328,10 +4994,12 @@
         // DALIL (HANDOFF §2.3, jonli tasdiqlangan): REQUIRED → qator avto-render;
         // REQUIRED_ONE_OF_SIZE → render BO'LMAYDI (cheklov, majburiyat emas).
         required: c.requiredType === 'REQUIRED',
-        // ⚠️ create tanasi requiredType + flowA ni MAJBURIY yuboradi (tarmoq
-        // dalili: 133/133 referens). Meta'dagi xom qiymatni saqlab qolamiz.
+        // requiredType — REQUIRED (rang) aniqlash uchun (server fillType/isRequired
+        // qo'yadi). ⚠️ orderingNumber — xususiyatning O'Z tartibi (rang=0, Длина=44);
+        // create tanasida QATOR INDEKSI emas SHU yuboriladi (t8 etaloni, 2026-07-18).
         requiredType: c.requiredType || 'NOT_REQUIRED',
         flowA: !!c.flowA,
+        orderingNumber: (c.orderingNumber != null ? c.orderingNumber : 0),
         values: (c.characteristicValues || []).map(function (v) {
           return {
             skuValue: v.skuValue,
@@ -3361,6 +5029,12 @@
 
   function removeRow(id) {
     state.rows = state.rows.filter(function (r) { return r.id !== id; });
+    // MAXSUS xususiyat o'chirilsa — butunlay yo'qoladi (bandl `ne()` uni faqat
+    // TANLANGANLAR ro'yxatiga qo'shadi, kategoriya sxemasiga emas). Aks holda u
+    // dropdownda «ruxsat berilgan» xususiyatdek qolib ketardi.
+    charOptions = charOptions.filter(function (o) {
+      return !(o.custom && o.id === id);
+    });
     renderRows();
     validate();
   }
@@ -3432,6 +5106,33 @@
 
   function isHex(v) { return typeof v === 'string' && /^#[0-9a-f]{3,8}$/i.test(v); }
 
+  // Razmer-tizim qatori — «one-of-size» radio guruhi a'zosi (Uzum «Размер»
+  // guruhi: barcha REQUIRED_ONE_OF_SIZE = bitta yashirin guruh). JONLI dalil
+  // (2026-07-18): 2+ razmer-tizim tanlansa createProduct 400 validation-failed-001.
+  function isSizeRow(row) {
+    return !!(row && row.opt && row.opt.requiredType === 'REQUIRED_ONE_OF_SIZE');
+  }
+
+  // «≤2 xususiyat» cap — qiymatli defined-char soni ≤2 (JONLI 2026-07-19: 3+ →
+  // validation-failed-001; rang MAXSUS emas, sof son). justRow'ga yangi qiymat
+  // tanlangach son 2 dan oshsa, eng ESKI boshqa xususiyatlar tozalanadi.
+  // Himoya: hozir tanlangan qator + rang (id -1) — odatda ikkalasi ham kerak.
+  // state.rows tartibi = qo'shilish tartibi → eng eskisi birinchi.
+  function s1EnforceCharCap(justRow) {
+    var withVals = function () {
+      return state.rows.filter(function (r) { return r.selected.length; }).length;
+    };
+    var cleared = false;
+    for (var i = 0; i < state.rows.length; i++) {
+      if (withVals() <= 2) break;
+      var r = state.rows[i];
+      if (r === justRow || r.id === -1 || !r.selected.length) continue;
+      r.selected = [];
+      cleared = true;
+    }
+    return cleared;
+  }
+
   // ── Xususiyat dropdown (O'LCHANGAN: 012 — qidiruvsiz ro'yxat) ───
   function renderCharPanel() {
     if (!charPanel) return;
@@ -3444,6 +5145,9 @@
       em.className = 'nt-panel-empty';
       em.textContent = tr('Boshqa xususiyat yo’q', 'Других характеристик нет');
       charPanel.appendChild(em);
+      // «Yangi xususiyat» bandlda HAR DOIM oxirida turadi — ro'yxat bo'sh
+      // bo'lganda ham (bu qator sxemadan emas, mijozdan qo'shiladi).
+      appendNewCharItem();
       return;
     }
     free.forEach(function (o) {
@@ -3459,7 +5163,176 @@
       });
       charPanel.appendChild(b);
     });
+    appendNewCharItem();
   }
+
+  // ── MAXSUS («custom») xususiyat ─────────────────────────────────
+  // DALIL (Uzum bandli, editProductCard/Characteristics store):
+  //   K = bo'sh xususiyatlar ro'yxati; oxiriga MIJOZ tomonda qo'shiladi:
+  //     { displayTitle: t("add_new_characteristic_with_limit"),
+  //       characteristicValues: [], orderingNumber: -1 }
+  //   H(e,t): orderingNumber === -1 bo'lsa qator qo'shilmaydi, modal ochiladi.
+  // Ya'ni bu qator API sxemasidan KELMAYDI — bizda chiqmagani shundan.
+  var NT_CUSTOM_MAX = 3;      // bandl: customCharacteristics.length > 3 -> xato
+  var customSeq = 0;          // maxsus qatorlarga sun'iy id (manfiy, -1 dan uzoq)
+
+  function customRows() {
+    return state.rows.filter(function (r) { return r.opt && r.opt.custom; });
+  }
+
+  function appendNewCharItem() {
+    if (!charPanel) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'nt-panel-item nt-panel-item--new';
+    b.setAttribute('role', 'option');
+    b.textContent = tr('Yangi xususiyat qoʻshish (maks. 3)',
+                       'Добавить новую характеристику (макс. 3)');
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      closeCharPanel();
+      openNewCharModal();
+    });
+    charPanel.appendChild(b);
+  }
+
+  // Modal — Uzum `new-char-popup` komponentining aynan ekvivalenti.
+  var ncModal = document.getElementById('ntNewCharModal');
+  var ncUz = document.getElementById('ntNewCharUz');
+  var ncRu = document.getElementById('ntNewCharRu');
+  var ncUzErr = document.getElementById('ntNewCharUzErr');
+  var ncRuErr = document.getElementById('ntNewCharRuErr');
+  var ncLastFocus = null;
+
+  function ncSetErr(el, msg) {
+    if (!el) return;
+    el.textContent = msg || '';
+    el.hidden = !msg;
+  }
+
+  function ncClearErrors() {
+    ncSetErr(ncUzErr, '');
+    ncSetErr(ncRuErr, '');
+    if (ncUz) ncUz.classList.remove('is-invalid');
+    if (ncRu) ncRu.classList.remove('is-invalid');
+  }
+
+  function openNewCharModal() {
+    if (!ncModal) return;
+    // «maks. 3» — bandlda yakuniy saqlashda tekshiriladi
+    // (customCharacteristics.length > 3 -> errors.limiting_number_of_...).
+    // Biz DARROV to'sib, o'sha matnni ko'rsatamiz — 3 tadan keyin yaratish
+    // behuda bo'lardi.
+    if (customRows().length >= NT_CUSTOM_MAX) {
+      notify(tr('Foydalanuvchi xususiyatlarining maksimal soni 3 ta boʻlishi mumkin',
+                'Допустимо не более 3-х пользовательских характеристик'));
+      return;
+    }
+    // Qatorlar umumiy chegarasi ham amal qiladi («Максимум 5»).
+    if (state.rows.length >= 5) {
+      notify(tr('Maksimum 5 ta xususiyat', 'Максимум 5 характеристик'));
+      return;
+    }
+    ncLastFocus = document.activeElement;
+    if (ncUz) ncUz.value = '';
+    if (ncRu) ncRu.value = '';
+    ncClearErrors();
+    ncModal.hidden = false;
+    document.addEventListener('keydown', ncKeys);
+    if (ncUz) ncUz.focus();
+  }
+
+  function closeNewCharModal() {
+    if (!ncModal) return;
+    ncModal.hidden = true;
+    ncClearErrors();
+    document.removeEventListener('keydown', ncKeys);
+    if (ncLastFocus && ncLastFocus.focus) ncLastFocus.focus();
+  }
+
+  function ncKeys(e) {
+    if (e.key === 'Escape') { closeNewCharModal(); return; }
+    if (e.key !== 'Tab' || ncModal.hidden) return;
+    var f = ncModal.querySelectorAll('button, input');
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  // Bandl `ne()` 1:1: ikkala til MAJBURIY; ortiqcha bo'shliqlar siqiladi;
+  // nom mavjud xususiyatlar bilan (registrga qaramay) to'qnashmasligi kerak.
+  function ncNorm(s) { return String(s || '').replace(/ {2,}/g, ' ').trim(); }
+
+  function ncTaken(name) {
+    var low = name.toLowerCase();
+    var hit = function (uz, ru) {
+      return String(uz || '').toLowerCase() === low ||
+             String(ru || '').toLowerCase() === low;
+    };
+    // a.value (kategoriyaning barcha xususiyatlari) + n.value (tanlanganlar)
+    return charOptions.some(function (o) { return hit(o.uz, o.ru); }) ||
+           state.rows.some(function (r) { return hit(r.opt.uz, r.opt.ru); });
+  }
+
+  function saveNewChar() {
+    var uz = ncNorm(ncUz && ncUz.value);
+    var ru = ncNorm(ncRu && ncRu.value);
+    if (ncUz) ncUz.value = uz;
+    if (ncRu) ncRu.value = ru;
+    ncClearErrors();
+
+    var reqMsg = tr('Toʻldirilishi shart boʻlgan maydon', 'Обязательное поле');
+    var dupMsg = tr('Bunday xususiyat allaqachon mavjud!',
+                    'Такая характеристика уже существует!');
+    var bad = false;
+    [[uz, ncUz, ncUzErr], [ru, ncRu, ncRuErr]].forEach(function (p) {
+      var val = p[0], input = p[1], err = p[2];
+      if (!val) { ncSetErr(err, reqMsg); bad = true; }
+      else if (ncTaken(val)) { ncSetErr(err, dupMsg); bad = true; }
+      if (err && !err.hidden && input) input.classList.add('is-invalid');
+    });
+    if (bad) return;
+
+    customSeq += 1;
+    var opt = {
+      // Sun'iy manfiy id — haqiqiy characteristicId bilan to'qnashmaydi va
+      // rang uchun ajratilgan -1 dan ham uzoq.
+      id: -1000 - customSeq,
+      uz: uz, ru: ru,
+      custom: true,
+      required: false,
+      requiredType: 'NOT_REQUIRED',
+      flowA: false,
+      // Bandl: yangi xususiyat orderingNumber = tanlanganlar soni; yakuniy
+      // yuborishda baribir 100+indeks bilan qayta raqamlanadi.
+      orderingNumber: state.rows.length,
+      values: []          // oldindan qiymat yo'q — foydalanuvchi o'zi kiritadi
+    };
+    charOptions.push(opt);
+    state.rows.push({ id: opt.id, opt: opt, selected: [] });
+    closeNewCharModal();
+    renderRows();
+    validate();
+  }
+
+  if (ncModal) {
+    ncModal.addEventListener('click', function (e) {
+      if (e.target === ncModal) closeNewCharModal();
+    });
+  }
+  ['ntNewCharClose', 'ntNewCharCancel'].forEach(function (id) {
+    var b = document.getElementById(id);
+    if (b) b.addEventListener('click', closeNewCharModal);
+  });
+  var ncSave = document.getElementById('ntNewCharSave');
+  if (ncSave) ncSave.addEventListener('click', saveNewChar);
+  [ncUz, ncRu].forEach(function (i) {
+    if (!i) return;
+    i.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveNewChar(); }
+    });
+  });
 
   function openCharPanel() {
     if (!charPanel || charBtn.disabled) return;
@@ -3493,9 +5366,24 @@
   function openValueModal(row) {
     if (!modal) return;
     modalRow = row;
-    modalDraft = row.selected.slice();
+    // Maxsus qatorda qiymatlar TAHRIRLANADI — nusxa olamiz (bekor qilinsa
+    // asl ro'yxat tegilmaydi).
+    modalDraft = row.selected.map(function (v) {
+      return row.opt && row.opt.custom
+        ? { uz: v.uz, ru: v.ru, value: v.value, skuValue: v.skuValue }
+        : v;
+    });
     lastFocus = document.activeElement;
     if (modalSearch) modalSearch.value = '';
+    // Qidiruv faqat tayyor qiymatlar ro'yxati uchun mantiqiy.
+    var searchWrap = document.getElementById('ntValueSearchWrap');
+    if (searchWrap) searchWrap.hidden = !!(row.opt && row.opt.custom);
+    var mTitle = document.getElementById('ntValueTitle');
+    if (mTitle) {
+      mTitle.textContent = (row.opt && row.opt.custom)
+        ? tr('Xususiyatlar qiymati', 'Значения характеристики')
+        : tr('Xususiyatlarni tanlang', 'Выбрать характеристики');
+    }
     renderValueList();
     modal.hidden = false;
     document.addEventListener('keydown', modalKeys);
@@ -3521,8 +5409,103 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
+  // MAXSUS xususiyatda tayyor qiymat yo'q — Uzumdagidek uz/ru juftliklari
+  // kiritiladi (bandl `X()`: {skuValue:"", title:{ru,uz}, value, isNew:true};
+  // `te()`: IKKALA til majburiy, bir xil qiymat takrorlanmasin — same_fields).
+  function renderCustomValueEditor() {
+    modalList.textContent = '';
+    if (!modalDraft.length) modalDraft.push({ uz: '', ru: '', value: '', skuValue: '' });
+
+    modalDraft.forEach(function (v, idx) {
+      var row = document.createElement('div');
+      row.className = 'nt-cval';
+
+      [['uz', tr('Oʻzbek tilida nom', 'Название на узбекском')],
+       ['ru', tr('Rus tilida nom', 'Название на русском')]].forEach(function (p) {
+        var key = p[0];
+        var wrap = document.createElement('div');
+        wrap.className = 'nt-cval-f';
+        var lab = document.createElement('label');
+        lab.className = 'nt-label';
+        lab.textContent = p[1];
+        var inp = document.createElement('input');
+        inp.className = 'nt-input';
+        inp.type = 'text';
+        inp.maxLength = 100;
+        inp.autocomplete = 'off';
+        inp.value = v[key] || '';
+        inp.addEventListener('input', function () { v[key] = inp.value; });
+        wrap.appendChild(lab);
+        wrap.appendChild(inp);
+        row.appendChild(wrap);
+      });
+
+      // Oxirgi qatordan boshqasida — o'chirish.
+      if (modalDraft.length > 1) {
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'nt-btn nt-btn--del nt-cval-del';
+        del.textContent = tr('O’chirish', 'Удалить');
+        del.addEventListener('click', function () {
+          modalDraft.splice(idx, 1);
+          renderCustomValueEditor();
+        });
+        row.appendChild(del);
+      }
+
+      var err = document.createElement('p');
+      err.className = 'nt-err';
+      err.hidden = true;
+      err.setAttribute('data-cval-err', String(idx));
+      row.appendChild(err);
+
+      modalList.appendChild(row);
+    });
+
+    var add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'nt-btn nt-btn--soft';
+    add.textContent = tr('Qiymat qoʻshish', 'Добавить значение');
+    add.addEventListener('click', function () {
+      modalDraft.push({ uz: '', ru: '', value: '', skuValue: '' });
+      renderCustomValueEditor();
+    });
+    modalList.appendChild(add);
+  }
+
+  // `te()` ekvivalenti — tozalash + tekshirish. Yaroqli bo'lsa qiymatlar
+  // ro'yxatini qaytaradi, aks holda null (xatolar joyida ko'rsatiladi).
+  function collectCustomValues() {
+    var out = [];
+    var bad = false;
+    var seen = {};
+    var reqMsg = tr('Toʻldirilishi shart boʻlgan maydon', 'Обязательное поле');
+    var dupMsg = tr('Maydonlar bir xil', 'Поля совпадают');
+
+    modalDraft.forEach(function (v, idx) {
+      var uz = ncNorm(v.uz), ru = ncNorm(v.ru);
+      var err = modalList.querySelector('[data-cval-err="' + idx + '"]');
+      var show = function (m) { if (err) { err.textContent = m; err.hidden = false; } bad = true; };
+      if (err) { err.hidden = true; err.textContent = ''; }
+      // Butunlay bo'sh qator — e'tiborsiz qoldiriladi (bandl ham shunday).
+      if (!uz && !ru) return;
+      if (!uz || !ru) { show(reqMsg); return; }
+      var key = (uz + ' ' + ru).toLowerCase();
+      if (seen[key]) { show(dupMsg); return; }
+      seen[key] = true;
+      out.push({
+        uz: uz, ru: ru,
+        // Bandl: value = joriy tildagi sarlavha, skuValue = "" (yangi qiymat).
+        value: tr(uz, ru),
+        skuValue: ''
+      });
+    });
+    return bad ? null : out;
+  }
+
   function renderValueList() {
     if (!modalList || !modalRow) return;
+    if (modalRow.opt && modalRow.opt.custom) { renderCustomValueEditor(); return; }
     modalList.textContent = '';
     var q = (modalSearch && modalSearch.value || '').trim().toLowerCase();
     var vals = modalRow.opt.values.filter(function (v) {
@@ -3563,7 +5546,26 @@
   if (modalSearch) modalSearch.addEventListener('input', renderValueList);
   if (modalSave) {
     modalSave.addEventListener('click', function () {
-      if (modalRow) modalRow.selected = modalDraft.slice();
+      if (modalRow) {
+        if (modalRow.opt && modalRow.opt.custom) {
+          var vals = collectCustomValues();
+          if (vals === null) return;      // xato bor — modal ochiq qoladi
+          modalDraft = vals;
+        }
+        modalRow.selected = modalDraft.slice();
+        // «≤2 xususiyat» cap: qiymatli defined-char soni ≤2 bo'lishi shart.
+        // JONLI (2026-07-19): 3+ qiymatli char → createProduct 400
+        // validation-failed-001 (Uzum SKU = 2-o'lchovli matritsa; TUR
+        // ahamiyatsiz — rang ham sanaladi). Yangi qiymat tanlanganda son 2 dan
+        // oshsa — eng ESKI boshqa xususiyat(lar) tozalanadi. Himoya: hozir
+        // tanlangan qator + rang (id -1, odatda kerak). Bitta char ICHIDA ko'p
+        // qiymat NORMAL (poyabzal 36/37/38 → 201).
+        var cleared = s1EnforceCharCap(modalRow);
+        if (cleared) {
+          notify(tr('Ko‘pi bilan 2 ta xususiyat tanlanadi',
+                    'Можно выбрать не более 2 характеристик'));
+        }
+      }
       closeValueModal();
       renderRows();
       validate();

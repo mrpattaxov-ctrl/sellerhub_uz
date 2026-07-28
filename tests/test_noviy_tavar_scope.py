@@ -94,6 +94,10 @@ def test_global_css_untouched_by_feature():
 def _css_rule_selectors(css: str) -> list[str]:
     """Izohlar/at-qoidalarsiz top-level selektorlarni ajratish."""
     css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    # @keyframes ichidagi qadamlar (`0%`, `50%`) SELEKTOR EMAS — ular hech
+    # qachon `[data-page=…]` bilan boshlanmaydi, shuning uchun blokni butunlay
+    # olib tashlaymiz (aks holda animatsiya qo'shilishi bilan test yiqiladi).
+    css = re.sub(r"@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
     # @media/@supports bloklarining ichini tekshirish uchun ularni ochamiz
     css = re.sub(r"@(?:media|supports)[^{]*\{", "", css)
     out: list[str] = []
@@ -123,7 +127,10 @@ def test_css_defines_measured_tokens():
     # Frame 02 (1920x912) dan o'lchangan qiymatlar.
     for token, value in {
         "--nt-col-w": "1064px",     # karta x=530..1593
-        "--nt-card-gap": "10px",    # kartalar orasidagi fon chizig'i
+        # 2026-07-21: JONLI portal (seller.uzum.uz/seller/7138/products/new,
+        # 1440px) ajratgich qatorlari y396..404, y793..801, y1251..1259 —
+        # har biri roppa-rosa 9px. Eski 10px JPEG kadrdan chamalangan edi.
+        "--nt-card-gap": "9px",     # kartalar orasidagi fon chizig'i
         "--nt-header-h": "104px",   # header y=0..103
         "--nt-bg": "#f1f1f1",
         "--nt-card-bg": "#ffffff",
@@ -466,16 +473,22 @@ def test_open_level_guards_against_focus_recursion():
 
 def test_required_type_rule_matches_evidence():
     """DALIL (HANDOFF §2.3 + jonli meta): REQUIRED → qator avto-render;
+    REQUIRED_ONE_OF_SIZE → avto-render BO'LMAYDI (dropdown'dan qo'shiladi).
 
-    REQUIRED_ONE_OF_SIZE (1453 ta) → render BO'LMAYDI. 235 rankdan 0 ziddiyat.
+    ⚠️ REQUIRED_ONE_OF_SIZE endi «razmer majburiy» darvozasi uchun ISHLATILADI
+    (isSizeRow → sizeRequirementMet) — bu RENDER qarori EMAS. Shuning uchun
+    blanket-ban o'rniga aynan AVTO-RENDER qarorini tekshiramiz: u faqat REQUIRED
+    bilan qo'zg'alsin.
     """
     js = _read(JS)
-    assert "requiredType === 'REQUIRED'" in js, "REQUIRED qoidasi yo'q"
-    # DIQQAT: xom matnda qidirmang — izohning O'ZI («REQUIRED_ONE_OF_SIZE →
-    # render BO'LMAYDI») tekshiruvga tushadi va soxta yiqiladi. Bu tuzoqqa
-    # bir marta tushilgan. Shuning uchun KODdagi solishtirishni tekshiramiz.
-    assert "'REQUIRED_ONE_OF_SIZE'" not in js, (
-        "REQUIRED_ONE_OF_SIZE qator RENDER QILMAYDI — uni majburiy deb hisoblamang"
+    assert "required: c.requiredType === 'REQUIRED'" in js, (
+        "avto-render/majburiylik faqat REQUIRED bilan qo'zg'alishi kerak"
+    )
+    # Majburiylik/avto-render REQUIRED_ONE_OF_SIZE bilan qo'zg'almasin.
+    assert "required: c.requiredType === 'REQUIRED_ONE_OF_SIZE'" not in js
+    # Yagona qonuniy foydalanish — «razmer majburiy» darvozasi (isSizeRow).
+    assert "row.opt.requiredType === 'REQUIRED_ONE_OF_SIZE'" in js, (
+        "isSizeRow (sizeRequirementMet) guard'i yo'q"
     )
 
 
@@ -486,6 +499,118 @@ def test_char_row_has_add_and_delete_controls():
         assert cls in css, f"{cls} yo'q"
     js = _read(JS)
     assert "removeRow" in js and "openValueModal" in js
+
+
+def test_char_cap_clears_oldest_when_over_two():
+    """REGRESSIYA QULFI — «≤2 xususiyat» qoidasi (QAT'IY JONLI 2026-07-19,
+    kat. 12811/12434: qiymatli char >2 → 400 validation-failed-001; rang ham
+    sanaladi, tur AHAMIYATSIZ — 12434 rang+Длина+Обхват (NOT_REQUIRED!) → 400).
+
+    Yangi qiymat tanlanganda qiymatli xususiyat soni 2 dan oshsa, eng ESKI
+    BOSHQA xususiyat(lar) tozalanadi. Himoya: hozir tanlangan qator + rang
+    (id -1). Bitta char ichida ko'p qiymat NORMAL. Server ham
+    `filled_characteristic_count` bilan himoyalaydi (brauzerga ishonmaymiz) —
+    [[project_noviy_tavar_size_constraint]].
+    """
+    js = _read(JS)
+    # Cap funksiyasi mavjud va modalSave uni chaqiradi.
+    assert "function s1EnforceCharCap" in js, "s1EnforceCharCap cap funksiyasi yo'q"
+    assert "s1EnforceCharCap(modalRow)" in js, "modalSave cap'ni chaqirmayapti"
+    # Himoya: hozirgi qator + rang (id -1); boshqa qator tanlovi tozalanadi.
+    assert "r === justRow || r.id === -1" in js, (
+        "cap hozirgi qator + rangni himoya qilmayapti"
+    )
+    assert "r.selected = []" in js, "eski xususiyat qatori tozalanmayapti"
+    # Server-side belt-and-suspenders guard.
+    routes = _read(FEATURE / "routes.py")
+    assert "filled_characteristic_count" in routes, "server-side ≤2 guard'i yo'q"
+    client_src = _read(FEATURE / "client.py")
+    assert "def filled_characteristic_count" in client_src
+
+
+def test_required_color_and_size_gates_block_save():
+    """REGRESSIYA QULFI — createProduct majburiy xususiyatlari (JONLI 2026-07-18):
+    REQUIRED cat.da rang, REQUIRED_ONE_OF_SIZE cat.da 1 razmer majburiy; aks
+    holda 400 `category-defined-characteristics-missed`.
+
+    ⚠️ Xato qutisi DARROV emas — foydalanuvchi «Saqlash»ga URINGANDA (Uzum kabi;
+    user shikoyati 2026-07-19). saveBtn handler majburiyni tekshiradi va bo'sh
+    bo'lsa `charReqAttempted`ni yoqib qizil qutini ko'rsatadi.
+    [[project_noviy_tavar_createproduct_rules]]
+    """
+    js = _read(JS)
+    assert "function requiredCharsSelected" in js, "rang-majburiy darvozasi yo'q"
+    assert "function sizeRequirementMet" in js, "razmer-majburiy darvozasi yo'q"
+    # Saqlash urinishida ikkalasi ham tekshirilishi kerak.
+    assert "requiredCharsSelected()" in js and "sizeRequirementMet()" in js
+    # «Urinish» darvozasi — qizil quti faqat shundan keyin ko'rinadi.
+    assert "charReqAttempted" in js, "urinish-darvozasi (charReqAttempted) yo'q"
+    # Razmer-majburiylik meta signalidan (REQUIRED_ONE_OF_SIZE bor-yo'qligi).
+    assert "REQUIRED_ONE_OF_SIZE" in js
+    # Inline xato qutisi elementi + uslubi.
+    assert 'id="ntCharReq"' in _read(TEMPLATE), "xato qutisi elementi yo'q"
+    assert ".nt-char-req" in _read(CSS), "xato qutisi uslubi yo'q"
+    assert "function syncCharReq" in js
+
+
+def test_create_400_is_translated_to_a_friendly_message():
+    """REGRESSIYA QULFI — Uzum'ning cryptic 400'i foydalanuvchi tiliga o'girilsin
+    (forbidden/missed/filtr). Aks holda «Uzum portal xatosi (HTTP 400)» chiqardi.
+    """
+    client_src = _read(FEATURE / "client.py")
+    assert "def explain_create_error" in client_src
+    for code in ("category-defined-characteristics-forbidden",
+                 "category-defined-characteristics-missed", "bad-request-001"):
+        assert code in client_src, f"{code} xaritada yo'q"
+    routes = _read(FEATURE / "routes.py")
+    assert "explain_create_error" in routes, "route friendly xatoni ishlatmayapti"
+
+
+def test_step2_requires_dimensions():
+    """REGRESSIYA QULFI — 2-bosqich o'lchov gate (JONLI 2026-07-18: o'lchovsiz
+    sendSkuData 400 `weight-and-size-characteristics-required-error`).
+    s2RowError w/h/l/weight'ni tekshirishi + xato friendly ko'rsatilishi shart.
+    [[project_noviy_tavar_createproduct_rules]]
+    """
+    js = _read(JS)
+    assert "function s2DimsRequired" in js, "o'lchov-kerak signali yo'q"
+    assert "DIMENSIONAL_GROUP" in js, "meta signali (DIMENSIONAL_GROUP) ishlatilmagan"
+    # s2RowError ichida 4 o'lchov tekshiruvi (tartib muhim emas — .forEach).
+    assert "'width', 'length', 'height', 'weight'" in js or \
+           "'width', 'height', 'length', 'weight'" in js, "s2 o'lchov tekshiruvi yo'q"
+    # sendSkuData 400 → friendly (bir xil {errors:[{code}]} shakl).
+    client_src = _read(FEATURE / "client.py")
+    assert "weight-and-size-characteristics-required-error" in client_src
+    routes = _read(FEATURE / "routes.py")
+    m = re.search(r"def nt_send_sku\(\).*?(?=\n@|\Z)", routes, flags=re.S)
+    assert m and "explain_create_error" in m.group(0), "nt_send_sku friendly xatoni ishlatmayapti"
+
+
+def test_step3_gates_required_attributes():
+    """REGRESSIYA QULFI — 3-bosqich majburiy-atribut gate (JONLI 2026-07-18:
+    bo'sh majburiy skuAttribute → save-filters 400 «Qiymatni to'ldiring»).
+    s3Send POST'dan oldin tekshirishi shart.
+
+    ⚠️ 2026-07-22: gate KATAK darajasiga o'tdi (Uzumdek). Ilgari tugma
+    o'chirilib, ustida «Majburiy — toʻldiring: …» hint qatori (#ntS3Req)
+    turardi — Uzumda bunday qator YO'Q, tugma doim faol.
+    """
+    js = _read(JS)
+    assert "function s3MarkRequiredErrors" in js, "majburiy-atribut gate yo'q"
+    assert "function s3SyncSave" in js, "Save sinxronizatsiyasi yo'q"
+    # s3Send POST'dan oldin bloklaydi va Uzum bildirishnomasini beradi.
+    send = js[js.index("function s3Send("):]
+    send = send[:send.index("\n  }")]
+    assert "s3MarkRequiredErrors()" in send
+    assert "NT_S3.validationErrors" in send
+    # Eski hint qatori qaytmasin.
+    assert 'id="ntS3Req"' not in _read(TEMPLATE), "eski #ntS3Req hint qatori qaytib kelgan"
+    # save-filters BOSHQA 400 shakli uchun alohida parser.
+    client_src = _read(FEATURE / "client.py")
+    assert "def explain_filter_error" in client_src
+    routes = _read(FEATURE / "routes.py")
+    m = re.search(r"def nt_save_filters\(\).*?(?=\n@|\Z)", routes, flags=re.S)
+    assert m and "explain_filter_error" in m.group(0), "nt_save_filters friendly xatoni ishlatmayapti"
 
 
 def test_value_modal_exists_and_is_modal_not_dropdown():
@@ -664,10 +789,14 @@ def test_js_auto_renders_exactly_the_required_type(schemas):
     """
     js = _read(JS)
     assert "c.requiredType === 'REQUIRED'" in js, "avto-render qoidasi o'zgargan"
-    # REQUIRED_ONE_OF_SIZE alohida shart sifatida TEKSHIRILMAYDI — u oddiy
-    # ixtiyoriy variant (jonli: dropdown'dan qo'shiladi, avto chiqmaydi).
-    assert "'REQUIRED_ONE_OF_SIZE'" not in js, (
-        "ONE_OF_SIZE uchun maxsus shart yo'q edi — jonli referens buni tasdiqlagan"
+    # Avto-qo'shish FAQAT `required` (=REQUIRED) qatorlari uchun — ONE_OF_SIZE
+    # dropdown'dan qo'lda qo'shiladi (jonli: avto chiqmaydi).
+    assert "if (o.required) addRow(o.id, true)" in js, "avto-render faqat required bilan"
+    # ⚠️ REQUIRED_ONE_OF_SIZE endi «razmer majburiy» darvozasida ishlatiladi
+    # (isSizeRow → sizeRequirementMet) — bu render/majburiylik qarori EMAS.
+    # Shuning uchun avto-render sharti bo'lib qolmasligini tekshiramiz.
+    assert "required: c.requiredType === 'REQUIRED_ONE_OF_SIZE'" not in js, (
+        "ONE_OF_SIZE avto-render/majburiylik sharti bo'lib qolmasin"
     )
 
 
@@ -1132,8 +1261,9 @@ def test_save_sends_comments_and_filters():
 
 
 def test_create_route_passes_comments_through():
+    # Tana qurish kwargs'i `_card_form_kwargs()` da (create + update UCHUN BIR XIL).
     src = _read(FEATURE / "routes.py")
-    assert "comments_sel=body.get(\"comments\")" in src
+    assert '"comments_sel": (body.get("comments")' in src
 
 
 def test_client_rejects_unknown_comment_types():
@@ -1235,7 +1365,7 @@ def test_certificates_are_sent_in_create_body():
     js = _read(JS)
     assert "certificates: state.certificates" in js
     src = _read(FEATURE / "routes.py")
-    assert 'certificates=body.get("certificates")' in src
+    assert '"certificates": body.get("certificates")' in src
 
 
 def test_hidden_buttons_actually_hide():
@@ -1297,7 +1427,7 @@ def test_color_images_are_sent_in_create_body():
     js = _read(JS)
     assert "colorImages: state.colorImages" in js
     src = _read(FEATURE / "routes.py")
-    assert 'color_images=body.get("colorImages")' in src
+    assert '"color_images": body.get("colorImages")' in src
 
 
 def test_color_image_limit_matches_bundle_max_count():

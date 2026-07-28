@@ -68,6 +68,8 @@
   'c_article':    {'uz': "Sotuvchi kodi",      'ru': "Артикул"},
   'c_status':     {'uz': "Holat",              'ru': "Статус"},
   'c_seller_code':{'uz': "Seller SKU kodi",    'ru': "Идентификатор SKU"},
+  'tip_seller_code':{'uz': "Seller SKU kodi. 5 dan 100 gacha belgilar",
+                     'ru': "Код из вашей учётной системы. Не используется на складе. От 5 до 100 символов"},
   'c_barcode':    {'uz': "Shtrix-kod",         'ru': "Штрихкод"},
   'c_ikpu':       {'uz': "MXIK",               'ru': "ИКПУ"},
   'c_width':      {'uz': "Kenglik, mm",        'ru': "Ширина, мм"},
@@ -172,9 +174,13 @@
   SO'ZMA-SO'Z (ru @358439 / uz @420860) — o'ylab topilmagan.
 
   Referensda ⓘ shu ustunlarda bor: «Идентификатор SKU», «ИКПУ»,
-  «Рекомендуемая цена» (+ o'lchov INPUT'lari yonida ko'k ⓘ — u boshqa narsa:
-  `dim_range`/`weight_range` chegara maslahati, u uchun min/max kerak va
-  ular ALOHIDA endpointdan keladi -> BU YERDA QILINMAGAN, halol qayd).
+  «Рекомендуемая цена».
+
+  ⚠️ Qator ICHIDAGI o'lchov inputlari yonidagi KO'K ⓘ — BOSHQA komponent
+  (`.nt-wms`, noviy_tavar.js). Ilgari bu yerda «u `dim_range` chegara
+  maslahati, qilinmagan» deb yozilgandi — XATO EDI. Bandl (`size-input`)
+  o'sha nishonni uch holatda chizadi: xato / ogohlantirish / **omborda
+  o'lchangan** (`create_sku.updated_from_wms`). Uchinchisi BAJARILDI.
 
   `title` atributi ishlatiladi: shell'ning tooltip komponenti yo'q va uni
   yasash doiradan tashqari bo'lardi. Klaviatura/skrinrider uchun
@@ -203,27 +209,42 @@
       <h1 class="nt-h1">{{ nt_t('h1') }}</h1>
     </div>
 
+    {# Qadam nishonlari BOSILADI — Uzumda ham shunday (bandl chunk-2e85dd89
+       @52129): har qadam `link` oladi, quyidagi hollarda link BO'SHATILADI
+       (= bosilmaydi):
+         · joriy qadam yoki karta yuklanayotgan bo'lsa
+         · YARATISH rejimida (`!isEdit`) — indeks joriydan KATTA bo'lsa,
+           ya'ni oldinga sakrash yo'q, orqaga qaytish DOIM mumkin
+         · tahrirlashda karta qulflangan bo'lsa 1-qadam «RESTRICTED»
+       Shuning uchun `<div>` emas — haqiqiy `<button>` (klaviatura + a11y). #}
     <nav class="nt-steps" aria-label="{{ nt_t('h1') }}">
-      <div class="nt-step is-active" aria-current="step">
+      <button type="button" class="nt-step is-active" data-step="1"
+              aria-current="step" disabled>
         <span class="nt-step-dot">1</span>
         <span class="nt-step-label">{{ nt_t('step1') }}</span>
-      </div>
+      </button>
       <span class="nt-step-sep"></span>
-      <div class="nt-step">
+      <button type="button" class="nt-step" data-step="2" disabled>
         <span class="nt-step-dot">2</span>
         <span class="nt-step-label">{{ nt_t('step2') }}</span>
-      </div>
+      </button>
       <span class="nt-step-sep"></span>
-      <div class="nt-step">
+      <button type="button" class="nt-step" data-step="3" disabled>
         <span class="nt-step-dot">3</span>
         <span class="nt-step-label">{{ nt_t('step3') }}</span>
-      </div>
+      </button>
     </nav>
 
     <div class="nt-header-actions">
       <button type="button" class="nt-btn nt-btn--tips" id="ntTipsToggle"
               aria-pressed="false">
-        <span class="nt-dot" aria-hidden="true"></span>
+        {# Uzumdagi belgi — to'ldirilgan lampochka. Jonli skrinshotdan qator-ba-qator
+           o'lchandi (8x10px): gumbaz 7 qator (eng keng 8px, pastda 6px ga torayadi),
+           1 qator bo'shliq, so'ng 3px enlik tsokol. Ilgari oddiy doira edi. #}
+        <svg class="nt-tips-icon" viewBox="0 0 8 10" aria-hidden="true" focusable="false">
+          <path d="M4 0a4 4 0 0 0-4 4c0 1.1.44 2.1 1.16 2.83.19.19.45.3.72.3h4.24c.27 0 .53-.11.72-.3A3.99 3.99 0 0 0 8 4a4 4 0 0 0-4-4z"/>
+          <rect x="2.6" y="7.8" width="2.8" height="2.2" rx="0.5"/>
+        </svg>
         <span id="ntTipsLabel">{{ nt_t('tips_hide') }}</span>
       </button>
       <button type="button" class="nt-btn nt-btn--primary" id="ntSave" disabled>
@@ -234,9 +255,18 @@
 
   <div class="nt-col">
 
+   {# «Chuqur tahrir» yuklagichi: karta 2/3-qadamdan (⋮-menyu) ochilganda
+      1-qadam SERVER-TOMON yashiriladi (pastdagi `deep_edit`), o'rniga shu
+      yuklagich ko'rinadi — 1-qadam «yonib» keyin kerakli qadamga sakramasin
+      (flash yo'q). Kerakli qadam yuklangach JS uni yashiradi. #}
+   <div id="ntEditLoader" class="nt-edit-loader"{% if not deep_edit %} hidden{% endif %}>
+     <span class="nt-edit-spinner" aria-hidden="true"></span>
+     <span class="nt-edit-loader-text">{{ 'Yuklanmoqda…' if lang == 'uz' else 'Загрузка…' }}</span>
+   </div>
+
    {# 1-qadam kartalari — 2-qadamga o'tilganda BUTUNLAY yashiriladi.
       Bitta o'rovchi: har bir kartani alohida yashirish mo'rt bo'lardi. #}
-   <div id="ntStep1">
+   <div id="ntStep1"{% if deep_edit %} hidden{% endif %}>
 
     {# Referens: kartalar ustida, fon ustida — «* - обязательные поля»
        (blank-step1-category-typed.png va sacvoyage-filled-step1 da bor). #}
@@ -389,6 +419,55 @@
            majburiy -> usiz forma haqiqiy tovar bermaydi.
        Kartalar kategoriyaga bog'liq (meta.filters) — JS quradi. #}
     <div id="ntFilters"></div>
+
+    {# ── 3b. Гарантия (в месяцах) ────────────────────────────────────
+       DALIL (jonli field-descriptions javobi + bandl):
+         · Manba  — /product/field-descriptions?categoryId=..  →
+           [{fieldType:"INTEGER", fieldName:"WARRANTY",
+             fieldDescription:"Гарантия", fieldTitle:"Гарантия в месяцах",
+             required:false}]  (6 kategoriyada AYNAN shu, biz allaqachon olamiz)
+         · Sarlavha — form_titles.warranty «Гарантия» + warranty_secondary
+           «в месяцах» (uz: «Kafolat» + «oylarda»)
+         · Maslahat — editProductCard.hints.warranty[0]:
+             «Почему важна гарантия» / «<a>По закону</a> гарантия автоматически
+             будет 6 месяцев»  (uz: «Agar muddat koʻrsatilmasa» / «<a>Qonun
+             boʻyicha</a> kafolat avtomatik ravishda 6 oy boʻladi»)
+         · Qiymat — INTEGER, faqat raqam, >3 belgi → 999 (bandl `i()`); default 6
+         · Tekshirish — 0 → value_cannot_be_zero; <6 → warranty_min_months
+         · Yuborish — create body `productFields: {WARRANTY: <n>}`; bo'sh → yuborilmaydi
+       Karta JS bilan ko'rsatiladi (meta.fieldDescriptions'da WARRANTY bo'lsa). #}
+    <section class="nt-card" id="ntCardWarranty" hidden>
+      <h2 class="nt-card-title">
+        {{ 'Kafolat' if lang == 'uz' else 'Гарантия' }}
+        <span class="nt-max">{{ 'oylarda' if lang == 'uz' else 'в месяцах' }}</span>
+      </h2>
+
+      <div class="nt-tips">
+        <div class="nt-tip">
+          <p class="nt-tip-h">
+            {{ 'Agar muddat koʻrsatilmasa' if lang == 'uz' else 'Почему важна гарантия' }}
+          </p>
+          <p class="nt-tip-b">
+            {% if lang == 'uz' %}
+              <a href="http://lex.uz//docs/-4704" target="_blank" rel="noopener">Qonun boʻyicha</a>
+              kafolat avtomatik ravishda 6 oy boʻladi
+            {% else %}
+              <a href="https://lex.uz/acts/14643#17265" target="_blank" rel="noopener">По закону</a>
+              гарантия автоматически будет 6 месяцев
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="nt-warranty-wrap">
+        <input class="nt-input nt-warranty-input" id="ntWarranty"
+               type="text" inputmode="numeric" autocomplete="off" maxlength="3"
+               placeholder="{{ 'Kafolat oylarda' if lang == 'uz' else 'Гарантия в месяцах' }}">
+        <button type="button" class="nt-warranty-clear" id="ntWarrantyClear"
+                aria-label="{{ 'Tozalash' if lang == 'uz' else 'Очистить' }}" hidden>&times;</button>
+      </div>
+      <p class="nt-err" id="ntWarrantyErr" hidden></p>
+    </section>
 
     <!-- ── 4. Qisqa tavsif (frame 02-03) ──────────────────────── -->
     <section class="nt-card">
@@ -616,6 +695,10 @@
            if lang == 'uz' else 'Добавить характеристику можно только после выбора категории' }}<br>
         <a href="#" id="ntPickCategoryLink">{{ 'Kategoriyani tanlang' if lang == 'uz' else 'Выберите категорию' }}</a>
       </div>
+
+      {# Majburiy xususiyat to'ldirilmasa — Uzum'dagi AYNAN inline xato qutisi
+         (dropdown'dan keyin, qatorlardan oldin). Matn/uslub JS + CSS'da. #}
+      <div class="nt-char-req" id="ntCharReq" role="alert" hidden></div>
 
       <div id="ntCharRows"></div>
     </section>
@@ -851,16 +934,40 @@
     <section class="nt-card">
       <h2 class="nt-card-title">{{ nt_t('step2_title') }}</h2>
 
-      <p class="nt-step2-intro">
-        {{ 'SKU — tovarning noyob identifikatori. Uzum uni do‘kon prefiksi, siz kiritgan SKU va rang/o‘lcham qiymatidan o‘zi yig‘adi.'
-           if lang == 'uz' else
-           'SKU — уникальный идентификатор товара. Uzum собирает его сам из префикса магазина, вашего SKU и значения цвета/размера.' }}
-      </p>
+      {# Uzumning O'Z matni, referens kadrdan so'zma-so'z ko'chirildi
+         (screenshots/sacvoyage-filled-step2-prices-sku.png): uch abzats,
+         oxirgisida «обязательно» va «уникальные» QALIN. Ilgari bu yerda
+         bitta qisqa jumla turardi — jonli portalda hech qachon unday emas. #}
+      <div class="nt-step2-intro">
+        {% if lang == 'uz' %}
+        <p>SKU — inglizcha Stock Keeping Unit (tovar pozitsiyasi identifikatori) —
+           zaxira hisobi birligi. SKU tovarning har bir mumkin bo‘lgan varianti uchun
+           beriladi. Masalan, tovaringiz — “Palto” va u ikki rangda — qora va oq,
+           shuningdek uch o‘lchamda — S, M va L. Unda bu tovar oltita SKU’ga ega
+           bo‘ladi: qora S, qora M, qora L, oq S, oq M va oq L.</p>
+        <p>SKU nomi do‘kon belgisi, tovar belgisi va xususiyatlar belgisidan
+           (agar ular bo‘lsa) tashkil topadi.</p>
+        <p>Quyida tovar va xususiyatlar uchun <b>albatta</b> <b>noyob</b>
+           SKU belgilarini kiriting.</p>
+        {% else %}
+        <p>SKU — от английского Stock Keeping Unit (идентификатор товарной позиции) —
+           единица учёта запасов. SKU назначается для каждого возможного варианта
+           товара. К примеру, Ваш товар - “Пальто” и оно имеет два цвета - черный и
+           белый, а также три размера - S, M и L. Тогда данный товар имеет шесть
+           SKU - черный S, черный M, черный L, белый S, белый M и белый L.</p>
+        <p>Название SKU состоит из обозначения магазина, обозначения товара и
+           обозначения характеристик (при их наличии).</p>
+        <p>Ниже <b>обязательно</b> впишите <b>уникальные</b> SKU обозначения для
+           товара и характеристик.</p>
+        {% endif %}
+      </div>
 
       <h3 class="nt-step2-sub">{{ nt_t('sku_head') }}</h3>
       <div class="nt-field nt-field--sku">
+        {# Uzum step-2'da bu yorliqda majburiy-yulduzcha YO'Q (jonli screenshot):
+           majburiyligi intro matnida «обязательно впишите» bilan beriladi. #}
         <label class="nt-label" for="ntSkuPrefix">
-          {{ nt_t('sku_label') }}<span class="nt-req" aria-hidden="true">*</span>
+          {{ nt_t('sku_label') }}
         </label>
         <div class="nt-input-wrap">
           {# Bandl: `sku_restriction` -> butunlay lotin+raqam YOKI kirill+raqam. #}
@@ -892,19 +999,19 @@
           <tr>
             <th class="nt-th nt-th--sticky">{{ nt_t('c_article') }}</th>
             <th class="nt-th">{{ nt_t('c_status') }}</th>
-            <th class="nt-th">{{ nt_t('c_seller_code') }}</th>
+            <th class="nt-th">{{ nt_t('c_seller_code') }}{{ nt_tip(nt_t('tip_seller_code')) }}</th>
             <th class="nt-th">{{ nt_t('c_barcode') }}</th>
             {# ⚡ = «hammasiga qo'llash». Bandl `forAllValues` ANIQ 7 ta maydon
-               beradi: {fullPrice, off, ikpu, width, length, height, weight}. #}
-            <th class="nt-th">{{ nt_t('c_ikpu') }}<span class="nt-req" aria-hidden="true">*</span>
-              {{ nt_tip(nt_t('tip_ikpu')) }}{{ nt_bulk('ikpu') }}</th>
+               beradi: {fullPrice, off, ikpu, width, length, height, weight}.
+               ⚠️ `*` YO'Q — Uzum step-2 sarlavhalarida majburiy-yulduzcha ishlatmaydi
+               (jonli screenshot: «ИКПУ ⓘ⚡», «Цена, сум ⚡» — yulduzchasiz). #}
+            <th class="nt-th">{{ nt_t('c_ikpu') }}{{ nt_tip(nt_t('tip_ikpu')) }}{{ nt_bulk('ikpu') }}</th>
             <th class="nt-th">{{ nt_t('c_width') }}{{ nt_bulk('width') }}</th>
             <th class="nt-th">{{ nt_t('c_length') }}{{ nt_bulk('length') }}</th>
             <th class="nt-th">{{ nt_t('c_height') }}{{ nt_bulk('height') }}</th>
             <th class="nt-th">{{ nt_t('c_weight') }}{{ nt_bulk('weight') }}</th>
             <th class="nt-th">{{ nt_t('c_market') }}{{ nt_tip(nt_t('tip_market')) }}</th>
-            <th class="nt-th">{{ nt_t('c_price') }}<span class="nt-req" aria-hidden="true">*</span>
-              {{ nt_bulk('fullPrice') }}</th>
+            <th class="nt-th">{{ nt_t('c_price') }}{{ nt_bulk('fullPrice') }}</th>
             <th class="nt-th">{{ nt_t('c_off') }}{{ nt_bulk('off') }}</th>
             <th class="nt-th">{{ nt_t('c_sell') }}</th>
             {# ⚠️ Komissiya ustunlari YARATISH oqimida BO'SH bo'ladi —
@@ -962,6 +1069,12 @@
     </div>
 
     <p class="nt-step2-empty" id="ntS3Empty" hidden></p>
+
+    {# ⚠️ «Saqlash nega o'chiq» hint qatori (#ntS3Req) OLIB TASHLANDI — Uzumda
+       bunday qator YO'Q. U yerda «Yakunlash» DOIM faol; bosilganda bo'sh
+       majburiy kataklar qizaradi, ostida «Обязательное поле» chiqadi va
+       tepada `create_filters.validation_errors` bildirishnomasi ko'rinadi.
+       Dalil: foydalanuvchi kadrlari (2026-07-22) + bandl i18n. #}
    </div>{# /#ntStep3 #}
 
   </div>
@@ -1007,12 +1120,53 @@
      bitta tanlov uchun radio-effekti (JS boshqaradi). #}
   <div class="nt-s3-pop" id="ntS3Pop" hidden role="dialog"
        aria-label="{{ nt_t('s3_title') }}">
-    <div class="nt-s3-pop-search">
-      <label class="visually-hidden" for="ntS3Search">{{ nt_t('s3_search') }}</label>
-      <input class="nt-input" id="ntS3Search" type="text" autocomplete="off"
-             placeholder="{{ nt_t('s3_search') }}">
-    </div>
+    {# ⚠️ Panelda QIDIRUV QATORI YO'Q — Uzumda filtr TUGMANING ichida turadi
+       (dalil: sacvoyage-step3-operating-system-dropdown.png — ochilganda
+       tugma «Значение…» inputiga aylanadi, ro'yxatda esa faqat variantlar).
+       Ilgari bu yerda alohida qidiruv qatori bor edi. #}
     <div class="nt-s3-pop-list" id="ntS3PopList"></div>
+  </div>
+
+  {# ── 3-qadam «Ommaviy tahrirlash» modali (ustun sarlavhasidagi nishon) ──
+     BANDL DALILI (mf-products.1.43.36, komponent `data-v-12137e6d`):
+       .attribute-header  -> nishon tugmasi `size:small variant:secondary
+                             shape:square`, bosilganda `attribute-bulk-modal`
+       .attribute-bulk-modal__header      flex; gap 8
+       .attribute-bulk-modal__header-text column; gap 4
+           h3  TitleMSemibold        -> i18n `bulkEditTitle`
+           p   BodyMRegular-Long     -> `applyValueToAllSku` {name} bilan
+                                        (nomsiz holat: `…Generic`)
+       .attribute-bulk-modal__close-button  margin-left:auto; shape:circle
+       .attribute-bulk-modal__body    column; gap 12  (katak boshqaruvining
+                                      AYNAN o'zi — jadvaldagi bilan bir xil)
+       .attribute-bulk-modal__actions flex-end; gap 8 -> `cancel` + `apply`
+     ⚠️ Nishon SARALASH EMAS — bu ommaviy tahrirlash tugmasi. #}
+  <div class="nt-modal-overlay" id="ntS3BulkModal" hidden>
+    <div class="nt-modal nt-modal--bulk" role="dialog" aria-modal="true"
+         aria-labelledby="ntS3BulkTitle">
+      <div class="nt-modal-head">
+        <div class="nt-s3-bulk-head">
+          <h2 class="nt-modal-title" id="ntS3BulkTitle">
+            {{ 'Ommaviy tahrirlash' if lang == 'uz' else 'Массовое редактирование' }}
+          </h2>
+          <p class="nt-s3-bulk-sub" id="ntS3BulkSub"></p>
+          <p class="nt-s3-bulk-sub" id="ntS3BulkLimits" hidden></p>
+        </div>
+        <button type="button" class="nt-modal-x" id="ntS3BulkClose"
+                aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">&times;</button>
+      </div>
+      <div class="nt-modal-body">
+        <div class="nt-s3-bulk-field" id="ntS3BulkField"></div>
+      </div>
+      <div class="nt-modal-foot">
+        <button type="button" class="nt-btn nt-btn--ghost" id="ntS3BulkCancel">
+          {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
+        </button>
+        <button type="button" class="nt-btn nt-btn--solid" id="ntS3BulkApply">
+          {{ 'Qoʻllash' if lang == 'uz' else 'Применить' }}
+        </button>
+      </div>
+    </div>
   </div>
 
   {# ── Qiymat modali «Выбрать характеристики» ─────────────────────
@@ -1032,7 +1186,9 @@
                 aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">&times;</button>
       </div>
       <div class="nt-modal-body">
-        <div class="nt-modal-search">
+        {# MAXSUS (custom) xususiyat qatorida oldindan berilgan qiymat YO'Q —
+           qidiruv o'rniga uz/ru qiymat kirituvchi ochiladi (JS yashiradi). #}
+        <div class="nt-modal-search" id="ntValueSearchWrap">
           <label class="visually-hidden" for="ntValueSearch">
             {{ 'Qidirish' if lang == 'uz' else 'Поиск' }}
           </label>
@@ -1046,6 +1202,51 @@
           {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
         </button>
         <button type="button" class="nt-btn nt-btn--solid" id="ntValueSave">
+          {{ 'Saqlash' if lang == 'uz' else 'Сохранить' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ── «Новая характеристика» — MAXSUS xususiyat yaratish ─────────
+     Uzum bandlidan (chunk `edit-product-card`, komponent `new-char-popup`):
+       · sarlavha  editProductCard.new_characteristic  «Новая характеристика»
+       · maydonlar name_in_uzbek / name_in_russian (UZ birinchi — bandl tartibi)
+       · har maydonda alohida xato: common.validation.required_field yoki
+         editProductCard.errors.characteristic_exists
+       · pastda [Отмена] [Сохранить]
+     Ro'yxatdagi qator bandlda MIJOZ tomonda qo'shiladi (orderingNumber:-1),
+     API sxemasida YO'Q — shu sabab bizda ilgari umuman chiqmasdi. #}
+  <div class="nt-modal-overlay" id="ntNewCharModal" hidden>
+    <div class="nt-modal nt-modal--newchar" role="dialog" aria-modal="true"
+         aria-labelledby="ntNewCharTitle">
+      <div class="nt-modal-head">
+        <h2 class="nt-modal-title" id="ntNewCharTitle">
+          {{ 'Yangi xususiyat' if lang == 'uz' else 'Новая характеристика' }}
+        </h2>
+        <button type="button" class="nt-modal-x" id="ntNewCharClose"
+                aria-label="{{ 'Yopish' if lang == 'uz' else 'Закрыть' }}">&times;</button>
+      </div>
+      <div class="nt-modal-body">
+        <label class="nt-label" for="ntNewCharUz">
+          {{ 'Oʻzbek tilida nom' if lang == 'uz' else 'Название на узбекском' }}
+        </label>
+        <input class="nt-input" id="ntNewCharUz" type="text" autocomplete="off"
+               maxlength="100">
+        <p class="nt-err" id="ntNewCharUzErr" hidden></p>
+
+        <label class="nt-label" for="ntNewCharRu" style="margin-top:16px">
+          {{ 'Rus tilida nom' if lang == 'uz' else 'Название на русском' }}
+        </label>
+        <input class="nt-input" id="ntNewCharRu" type="text" autocomplete="off"
+               maxlength="100">
+        <p class="nt-err" id="ntNewCharRuErr" hidden></p>
+      </div>
+      <div class="nt-modal-foot">
+        <button type="button" class="nt-btn nt-btn--ghost" id="ntNewCharCancel">
+          {{ 'Bekor qilish' if lang == 'uz' else 'Отмена' }}
+        </button>
+        <button type="button" class="nt-btn nt-btn--solid" id="ntNewCharSave">
           {{ 'Saqlash' if lang == 'uz' else 'Сохранить' }}
         </button>
       </div>
@@ -1076,6 +1277,37 @@
         </button>
         <button type="button" class="nt-btn nt-btn--del" id="ntCertDelOk">
           {{ 'Oʻchirib yuborish' if lang == 'uz' else 'Удалить' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ── «Sahifadan chiqish» ogohlantirishi (o'z dizaynimiz) ─────────
+     ⚠️ Brauzerning NATIV `beforeunload` oynasini («Закрыть сайт?») almashtirib
+     BO'LMAYDI — brauzer uni xavfsizlik uchun bloklaydi (F5 / tab yopish /
+     manzil satri). Shu modal esa ilova ICHIDAGI o'tishlarda ko'rsatiladi:
+     chap menyu, logotip, «orqaga» tugmasi. Nativ oyna faqat qattiq unload
+     uchun zaxira qoladi. Matn ohangini nativ oynadan olamiz
+     («Изменения могут не сохраниться»). #}
+  <div class="nt-modal-overlay" id="ntLeaveModal" hidden>
+    <div class="nt-modal nt-modal--confirm" role="alertdialog" aria-modal="true"
+         aria-labelledby="ntLeaveTitle" aria-describedby="ntLeaveDesc">
+      <div class="nt-modal-body">
+        <h2 class="nt-modal-title" id="ntLeaveTitle">
+          {{ 'Sahifadan chiqilsinmi?' if lang == 'uz' else 'Покинуть страницу?' }}
+        </h2>
+        <p class="nt-cert-del-desc" id="ntLeaveDesc">
+          {{ 'Kiritilgan maʼlumotlar saqlanmasligi mumkin.'
+             if lang == 'uz'
+             else 'Изменения могут не сохраниться.' }}
+        </p>
+      </div>
+      <div class="nt-modal-foot">
+        <button type="button" class="nt-btn nt-btn--ghost" id="ntLeaveCancel">
+          {{ 'Qolish' if lang == 'uz' else 'Остаться' }}
+        </button>
+        <button type="button" class="nt-btn nt-btn--del" id="ntLeaveOk">
+          {{ 'Chiqish' if lang == 'uz' else 'Выйти' }}
         </button>
       </div>
     </div>
